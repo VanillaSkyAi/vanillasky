@@ -5,6 +5,9 @@ import { useNarration } from "../../../src/player/use-narration";
 import { createVideoChatVoice } from "../../../src/video-chat/voice";
 import type { Video } from "../../../src/protocol/types";
 import audioUrl from "./media-transition/paragraph.wav?url";
+import waterfallPoster from "./media-transition/waterfall.jpg?url";
+import tramPoster from "./media-transition/tram.jpg?url";
+import flowersPoster from "./media-transition/sunflowers.jpg?url";
 import waterfall from "./media-transition/waterfall.mp4?url";
 import tram from "./media-transition/tram.mp4?url";
 import flowers from "./media-transition/sunflowers.mp4?url";
@@ -19,7 +22,7 @@ window.Audio = function (src?: string) {
   for (const kind of ["playing", "pause", "ended", "seeking"]) audio.addEventListener(kind, () => probe.push({ kind, audioTime: audio.currentTime, at: performance.now() }));
   probe.push({ kind: "audio-created" });
   return audio;
-} as typeof Audio;
+} as unknown as typeof Audio;
 const voice = createVideoChatVoice({ fetcher: () => fetch(audioUrl) });
 function App() {
   const [video, setVideo] = useState<Video>();
@@ -30,7 +33,7 @@ function App() {
     const prepared = await voice.prepare(text);
     const segment = prepared.seconds / 3;
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [waterfall, tram, flowers].map((mediaUrl, index) => ({
-      id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video" }, timing: { fixedDuration: segment },
+      id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: segment },
       narration: ["First we see the water flowing.", "Then the tram moves through the city.", "Finally the flowers turn toward the light."][index],
       narrationGroup: { id: "paragraph", text, offsetSeconds: index * segment, durationSeconds: segment, totalSeconds: prepared.seconds },
     })) });

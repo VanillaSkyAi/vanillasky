@@ -111,8 +111,10 @@ export function VideoPlayerRuntime({
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
   const mediaFrameReportedRef = useRef(false);
+  const posterBridgeKeysRef = useRef(new Set<string>());
   const visualReadyRef = useRef<string | undefined>(undefined);
-  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false) => {
+  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false, posterBridge = false) => {
+    if (posterBridge) { posterBridgeKeysRef.current.add(key); return; }
     if (error) {
       setIsPlaying(false);
       callbacksRef.current.onError?.(error, stateRef.current);
@@ -174,6 +176,7 @@ export function VideoPlayerRuntime({
     setActiveStream(stream);
     setActiveSavedVideo(video);
     mediaFrameReportedRef.current = false;
+    posterBridgeKeysRef.current.clear();
     sceneIndexRef.current = -1;
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());
@@ -313,6 +316,7 @@ export function VideoPlayerRuntime({
     loopRef,
     sceneIndexRef,
     visualReadyRef,
+    posterBridgeKeysRef,
     callbacksRef,
     setCurrentTime,
     setIsPlaying,

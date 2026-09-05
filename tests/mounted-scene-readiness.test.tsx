@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MountedReadinessContext, MountedSceneReadiness } from "../src/player/mounted-scene-readiness";
+import { MountedReadinessContext, MountedSceneReadiness, PreparedPosterReadiness } from "../src/player/mounted-scene-readiness";
 import type { VideoScene } from "../src/protocol/types";
 const scene: VideoScene = {id: "first", templateId: "cinemaMedia", variables: {mediaType: "video", mediaUrl: "https://example.com/first.mp4"}, timing: {fixedDuration: 4}};
 afterEach(() => {cleanup(); vi.useRealTimers();});
@@ -48,4 +48,22 @@ describe("actual mounted media readiness", () => {
     await act(() => vi.advanceTimersByTimeAsync(8000));
     expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
   });
+});
+
+
+it("authorizes a poster bridge only after its mounted image decodes", async () => {
+  vi.useFakeTimers();
+  const report = vi.fn();
+  const next = { ...scene, variables: { ...scene.variables, mediaPoster: "/next.jpg" } };
+  const view = render(<MountedReadinessContext.Provider value={report}><div data-video-frame="ready"><PreparedPosterReadiness scene={next} /><img data-video-poster-plane="prepared" src="/next.jpg" /></div></MountedReadinessContext.Provider>);
+  const image = view.container.querySelector("img")!;
+  let decoded!: () => void;
+  image.decode = vi.fn(() => new Promise<void>((resolve) => { decoded = resolve; }));
+  Object.defineProperty(image, "complete", { value: true });
+  Object.defineProperty(image, "naturalWidth", { value: 100 });
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(report).not.toHaveBeenCalled();
+  await act(async () => decoded());
+  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, false, true);
+  expect(view.container.querySelectorAll("video")).toHaveLength(0);
 });

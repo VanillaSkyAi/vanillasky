@@ -1,4 +1,4 @@
-import { MountedSceneReadiness } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, PreparedPosterReadiness } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -476,6 +476,7 @@ export function VideoFrame({
       }}
     >
       <MountedSceneReadiness scene={active.scene} playing={playing} />
+      {preparedPoster && posterPreparationRange && <PreparedPosterReadiness scene={posterPreparationRange.scene} />}
       <div
         data-video-canvas="true"
         style={{
