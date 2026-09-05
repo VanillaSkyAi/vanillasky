@@ -12,7 +12,7 @@ const templateMetadata: ServerTemplateMetadata[] = [
     "id": "activationLift",
     "useWhen": "Use when the source contains an exact activation percentage before and after a change.",
     "avoidWhen": "Avoid when the source does not contain both grounded percentages.",
-    "family": "Data & metrics",
+    "family": "Explainers",
     "minDuration": 4,
     "preferredDuration": 6,
     "schema": {

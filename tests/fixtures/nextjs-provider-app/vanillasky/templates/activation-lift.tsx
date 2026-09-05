@@ -6,7 +6,7 @@ export const activationLift = defineTemplate({
   description: "A project-owned view of an activation metric before and after an improvement.",
   useWhen: "Use when the source contains an exact activation percentage before and after a change.",
   avoidWhen: "Avoid when the source does not contain both grounded percentages.",
-  family: "Data & metrics",
+  family: "Explainers",
   schema: {
     type: "object",
     properties: {
