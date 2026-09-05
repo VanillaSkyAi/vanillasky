@@ -89,7 +89,7 @@ describe("video response core", () => {
     const privateByDefault = createVideo(input, { generate });
     for await (const _event of privateByDefault.stream) { /* consume */ }
     const privateState = await privateByDefault.result;
-    expect(privateState.config?.schemaVersion).toBe("0.1");
+    expect(privateState.config?.schemaVersion).toBe("0.2");
     expect(privateState.config?.meta).not.toHaveProperty("source");
     expect(privateState.config?.meta).not.toHaveProperty("prompt");
     expect(privateState.config?.meta).not.toHaveProperty("uploadedMediaUrls");
@@ -497,7 +497,7 @@ describe("video response core", () => {
     expect(prompt).not.toContain("Aim for 3–5 generated body scenes");
     expect(prompt).toContain("Use a different suitable template for each body scene");
     expect(prompt).toContain("Never add filler to satisfy a count or diversity target");
-    expect(prompt).toContain("Never use media, ctaMedia, or reaction as the first generated body template");
+    expect(prompt).not.toContain("Never use media, ctaMedia, or reaction");
   });
 
   it("defers the factual basis to trusted system guidance instead of contradicting chat applications", async () => {
@@ -577,7 +577,6 @@ describe("video response core", () => {
       {
         input: "Activation increased from 41% to 58%.",
         opening: "Your activation update is ready.",
-        brand: { name: "Acme", colors: { primary: "#6D5EF5" } },
       },
       {
         requestId: "request-test",
@@ -629,8 +628,8 @@ describe("video response core", () => {
 
     expect(response.initialConfig.scenes[0]).toMatchObject({
       id: "supplied-opening",
-      templateId: "media",
-      variables: { texts: "Your video is getting ready.", mediaType: "gradient" },
+      templateId: "chapterTitle",
+      variables: { title: "Your video is getting ready." },
     });
     expect(response.request.capabilities).toEqual({ templates: ["bigNumber"] });
   });
@@ -650,8 +649,8 @@ describe("video response core", () => {
     expect(validateScene).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "supplied-opening",
-        templateId: "media",
-        variables: { texts: "Your video is getting ready.", mediaType: "gradient" },
+        templateId: "chapterTitle",
+        variables: { title: "Your video is getting ready." },
       }),
       { input: expect.objectContaining({ opening: "Your video is getting ready." }), previousScenes: [] },
     );

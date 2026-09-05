@@ -149,28 +149,27 @@ describe("createVideoHandler", () => {
     } as never)).toThrow("createVideoHandler requires authorize or authorize: \"none\"");
   });
 
-  it("keeps the required built-in nine-word CTA readable after a 29-second body request", async () => {
+  it("keeps the required built-in chapter closer readable after a 29-second body request", async () => {
     const { createVideoHandler } = await import("../src/server/create-video-handler");
     const handler = createVideoHandler({
       authorize: "none",
       heartbeatMs: false,
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"body-1","templateId":"bigNumber","variables":{"texts":"Revenue","value":42,"label":"million"},"timing":{"fixedDuration":29}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"close-1","templateId":"ctaLogo","variables":{"url":"openai.com/releases","cta":"Read every new OpenAI release note with your team"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"body-1","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":29}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"close-1","templateId":"chapterTitle","variables":{"title":"Read every new OpenAI release note with your team"},"timing":{"fixedDuration":4}},"placement":"closer"}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-built-in-readable-closer",
         input: {
           input: "Revenue reached 42 million. Acme: Read every new OpenAI release note with your team at openai.com/releases.",
-          brand: { name: "Acme" },
           maxDurationSec: 30,
         },
-        capabilities: { templates: ["bigNumber", "ctaLogo"] },
+        capabilities: { templates: ["keyFigure", "chapterTitle"] },
       }),
     }));
     const events = [];
@@ -178,12 +177,11 @@ describe("createVideoHandler", () => {
 
     expect(events.filter(({ type }) => type === "scene.add")).toMatchObject([
       { data: { scene: { id: "supplied-opening", timing: { startTime: 0, endTime: 3, fixedDuration: 3 } } } },
-      { data: { scene: { id: "body-1", timing: { startTime: 3, endTime: 26.5, fixedDuration: 23.5 } } } },
-      { data: { scene: { id: "close-1", timing: { startTime: 26.5, endTime: 30, fixedDuration: 3.5 } } } },
+      { data: { scene: { id: "body-1", timing: { startTime: 3, endTime: 26, fixedDuration: 23 } } } },
+      { data: { scene: { id: "close-1", timing: { startTime: 26, endTime: 30, fixedDuration: 4 } } } },
     ]);
     expect(events.filter(({ type }) => type === "response.warning")).toMatchObject([
       { data: { warning: { code: "scene_duration_adjusted", sceneId: "body-1" } } },
-      { data: { warning: { code: "scene_duration_adjusted", sceneId: "close-1" } } },
     ]);
     expect(events.at(-1)).toMatchObject({ type: "response.complete" });
   });
@@ -205,7 +203,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-readable-closer",
         input: { input: "A grounded release summary with a final action.", maxDurationSec: 30 },
         capabilities: { templates: ["body", "close"] },
@@ -258,15 +256,14 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-opening-allocation",
         input: {
           input: "A grounded update.",
           opening: "Your update",
-          maxDurationSec: 5,
-          brand: { name: "Acme" },
+          maxDurationSec: 6.5,
         },
-        capabilities: { templates: ["media", "close"] },
+        capabilities: { templates: ["chapterTitle", "close"] },
       }),
     }));
     expect(response.status).toBe(200);
@@ -274,10 +271,10 @@ describe("createVideoHandler", () => {
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
 
     expect(events.filter(({ type }) => type === "scene.add")).toMatchObject([
-      { data: { scene: { id: "supplied-opening", timing: { startTime: 0, endTime: 1.5, fixedDuration: 1.5 } } } },
-      { data: { scene: { id: "close-1", timing: { startTime: 1.5, endTime: 5, fixedDuration: 3.5 } } } },
+      { data: { scene: { id: "supplied-opening", timing: { startTime: 0, endTime: 3, fixedDuration: 3 } } } },
+      { data: { scene: { id: "close-1", timing: { startTime: 3, endTime: 6.5, fixedDuration: 3.5 } } } },
     ]);
-    expect(events.filter(({ type }) => type === "response.warning")).toHaveLength(2);
+    expect(events.filter(({ type }) => type === "response.warning")).toHaveLength(1);
   });
 
   it("continues consuming after an over-budget body scene so a later ask can land", async () => {
@@ -297,7 +294,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-continue-to-ask",
         input: { input: "Two grounded points and an action.", maxDurationSec: 10 },
         capabilities: { templates: ["body", "close"] },
@@ -339,7 +336,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-explicit-payoff-closer",
         input: { input: "Two grounded points whose payoff is that work now moves faster everywhere.", maxDurationSec: 10 },
         capabilities: { templates: ["body", "payoff"] },
@@ -382,7 +379,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-late-provider-failure",
         input: { input: "Two grounded points whose payoff is that work now moves faster everywhere.", maxDurationSec: 15 },
         capabilities: { templates: ["body", "payoff"] },
@@ -424,7 +421,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-missing-closer",
         input: { input: "One grounded point." },
         capabilities: { templates: ["body", "payoff"] },
@@ -458,7 +455,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-body-as-closer",
         input: { input: "Two grounded body points." },
         capabilities: { templates: ["body", "payoff"] },
@@ -490,14 +487,14 @@ describe("createVideoHandler", () => {
       heartbeatMs: false,
       streamText: async function* (context) {
         systemPrompt = context.systemPrompt;
-        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"bigNumber","variables":{"texts":"Revenue","value":42,"label":"million"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":4}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-defaults",
         input: { input: "Revenue reached 42 million." },
       }),
@@ -505,8 +502,8 @@ describe("createVideoHandler", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(systemPrompt).toContain('"id":"bigNumber"');
-    expect(body).toContain('"templateId":"bigNumber"');
+    expect(systemPrompt).toContain('"id":"keyFigure"');
+    expect(body).toContain('"templateId":"keyFigure"');
     expect(body).toContain('"type":"response.complete"');
   });
 
@@ -516,14 +513,14 @@ describe("createVideoHandler", () => {
       authorize: "none",
       heartbeatMs: false,
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"mixed-scale","templateId":"barChart","variables":{"texts":"Mixed units","bars":[{"label":"Percent","value":4.1},{"label":"Milliseconds","value":200}]} ,"timing":{"fixedDuration":5}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"mixed-scale","templateId":"barChart","variables":{"texts":"Mixed units","bars":[{"label":"Percent","value":4.1},{"label":"Milliseconds","value":200}]},"timing":{"fixedDuration":5}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-chart-scale",
         input: { input: "Percent is 4.1 and latency is 200 milliseconds." },
         capabilities: { templates: ["barChart"] },
@@ -531,11 +528,8 @@ describe("createVideoHandler", () => {
     }));
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    expect(events).toContainEqual(expect.objectContaining({
-      type: "response.warning",
-      data: { warning: expect.objectContaining({ code: "chart_scale_imbalance", sceneId: "mixed-scale" }) },
-    }));
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
+    expect(events.some(event => event.type === 'scene.add' && event.data.scene.id === 'mixed-scale')).toBe(false);
+    expect(events.some(event => event.type === 'response.warning' || event.type === 'response.error')).toBe(true);
   });
 
   it("composes the kit prompt, capabilities, validator, and app-owned text provider", async () => {
@@ -557,7 +551,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/motion", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-app",
         input: { input: "Revenue reached 42." },
         capabilities: { templates: ["metric", "unknown"] },
@@ -570,7 +564,7 @@ describe("createVideoHandler", () => {
     expect(providerContext?.systemPrompt).toContain("TRUSTED TEMPLATE CATALOG");
     expect(providerContext?.systemPrompt).toContain('"id":"metric"');
     expect(providerContext?.userPrompt).toContain("Revenue reached 42.");
-    expect(body).toContain('"templates":["media","metric"]');
+    expect(body).toContain('"templates":["chapterTitle","metric"]');
     expect(body).toContain('"templateId":"metric"');
   });
 
@@ -583,14 +577,14 @@ describe("createVideoHandler", () => {
       heartbeatMs: false,
       streamText: async function* (context) {
         systemPrompt = context.systemPrompt;
-        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"bigNumber","variables":{"texts":"Revenue","value":42,"label":"million"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":4}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-overlay",
         input: { input: "Revenue reached 42 million." },
       }),
@@ -598,8 +592,8 @@ describe("createVideoHandler", () => {
     const body = await response.text();
 
     expect(systemPrompt).toContain('"id":"metric"');
-    expect(systemPrompt).toContain('"id":"bigNumber"');
-    expect(body).toContain('"templateId":"bigNumber"');
+    expect(systemPrompt).toContain('"id":"keyFigure"');
+    expect(body).toContain('"templateId":"keyFigure"');
     expect(body).toContain('"type":"response.complete"');
   });
 
@@ -608,11 +602,11 @@ describe("createVideoHandler", () => {
     const streamText = vi.fn(async function* () { yield '{"type":"plan.complete"}\n'; });
     const templates = createServerTemplateRegistry({
       templates: [{
-        id: "media",
+        id: "chapterTitle",
         schema: {
           type: "object",
-          properties: { title: { type: "string" } },
-          required: ["title"],
+          properties: { unexpected: { type: "string" } },
+          required: ["unexpected"],
           additionalProperties: false,
         },
         usesGlobalTextEffect: false,
@@ -629,7 +623,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-opening-override",
         input: { input: "A grounded update.", opening: "Your update is ready." },
       }),
@@ -656,15 +650,15 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-negotiated-catalog",
         input: { input: "Revenue grew." },
-        capabilities: { templates: ["bigNumber"] },
+        capabilities: { templates: ["keyFigure"] },
       }),
     }));
 
     await response.text();
-    expect(systemPrompt).toContain('"id":"bigNumber"');
+    expect(systemPrompt).toContain('"id":"keyFigure"');
     expect(systemPrompt).not.toContain('"id":"barChart"');
     expect(systemPrompt).not.toContain('"id":"beforeAfter"');
   });
@@ -681,220 +675,6 @@ describe("createVideoHandler", () => {
       // @ts-expect-error Removed 0.1 beta option must fail closed for stale JavaScript consumers too.
       mediaPolicy: "host-resolved",
     })).toThrow(/suppliedMedia/);
-  });
-
-  it("resolves bounded media intent on later scenes without leaking the query", async () => {
-    const { createVideoHandler } = await import("../src/server/create-video-handler");
-    const resolveMedia = vi.fn(async () => ({
-      url: "https://media.example.test/team.mp4",
-      type: "video" as const,
-      posterUrl: "https://media.example.test/team.jpg",
-    }));
-    let systemPrompt = "";
-    const handler = createVideoHandler({
-      authorize: "none",
-      heartbeatMs: false,
-      resolveMedia,
-      streamText: async function* (context) {
-        systemPrompt = context.systemPrompt;
-        yield '{"type":"scene.add","scene":{"id":"first","templateId":"bigNumber","variables":{"texts":"Activation","value":58,"label":"percent","mediaKeyword":"product team"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"payoff","templateId":"media","variables":{"texts":"Momentum unlocked","mediaKeyword":"product team celebrating","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"plan.complete"}\n';
-      },
-    });
-    const response = await handler(new Request("https://app.example/api/video", {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: "0.5",
-        requestId: "request-resolved-media",
-        input: { input: "Activation reached 58 percent. The product team unlocked momentum." },
-        capabilities: { templates: ["bigNumber", "media"] },
-      }),
-    }));
-    const events = [];
-    for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    const scenes = events.flatMap((event) => event.type === "scene.add" ? [event.data.scene] : []);
-
-    expect(resolveMedia).toHaveBeenCalledTimes(2);
-    expect(resolveMedia).toHaveBeenNthCalledWith(1, "product team", expect.objectContaining({
-      requestId: "request-resolved-media",
-      templateId: "bigNumber",
-      preferredType: "any",
-      signal: expect.any(AbortSignal),
-      scene: expect.objectContaining({
-        id: "first",
-        variables: expect.not.objectContaining({ mediaKeyword: expect.anything() }),
-      }),
-    }));
-    expect(resolveMedia).toHaveBeenNthCalledWith(2, "product team celebrating", expect.objectContaining({
-      requestId: "request-resolved-media",
-      templateId: "media",
-      preferredType: "video",
-      signal: expect.any(AbortSignal),
-      scene: expect.objectContaining({
-        id: "payoff",
-        variables: expect.objectContaining({
-          texts: "Momentum unlocked",
-          mediaType: "video",
-        }),
-      }),
-    }));
-    expect(systemPrompt).toContain('"mediaKeyword":"string{2..80}"');
-    expect(scenes[0].variables).toMatchObject({ mediaType: "gradient" });
-    expect(scenes[0].variables).not.toHaveProperty("mediaKeyword");
-    expect(scenes[0].variables).not.toHaveProperty("mediaUrl");
-    expect(scenes[1].variables).toMatchObject({
-      mediaUrl: "https://media.example.test/team.mp4",
-      mediaType: "video",
-      mediaPoster: "https://media.example.test/team.jpg",
-    });
-    expect(scenes[2].variables).toMatchObject({
-      mediaUrl: "https://media.example.test/team.mp4",
-      mediaType: "video",
-      mediaPoster: "https://media.example.test/team.jpg",
-    });
-    expect(JSON.stringify(events)).not.toContain("mediaKeyword");
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
-  });
-
-  it("falls back to a gradient when the configured resolver finds no safe asset", async () => {
-    const { createVideoHandler } = await import("../src/server/create-video-handler");
-    const handler = createVideoHandler({
-      authorize: "none",
-      heartbeatMs: false,
-      resolveMedia: async () => null,
-      streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"first","templateId":"bigNumber","variables":{"texts":"Activation","value":58,"label":"percent"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"second","templateId":"bigNumber","variables":{"texts":"Retention","value":71,"label":"percent","mediaKeyword":"abstract unsafe concept"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"plan.complete"}\n';
-      },
-    });
-    const response = await handler(new Request("https://app.example/api/video", {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: "0.5",
-        requestId: "request-media-fallback",
-        input: { input: "Activation reached 58 percent and retention reached 71 percent." },
-        capabilities: { templates: ["bigNumber"] },
-      }),
-    }));
-    const events = [];
-    for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    const second = events.flatMap((event) => event.type === "scene.add" ? [event.data.scene] : [])
-      .find(({ id }) => id === "second")!;
-
-    expect(second.variables).toMatchObject({ mediaType: "gradient" });
-    expect(second.variables).not.toHaveProperty("mediaKeyword");
-    expect(second.variables).not.toHaveProperty("mediaUrl");
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
-  });
-
-  it("uses the asset-free runtime opening before resolving a generated media scene", async () => {
-    const { createVideoHandler } = await import("../src/server/create-video-handler");
-    const handler = createVideoHandler({
-      authorize: "none",
-      heartbeatMs: false,
-      resolveMedia: async () => ({
-        url: "https://media.example.test/premature.mp4",
-        type: "video",
-      }),
-      streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"invalid-first","templateId":"bigNumber","variables":{"texts":"Activation","value":58},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"premature-media","templateId":"media","variables":{"texts":"Momentum unlocked","mediaKeyword":"product team celebrating"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"first-accepted","templateId":"bigNumber","variables":{"texts":"Retention","value":71,"label":"percent"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"plan.complete"}\n';
-      },
-    });
-    const response = await handler(new Request("https://app.example/api/video", {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: "0.5",
-        requestId: "request-first-accepted-asset-free",
-        input: { input: "Activation reached 58 percent and retention reached 71 percent." },
-        capabilities: { templates: ["bigNumber", "media"] },
-      }),
-    }));
-    const events = [];
-    for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    const scenes = events.flatMap((event) => event.type === "scene.add" ? [event.data.scene] : []);
-
-    expect(scenes.map(({ id }) => id)).toEqual([
-      "supplied-opening",
-      "premature-media",
-      "first-accepted",
-    ]);
-    expect(scenes[0].variables).toMatchObject({ mediaType: "gradient" });
-    expect(scenes[0].variables).not.toHaveProperty("mediaUrl");
-    expect(scenes[0].variables).not.toHaveProperty("mediaKeyword");
-    expect(scenes[1].variables).toMatchObject({
-      mediaType: "video",
-      mediaUrl: "https://media.example.test/premature.mp4",
-    });
-    expect(scenes[1].variables).not.toHaveProperty("mediaKeyword");
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
-  });
-
-  it("falls back to a gradient when the application media resolver fails", async () => {
-    const { createVideoHandler } = await import("../src/server/create-video-handler");
-    const handler = createVideoHandler({
-      authorize: "none",
-      heartbeatMs: false,
-      resolveMedia: async () => { throw new Error("private provider failure"); },
-      streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"opening","templateId":"bigNumber","variables":{"texts":"Activation","value":58,"label":"percent"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"later","templateId":"bigNumber","variables":{"texts":"Retention","value":71,"label":"percent","mediaKeyword":"customer success meeting"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"plan.complete"}\n';
-      },
-    });
-    const response = await handler(new Request("https://app.example/api/video", {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: "0.5",
-        requestId: "request-media-resolver-failure",
-        input: { input: "Activation reached 58 percent and retention reached 71 percent." },
-        capabilities: { templates: ["bigNumber"] },
-      }),
-    }));
-    const events = [];
-    for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    const scenes = events.flatMap((event) => event.type === "scene.add" ? [event.data.scene] : []);
-
-    const later = scenes.find(({ id }) => id === "later")!;
-    expect(later.variables).toMatchObject({ mediaType: "gradient" });
-    expect(later.variables).not.toHaveProperty("mediaKeyword");
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
-    expect(JSON.stringify(events)).not.toContain("private provider failure");
-  });
-
-  it("uses a background when a media provider aborts while the request remains active", async () => {
-    const { createVideoHandler } = await import("../src/server/create-video-handler");
-    const onError = vi.fn();
-    const handler = createVideoHandler({
-      authorize: "none",
-      heartbeatMs: false,
-      onError,
-      resolveMedia: async () => { throw new DOMException("cancelled", "AbortError"); },
-      streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"opening","templateId":"bigNumber","variables":{"texts":"Activation","value":58,"label":"percent"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"later","templateId":"bigNumber","variables":{"texts":"Retention","value":71,"label":"percent","mediaKeyword":"customer success meeting"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"plan.complete"}\n';
-      },
-    });
-    const response = await handler(new Request("https://app.example/api/video", {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: "0.5",
-        requestId: "request-media-resolver-abort",
-        input: { input: "Activation reached 58 percent and retention reached 71 percent." },
-        capabilities: { templates: ["bigNumber"] },
-      }),
-    }));
-    const events = [];
-    for await (const event of decodeVideoSse(response.body!)) events.push(event);
-
-    expect(events.at(-1)).toMatchObject({ type: "response.complete" });
-    expect(events.some(({ type }) => type === "response.warning")).toBe(true);
-    expect(events.filter(event => event.type === "scene.add").at(-1)).toMatchObject({ data: { scene: { id: "later", variables: { mediaType: "gradient" } } } });
   });
 
   it("does not expose or resolve media intent for an incompatible custom media schema", async () => {
@@ -918,7 +698,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-incompatible-media-schema",
         input: { input: "Grounded." },
         capabilities: { templates: ["incompatibleMedia"] },
@@ -953,7 +733,7 @@ describe("createVideoHandler", () => {
     });
     const response = await handler(new Request("https://app.example/api/motion", {
       method: "POST",
-      body: JSON.stringify({ protocolVersion: "0.5", requestId: "request-app", input: { input: "Value is 7." } }),
+      body: JSON.stringify({ protocolVersion: "0.6", requestId: "request-app", input: { input: "Value is 7." } }),
     }));
 
     await response.text();
@@ -979,7 +759,7 @@ describe("createVideoHandler", () => {
       const response = await handler(new Request("https://app.example/api/motion", {
         method: "POST",
         body: JSON.stringify({
-          protocolVersion: "0.5",
+          protocolVersion: "0.6",
           requestId,
           input: { input: "Explain the principle.", ...(knowledgeMode ? { knowledgeMode } : {}) },
         }),
@@ -1007,7 +787,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-media",
         input: {
           input: "Use the supplied image.",
@@ -1035,7 +815,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-quote",
         input: { input: "The customer said the workflow was faster." },
       }),
@@ -1060,7 +840,7 @@ describe("createVideoHandler", () => {
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-screenshot",
         input: {
           input: "Show the product screenshot.",

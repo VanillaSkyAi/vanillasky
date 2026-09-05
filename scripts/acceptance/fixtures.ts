@@ -22,8 +22,8 @@ export function replayParts(fixture: ChatFixture): VideoPlanPart[] {
       type: "scene.add",
       ...(index === fixture.lines.length - 1 ? { placement: "closer" as const } : {}),
       scene: {
-        id: `${fixture.id}-${index}`, templateId: "media",
-        variables: { texts: line, mediaType: fixture.provider ? "video" : "gradient", ...(fixture.provider ? { mediaKeyword: "ocean currents" } : {}) },
+        id: `${fixture.id}-${index}`, templateId: fixture.provider ? "cinemaMedia" : "chapterTitle",
+        variables: fixture.provider ? {fallbackText:line,mediaType:"video",mediaKeyword:"ocean currents",mediaSource:"stock"} : {title:line},
         narration: line, timing: { fixedDuration: 5 },
       },
     })),

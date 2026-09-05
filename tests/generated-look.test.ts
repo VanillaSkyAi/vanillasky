@@ -24,18 +24,18 @@ describe("generated look", () => {
         return { url: "https://media.example.test/shot.mp4", type: "video" as const };
       },
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"first","templateId":"media","variables":{"texts":"One","mediaKeyword":"a wave","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"second","templateId":"media","variables":{"texts":"Two","mediaKeyword":"a shore","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"first","templateId":"cinemaMedia","variables":{"fallbackText":"One","mediaKeyword":"a wave","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"second","templateId":"cinemaMedia","variables":{"fallbackText":"Two","mediaKeyword":"a shore","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-generated-look",
         input: { input: "Waves break because the sea floor slows their base.", style: { generatedLook: LOOK } },
-        capabilities: { templates: ["media"] },
+        capabilities: { templates: ["cinemaMedia"] },
       }),
     }));
     for await (const event of decodeVideoSse(response.body!)) void event;
@@ -57,18 +57,18 @@ describe("generated look", () => {
         return { url: "https://media.example.test/shot.mp4", type: "video" as const };
       },
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"first","templateId":"media","variables":{"texts":"One","mediaType":"gradient"},"timing":{"fixedDuration":3}}}\n';
-        yield '{"type":"scene.add","scene":{"id":"second","templateId":"media","variables":{"texts":"Two","mediaKeyword":"a shore","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"first","templateId":"cinemaMedia","variables":{"fallbackText":"One","mediaType":"gradient"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"second","templateId":"cinemaMedia","variables":{"fallbackText":"Two","mediaKeyword":"a shore","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-no-look",
         input: { input: "Waves break because the sea floor slows their base." },
-        capabilities: { templates: ["media"] },
+        capabilities: { templates: ["cinemaMedia"] },
       }),
     }));
     for await (const event of decodeVideoSse(response.body!)) void event;
@@ -80,7 +80,7 @@ describe("generated look", () => {
     const { parseVideo } = await import("../src/index");
     const { TEST_VIDEO_STYLE } = await import("./semantic-brand-fixture");
     const stored = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "landscape",
       scenes: [{ id: "a", templateId: "media", variables: { texts: "One" }, timing: { fixedDuration: 3 } }],
       style: { ...TEST_VIDEO_STYLE, generatedLook: LOOK },

@@ -19,8 +19,8 @@ function plan(sceneCount: number) {
         type: "scene.add",
         scene: {
           id: `scene-${index + 1}`,
-          templateId: "media",
-          variables: { texts: `Beat ${index + 1}`, mediaKeyword: `subject ${index + 1}`, mediaType: "video" },
+          templateId: "cinemaMedia",
+          variables: { fallbackText: `Beat ${index + 1}`, mediaKeyword: `subject ${index + 1}`, mediaType: "video" },
           timing: { fixedDuration: 3 },
         },
       })}\n`;
@@ -47,10 +47,10 @@ async function run(options: { mediaConcurrency?: number; scenes: number }) {
   const response = await handler(new Request("https://app.example/api/video", {
     method: "POST",
     body: JSON.stringify({
-      protocolVersion: "0.5",
+      protocolVersion: "0.6",
       requestId: "request-media-concurrency",
       input: { input: "Three beats that each need a generated clip.", opening: false },
-      capabilities: { templates: ["media"] },
+      capabilities: { templates: ["cinemaMedia"] },
     }),
   }));
   const events = [];
@@ -93,19 +93,19 @@ describe("media resolution concurrency", () => {
         type: "video" as const,
       }),
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"scene-1","templateId":"media","variables":{"texts":"First beat","mediaKeyword":"first subject","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"scene-1","templateId":"cinemaMedia","variables":{"mediaType":"video","mediaKeyword":"first subject","fallbackText":"First beat"},"timing":{"fixedDuration":3}}}\n';
         await remainder;
-        yield '{"type":"scene.add","placement":"closer","scene":{"id":"closer","templateId":"media","variables":{"texts":"Final beat","mediaKeyword":"final subject","mediaType":"video"},"timing":{"fixedDuration":3}}}\n';
+        yield '{"type":"scene.add","placement":"closer","scene":{"id":"closer","templateId":"cinemaMedia","variables":{"mediaType":"video","mediaKeyword":"final subject","fallbackText":"Final beat"},"timing":{"fixedDuration":3}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
     const response = await handler(new Request("https://app.example/api/video", {
       method: "POST",
       body: JSON.stringify({
-        protocolVersion: "0.5",
+        protocolVersion: "0.6",
         requestId: "request-first-scene-streaming",
         input: { input: "A response whose later scenes are still being planned.", opening: false },
-        capabilities: { templates: ["media"] },
+        capabilities: { templates: ["cinemaMedia"] },
       }),
     }));
     const consuming = (async () => {

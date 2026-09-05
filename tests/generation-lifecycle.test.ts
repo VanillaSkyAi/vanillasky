@@ -441,7 +441,7 @@ describe("typed generation lifecycle", () => {
 describe("safe diagnostics", () => {
   it("rejects inconsistent warning code/category pairs and oversized diagnostics", () => {
     const base = {
-      protocolVersion: "0.5",
+      protocolVersion: "0.6",
       runId: "run",
       sequence: 0,
       eventId: "run:0",

@@ -22,16 +22,16 @@ describe("composition input", () => {
   });
 
   it("negotiates the built-in opening template once", () => {
-    expect(resolveStreamCapabilities({ templates: ["media", "bigNumber"] }, true)).toEqual({
-      templates: ["media", "bigNumber"],
+    expect(resolveStreamCapabilities({ templates: ["chapterTitle", "keyFigure"] }, true)).toEqual({
+      templates: ["chapterTitle", "keyFigure"],
     });
-    expect(resolveStreamCapabilities({ templates: ["bigNumber"] }, true)).toEqual({
-      templates: ["media", "bigNumber"],
+    expect(resolveStreamCapabilities({ templates: ["keyFigure"] }, true)).toEqual({
+      templates: ["chapterTitle", "keyFigure"],
     });
   });
 
   it("leaves capabilities alone when no runtime opening is present", () => {
-    const capabilities = { templates: ["bigNumber"] };
+    const capabilities = { templates: ["keyFigure"] };
     expect(resolveStreamCapabilities(capabilities, false)).toBe(capabilities);
   });
 

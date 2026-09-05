@@ -31,7 +31,7 @@ describe("default template registries", () => {
     const source = existsSync(path) ? readFileSync(path, "utf8") : "";
 
     expect(source).toContain("defaults");
-    expect(source).toContain("transitionTiming");
+    expect(source).toContain("usesGlobalTransition");
     expect(source).not.toContain("description");
     expect(source).not.toContain("useWhen");
     expect(source).not.toContain("avoidWhen");

@@ -2,10 +2,11 @@ import {describe,it,expect,vi} from 'vitest';
 import {createVideoChatHandler} from '../src/server/create-video-chat-handler';
 import {decodeVideoSse} from '../src/protocol/sse';
 
-async function run(source:'stock'|'generate', success=true, fallback=true) {
+async function run(source:'stock'|'generate', success: boolean | 'reject' | 'abort'=true, fallback=true) {
  const media={url:'https://media.example.test/shot.mp4',type:'video' as const};
- const generateVideo=vi.fn(async()=>success?media:null);
- const searchMedia=vi.fn(async()=>success?media:null);
+ const resolve=async()=>{ if(success==='reject')throw new Error('private failure');if(success==='abort')throw new DOMException('provider timed out','AbortError');return success?media:null; };
+ const generateVideo=vi.fn(resolve);
+ const searchMedia=vi.fn(resolve);
  const handler=createVideoChatHandler({authorize:'none',heartbeatMs:false,requireCloser:false,
   generateText:()=>'',generateVideo,searchMedia,
   streamText:async function*(){
@@ -33,4 +34,11 @@ describe('cinematic media routing',()=>{
  it('does not invent a title or emit an empty media scene when fallback is missing',async()=>{
   const result=await run('stock',false,false);expect(result.scenes).toHaveLength(0);expect(result.events.some(event=>event.type==='response.error')).toBe(true);
  });
+ it.each(['reject','abort'] as const)('recovers a provider %s without losing grounded content',async failure=>{
+  const result=await run('generate',failure);
+  expect(result.scenes[0]?.templateId).toBe('chapterTitle');
+  expect(result.scenes[0]?.variables).toEqual({title:'The ocean keeps moving'});
+  expect(JSON.stringify(result.events)).not.toContain('private failure');
+ });
+
 });

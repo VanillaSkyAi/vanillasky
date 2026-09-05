@@ -38,7 +38,7 @@ export const template = {
 function project(): string {
   const cwd = mkdtempSync(join(tmpdir(), "vanillasky-effective-catalog-"));
   mkdirSync(join(cwd, "vanillasky/templates"), { recursive: true });
-  writeFileSync(join(cwd, "vanillasky/templates/bigNumber.tsx"), source("bigNumber", "Use the project metric treatment."));
+  writeFileSync(join(cwd, "vanillasky/templates/keyFigure.tsx"), source("keyFigure", "Use the project metric treatment."));
   writeFileSync(join(cwd, "vanillasky/templates/customerHealth.tsx"), source("customerHealth", "Explain customer health."));
   return cwd;
 }
@@ -59,11 +59,11 @@ describe("effective template catalog CLI", () => {
     expect(result.code).toBe(0);
     const rows = result.output.split("\n");
     expect(rows[0]).toBe("ID\tORIGIN\tSTATUS\tUSE WHEN");
-    expect(rows.filter((row) => row.startsWith("bigNumber\t"))).toEqual([
-      "bigNumber\tproject\tcurrent\tUse the project metric treatment.",
+    expect(rows.filter((row) => row.startsWith("keyFigure\t"))).toEqual([
+      "keyFigure\tproject\tcurrent\tUse the project metric treatment.",
     ]);
     expect(rows).toContain("customerHealth\tproject\tcurrent\tExplain customer health.");
-    expect(rows.some((row) => row.startsWith("steps\tbuilt-in\tavailable\t"))).toBe(true);
+    expect(rows.some((row) => row.startsWith("editorialTimeline\tbuilt-in\tavailable\t"))).toBe(true);
   });
 
   it("supports machine-readable effective and packaged-only catalogs", async () => {
@@ -72,8 +72,8 @@ describe("effective template catalog CLI", () => {
     const effective = await run(["templates", "list", "--json"], cwd);
     expect(effective.code).toBe(0);
     const effectiveItems = JSON.parse(effective.output) as Array<Record<string, unknown>>;
-    expect(effectiveItems.find(({ id }) => id === "bigNumber")).toMatchObject({
-      id: "bigNumber", origin: "project", status: "stale", useWhen: "Use the project metric treatment.",
+    expect(effectiveItems.find(({ id }) => id === "keyFigure")).toMatchObject({
+      id: "keyFigure", origin: "project", status: "stale", useWhen: "Use the project metric treatment.",
       summary: "Project description",
     });
     expect(effectiveItems.find(({ id }) => id === "customerHealth")).toMatchObject({ origin: "project" });
@@ -81,8 +81,8 @@ describe("effective template catalog CLI", () => {
     const builtin = await run(["templates", "list", "--builtin", "--json"], cwd);
     expect(builtin.code).toBe(0);
     const builtinItems = JSON.parse(builtin.output) as Array<Record<string, unknown>>;
-    expect(builtinItems.find(({ id }) => id === "bigNumber")).toMatchObject({
-      id: "bigNumber", origin: "built-in", status: "available",
+    expect(builtinItems.find(({ id }) => id === "keyFigure")).toMatchObject({
+      id: "keyFigure", origin: "built-in", status: "available",
     });
     expect(builtinItems.some(({ id }) => id === "customerHealth")).toBe(false);
   });
@@ -91,11 +91,11 @@ describe("effective template catalog CLI", () => {
     const cwd = project();
     await syncTemplates({ cwd });
 
-    const json = await run(["templates", "describe", "bigNumber", "--json"], cwd);
+    const json = await run(["templates", "describe", "keyFigure", "--json"], cwd);
     expect(json.code).toBe(0);
     expect(JSON.parse(json.output)).toMatchObject({
-      id: "bigNumber",
-      title: "bigNumber project",
+      id: "keyFigure",
+      title: "keyFigure project",
       origin: "project",
       status: "current",
       planner: {
@@ -118,7 +118,7 @@ describe("effective template catalog CLI", () => {
     });
 
     writeFileSync(join(cwd, "vanillasky/server.ts"), `${readFileSync(join(cwd, "vanillasky/server.ts"), "utf8")}\n// drift`);
-    const stale = await run(["templates", "describe", "bigNumber", "--json"], cwd);
+    const stale = await run(["templates", "describe", "keyFigure", "--json"], cwd);
     expect(JSON.parse(stale.output)).toMatchObject({
       status: "stale",
       generated: {
@@ -128,7 +128,7 @@ describe("effective template catalog CLI", () => {
       },
     });
 
-    const text = await run(["templates", "describe", "bigNumber"], cwd);
+    const text = await run(["templates", "describe", "keyFigure"], cwd);
     expect(text.output).toContain("Origin\tproject");
     expect(text.output).toContain("Generated files\tstale");
     expect(text.output).toContain("Use when\tUse the project metric treatment.");
@@ -145,13 +145,13 @@ describe("effective template catalog CLI", () => {
 
     const listed = await run(["templates", "list", "--builtin", "--json"], cwd);
     expect(listed.code).toBe(0);
-    expect((JSON.parse(listed.output) as Array<{ id: string }>).some(({ id }) => id === "bigNumber")).toBe(true);
+    expect((JSON.parse(listed.output) as Array<{ id: string }>).some(({ id }) => id === "keyFigure")).toBe(true);
 
-    const result = await run(["templates", "describe", "bigNumber", "--builtin", "--json"], cwd);
+    const result = await run(["templates", "describe", "keyFigure", "--builtin", "--json"], cwd);
 
     expect(result.code).toBe(0);
     expect(JSON.parse(result.output)).toMatchObject({
-      id: "bigNumber",
+      id: "keyFigure",
       origin: "built-in",
       status: "available",
       generated: {
@@ -168,7 +168,7 @@ describe("effective template catalog CLI", () => {
     const garbage = await run(["templates", "list", "garbage"], cwd);
     expect(garbage).toEqual({ code: 1, output: "Unexpected list argument: garbage" });
 
-    const described = await run(["templates", "describe", "bigNumber", "--json"], cwd);
+    const described = await run(["templates", "describe", "keyFigure", "--json"], cwd);
     expect(JSON.parse(described.output)).toMatchObject({
       useWhen: "Use the project metric treatment.",
       summary: "Project description",
