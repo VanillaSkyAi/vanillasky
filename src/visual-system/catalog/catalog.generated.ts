@@ -6,9 +6,13 @@ import type { SceneTemplateMetadata } from "./catalog-types.js";
 
 export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
   {
-    "id": "media",
-    "label": "Full-bleed media",
-    "description": "Full-bleed photo, video, or brand gradient with a centered headline.",
+    "label": "Full-bleed",
+    "description": "Immersive photo or video without a headline.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "cinemaMedia",
     "family": "Media & motion",
     "jobs": [
       "setup",
@@ -16,3537 +20,518 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
       "payoff"
     ],
     "register": "motion-led",
-    "useWhen": "A visual hook, scenic beat, or concrete product-context line benefits from immersive media.",
-    "avoidWhen": "The scene needs structured facts, exact comparisons, a device frame, or attributed proof.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
+    "useWhen": "Show a relevant place, activity or subject. The asset is resolved separately from a shot description. ",
+    "avoidWhen": "No relevant asset can be resolved or the scene needs structured explanation.",
+    "minDuration": 3,
+    "preferredDuration": 6,
+    "timing": {
+      "contentFields": [],
+      "contentUnit": "words",
+      "revealSeconds": 0,
+      "holdSeconds": 3,
+      "exitSeconds": 0
     },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
     "schema": {
       "type": "object",
       "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text shown on the scene",
-          "default": "Make an impact."
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
         "mediaKeyword": {
           "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
           "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        },
-        "confetti": {
-          "type": "boolean",
-          "title": "Confetti",
-          "description": "Layer falling confetti particles over the backdrop. Set true when the copy is celebratory (launch, milestone, win, anniversary, achievement). Works on top of any mediaType — photo, video, or gradient.",
-          "default": false
-        }
-      },
-      "required": [
-        "texts"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 1,
-    "preferredDuration": 2,
-    "timing": {
-      "contentFields": [
-        "texts"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "reaction",
-    "label": "Reaction clip",
-    "description": "Full-bleed reaction video with a short meme-like punchline.",
-    "family": "Media & motion",
-    "jobs": [
-      "payoff",
-      "punctuation"
-    ],
-    "register": "motion-led",
-    "useWhen": "One funny, self-aware, celebratory, or dramatic beat deserves a reaction payoff.",
-    "avoidWhen": "The tone is calm or formal, no supplied clip is available, or the video already uses a reaction.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Punchline",
-          "description": "Short meme-like punchline shown over the reaction clip. Keep it to 2-6 words.",
-          "default": "Still editing manually?"
-        },
-        "reactionTag": {
-          "type": "string",
-          "title": "Reaction tag",
-          "description": "Stock-media search intent. Pick from the punchline/problem copy first, then the overall video topic.",
-          "enum": [
-            "launch",
-            "productLaunch",
-            "goLive",
-            "shipIt",
-            "wow",
-            "excited",
-            "happy",
-            "success",
-            "done",
-            "panic",
-            "waiting",
-            "celebration",
-            "cheers",
-            "applause",
-            "highFive",
-            "teamwork",
-            "fail",
-            "confused",
-            "thinking",
-            "thanks",
-            "letsGo",
-            "manual",
-            "office",
-            "meeting",
-            "deadline",
-            "coding",
-            "debugging",
-            "computer",
-            "startup",
-            "presentation",
-            "sales",
-            "growth",
-            "money"
-          ],
-          "default": "manual"
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
         },
         "mediaUrl": {
           "type": "string",
-          "title": "Reaction clip",
-          "description": "Resolved stock-video URL.",
           "format": "uri",
+          "description": "Host-only approved photo or video URL.",
           "default": ""
         },
         "mediaType": {
           "type": "string",
-          "title": "Media type",
-          "description": "Always 'video' for reaction clips.",
-          "default": "video"
+          "enum": [
+            "photo",
+            "video"
+          ],
+          "default": "video",
+          "description": "Host-resolved asset kind."
         },
         "mediaPoster": {
           "type": "string",
-          "title": "Reaction poster image",
-          "description": "Still image shown while the reaction clip decodes its first frame.",
           "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
           "default": ""
+        },
+        "mediaSource": {
+          "type": "string",
+          "enum": [
+            "generate",
+            "stock"
+          ],
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
+        },
+        "fallbackText": {
+          "type": "string",
+          "maxLength": 65,
+          "description": "Optional grounded concise chapter text if this shot cannot be resolved; not visible over footage."
         }
       },
-      "required": [
-        "texts",
-        "reactionTag"
-      ],
+      "required": [],
       "additionalProperties": false,
       "x-vanillasky": {
+        "allowsStockMedia": true,
         "requiredAnyOf": [
           [
+            "mediaKeyword",
             "mediaUrl"
           ]
         ]
       }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts"
-      ],
-      "contentUnit": "words"
     }
   },
   {
-    "id": "confetti",
-    "label": "Confetti",
-    "description": "Falling confetti over a brand gradient with a centered headline.",
-    "family": "Media & motion",
-    "jobs": [
-      "payoff",
-      "punctuation"
-    ],
-    "register": "motion-led",
-    "useWhen": "A launch, win, anniversary, or achievement needs a broad celebratory beat.",
-    "avoidWhen": "The moment is not celebratory or a specific numeric achievement should be the visual focus.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text shown on the scene",
-          "default": "Celebrate."
-        }
-      },
-      "required": [
-        "texts"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 1,
-    "preferredDuration": 2,
-    "timing": {
-      "contentFields": [
-        "texts"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "emojiBurst",
-    "label": "Emoji burst",
-    "description": "A fixed mix of hearts, stars, rockets, sparkles, and celebration emoji bursts radially behind a headline.",
-    "family": "Media & motion",
-    "jobs": [
-      "payoff",
-      "punctuation"
-    ],
-    "register": "motion-led",
-    "useWhen": "A playful launch, delight, or achievement benefits from an energetic mixed-emoji celebration.",
-    "avoidWhen": "A custom emoji theme is required, the tone is restrained, or falling confetti is the clearer motif.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text shown on the scene",
-          "default": "Let's go!"
-        }
-      },
-      "required": [
-        "texts"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 1,
-    "preferredDuration": 2,
-    "timing": {
-      "contentFields": [
-        "texts"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "bigNumber",
-    "label": "Big number",
-    "description": "A single animated count-up metric with headline and label.",
-    "family": "Data & metrics",
-    "jobs": [
-      "claim",
-      "proof"
-    ],
-    "register": "typography-led",
-    "useWhen": "One exact grounded number is the hero: growth, speed, rank, customer count, or reduction.",
-    "avoidWhen": "No exact number is supplied, three peer values matter equally, or the value means completion progress.",
+    "label": "Chapter",
+    "description": "Centered white typography fades in, holds, and fades out on black.",
     "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
     "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Concise title shown above the metric (48 characters maximum).",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Our biggest milestone yet."
-        },
-        "value": {
-          "type": "number",
-          "title": "Target number",
-          "description": "The number to count up to",
-          "default": 1000
-        },
-        "decimalPlaces": {
-          "type": "number",
-          "title": "Decimal places",
-          "description": "Optional display precision; when omitted, precision is inferred from the value"
-        },
-        "confetti": {
-          "type": "boolean",
-          "title": "Celebrate with confetti",
-          "description": "Add a confetti burst when the metric is explicitly celebratory",
-          "default": false
-        },
-        "label": {
-          "type": "string",
-          "title": "Label",
-          "description": "Short label displayed below the number (32 characters maximum).",
-          "minLength": 1,
-          "maxLength": 32,
-          "default": "Total users"
-        },
-        "prefix": {
-          "type": "string",
-          "title": "Prefix",
-          "description": "Compact prefix before the number (e.g. $, €; 2 characters maximum).",
-          "maxLength": 2,
-          "default": ""
-        },
-        "unit": {
-          "type": "string",
-          "title": "Unit suffix",
-          "description": "Compact suffix after the number (e.g. %, +, k, M; 4 characters maximum).",
-          "maxLength": 4,
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "value",
-        "label"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiresStat": true,
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 1.5,
+    "id": "chapterTitle",
+    "family": "Explainers",
+    "jobs": [
+      "setup",
+      "payoff"
+    ],
+    "register": "motion-led",
+    "useWhen": "An opening, new chapter or deliberate short takeaway needs its own visual beat. ",
+    "avoidWhen": "A headline would merely repeat subtitles over an ordinary footage scene.",
+    "minDuration": 3,
     "preferredDuration": 4,
     "timing": {
       "contentFields": [
-        "texts",
-        "label"
+        "title"
       ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "barChart",
-    "label": "Bar chart",
-    "description": "Animated labeled bars compare grounded values beneath a headline.",
-    "family": "Data & metrics",
-    "jobs": [
-      "proof"
-    ],
-    "register": "motion-led",
-    "useWhen": "Two or more grounded labeled values need a readable comparison, ranking, or relative-size view.",
-    "avoidWhen": "Labels or exact values are missing, one metric is the hero, or the data represents progress toward a whole.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
+      "contentUnit": "words",
+      "revealSeconds": 0.8,
+      "holdSeconds": 1.5,
+      "exitSeconds": 0.8
     },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
     "schema": {
       "type": "object",
       "properties": {
-        "texts": {
+        "title": {
           "type": "string",
-          "title": "Text",
-          "description": "Title text shown above the chart",
-          "default": "Revenue up 300%.",
-          "maxLength": 48
-        },
-        "bars": {
+          "maxLength": 65,
+          "description": "Short title. Line breaks optional.",
+          "default": "A different perspective"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "label": "Focus cards",
+    "description": "Two to four short phrases fade in sequentially on black; no boxes or heading.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "focusCards",
+    "family": "Explainers",
+    "jobs": [
+      "setup",
+      "proof"
+    ],
+    "register": "card-led",
+    "useWhen": "Two to four short parallel points support an explanation. ",
+    "avoidWhen": "The points require an order, long paragraphs, numerical data or additional images to make sense.",
+    "minDuration": 4,
+    "preferredDuration": 5,
+    "timing": {
+      "contentFields": [
+        "items"
+      ],
+      "contentUnit": "items",
+      "revealSeconds": 2.4,
+      "holdSeconds": 1.8,
+      "exitSeconds": 0
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "items": {
           "type": "array",
-          "title": "Comparison values",
-          "description": "Array of 2-6 grounded values with short category labels. Values are shown exactly and bar heights are scaled relative to the largest value. Use only facts supported by the input.",
-          "examples": [
-            [
-              {
-                "label": "Free",
-                "value": 24
-              },
-              {
-                "label": "Pro",
-                "value": 61
-              },
-              {
-                "label": "Business",
-                "value": 88
-              }
-            ]
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 55
+          },
+          "default": [
+            "Listen closely",
+            "Notice the pattern",
+            "Make room for change"
           ],
+          "description": "2–4 parallel phrases, about2–6words each; no heading or numbering."
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "label": "Timeline",
+    "description": "Three to five events on a fine continuous line on black; without dates.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "editorialTimeline",
+    "family": "Explainers",
+    "jobs": [
+      "setup",
+      "proof"
+    ],
+    "register": "card-led",
+    "useWhen": "Events unfold in an order, or actions form a process. No dates or heading. ",
+    "avoidWhen": "The points are unordered or the story needs branching relationships.",
+    "minDuration": 5,
+    "preferredDuration": 6,
+    "timing": {
+      "contentFields": [
+        "events"
+      ],
+      "contentUnit": "items",
+      "revealSeconds": 3.2,
+      "holdSeconds": 1.8,
+      "exitSeconds": 0
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
           "items": {
             "type": "object",
             "properties": {
               "label": {
                 "type": "string",
-                "description": "Short category label shown below the bar (18 characters or fewer).",
-                "maxLength": 18
-              },
-              "value": {
-                "type": "number",
-                "description": "Exact grounded value shown above the bar.",
-                "format": "grounded-stat",
-                "minimum": 0
+                "minLength": 1,
+                "maxLength": 45
               }
             },
             "required": [
-              "label",
-              "value"
+              "label"
             ],
             "additionalProperties": false
           },
-          "minItems": 2,
-          "maxItems": 6,
           "default": [
             {
-              "label": "Q1",
-              "value": 42
+              "label": "Observe"
             },
             {
-              "label": "Q2",
-              "value": 58
+              "label": "Understand"
             },
             {
-              "label": "Q3",
-              "value": 76
-            },
-            {
-              "label": "Q4",
-              "value": 91
+              "label": "Act"
             }
-          ]
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
           ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
+          "description": "3–5 ordered events or actions, each with one shortlabel; no dates."
         }
       },
       "required": [
-        "texts",
-        "bars"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiresStat": true,
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "bars"
-      ],
-      "contentUnit": "items"
-    }
-  },
-  {
-    "id": "progressRing",
-    "label": "Progress ring",
-    "description": "An animated circular progress value with headline and label.",
-    "family": "Data & metrics",
-    "jobs": [
-      "proof"
-    ],
-    "register": "motion-led",
-    "useWhen": "An exact percentage represents completion, readiness, health, adoption, or goal progress.",
-    "avoidWhen": "The percentage is a generic uplift or reduction rather than progress toward a bounded whole.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Concise title shown above the ring (48 characters maximum).",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Almost there."
-        },
-        "value": {
-          "type": "number",
-          "title": "Value",
-          "description": "Percentage value 0-100",
-          "default": 75
-        },
-        "decimalPlaces": {
-          "type": "number",
-          "title": "Decimal places",
-          "description": "Optional display precision; when omitted, precision is inferred from the value"
-        },
-        "label": {
-          "type": "string",
-          "title": "Label",
-          "description": "Short label shown below the ring (32 characters maximum).",
-          "minLength": 1,
-          "maxLength": 32,
-          "default": "Complete"
-        },
-        "unit": {
-          "type": "string",
-          "title": "Unit",
-          "description": "Compact suffix after the number (e.g. %, x, k; 3 characters maximum).",
-          "maxLength": 3,
-          "default": "%"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "value",
-        "label"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiresStat": true,
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3.5,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "label"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "phoneMockup",
-    "label": "Phone mockup",
-    "description": "One to three portrait screenshots presented inside an animated phone frame.",
-    "family": "Product showcase",
-    "jobs": [
-      "proof"
-    ],
-    "register": "device-led",
-    "useWhen": "Supplied portrait screenshots demonstrate a mobile interface or app workflow.",
-    "avoidWhen": "No real screenshot is supplied or the interface is primarily landscape or desktop-shaped.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text shown on the scene",
-          "default": "See it in action."
-        },
-        "screenMediaUrl": {
-          "type": "string",
-          "title": "Screen screenshot",
-          "description": "Screenshot to show on the phone screen",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screen1Url": {
-          "type": "string",
-          "title": "Screen 1",
-          "description": "Set to enable slides mode — screens slide inside the phone",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screen2Url": {
-          "type": "string",
-          "title": "Screen 2",
-          "description": "Second screen (slides mode)",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screenFit": {
-          "type": "string",
-          "title": "Screenshot fit",
-          "description": "Use cover for immersive product detail; contain when the full interface must remain visible.",
-          "enum": [
-            "cover",
-            "contain"
-          ],
-          "default": "cover"
-        },
-        "screenFocusX": {
-          "type": "number",
-          "title": "Horizontal focus (0-100)",
-          "description": "Horizontal percentage of the screenshot to keep in focus. Values are clamped to 0-100.",
-          "default": 50
-        },
-        "screenFocusY": {
-          "type": "number",
-          "title": "Vertical focus (0-100)",
-          "description": "Vertical percentage of the screenshot to keep in focus. Values are clamped to 0-100.",
-          "default": 50
-        },
-        "screenMotion": {
-          "type": "string",
-          "title": "Screenshot motion",
-          "description": "Single-screen treatment: pushIn is the professional default; use pan for wide interfaces and still when motion would distract. Multi-screen slides stay still so motions do not compete.",
-          "enum": [
-            "still",
-            "pushIn",
-            "pan"
-          ],
-          "default": "pushIn"
-        },
-        "screenCalloutText": {
-          "type": "string",
-          "title": "Feature callout",
-          "description": "Optional 2-4 word annotation anchored to a product detail. Leave empty rather than narrating the headline twice.",
-          "default": ""
-        },
-        "screenCalloutX": {
-          "type": "number",
-          "title": "Callout horizontal position (0-100)",
-          "description": "Horizontal percentage of the product surface for the callout anchor.",
-          "default": 70
-        },
-        "screenCalloutY": {
-          "type": "number",
-          "title": "Callout vertical position (0-100)",
-          "description": "Vertical percentage of the product surface for the callout anchor.",
-          "default": 35
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts"
+        "events"
       ],
       "additionalProperties": false
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "screenCalloutText"
-      ],
-      "contentUnit": "words"
     }
   },
   {
-    "id": "webMockup",
-    "label": "Web mockup",
-    "description": "One to three desktop screenshots presented in an animated browser or tablet frame.",
-    "family": "Product showcase",
-    "jobs": [
-      "proof"
-    ],
-    "register": "device-led",
-    "useWhen": "Supplied landscape or square screenshots demonstrate a website, dashboard, or desktop product.",
-    "avoidWhen": "No real screenshot is supplied or the interface is primarily portrait and mobile-shaped.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
+    "label": "Reach out",
+    "description": "A frosted glass message over resolved media, without sender or timestamp.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
     "usesGlobalBackgroundEffect": false,
     "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "frame": {
-          "type": "string",
-          "title": "Device frame",
-          "description": "browser shows chrome and an address bar; tablet uses a clean product frame.",
-          "enum": [
-            "browser",
-            "tablet"
-          ],
-          "default": "browser"
-        },
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text shown above the product.",
-          "default": "See it in action."
-        },
-        "screenMediaUrl": {
-          "type": "string",
-          "title": "Screenshot",
-          "description": "Product screenshot shown inside the browser or tablet frame.",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screen1Url": {
-          "type": "string",
-          "title": "Screen 1",
-          "description": "Optional second product screen. Setting it enables slides mode.",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screen2Url": {
-          "type": "string",
-          "title": "Screen 2",
-          "description": "Optional third product screen for slides mode.",
-          "format": "supplied-image",
-          "default": ""
-        },
-        "screenFit": {
-          "type": "string",
-          "title": "Screenshot fit",
-          "description": "Use cover for immersive product detail; contain when the full interface must remain visible.",
-          "enum": [
-            "cover",
-            "contain"
-          ],
-          "default": "cover"
-        },
-        "screenFocusX": {
-          "type": "number",
-          "title": "Horizontal focus (0-100)",
-          "description": "Horizontal percentage of the screenshot to keep in focus. Values are clamped to 0-100.",
-          "default": 50
-        },
-        "screenFocusY": {
-          "type": "number",
-          "title": "Vertical focus (0-100)",
-          "description": "Vertical percentage of the screenshot to keep in focus. Values are clamped to 0-100.",
-          "default": 50
-        },
-        "screenMotion": {
-          "type": "string",
-          "title": "Screenshot motion",
-          "description": "Single-screen treatment: pushIn is the professional default; use pan for wide interfaces and still when motion would distract. Multi-screen slides stay still so motions do not compete.",
-          "enum": [
-            "still",
-            "pushIn",
-            "pan"
-          ],
-          "default": "pushIn"
-        },
-        "screenCalloutText": {
-          "type": "string",
-          "title": "Feature callout",
-          "description": "Optional 2-4 word annotation anchored to a product detail. Leave empty rather than narrating the headline twice.",
-          "default": ""
-        },
-        "screenCalloutX": {
-          "type": "number",
-          "title": "Callout horizontal position (0-100)",
-          "description": "Horizontal percentage of the product surface for the callout anchor.",
-          "default": 70
-        },
-        "screenCalloutY": {
-          "type": "number",
-          "title": "Callout vertical position (0-100)",
-          "description": "Vertical percentage of the product surface for the callout anchor.",
-          "default": 35
-        },
-        "addressBarUrl": {
-          "type": "string",
-          "title": "Address bar URL",
-          "description": "URL shown in browser chrome; ignored by the tablet frame.",
-          "examples": [
-            "yourapp.com"
-          ],
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "screenCalloutText"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "codeEditor",
-    "label": "Code editor",
-    "description": "A syntax-styled editor window reveals a short code sample beneath a headline.",
-    "family": "Product showcase",
-    "jobs": [
-      "proof"
-    ],
-    "register": "device-led",
-    "useWhen": "Code, configuration, an API, or an SDK mechanism is central to understanding the product.",
-    "avoidWhen": "The source has no grounded technical detail or a shell command communicates the workflow better.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Concise title shown above the editor (48 characters maximum).",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Simple as this."
-        },
-        "code": {
-          "type": "string",
-          "title": "Code",
-          "description": "Code snippet — use \\n for line breaks",
-          "default": "import { getVideoDuration } from \"@vanillaskyai/video\";\nimport type { Video } from \"@vanillaskyai/video\";\n\nexport function duration(video: Video) {\n  return getVideoDuration(video);\n}"
-        },
-        "filename": {
-          "type": "string",
-          "title": "Filename",
-          "description": "Filename shown in the editor title bar (32 characters maximum).",
-          "maxLength": 32,
-          "default": "app.ts"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "code"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "code"
-      ],
-      "contentUnit": "characters"
-    }
-  },
-  {
-    "id": "terminal",
-    "label": "Terminal",
-    "description": "A terminal window types a command and reveals optional output lines.",
-    "family": "Product showcase",
-    "jobs": [
-      "proof"
-    ],
-    "register": "device-led",
-    "useWhen": "A grounded command, installation, deployment, test, or status flow explains the product.",
-    "avoidWhen": "The source has no real command or a multi-line code sample is the more faithful visual.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Concise title shown above the terminal (48 characters maximum).",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Ship it."
-        },
-        "command": {
-          "type": "string",
-          "title": "Command",
-          "description": "Command typed character by character. Keep the meaningful invocation within 80 characters; the terminal deliberately ellipsizes longer display lines.",
-          "minLength": 1,
-          "maxLength": 80,
-          "default": "npx vanillasky templates check"
-        },
-        "output": {
-          "type": "array",
-          "title": "Output lines",
-          "description": "JSON array of output lines that appear after the command. Send as an array — terminal output frequently contains commas. Example: [\"✓ Built /api/auth/login.ts, /api/users/me.ts\", \"✓ 12 tests passed\", \"✓ Ready to deploy\"]",
-          "examples": [
-            [
-              "✓ Scenes composed",
-              "✓ Beat-synced to music",
-              "✓ Ready to export"
-            ]
-          ],
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          },
-          "maxItems": 5,
-          "default": []
-        },
-        "promptPrefix": {
-          "type": "string",
-          "title": "Prompt",
-          "description": "Compact prompt prefix (e.g. $, >, →; 3 characters maximum).",
-          "maxLength": 3,
-          "default": "$"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "command"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "command",
-        "output"
-      ],
-      "contentUnit": "characters"
-    }
-  },
-  {
-    "id": "tweet",
-    "label": "X post",
-    "description": "An X-style text post card with author, handle, verification, replies, and likes.",
+    "id": "mobileMessage",
     "family": "Social & messaging",
     "jobs": [
-      "claim",
-      "proof"
+      "setup"
     ],
     "register": "card-led",
-    "useWhen": "A grounded public announcement, founder update, launch quote, or concise social claim should read as a post.",
-    "avoidWhen": "The copy is generic explanatory prose, attribution is missing, or visual attachments are essential.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "authorName": {
-          "type": "string",
-          "title": "Author name",
-          "description": "Display name shown bold next to the verified checkmark.",
-          "default": "Your brand"
-        },
-        "authorHandle": {
-          "type": "string",
-          "title": "Handle",
-          "description": "Username in @format. Leave empty to auto-derive from author name (e.g. 'Linear' → '@linear').",
-          "default": ""
-        },
-        "authorVerified": {
-          "type": "boolean",
-          "title": "Verified checkmark",
-          "description": "Show the blue verified checkmark next to the author name.",
-          "examples": [
-            true
-          ],
-          "default": false
-        },
-        "message": {
-          "type": "string",
-          "title": "Tweet text",
-          "description": "The tweet/post content. Reads best at 1-3 lines (~80-180 chars). Emoji land naturally at the end of a phrase.",
-          "default": "Just shipped the new feature 🚀"
-        },
-        "likes": {
-          "type": "number",
-          "title": "Likes",
-          "description": "Target like count (rolls up from 0).",
-          "examples": [
-            602
-          ],
-          "default": 0
-        },
-        "replies": {
-          "type": "number",
-          "title": "Replies",
-          "description": "Target reply count (rolls up from 0).",
-          "examples": [
-            19
-          ],
-          "default": 0
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "authorName",
-        "message"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 3.5,
-    "timing": {
-      "contentFields": [
-        "authorName",
-        "message"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "notification",
-    "label": "Notification",
-    "description": "A compact app notification card appears over a branded background.",
-    "family": "Social & messaging",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "A real alert, reminder, approval, completion, update, or ready-state is a product moment.",
-    "avoidWhen": "The message is a broad announcement, generic explanation, or not naturally notification-shaped.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.35,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "appName": {
-          "type": "string",
-          "title": "App name",
-          "description": "App name shown in the notification header (e.g. Reminder, Lume, Linear, GitHub; 24 characters maximum).",
-          "minLength": 1,
-          "maxLength": 24,
-          "default": "Reminder"
-        },
-        "appIcon": {
-          "type": "string",
-          "title": "App icon",
-          "description": "Single emoji used as the app icon. Override the default 🔔 to retheme: 📅 reminder, ✅ task done, 💌 message, 🎉 celebration, ⚡ system event.",
-          "format": "emoji",
-          "maxLength": 16,
-          "default": "🔔"
-        },
-        "message": {
-          "type": "string",
-          "title": "Message",
-          "description": "The notification body. Keep it to a short alert of at most 100 characters; 1-2 lines reads best.",
-          "minLength": 1,
-          "maxLength": 100,
-          "default": "Believe in your dreams, they will lead you."
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "appName",
-        "message"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "appName",
-        "message"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "chatMessenger",
-    "label": "Messenger chat",
-    "description": "A staggered Messenger-style conversation with three to five message bubbles.",
-    "family": "Social & messaging",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "mockup-led",
-    "useWhen": "A grounded back-and-forth naturally explains a use case, objection, support flow, or punchline.",
-    "avoidWhen": "The source is not conversational, fewer than three meaningful messages exist, or pacing must be brief.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "msg1": {
-          "type": "string",
-          "title": "Message 1 (received)",
-          "description": "First message — left/received by default. Append |in or |out to override side. Aim for 3-4 messages total; use 5 with date chips only for a real time gap in a 10s+ scene.",
-          "default": "Have you tried it yet?"
-        },
-        "msg2": {
-          "type": "string",
-          "title": "Message 2 (sent)",
-          "description": "Second message — right/sent by default via |out. Replace the suffix with |in only when the grounded exchange requires it.",
-          "default": "Yes — it saves me hours|out"
-        },
-        "msg3": {
-          "type": "string",
-          "title": "Message 3 (received)",
-          "description": "Third message — left/received by default. Leave blank for a two-message exchange.",
-          "default": "Okay, send me the link"
-        },
-        "msg4": {
-          "type": "string",
-          "title": "Message 4 (sent)",
-          "description": "Fourth message — right/sent by default. Optional; most chats end here.",
-          "examples": [
-            "Sounds great — sharing access now"
-          ],
-          "default": ""
-        },
-        "dateChip1": {
-          "type": "string",
-          "title": "Date chip 1",
-          "description": "Optional date label before message 4. Use only for a real time gap.",
-          "default": ""
-        },
-        "dateChip2": {
-          "type": "string",
-          "title": "Date chip 2",
-          "description": "Optional date label before message 5. Use only for a real time gap.",
-          "default": ""
-        },
-        "msg5": {
-          "type": "string",
-          "title": "Message 5 (sent)",
-          "description": "Optional fifth message — right/sent by default.",
-          "default": ""
-        },
-        "theme": {
-          "type": "string",
-          "title": "Conversation theme",
-          "enum": [
-            "messenger",
-            "whatsapp"
-          ],
-          "default": "messenger"
-        }
-      },
-      "required": [
-        "msg1",
-        "msg2",
-        "msg3"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 5,
-    "preferredDuration": 8,
-    "timing": {
-      "contentFields": [
-        "msg1",
-        "msg2",
-        "msg3",
-        "msg4",
-        "msg5"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "chatWhatsapp",
-    "label": "WhatsApp chat",
-    "description": "A staggered WhatsApp-style conversation with three to five message bubbles.",
-    "family": "Social & messaging",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "mockup-led",
-    "useWhen": "A grounded customer-service or personal back-and-forth is naturally associated with WhatsApp.",
-    "avoidWhen": "The source is not conversational, fewer than three meaningful messages exist, or pacing must be brief.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "msg1": {
-          "type": "string",
-          "title": "Message 1 (received)",
-          "description": "First message — left/received by default. Append |in or |out to override side. Aim for 3-4 messages total; use 5 with date chips only for a real time gap in a 10s+ scene.",
-          "default": "Have you tried it yet?"
-        },
-        "msg2": {
-          "type": "string",
-          "title": "Message 2 (sent)",
-          "description": "Second message — right/sent by default via |out. Replace the suffix with |in only when the grounded exchange requires it.",
-          "default": "Yes — it saves me hours|out"
-        },
-        "msg3": {
-          "type": "string",
-          "title": "Message 3 (received)",
-          "description": "Third message — left/received by default. Leave blank for a two-message exchange.",
-          "default": "Okay, send me the link"
-        },
-        "msg4": {
-          "type": "string",
-          "title": "Message 4 (sent)",
-          "description": "Fourth message — right/sent by default. Optional; most chats end here.",
-          "examples": [
-            "Sounds great — sharing access now"
-          ],
-          "default": ""
-        },
-        "dateChip1": {
-          "type": "string",
-          "title": "Date chip 1",
-          "description": "Optional date label before message 4. Use only for a real time gap.",
-          "default": ""
-        },
-        "dateChip2": {
-          "type": "string",
-          "title": "Date chip 2",
-          "description": "Optional date label before message 5. Use only for a real time gap.",
-          "default": ""
-        },
-        "msg5": {
-          "type": "string",
-          "title": "Message 5 (sent)",
-          "description": "Optional fifth message — right/sent by default.",
-          "default": ""
-        },
-        "theme": {
-          "type": "string",
-          "title": "Conversation theme",
-          "enum": [
-            "messenger",
-            "whatsapp"
-          ],
-          "default": "whatsapp"
-        }
-      },
-      "required": [
-        "msg1",
-        "msg2",
-        "msg3"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 5,
-    "preferredDuration": 8,
-    "timing": {
-      "contentFields": [
-        "msg1",
-        "msg2",
-        "msg3",
-        "msg4",
-        "msg5"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "milestone",
-    "label": "Milestone",
-    "description": "A large count-up achievement with an optional celebratory badge.",
-    "family": "Data & metrics",
-    "jobs": [
-      "proof",
-      "payoff"
-    ],
-    "register": "typography-led",
-    "useWhen": "An exact grounded achievement count marks users, revenue, years, installs, customers, or adoption.",
-    "avoidWhen": "The value is a release number, price, unbounded percentage, or not an achievement count.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "label": {
-          "type": "string",
-          "title": "Label",
-          "description": "Short label above the number (e.g. Followers, Subscribers, Downloads; 32 characters maximum).",
-          "minLength": 1,
-          "maxLength": 32,
-          "default": "Followers"
-        },
-        "targetNumber": {
-          "type": "number",
-          "title": "Target number",
-          "description": "The milestone number to reach",
-          "default": 10000
-        },
-        "startNumber": {
-          "type": "number",
-          "title": "Start number",
-          "description": "Number the counter starts rolling from. Defaults to 0.",
-          "default": 0
-        },
-        "badgeText": {
-          "type": "string",
-          "title": "Badge text",
-          "description": "Concise celebration badge text that pops in at the milestone (32 characters maximum).",
-          "maxLength": 32,
-          "examples": [
-            "10K Followers!"
-          ],
-          "default": ""
-        },
-        "badgeEmoji": {
-          "type": "string",
-          "title": "Badge emoji",
-          "description": "Emoji shown in the celebration badge",
-          "format": "emoji",
-          "maxLength": 16,
-          "default": "🎉"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "label",
-        "targetNumber"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiresStat": true,
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "label",
-        "badgeText"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "reviewStack",
-    "label": "Review stack",
-    "description": "Three staggered review cards with titles, quotes, authors, and star ratings.",
-    "family": "Social & messaging",
-    "jobs": [
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "Three grounded review excerpts should land together as a stacked social-proof sequence.",
-    "avoidWhen": "Fewer than three grounded review excerpts exist or their exact quoted language is missing.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "review1Title": {
-          "type": "string",
-          "title": "Review 1 — Title",
-          "description": "Headline of the first review",
-          "format": "grounded-quote",
-          "default": "Life changing app"
-        },
-        "review1Body": {
-          "type": "string",
-          "title": "Review 1 — Body",
-          "description": "Body text of the first review",
-          "examples": [
-            "Been using this for a month and can't imagine going back"
-          ],
-          "format": "grounded-quote",
-          "default": ""
-        },
-        "review1Author": {
-          "type": "string",
-          "title": "Review 1 — Author",
-          "description": "Author name for the first review",
-          "examples": [
-            "Sarah M."
-          ],
-          "default": ""
-        },
-        "review2Title": {
-          "type": "string",
-          "title": "Review 2 — Title",
-          "description": "Headline of the second review",
-          "format": "grounded-quote",
-          "default": "Best in class"
-        },
-        "review2Body": {
-          "type": "string",
-          "title": "Review 2 — Body",
-          "description": "Body text of the second review",
-          "examples": [
-            "Finally an app that just works. No bloat, no nonsense."
-          ],
-          "format": "grounded-quote",
-          "default": ""
-        },
-        "review2Author": {
-          "type": "string",
-          "title": "Review 2 — Author",
-          "description": "Author name for the second review",
-          "examples": [
-            "Mike R."
-          ],
-          "default": ""
-        },
-        "review3Title": {
-          "type": "string",
-          "title": "Review 3 — Title",
-          "description": "Headline of the third review",
-          "format": "grounded-quote",
-          "default": "Exceeded expectations"
-        },
-        "review3Body": {
-          "type": "string",
-          "title": "Review 3 — Body",
-          "description": "Body text of the third review",
-          "examples": [
-            "Worth every penny. The team clearly cares about quality."
-          ],
-          "format": "grounded-quote",
-          "default": ""
-        },
-        "review3Author": {
-          "type": "string",
-          "title": "Review 3 — Author",
-          "description": "Author name for the third review",
-          "examples": [
-            "Alex K."
-          ],
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "review1Title",
-        "review2Title",
-        "review3Title"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
+    "useWhen": "A person or organization reaches out with a short message, alert or invitation. Message must be supplied or explicitly illustrative.",
+    "avoidWhen": "The scene is a generic fact, a long exchange, or a message that would fabricate evidence.",
     "minDuration": 4,
     "preferredDuration": 6,
     "timing": {
       "contentFields": [
-        "review1Title",
-        "review1Body",
-        "review2Title",
-        "review2Body",
-        "review3Title",
-        "review3Body"
+        "message",
+        "app"
       ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "testimonial",
-    "label": "Testimonial",
-    "description": "A single customer quote card with author name, role, and avatar.",
-    "family": "Social & messaging",
-    "jobs": [
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "One exact attributed testimonial, review, or named endorsement is the strongest proof point.",
-    "avoidWhen": "The quote or attribution is not present verbatim in the source, or several reviews matter equally.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
+      "contentUnit": "words",
+      "revealSeconds": 1,
+      "holdSeconds": 2.2,
+      "exitSeconds": 0
+    },
     "schema": {
       "type": "object",
       "properties": {
-        "quote": {
-          "type": "string",
-          "title": "Quote",
-          "description": "Quote text",
-          "format": "grounded-quote",
-          "default": "Best decision I made this year. Our conversion rate doubled in the first week."
-        },
-        "authorName": {
-          "type": "string",
-          "title": "Author name",
-          "description": "Name of the person being quoted",
-          "default": "Jessica Torres"
-        },
-        "authorRole": {
-          "type": "string",
-          "title": "Role / title",
-          "description": "Job title or description below the name",
-          "examples": [
-            "VP of Marketing, Acme Inc"
-          ],
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
         "mediaKeyword": {
           "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
           "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "quote",
-        "authorName"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "quote",
-        "authorName",
-        "authorRole"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "incomingCall",
-    "label": "Incoming call",
-    "description": "A full-screen phone-call interface presents the caller as a dramatic interruption.",
-    "family": "Social & messaging",
-    "jobs": [
-      "setup",
-      "punctuation"
-    ],
-    "register": "card-led",
-    "useWhen": "An urgent, interruptive, comeback, or dramatic moment can be personified as a call.",
-    "avoidWhen": "The story is calm, formal, or better served by a literal notification or direct message.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "callerName": {
-          "type": "string",
-          "title": "Caller name",
-          "description": "Brand or product shown as the caller. One to three words reads best; 40 characters maximum.",
           "minLength": 1,
-          "maxLength": 40,
-          "default": "Your brand"
-        },
-        "subtitle": {
-          "type": "string",
-          "title": "Subtitle",
-          "description": "Smaller single-line text below the caller name (28 characters maximum).",
-          "maxLength": 28,
-          "default": "is calling...."
-        },
-        "declineLabel": {
-          "type": "string",
-          "title": "Decline label",
-          "description": "Short label below the red button (12 characters maximum).",
-          "maxLength": 12,
-          "default": "Decline"
-        },
-        "acceptLabel": {
-          "type": "string",
-          "title": "Accept label",
-          "description": "Short label below the green button (12 characters maximum).",
-          "maxLength": 12,
-          "default": "Accept"
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
         },
         "mediaUrl": {
           "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
           "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
+          "description": "Host-only approved photo or video URL.",
           "default": ""
         },
         "mediaType": {
           "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
           "enum": [
-            "auto",
             "photo",
-            "video",
-            "gradient"
+            "video"
           ],
-          "default": "auto"
+          "default": "video",
+          "description": "Host-resolved asset kind."
         },
         "mediaPoster": {
           "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
           "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
           "default": ""
         },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "callerName"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "callerName",
-        "subtitle"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "brandMessage",
-    "label": "Brand message",
-    "description": "A single iMessage-style outgoing bubble floats over media or a brand gradient.",
-    "family": "Social & messaging",
-    "jobs": [
-      "claim"
-    ],
-    "register": "card-led",
-    "useWhen": "A direct one-to-one thank-you, invitation, promise, or concise launch note is the point.",
-    "avoidWhen": "The scene needs explanation, structured proof, a conversation, or a generic filler line.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
         "message": {
           "type": "string",
-          "title": "Message",
-          "description": "The brand-voiced message rendered as a single iMessage-style outgoing bubble (right side, cream) over the media background. 4-12 words reads best — short messages produce a tight bubble; longer ones wrap inside the 75% width cap. Examples: 'We built this for you.', 'Thanks for being here.', 'See what's new this week.'",
-          "default": "We built this for you."
+          "maxLength": 120,
+          "default": "Can we talk?",
+          "description": "Exact supplied or explicitly illustrative message, preferably6–16words."
         },
-        "mediaUrl": {
+        "app": {
           "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
+          "maxLength": 24,
+          "default": "Messages",
+          "description": "Optional app label; Messages is the visualdefault."
         },
-        "mediaKeyword": {
+        "mediaSource": {
           "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
           "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
+            "generate",
+            "stock"
           ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
         }
       },
       "required": [
         "message"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "message"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "promptInput",
-    "label": "Prompt input",
-    "description": "An AI prompt pill expands and types a user instruction over a branded background.",
-    "family": "Product showcase",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "Prompting, asking an AI, or describing an intended result is central to the product workflow.",
-    "avoidWhen": "The product is not prompt-driven or the source provides no meaningful prompt to demonstrate.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "promptText": {
-          "type": "string",
-          "title": "Prompt text",
-          "description": "Example prompt that types into the AI prompt bar. Use 3-7 words and at most 40 characters so the full prompt stays legible in both orientations (e.g. 'Make a launch video for our app').",
-          "minLength": 1,
-          "maxLength": 40,
-          "default": "Make a launch video for our app"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "promptText"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2.5,
-    "preferredDuration": 4,
-    "timing": {
-      "contentFields": [
-        "promptText"
-      ],
-      "contentUnit": "characters"
-    }
-  },
-  {
-    "id": "beforeAfter",
-    "label": "Before and after",
-    "description": "Two contrasting states trade places in a split transformation layout.",
-    "family": "Explainers",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "motion-led",
-    "useWhen": "A grounded transformation contrasts an old and new state, manual and automated, or chaos and order.",
-    "avoidWhen": "The source lacks two distinct states or the comparison depends on exact labeled quantities.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "problemLabel": {
-          "type": "string",
-          "title": "Before label",
-          "description": "Short uppercase pill label shown above the before headline (12 characters maximum).",
-          "maxLength": 12,
-          "default": "BEFORE"
-        },
-        "problemHeadline": {
-          "type": "string",
-          "title": "Before headline",
-          "description": "Headline shown during the before phase. Use 2-5 words and at most 48 characters. Sits centered beneath the BEFORE pill.",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Your calendar today."
-        },
-        "solutionLabel": {
-          "type": "string",
-          "title": "After label",
-          "description": "Short uppercase pill label shown above the after headline (12 characters maximum).",
-          "maxLength": 12,
-          "default": "AFTER"
-        },
-        "solutionHeadline": {
-          "type": "string",
-          "title": "After headline",
-          "description": "Headline shown during the after phase. Use 2-5 words and at most 48 characters. Sits centered beneath the AFTER pill.",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "Calmly organized."
-        },
-        "problemEmojis": {
-          "type": "array",
-          "title": "Before emojis",
-          "description": "JSON array of emojis for the chaos / before state (5-8 types, cycled to fill 16 slots distributed around the central text). Example: [\"📅\", \"😰\", \"💼\", \"📊\", \"⏰\", \"💬\", \"📞\", \"🔔\"]",
-          "items": {
-            "type": "string",
-            "format": "emoji",
-            "minLength": 1,
-            "maxLength": 16
-          },
-          "minItems": 5,
-          "maxItems": 8,
-          "default": [
-            "📅",
-            "😰",
-            "💼",
-            "📊",
-            "⏰",
-            "💬",
-            "📞",
-            "🔔"
-          ]
-        },
-        "solutionEmojis": {
-          "type": "array",
-          "title": "After emojis",
-          "description": "JSON array of emojis for the calm / after state (3-5 types, cycled to fill 16 slots distributed around the central text). Example: [\"✨\", \"📋\", \"✅\", \"🎯\"]",
-          "items": {
-            "type": "string",
-            "format": "emoji",
-            "minLength": 1,
-            "maxLength": 16
-          },
-          "minItems": 3,
-          "maxItems": 5,
-          "default": [
-            "✨",
-            "📋",
-            "✅",
-            "🎯"
-          ]
-        },
-        "showEmojis": {
-          "type": "boolean",
-          "title": "Show decorative emojis",
-          "description": "Show the animated emoji scatter. Disable for sober financial or editorial comparisons.",
-          "default": true
-        }
-      },
-      "required": [
-        "problemHeadline",
-        "solutionHeadline",
-        "problemEmojis",
-        "solutionEmojis"
-      ],
-      "additionalProperties": false
-    },
-    "minDuration": 3,
-    "preferredDuration": 4.5,
-    "timing": {
-      "contentFields": [
-        "problemHeadline",
-        "solutionHeadline"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "tripleStats",
-    "label": "Triple stats",
-    "description": "Exactly three peer values and labels appear as a balanced metric row.",
-    "family": "Data & metrics",
-    "jobs": [
-      "claim",
-      "proof"
-    ],
-    "register": "typography-led",
-    "useWhen": "Exactly three grounded peer metrics or compact specs carry comparable importance.",
-    "avoidWhen": "One value is the hero, the values are not comparable, or fewer than three grounded facts exist.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Concise title above the three metrics (48 characters maximum).",
-          "minLength": 1,
-          "maxLength": 48,
-          "default": "By the numbers."
-        },
-        "stat1Value": {
-          "type": "string",
-          "title": "Stat 1 value",
-          "description": "First compact stat value (e.g. 10K, 99.9%, $2M; 12 characters maximum).",
-          "minLength": 1,
-          "maxLength": 12,
-          "default": "10K"
-        },
-        "stat1Label": {
-          "type": "string",
-          "title": "Stat 1 label",
-          "description": "Short label below the first number (24 characters maximum).",
-          "minLength": 1,
-          "maxLength": 24,
-          "default": "Users"
-        },
-        "stat2Value": {
-          "type": "string",
-          "title": "Stat 2 value",
-          "description": "Second compact stat value (12 characters maximum).",
-          "minLength": 1,
-          "maxLength": 12,
-          "default": "99.9%"
-        },
-        "stat2Label": {
-          "type": "string",
-          "title": "Stat 2 label",
-          "description": "Short label below the second number (24 characters maximum).",
-          "minLength": 1,
-          "maxLength": 24,
-          "default": "Uptime"
-        },
-        "stat3Value": {
-          "type": "string",
-          "title": "Stat 3 value",
-          "description": "Third compact stat value (12 characters maximum).",
-          "minLength": 1,
-          "maxLength": 12,
-          "default": "<50ms"
-        },
-        "stat3Label": {
-          "type": "string",
-          "title": "Stat 3 label",
-          "description": "Short label below the third number (24 characters maximum).",
-          "minLength": 1,
-          "maxLength": 24,
-          "default": "Latency"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "stat1Value",
-        "stat1Label",
-        "stat2Value",
-        "stat2Label",
-        "stat3Value",
-        "stat3Label"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiresStat": true,
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3,
-    "timing": {
-      "contentFields": [
-        "texts",
-        "stat1Label",
-        "stat2Label",
-        "stat3Label"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "problemSolution",
-    "label": "Problem and solution",
-    "description": "A problem card transitions into a paired solution card.",
-    "family": "Explainers",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "The story contains one crisp, literal pain statement and one corresponding solution statement.",
-    "avoidWhen": "The source is a broad announcement or lacks a specific pain-and-fix pair.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "problemLabel": {
-          "type": "string",
-          "title": "Problem label",
-          "description": "Short uppercase label shown above the problem text (16 characters maximum).",
-          "maxLength": 16,
-          "default": "THE PROBLEM"
-        },
-        "problemText": {
-          "type": "string",
-          "title": "Problem",
-          "description": "The problem statement — keep it punchy, 1 sentence",
-          "default": "Teams waste 40% of time in meetings"
-        },
-        "solutionLabel": {
-          "type": "string",
-          "title": "Solution label",
-          "description": "Short uppercase label shown above the solution text (16 characters maximum).",
-          "maxLength": 16,
-          "default": "THE SOLUTION"
-        },
-        "solutionText": {
-          "type": "string",
-          "title": "Solution",
-          "description": "The solution statement — your value prop in 1 sentence",
-          "default": "AI that summarizes in seconds"
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "problemText",
-        "solutionText"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 3,
-    "preferredDuration": 5.5,
-    "timing": {
-      "contentFields": [
-        "problemText",
-        "solutionText"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "cardList",
-    "label": "Card list",
-    "description": "Two or three parallel facts appear as stacked icon cards beneath a headline.",
-    "family": "Explainers",
-    "jobs": [
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "Two or three grounded features, benefits, use cases, integrations, or parallel facts need structure.",
-    "avoidWhen": "The facts are sequential, fewer than two exist, or one idea deserves the whole scene.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text",
-          "default": "What you get.",
-          "maxLength": 48
-        },
-        "items": {
-          "type": "array",
-          "title": "Features",
-          "description": "JSON array of 2 or 3 feature descriptions. Send only the facts the evidence supports — never pad the list to reach three. Items often contain commas, so send an array rather than comma-joined text.",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 2,
-          "maxItems": 3,
-          "default": [
-            "Automate your savings on energy bills",
-            "Cleaner energy without raising your bill",
-            "Same account and service guaranteed"
-          ]
-        },
-        "itemEmojis": {
-          "type": "array",
-          "title": "Feature emojis",
-          "description": "JSON array of emojis, one per feature row (optional). Rows without an emoji fall back to ✦.",
-          "examples": [
-            [
-              "💰",
-              "⚡",
-              "🔒"
-            ]
-          ],
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 3,
-          "default": []
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "items"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3.5,
-    "timing": {
-      "contentFields": [
-        "items"
-      ],
-      "contentUnit": "items"
-    }
-  },
-  {
-    "id": "steps",
-    "label": "Steps",
-    "description": "Two or three ordered workflow steps reveal as a vertical sequence.",
-    "family": "Explainers",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "Two or three grounded actions form a real sequence, workflow, or how-it-works explanation.",
-    "avoidWhen": "Order does not matter, fewer than two steps exist, or the content is a parallel feature list.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": true,
-    "textCanvas": "tight",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "texts": {
-          "type": "string",
-          "title": "Text",
-          "description": "Title text",
-          "default": "How it works.",
-          "maxLength": 48
-        },
-        "steps": {
-          "type": "array",
-          "title": "Steps",
-          "description": "JSON array of 2 or 3 step labels. Send only the steps the evidence supports — never pad the sequence to reach three. Keep each label to 1-2 words and at most 18 characters. Send as an array so labels with internal punctuation render correctly. Example: [\"Capture\", \"Detect\", \"Notify\"]",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 2,
-          "maxItems": 3,
-          "default": [
-            "Describe",
-            "Preview",
-            "Export"
-          ]
-        },
-        "stepEmojis": {
-          "type": "array",
-          "title": "Step emojis",
-          "description": "JSON array of emojis, one per step (optional). Leave empty for numbered circles. Example: [\"✍️\", \"👀\", \"🚀\"]",
-          "examples": [
-            [
-              "✍️",
-              "👀",
-              "🚀"
-            ]
-          ],
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 3,
-          "default": []
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "texts",
-        "steps"
-      ],
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "allowsStockMedia": true
-      }
-    },
-    "minDuration": 2,
-    "preferredDuration": 3.5,
-    "timing": {
-      "contentFields": [
-        "steps"
-      ],
-      "contentUnit": "items"
-    }
-  },
-  {
-    "id": "ctaLogo",
-    "label": "Logo close",
-    "description": "A minimal brand name, URL, and call to action close the video.",
-    "family": "Calls to action",
-    "jobs": [
-      "ask"
-    ],
-    "register": "typography-led",
-    "useWhen": "The video already carries enough visual energy and needs a restrained branded final action.",
-    "avoidWhen": "No brand or next action is grounded, or the close needs a cinematic media-backed final beat.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "url": {
-          "type": "string",
-          "title": "URL",
-          "description": "Optional address shown below the CTA.",
-          "examples": [
-            "yoursite.com"
-          ],
-          "default": ""
-        },
-        "cta": {
-          "type": "string",
-          "title": "CTA",
-          "description": "Optional action line shown above the URL. Keep it to four words.",
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "additionalProperties": false,
-      "x-vanillasky": {
-        "requiredAnyOf": [
-          [
-            "cta",
-            "url"
-          ]
-        ]
-      }
-    },
-    "minDuration": 3,
-    "preferredDuration": 3.5,
-    "timing": {
-      "contentFields": [
-        "url",
-        "cta"
-      ],
-      "contentUnit": "words"
-    }
-  },
-  {
-    "id": "ctaMedia",
-    "label": "Media close",
-    "description": "A cinematic media-backed headline, URL, and call to action close the video.",
-    "family": "Calls to action",
-    "jobs": [
-      "ask"
-    ],
-    "register": "typography-led",
-    "useWhen": "A launch or reveal benefits from one final visual beat behind a grounded next action.",
-    "avoidWhen": "No media can be resolved, no next action is grounded, or a restrained logo close is enough.",
-    "usesGlobalTextEffect": true,
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    },
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "open",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "headline": {
-          "type": "string",
-          "title": "Headline",
-          "description": "The big closing message. Two to seven words reads best.",
-          "default": "Make every moment count"
-        },
-        "url": {
-          "type": "string",
-          "title": "URL",
-          "description": "Optional address shown below the CTA.",
-          "examples": [
-            "www.yoursite.com"
-          ],
-          "default": ""
-        },
-        "cta": {
-          "type": "string",
-          "title": "CTA",
-          "description": "Optional action line shown above the URL. Keep it to four words.",
-          "default": ""
-        },
-        "mediaUrl": {
-          "type": "string",
-          "title": "Background media",
-          "description": "Optional photo or video URL behind this scene. When set, replaces the brand gradient.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaKeyword": {
-          "type": "string",
-          "title": "Background search keyword",
-          "description": "2-4 word English term for stock-media search (auto-fills mediaUrl).",
-          "format": "stock-media-keyword",
-          "default": ""
-        },
-        "mediaType": {
-          "type": "string",
-          "title": "Background media type",
-          "description": "auto detects photo/video from URL. 'gradient' is a deliberate mode — atmospheric brand-color scene with no stock footage.",
-          "enum": [
-            "auto",
-            "photo",
-            "video",
-            "gradient"
-          ],
-          "default": "auto"
-        },
-        "mediaPoster": {
-          "type": "string",
-          "title": "Background poster image",
-          "description": "Still image URL shown while a video backdrop is decoding its first frame. A media resolver can supply a poster alongside a video mediaUrl. Hides the gradient flash that would otherwise appear in the ~50–400ms gap between a <video> mounting and decoding its first frame.",
-          "format": "uri",
-          "default": ""
-        },
-        "mediaPosition": {
-          "type": "string",
-          "title": "Background focal position",
-          "description": "Controls which part of a photo or video stays visible when cover-cropped. Pick the subject's side or vertical anchor after inspecting the frame.",
-          "enum": [
-            "center",
-            "top",
-            "bottom",
-            "left",
-            "right"
-          ],
-          "default": "center"
-        },
-        "mediaTreatment": {
-          "type": "string",
-          "title": "Background contrast treatment",
-          "description": "none leaves the picture untouched, for a scene carrying no type; subtle preserves a visual hero; cinematic adds balanced contrast; text-safe adds a stronger wash for copy-heavy scenes.",
-          "enum": [
-            "none",
-            "subtle",
-            "cinematic",
-            "text-safe"
-          ],
-          "default": "cinematic"
-        }
-      },
-      "required": [
-        "headline"
       ],
       "additionalProperties": false,
       "x-vanillasky": {
         "allowsStockMedia": true,
         "requiredAnyOf": [
           [
-            "cta",
-            "url"
-          ],
-          [
+            "mediaKeyword",
             "mediaUrl"
           ]
         ]
       }
-    },
-    "minDuration": 3,
-    "preferredDuration": 4,
+    }
+  },
+  {
+    "label": "Comparison",
+    "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "comparison",
+    "family": "Explainers",
+    "jobs": [
+      "proof"
+    ],
+    "register": "motion-led",
+    "useWhen": "Explain a before/after change or two alternatives with short parallel statements. ",
+    "avoidWhen": "There are more than two alternatives or a numerical chart is needed.",
+    "minDuration": 4,
+    "preferredDuration": 6,
     "timing": {
       "contentFields": [
-        "headline",
-        "url",
-        "cta"
+        "leftText",
+        "rightText",
+        "leftLabel",
+        "rightLabel"
       ],
-      "contentUnit": "words"
+      "contentUnit": "words",
+      "revealSeconds": 1.2,
+      "holdSeconds": 2.5,
+      "exitSeconds": 0
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "leftLabel": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Optional shortidentifier for the first alternative."
+        },
+        "rightLabel": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Optional shortidentifier for the second alternative."
+        },
+        "leftText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "default": "More distractions",
+          "description": "First real alternative in one shortphrase."
+        },
+        "rightText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "default": "More room to think",
+          "description": "Second real alternative, parallel to the first."
+        }
+      },
+      "required": [
+        "leftText",
+        "rightText"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "label": "Quote",
+    "description": "A short exact quotation with a legible attribution on black.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "quote",
+    "family": "Explainers",
+    "jobs": [
+      "proof"
+    ],
+    "register": "motion-led",
+    "useWhen": "A supplied quotation deserves its own moment. Use exact source words and attribution only.",
+    "avoidWhen": "No exact quotation or reliable attribution is supplied; never invent testimony.",
+    "minDuration": 5,
+    "preferredDuration": 7,
+    "timing": {
+      "contentFields": [
+        "quote",
+        "attribution"
+      ],
+      "contentUnit": "words",
+      "revealSeconds": 1.2,
+      "holdSeconds": 3,
+      "exitSeconds": 0
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "format": "grounded-quote",
+          "examples": [
+            "Look closely. There is always more to see."
+          ],
+          "description": "Exact supplied quotation; do not paraphrase or invent."
+        },
+        "attribution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "examples": [
+            "Illustrative example"
+          ],
+          "description": "Grounded attribution belonging to these exact quotedwords."
+        }
+      },
+      "required": [
+        "quote",
+        "attribution"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "label": "Key figure",
+    "description": "One supplied figure with one short label on black.",
+    "usesGlobalTextEffect": false,
+    "usesGlobalTransition": false,
+    "usesGlobalBackgroundEffect": false,
+    "textCanvas": "tight",
+    "id": "keyFigure",
+    "family": "Explainers",
+    "jobs": [
+      "proof"
+    ],
+    "register": "motion-led",
+    "useWhen": "One verified quantity or supplied target anchors the explanation. Value, unit and context must match supplied evidence.",
+    "avoidWhen": "No reliable figure is supplied or multiple values require a chart.",
+    "minDuration": 4,
+    "preferredDuration": 5,
+    "timing": {
+      "contentFields": [
+        "value",
+        "label"
+      ],
+      "contentUnit": "words",
+      "revealSeconds": 0.8,
+      "holdSeconds": 2.5,
+      "exitSeconds": 0
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 14,
+          "format": "grounded-stat",
+          "examples": [
+            "42%"
+          ],
+          "description": "One supplied supported quantity, preserving its unit."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "examples": [
+            "Illustrative example"
+          ],
+          "description": "Exactly one shortlabel identifying the quantity and its context."
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false,
+      "x-vanillasky": {
+        "requiresStat": true
+      }
     }
   }
 ] as const satisfies readonly SceneTemplateMetadata[];

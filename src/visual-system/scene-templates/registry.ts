@@ -6,76 +6,16 @@
  */
 
 import type { SceneTemplate, SceneTemplateMetadata } from "../catalog/types";
-// ─── App templates ──────────────────────────────────────────
-// ─── Background templates ────────────────────────────────────
-import { BgMediaTemplate } from "./bg-media";
-import { BgConfettiTemplate } from "./bg-confetti";
-import { BgEmojiTemplate } from "./bg-emoji";
-import { ReactionTemplate } from "./reaction";
-// ─── Chart templates ─────────────────────────────────────────
-import { ChartCounterTemplate } from "./chart-counter";
-import { ChartBarTemplate } from "./chart-bar";
-import { ChartProgressRingTemplate } from "./chart-progress-ring";
-// ─── Showcase templates ──────────────────────────────────────
-import { ShowcasePhoneTemplate } from "./showcase-phone";
-import { ShowcaseWebTemplate } from "./showcase-web";
-import { ShowcaseTerminalTemplate } from "./showcase-terminal";
-import { ShowcaseCodeTemplate } from "./showcase-code";
-// ─── Infographic templates ────────────────────────────────────
-import { InfographicStepsTemplate } from "./infographic-steps";
-// InfographicFeatureGrid (emojiGrid) removed — cardList works better
-import { InfographicFeatureListTemplate } from "./infographic-feature-list";
-import { InfographicProblemSolutionTemplate } from "./infographic-problem-solution";
-import { InfographicStatRowTemplate } from "./infographic-stat-row";
-import { InfographicBeforeAfterTemplate } from "./infographic-before-after";
-// ─── CTA templates ──────────────────────────────────────────
-import { CtaLogoTemplate } from "./cta-logo";
-import { CtaMediaTemplate } from "./cta-media";
-// ─── Social templates ────────────────────────────────────────
-import { SocialTweetTemplate } from "./social-tweet";
-import { SocialConversationTemplate } from "./social-conversation";
-import { SocialNotificationTemplate } from "./social-notification";
-import { SocialTestimonialTemplate } from "./social-testimonial";
-import { SocialReviewStackTemplate } from "./social-review-stack";
-import { SocialMilestoneTemplate } from "./social-milestone";
-import { IncomingCallTemplate } from "./incoming-call";
-import { BrandMessageTemplate } from "./brand-message";
-import { PromptInputTemplate } from "./prompt-input";
-import {
-  BUILTIN_TEMPLATE_MANIFEST,
-  type BuiltinTemplateId,
-} from "../catalog/builtin-manifest";
-
-const components = {
-  media: BgMediaTemplate,
-  reaction: ReactionTemplate,
-  confetti: BgConfettiTemplate,
-  emojiBurst: BgEmojiTemplate,
-  bigNumber: ChartCounterTemplate,
-  barChart: ChartBarTemplate,
-  progressRing: ChartProgressRingTemplate,
-  phoneMockup: ShowcasePhoneTemplate,
-  webMockup: ShowcaseWebTemplate,
-  codeEditor: ShowcaseCodeTemplate,
-  terminal: ShowcaseTerminalTemplate,
-  tweet: SocialTweetTemplate,
-  notification: SocialNotificationTemplate,
-  chatMessenger: SocialConversationTemplate,
-  chatWhatsapp: SocialConversationTemplate,
-  milestone: SocialMilestoneTemplate,
-  reviewStack: SocialReviewStackTemplate,
-  testimonial: SocialTestimonialTemplate,
-  incomingCall: IncomingCallTemplate,
-  brandMessage: BrandMessageTemplate,
-  promptInput: PromptInputTemplate,
-  beforeAfter: InfographicBeforeAfterTemplate,
-  tripleStats: InfographicStatRowTemplate,
-  problemSolution: InfographicProblemSolutionTemplate,
-  cardList: InfographicFeatureListTemplate,
-  steps: InfographicStepsTemplate,
-  ctaLogo: CtaLogoTemplate,
-  ctaMedia: CtaMediaTemplate,
-} satisfies Record<BuiltinTemplateId, SceneTemplate["component"]>;
+import { MediaSceneTemplate } from "./cinema-media";
+import { TitleSceneTemplate } from "./chapter-title";
+import { CardsSceneTemplate } from "./focus-cards";
+import { TimelineSceneTemplate } from "./editorial-timeline";
+import { NotificationSceneTemplate } from "./mobile-message";
+import { ComparisonSceneTemplate } from "./comparison";
+import { QuoteSceneTemplate } from "./quote";
+import { KeyFigureSceneTemplate } from "./key-figure";
+import { BUILTIN_TEMPLATE_MANIFEST, type BuiltinTemplateId } from "../catalog/builtin-manifest";
+const components = {"cinemaMedia": MediaSceneTemplate, "chapterTitle": TitleSceneTemplate, "focusCards": CardsSceneTemplate, "editorialTimeline": TimelineSceneTemplate, "mobileMessage": NotificationSceneTemplate, "comparison": ComparisonSceneTemplate, "quote": QuoteSceneTemplate, "keyFigure": KeyFigureSceneTemplate} satisfies Record<BuiltinTemplateId, SceneTemplate["component"]>;
 
 const templates: readonly SceneTemplate[] = Object.freeze(
   BUILTIN_TEMPLATE_MANIFEST.map((metadata) => Object.freeze({

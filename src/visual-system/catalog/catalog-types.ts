@@ -59,6 +59,10 @@ export type TemplateFamily =
 export interface TemplateTimingMetadata {
   /** Schema fields whose rendered content may inform a future adaptive duration. */
   readonly contentFields: readonly string[];
+  /** Authored motion and uninterrupted reading minimums in seconds. */
+  readonly revealSeconds?: number;
+  readonly holdSeconds?: number;
+  readonly exitSeconds?: number;
   /** How content in contentFields should be measured; no runtime behavior is implied. */
   readonly contentUnit: "words" | "characters" | "items";
 }

@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BUILTIN_TEMPLATE_SCHEMAS } from "../src/visual-system/scene-templates/schemas";
 
 const root = resolve(import.meta.dirname, "..");
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -27,25 +26,6 @@ describe("final candidate feedback regressions", () => {
       expect(read(path), path).not.toMatch(/\/tree\/v\d/);
       expect(read(path), path).not.toMatch(/examples\/(?:react-vite|nextjs-quickstart|server-integrations)/);
     }
-  });
-
-  it("uses only real public VanillaSky APIs in the code editor default", () => {
-    const schema = BUILTIN_TEMPLATE_SCHEMAS.codeEditor;
-    const code = schema.properties.code.default;
-
-    expect(code).toContain('from "@vanillaskyai/video"');
-    expect(code).toContain("getVideoDuration");
-    expect(code).toContain("import type { Video }");
-    expect(code).not.toContain('from "vanillasky"');
-    expect(code).not.toMatch(/\bcreate\s*\(/);
-    expect(code).not.toContain("video.url");
-  });
-
-  it("uses a supported CLI command in the terminal default", () => {
-    const command = BUILTIN_TEMPLATE_SCHEMAS.terminal.properties.command.default;
-
-    expect(command).toBe("npx vanillasky templates check");
-    expect(command).not.toContain("create --");
   });
 
   it("keeps server prompt construction out of browser and test entry graphs", () => {

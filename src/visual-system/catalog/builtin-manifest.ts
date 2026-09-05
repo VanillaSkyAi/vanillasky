@@ -1,542 +1,249 @@
 import { BUILTIN_TEMPLATE_SCHEMAS } from "../scene-templates/schemas.js";
-import type {
-  SceneTemplateMetadata,
-  TemplateFamily,
-  TemplateJob,
-  TemplateRegister,
-  TemplateTimingMetadata,
-} from "./catalog-types.js";
+import type { SceneTemplateMetadata, TemplateTimingMetadata } from "./catalog-types.js";
 
-export type BuiltinTemplateId =
-  | "media"
-  | "reaction"
-  | "confetti"
-  | "emojiBurst"
-  | "bigNumber"
-  | "barChart"
-  | "progressRing"
-  | "phoneMockup"
-  | "webMockup"
-  | "codeEditor"
-  | "terminal"
-  | "tweet"
-  | "notification"
-  | "chatMessenger"
-  | "chatWhatsapp"
-  | "milestone"
-  | "reviewStack"
-  | "testimonial"
-  | "incomingCall"
-  | "brandMessage"
-  | "promptInput"
-  | "beforeAfter"
-  | "tripleStats"
-  | "problemSolution"
-  | "cardList"
-  | "steps"
-  | "ctaLogo"
-  | "ctaMedia";
+export type BuiltinTemplateId = keyof typeof BUILTIN_TEMPLATE_SCHEMAS;
+export interface BuiltinTemplateManifestEntry extends SceneTemplateMetadata { id: BuiltinTemplateId; timing: TemplateTimingMetadata; }
 
-export interface BuiltinTemplateManifestEntry extends SceneTemplateMetadata {
-  id: BuiltinTemplateId;
-  label: string;
-  description: string;
-  family: TemplateFamily;
-  jobs: TemplateJob[];
-  register: TemplateRegister;
-  useWhen: string;
-  avoidWhen: string;
-  textCanvas: "tight" | "open";
-  minDuration: number;
-  preferredDuration: number;
-  timing: TemplateTimingMetadata;
-}
-
-const OPEN_MOTION = {
-  usesGlobalTextEffect: true,
-  usesGlobalTransition: true,
-  transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-  usesGlobalBackgroundEffect: false,
-  textCanvas: "open",
-} as const;
-
-const OPEN_CARD = {
-  usesGlobalTextEffect: false,
-  usesGlobalTransition: true,
-  transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-  usesGlobalBackgroundEffect: true,
-  textCanvas: "open",
-} as const;
-
-const OPEN_ISOLATED = {
-  usesGlobalTextEffect: false,
-  usesGlobalTransition: true,
-  transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-  usesGlobalBackgroundEffect: false,
-  textCanvas: "open",
-} as const;
-
-const TIGHT_CARD = {
-  usesGlobalTextEffect: false,
-  usesGlobalTransition: true,
-  transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-  usesGlobalBackgroundEffect: true,
-  textCanvas: "tight",
-} as const;
-
-const TIGHT_ISOLATED = {
-  usesGlobalTextEffect: false,
-  usesGlobalTransition: true,
-  transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-  usesGlobalBackgroundEffect: false,
-  textCanvas: "tight",
-} as const;
-
-const WITHOUT_GLOBAL_TRANSITION = {
-  usesGlobalTransition: false,
-  transitionTiming: undefined,
-} as const;
-
-/**
- * Canonical, serializable metadata for every bundled template.
- * Schemas own defaults; this manifest owns discovery, selection, and timing hints.
- */
 export const BUILTIN_TEMPLATE_MANIFEST: readonly BuiltinTemplateManifestEntry[] = [
-  {
-    id: "media",
-    label: "Full-bleed media",
-    description: "Full-bleed photo, video, or brand gradient with a centered headline.",
-    family: "Media & motion",
-    jobs: ["setup", "atmosphere", "payoff"],
-    register: "motion-led",
-    useWhen: "A visual hook, scenic beat, or concrete product-context line benefits from immersive media.",
-    avoidWhen: "The scene needs structured facts, exact comparisons, a device frame, or attributed proof.",
-    usesGlobalTextEffect: true,
-    usesGlobalTransition: true,
-    transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-    usesGlobalBackgroundEffect: true,
-    textCanvas: "open",
-    schema: BUILTIN_TEMPLATE_SCHEMAS.media,
-    minDuration: 1,
-    preferredDuration: 2,
-    timing: { contentFields: ["texts"], contentUnit: "words" },
-  },
-  {
-    id: "reaction",
-    label: "Reaction clip",
-    description: "Full-bleed reaction video with a short meme-like punchline.",
-    family: "Media & motion",
-    jobs: ["payoff", "punctuation"],
-    register: "motion-led",
-    useWhen: "One funny, self-aware, celebratory, or dramatic beat deserves a reaction payoff.",
-    avoidWhen: "The tone is calm or formal, no supplied clip is available, or the video already uses a reaction.",
-    ...OPEN_MOTION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.reaction,
-    minDuration: 2.5,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts"], contentUnit: "words" },
-  },
-  {
-    id: "confetti",
-    label: "Confetti",
-    description: "Falling confetti over a brand gradient with a centered headline.",
-    family: "Media & motion",
-    jobs: ["payoff", "punctuation"],
-    register: "motion-led",
-    useWhen: "A launch, win, anniversary, or achievement needs a broad celebratory beat.",
-    avoidWhen: "The moment is not celebratory or a specific numeric achievement should be the visual focus.",
-    ...OPEN_MOTION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.confetti,
-    minDuration: 1,
-    preferredDuration: 2,
-    timing: { contentFields: ["texts"], contentUnit: "words" },
-  },
-  {
-    id: "emojiBurst",
-    label: "Emoji burst",
-    description: "A fixed mix of hearts, stars, rockets, sparkles, and celebration emoji bursts radially behind a headline.",
-    family: "Media & motion",
-    jobs: ["payoff", "punctuation"],
-    register: "motion-led",
-    useWhen: "A playful launch, delight, or achievement benefits from an energetic mixed-emoji celebration.",
-    avoidWhen: "A custom emoji theme is required, the tone is restrained, or falling confetti is the clearer motif.",
-    ...OPEN_MOTION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.emojiBurst,
-    minDuration: 1,
-    preferredDuration: 2,
-    timing: { contentFields: ["texts"], contentUnit: "words" },
-  },
-  {
-    id: "bigNumber",
-    label: "Big number",
-    description: "A single animated count-up metric with headline and label.",
-    family: "Data & metrics",
-    jobs: ["claim", "proof"],
-    register: "typography-led",
-    useWhen: "One exact grounded number is the hero: growth, speed, rank, customer count, or reduction.",
-    avoidWhen: "No exact number is supplied, three peer values matter equally, or the value means completion progress.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.bigNumber,
-    minDuration: 1.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["texts", "label"], contentUnit: "words" },
-  },
-  {
-    id: "barChart",
-    label: "Bar chart",
-    description: "Animated labeled bars compare grounded values beneath a headline.",
-    family: "Data & metrics",
-    jobs: ["proof"],
-    register: "motion-led",
-    useWhen: "Two or more grounded labeled values need a readable comparison, ranking, or relative-size view.",
-    avoidWhen: "Labels or exact values are missing, one metric is the hero, or the data represents progress toward a whole.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.barChart,
-    minDuration: 2,
-    preferredDuration: 4,
-    timing: { contentFields: ["bars"], contentUnit: "items" },
-  },
-  {
-    id: "progressRing",
-    label: "Progress ring",
-    description: "An animated circular progress value with headline and label.",
-    family: "Data & metrics",
-    jobs: ["proof"],
-    register: "motion-led",
-    useWhen: "An exact percentage represents completion, readiness, health, adoption, or goal progress.",
-    avoidWhen: "The percentage is a generic uplift or reduction rather than progress toward a bounded whole.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.progressRing,
-    minDuration: 2,
-    preferredDuration: 3.5,
-    timing: { contentFields: ["texts", "label"], contentUnit: "words" },
-  },
-  {
-    id: "phoneMockup",
-    label: "Phone mockup",
-    description: "One to three portrait screenshots presented inside an animated phone frame.",
-    family: "Product showcase",
-    jobs: ["proof"],
-    register: "device-led",
-    useWhen: "Supplied portrait screenshots demonstrate a mobile interface or app workflow.",
-    avoidWhen: "No real screenshot is supplied or the interface is primarily landscape or desktop-shaped.",
-    ...TIGHT_ISOLATED,
-    usesGlobalTextEffect: true,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.phoneMockup,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts", "screenCalloutText"], contentUnit: "words" },
-  },
-  {
-    id: "webMockup",
-    label: "Web mockup",
-    description: "One to three desktop screenshots presented in an animated browser or tablet frame.",
-    family: "Product showcase",
-    jobs: ["proof"],
-    register: "device-led",
-    useWhen: "Supplied landscape or square screenshots demonstrate a website, dashboard, or desktop product.",
-    avoidWhen: "No real screenshot is supplied or the interface is primarily portrait and mobile-shaped.",
-    ...TIGHT_ISOLATED,
-    usesGlobalTextEffect: true,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.webMockup,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts", "screenCalloutText"], contentUnit: "words" },
-  },
-  {
-    id: "codeEditor",
-    label: "Code editor",
-    description: "A syntax-styled editor window reveals a short code sample beneath a headline.",
-    family: "Product showcase",
-    jobs: ["proof"],
-    register: "device-led",
-    useWhen: "Code, configuration, an API, or an SDK mechanism is central to understanding the product.",
-    avoidWhen: "The source has no grounded technical detail or a shell command communicates the workflow better.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.codeEditor,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts", "code"], contentUnit: "characters" },
-  },
-  {
-    id: "terminal",
-    label: "Terminal",
-    description: "A terminal window types a command and reveals optional output lines.",
-    family: "Product showcase",
-    jobs: ["proof"],
-    register: "device-led",
-    useWhen: "A grounded command, installation, deployment, test, or status flow explains the product.",
-    avoidWhen: "The source has no real command or a multi-line code sample is the more faithful visual.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.terminal,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts", "command", "output"], contentUnit: "characters" },
-  },
-  {
-    id: "tweet",
-    label: "X post",
-    description: "An X-style text post card with author, handle, verification, replies, and likes.",
-    family: "Social & messaging",
-    jobs: ["claim", "proof"],
-    register: "card-led",
-    useWhen: "A grounded public announcement, founder update, launch quote, or concise social claim should read as a post.",
-    avoidWhen: "The copy is generic explanatory prose, attribution is missing, or visual attachments are essential.",
-    ...OPEN_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.tweet,
-    minDuration: 2.5,
-    preferredDuration: 3.5,
-    timing: { contentFields: ["authorName", "message"], contentUnit: "words" },
-  },
-  {
-    id: "notification",
-    label: "Notification",
-    description: "A compact app notification card appears over a branded background.",
-    family: "Social & messaging",
-    jobs: ["setup", "proof"],
-    register: "card-led",
-    useWhen: "A real alert, reminder, approval, completion, update, or ready-state is a product moment.",
-    avoidWhen: "The message is a broad announcement, generic explanation, or not naturally notification-shaped.",
-    ...TIGHT_CARD,
-    transitionTiming: { entryReadyProgress: 0.35, holdProgress: 0.7 },
-    schema: BUILTIN_TEMPLATE_SCHEMAS.notification,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["appName", "message"], contentUnit: "words" },
-  },
-  {
-    id: "chatMessenger",
-    label: "Messenger chat",
-    description: "A staggered Messenger-style conversation with three to five message bubbles.",
-    family: "Social & messaging",
-    jobs: ["setup", "proof"],
-    register: "mockup-led",
-    useWhen: "A grounded back-and-forth naturally explains a use case, objection, support flow, or punchline.",
-    avoidWhen: "The source is not conversational, fewer than three meaningful messages exist, or pacing must be brief.",
-    ...TIGHT_ISOLATED,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.chatMessenger,
-    minDuration: 5,
-    preferredDuration: 8,
-    timing: { contentFields: ["msg1", "msg2", "msg3", "msg4", "msg5"], contentUnit: "words" },
-  },
-  {
-    id: "chatWhatsapp",
-    label: "WhatsApp chat",
-    description: "A staggered WhatsApp-style conversation with three to five message bubbles.",
-    family: "Social & messaging",
-    jobs: ["setup", "proof"],
-    register: "mockup-led",
-    useWhen: "A grounded customer-service or personal back-and-forth is naturally associated with WhatsApp.",
-    avoidWhen: "The source is not conversational, fewer than three meaningful messages exist, or pacing must be brief.",
-    ...TIGHT_ISOLATED,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.chatWhatsapp,
-    minDuration: 5,
-    preferredDuration: 8,
-    timing: { contentFields: ["msg1", "msg2", "msg3", "msg4", "msg5"], contentUnit: "words" },
-  },
-  {
-    id: "milestone",
-    label: "Milestone",
-    description: "A large count-up achievement with an optional celebratory badge.",
-    family: "Data & metrics",
-    jobs: ["proof", "payoff"],
-    register: "typography-led",
-    useWhen: "An exact grounded achievement count marks users, revenue, years, installs, customers, or adoption.",
-    avoidWhen: "The value is a release number, price, unbounded percentage, or not an achievement count.",
-    ...OPEN_ISOLATED,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.milestone,
-    minDuration: 2.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["label", "badgeText"], contentUnit: "words" },
-  },
-  {
-    id: "reviewStack",
-    label: "Review stack",
-    description: "Three staggered review cards with titles, quotes, authors, and star ratings.",
-    family: "Social & messaging",
-    jobs: ["proof"],
-    register: "card-led",
-    useWhen: "Three grounded review excerpts should land together as a stacked social-proof sequence.",
-    avoidWhen: "Fewer than three grounded review excerpts exist or their exact quoted language is missing.",
-    ...OPEN_ISOLATED,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.reviewStack,
-    minDuration: 4,
-    preferredDuration: 6,
-    timing: { contentFields: ["review1Title", "review1Body", "review2Title", "review2Body", "review3Title", "review3Body"], contentUnit: "words" },
-  },
-  {
-    id: "testimonial",
-    label: "Testimonial",
-    description: "A single customer quote card with author name, role, and avatar.",
-    family: "Social & messaging",
-    jobs: ["proof"],
-    register: "card-led",
-    useWhen: "One exact attributed testimonial, review, or named endorsement is the strongest proof point.",
-    avoidWhen: "The quote or attribution is not present verbatim in the source, or several reviews matter equally.",
-    ...OPEN_ISOLATED,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.testimonial,
-    minDuration: 2.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["quote", "authorName", "authorRole"], contentUnit: "words" },
-  },
-  {
-    id: "incomingCall",
-    label: "Incoming call",
-    description: "A full-screen phone-call interface presents the caller as a dramatic interruption.",
-    family: "Social & messaging",
-    jobs: ["setup", "punctuation"],
-    register: "card-led",
-    useWhen: "An urgent, interruptive, comeback, or dramatic moment can be personified as a call.",
-    avoidWhen: "The story is calm, formal, or better served by a literal notification or direct message.",
-    ...OPEN_CARD,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.incomingCall,
-    minDuration: 2.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["callerName", "subtitle"], contentUnit: "words" },
-  },
-  {
-    id: "brandMessage",
-    label: "Brand message",
-    description: "A single iMessage-style outgoing bubble floats over media or a brand gradient.",
-    family: "Social & messaging",
-    jobs: ["claim"],
-    register: "card-led",
-    useWhen: "A direct one-to-one thank-you, invitation, promise, or concise launch note is the point.",
-    avoidWhen: "The scene needs explanation, structured proof, a conversation, or a generic filler line.",
-    ...OPEN_CARD,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.brandMessage,
-    minDuration: 2.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["message"], contentUnit: "words" },
-  },
-  {
-    id: "promptInput",
-    label: "Prompt input",
-    description: "An AI prompt pill expands and types a user instruction over a branded background.",
-    family: "Product showcase",
-    jobs: ["setup", "proof"],
-    register: "card-led",
-    useWhen: "Prompting, asking an AI, or describing an intended result is central to the product workflow.",
-    avoidWhen: "The product is not prompt-driven or the source provides no meaningful prompt to demonstrate.",
-    ...OPEN_CARD,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.promptInput,
-    minDuration: 2.5,
-    preferredDuration: 4,
-    timing: { contentFields: ["promptText"], contentUnit: "characters" },
-  },
-  {
-    id: "beforeAfter",
-    label: "Before and after",
-    description: "Two contrasting states trade places in a split transformation layout.",
-    family: "Explainers",
-    jobs: ["setup", "proof"],
-    register: "motion-led",
-    useWhen: "A grounded transformation contrasts an old and new state, manual and automated, or chaos and order.",
-    avoidWhen: "The source lacks two distinct states or the comparison depends on exact labeled quantities.",
-    ...OPEN_MOTION,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.beforeAfter,
-    minDuration: 3,
-    preferredDuration: 4.5,
-    timing: { contentFields: ["problemHeadline", "solutionHeadline"], contentUnit: "words" },
-  },
-  {
-    id: "tripleStats",
-    label: "Triple stats",
-    description: "Exactly three peer values and labels appear as a balanced metric row.",
-    family: "Data & metrics",
-    jobs: ["claim", "proof"],
-    register: "typography-led",
-    useWhen: "Exactly three grounded peer metrics or compact specs carry comparable importance.",
-    avoidWhen: "One value is the hero, the values are not comparable, or fewer than three grounded facts exist.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.tripleStats,
-    minDuration: 2,
-    preferredDuration: 3,
-    timing: { contentFields: ["texts", "stat1Label", "stat2Label", "stat3Label"], contentUnit: "words" },
-  },
-  {
-    id: "problemSolution",
-    label: "Problem and solution",
-    description: "A problem card transitions into a paired solution card.",
-    family: "Explainers",
-    jobs: ["setup", "proof"],
-    register: "card-led",
-    useWhen: "The story contains one crisp, literal pain statement and one corresponding solution statement.",
-    avoidWhen: "The source is a broad announcement or lacks a specific pain-and-fix pair.",
-    ...OPEN_CARD,
-    ...WITHOUT_GLOBAL_TRANSITION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.problemSolution,
-    minDuration: 3,
-    preferredDuration: 5.5,
-    timing: { contentFields: ["problemText", "solutionText"], contentUnit: "words" },
-  },
-  {
-    id: "cardList",
-    label: "Card list",
-    description: "Two or three parallel facts appear as stacked icon cards beneath a headline.",
-    family: "Explainers",
-    jobs: ["proof"],
-    register: "card-led",
-    useWhen: "Two or three grounded features, benefits, use cases, integrations, or parallel facts need structure.",
-    avoidWhen: "The facts are sequential, fewer than two exist, or one idea deserves the whole scene.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.cardList,
-    minDuration: 2,
-    preferredDuration: 3.5,
-    timing: { contentFields: ["items"], contentUnit: "items" },
-  },
-  {
-    id: "steps",
-    label: "Steps",
-    description: "Two or three ordered workflow steps reveal as a vertical sequence.",
-    family: "Explainers",
-    jobs: ["setup", "proof"],
-    register: "card-led",
-    useWhen: "Two or three grounded actions form a real sequence, workflow, or how-it-works explanation.",
-    avoidWhen: "Order does not matter, fewer than two steps exist, or the content is a parallel feature list.",
-    ...TIGHT_CARD,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.steps,
-    minDuration: 2,
-    preferredDuration: 3.5,
-    timing: { contentFields: ["steps"], contentUnit: "items" },
-  },
-  {
-    id: "ctaLogo",
-    label: "Logo close",
-    description: "A minimal brand name, URL, and call to action close the video.",
-    family: "Calls to action",
-    jobs: ["ask"],
-    register: "typography-led",
-    useWhen: "The video already carries enough visual energy and needs a restrained branded final action.",
-    avoidWhen: "No brand or next action is grounded, or the close needs a cinematic media-backed final beat.",
-    ...OPEN_ISOLATED,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.ctaLogo,
-    minDuration: 3,
-    preferredDuration: 3.5,
-    timing: { contentFields: ["url", "cta"], contentUnit: "words" },
-  },
-  {
-    id: "ctaMedia",
-    label: "Media close",
-    description: "A cinematic media-backed headline, URL, and call to action close the video.",
-    family: "Calls to action",
-    jobs: ["ask"],
-    register: "typography-led",
-    useWhen: "A launch or reveal benefits from one final visual beat behind a grounded next action.",
-    avoidWhen: "No media can be resolved, no next action is grounded, or a restrained logo close is enough.",
-    ...OPEN_MOTION,
-    schema: BUILTIN_TEMPLATE_SCHEMAS.ctaMedia,
-    minDuration: 3,
-    preferredDuration: 4,
-    timing: { contentFields: ["headline", "url", "cta"], contentUnit: "words" },
-  },
+{
+  "label": "Full-bleed",
+  "description": "Immersive photo or video without a headline.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "cinemaMedia",
+  "family": "Media & motion",
+  "jobs": [
+    "setup",
+    "atmosphere",
+    "payoff"
+  ],
+  "register": "motion-led",
+  "useWhen": "Show a relevant place, activity or subject. The asset is resolved separately from a shot description. ",
+  "avoidWhen": "No relevant asset can be resolved or the scene needs structured explanation.",
+  "minDuration": 3,
+  "preferredDuration": 6,
+  "timing": {
+    "contentFields": [],
+    "contentUnit": "words",
+    "revealSeconds": 0,
+    "holdSeconds": 3,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.cinemaMedia
+},
+{
+  "label": "Chapter",
+  "description": "Centered white typography fades in, holds, and fades out on black.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "chapterTitle",
+  "family": "Explainers",
+  "jobs": [
+    "setup",
+    "payoff"
+  ],
+  "register": "motion-led",
+  "useWhen": "An opening, new chapter or deliberate short takeaway needs its own visual beat. ",
+  "avoidWhen": "A headline would merely repeat subtitles over an ordinary footage scene.",
+  "minDuration": 3,
+  "preferredDuration": 4,
+  "timing": {
+    "contentFields": [
+      "title"
+    ],
+    "contentUnit": "words",
+    "revealSeconds": 0.8,
+    "holdSeconds": 1.5,
+    "exitSeconds": 0.8
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.chapterTitle
+},
+{
+  "label": "Focus cards",
+  "description": "Two to four short phrases fade in sequentially on black; no boxes or heading.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "focusCards",
+  "family": "Explainers",
+  "jobs": [
+    "setup",
+    "proof"
+  ],
+  "register": "card-led",
+  "useWhen": "Two to four short parallel points support an explanation. ",
+  "avoidWhen": "The points require an order, long paragraphs, numerical data or additional images to make sense.",
+  "minDuration": 4,
+  "preferredDuration": 5,
+  "timing": {
+    "contentFields": [
+      "items"
+    ],
+    "contentUnit": "items",
+    "revealSeconds": 2.4,
+    "holdSeconds": 1.8,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.focusCards
+},
+{
+  "label": "Timeline",
+  "description": "Three to five events on a fine continuous line on black; without dates.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "editorialTimeline",
+  "family": "Explainers",
+  "jobs": [
+    "setup",
+    "proof"
+  ],
+  "register": "card-led",
+  "useWhen": "Events unfold in an order, or actions form a process. No dates or heading. ",
+  "avoidWhen": "The points are unordered or the story needs branching relationships.",
+  "minDuration": 5,
+  "preferredDuration": 6,
+  "timing": {
+    "contentFields": [
+      "events"
+    ],
+    "contentUnit": "items",
+    "revealSeconds": 3.2,
+    "holdSeconds": 1.8,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.editorialTimeline
+},
+{
+  "label": "Reach out",
+  "description": "A frosted glass message over resolved media, without sender or timestamp.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "mobileMessage",
+  "family": "Social & messaging",
+  "jobs": [
+    "setup"
+  ],
+  "register": "card-led",
+  "useWhen": "A person or organization reaches out with a short message, alert or invitation. Message must be supplied or explicitly illustrative.",
+  "avoidWhen": "The scene is a generic fact, a long exchange, or a message that would fabricate evidence.",
+  "minDuration": 4,
+  "preferredDuration": 6,
+  "timing": {
+    "contentFields": [
+      "message",
+      "app"
+    ],
+    "contentUnit": "words",
+    "revealSeconds": 1,
+    "holdSeconds": 2.2,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.mobileMessage
+},
+{
+  "label": "Comparison",
+  "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "comparison",
+  "family": "Explainers",
+  "jobs": [
+    "proof"
+  ],
+  "register": "motion-led",
+  "useWhen": "Explain a before/after change or two alternatives with short parallel statements. ",
+  "avoidWhen": "There are more than two alternatives or a numerical chart is needed.",
+  "minDuration": 4,
+  "preferredDuration": 6,
+  "timing": {
+    "contentFields": [
+      "leftText",
+      "rightText",
+      "leftLabel",
+      "rightLabel"
+    ],
+    "contentUnit": "words",
+    "revealSeconds": 1.2,
+    "holdSeconds": 2.5,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.comparison
+},
+{
+  "label": "Quote",
+  "description": "A short exact quotation with a legible attribution on black.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "quote",
+  "family": "Explainers",
+  "jobs": [
+    "proof"
+  ],
+  "register": "motion-led",
+  "useWhen": "A supplied quotation deserves its own moment. Use exact source words and attribution only.",
+  "avoidWhen": "No exact quotation or reliable attribution is supplied; never invent testimony.",
+  "minDuration": 5,
+  "preferredDuration": 7,
+  "timing": {
+    "contentFields": [
+      "quote",
+      "attribution"
+    ],
+    "contentUnit": "words",
+    "revealSeconds": 1.2,
+    "holdSeconds": 3,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.quote
+},
+{
+  "label": "Key figure",
+  "description": "One supplied figure with one short label on black.",
+  "usesGlobalTextEffect": false,
+  "usesGlobalTransition": false,
+  "usesGlobalBackgroundEffect": false,
+  "textCanvas": "tight",
+  "id": "keyFigure",
+  "family": "Explainers",
+  "jobs": [
+    "proof"
+  ],
+  "register": "motion-led",
+  "useWhen": "One verified quantity or supplied target anchors the explanation. Value, unit and context must match supplied evidence.",
+  "avoidWhen": "No reliable figure is supplied or multiple values require a chart.",
+  "minDuration": 4,
+  "preferredDuration": 5,
+  "timing": {
+    "contentFields": [
+      "value",
+      "label"
+    ],
+    "contentUnit": "words",
+    "revealSeconds": 0.8,
+    "holdSeconds": 2.5,
+    "exitSeconds": 0
+  }
+,
+  schema: BUILTIN_TEMPLATE_SCHEMAS.keyFigure
+},
 ];

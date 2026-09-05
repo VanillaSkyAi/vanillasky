@@ -1,0 +1,131 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "cinemaMedia",
+  "type": "registry:block",
+  "title": "Full-bleed",
+  "description": "Immersive photo or video without a headline.",
+  "dependencies": [
+    "react"
+  ],
+  "registryDependencies": [
+    "@vanillasky/backgrounds",
+    "@vanillasky/template-context",
+    "@vanillasky/theme"
+  ],
+  "files": [
+    {
+      "path": "src/visual-system/scene-templates/cinema-media.tsx",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/cinema-media.tsx",
+      "content": "import type { SceneTemplateProps } from './types';\nimport { SceneBackground, getMediaBackgroundProps } from './scene-background';\n\n/** The shared SDK media plane owns playback, decode readiness, and poster handoff. */\nexport function MediaScene({variables,style,width,height,progress,sceneDuration,isPlaying}:SceneTemplateProps) {\n  return <div data-template=\"cinemaMedia\" style={{width,height,position:'relative',overflow:'hidden'}}>\n    <SceneBackground style={{...style,brand:{...style.brand,background:{type:'solid',color:'#000'}}}} width={width} height={height} progress={progress} sceneDuration={sceneDuration} {...getMediaBackgroundProps(variables)} mediaTreatment=\"none\" backgroundEffect=\"none\" isPlaying={isPlaying}/>\n  </div>;\n}\nexport const MediaSceneTemplate = MediaScene;\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/types.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/types.ts",
+      "content": "/**\n * Scene template types.\n *\n * A template is a reusable React component that defines how a scene looks.\n * It declares the variables an editor or model may provide\n * and receives universal settings as props.\n *\n * Templates are searchable by AI via description, category, jobs, register,\n * and useWhen guidance.\n * The variable schema enables any LLM to fill in template variables via JSON.\n */\n\nimport type { ResolvedTokens } from \"../theme\";\nimport type { SafeZone, TemplateStyle } from \"../template-context\";\n\n/**\n * Props passed to every scene template component.\n *\n * All animation must be driven by `progress` (0→1). No CSS animations,\n * no Framer Motion, no requestAnimationFrame. Use interpolate/spring\n * from animation-utils.ts.\n *\n * Scale factor: use `Math.min(width, height) / 1080` — normalizes to\n * the short edge so visuals are consistent across portrait and landscape.\n */\nexport interface SceneTemplateProps {\n  variables: Record<string, unknown>;\n  style: TemplateStyle;\n  /** 0→1 through the scene's duration */\n  progress: number;\n  /** Presentation clock. Active templates receive the same complete 0→1 timeline as progress. */\n  motionProgress?: number;\n  /** 0→1 beat pulse intensity */\n  beatIntensity: number;\n  /** 1080 (portrait) or 1920 (landscape) */\n  width: number;\n  /** 1920 (portrait) or 1080 (landscape) */\n  height: number;\n  /** Video-level default text effect (for templates that opt in via usesGlobalTextEffect) */\n  textArchetype?: string;\n  /** How text leaves the scene (fade / shrink / pop / blur-scale). Falls back to a sensible default per textArchetype when undefined. */\n  /** Video-level default background effect (for templates that opt in via usesGlobalBackgroundEffect) */\n  backgroundEffect?: string;\n  /** Platform-aware safe zone insets in pixels — use for text placement */\n  safeZone: SafeZone;\n  /** Scene duration in seconds — use for time-based (not progress-based) animations */\n  sceneDuration?: number;\n  /**\n   * Brand tokens already resolved from `style`. Built-in templates import\n   * resolveTokens directly; an ejected `custom_*` scene can't import anything,\n   * so without this it has no way to reach the same values and ends up\n   * hardcoding white, black and shadows — the body then looks generic next to\n   * a frame that IS using the brand.\n   */\n  tokens?: ResolvedTokens;\n  /**\n   * True when the preview player is actively advancing progress; false when paused.\n   * Templates that play HTML5 <video> elements should pause them when this is false.\n   * Undefined (export capture path) is treated as true.\n   */\n  isPlaying?: boolean;\n}\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/scene-background.tsx",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/scene-background.tsx",
+      "content": "/**\n * SceneBackground — shared backdrop component for any scene template that\n * wants to support both a brand-color gradient and stock media (Pexels\n * photo / video) as an alternate atmosphere.\n *\n * Usage:\n *   <SceneBackground\n *     style={style}\n *     progress={progress}\n *     sceneDuration={sceneDuration}\n *     width={width}\n *     height={height}\n *     mediaUrl={String(variables.mediaUrl || \"\")}\n *     mediaType={String(variables.mediaType || \"auto\")}\n *     seed={String(variables.texts || \"\")}\n *     isPlaying={isPlaying}\n *   />\n *   ... template's content layered on top\n *\n * Behavior:\n *   - Brand gradient is the always-on backdrop (uses BrandGradientOverlay).\n *   - When mediaUrl is set and mediaType isn't \"gradient\", the photo/video\n *     covers the gradient. Legibility is then split between two instruments:\n *     eased scrims shaped to where the template's copy sits (`textAnchor`),\n *     and a per-glyph halo on the type itself (MEDIA_TEXT_SHADOW). Neither\n *     alone can hold white type over a blown-out highlight without flattening\n *     the picture; together they do it at roughly half the darkening.\n *   - mediaType=\"gradient\" deliberately ignores mediaUrl and renders only\n *     the brand gradient. First-class atmospheric mode.\n *   - When mediaUrl is empty, 404s, is blocked, or Pexels search returned\n *     nothing, the gradient shows through cleanly and no scrim is painted —\n *     a scrim over a bare gradient is just a muddy gradient. Enforced, not\n *     assumed: the media has to load before anything darkens for it.\n *\n * Extracted from bg-media.tsx so any template can compose it. bg-media\n * now uses this component too — its \"media is the scene\" identity comes\n * from how it positions the title (centered, full-frame), not from\n * duplicated render logic.\n */\n\nimport React, { useEffect, useState } from \"react\";\nimport {\n  hasSceneMedia,\n  resolveMediaType,\n  type ResolvedMediaType,\n} from \"./media-source\";\nimport type { TemplateStyle } from \"../template-context\";\nimport { BrandGradientOverlay } from \"../backgrounds\";\nimport { getBackgroundTransform } from \"../backgrounds\";\nimport { useExternalVideoBackdrop } from \"./external-video-backdrop\";\nimport { resolveMediaPosition, type MediaPosition } from \"./media-position\";\nimport { SceneVideoBackdrop } from \"./scene-video-backdrop\";\n\nexport { hasSceneMedia, resolveMediaType };\nexport { resolveMediaPosition } from \"./media-position\";\nexport { SceneVideoBackdrop } from \"./scene-video-backdrop\";\nexport type { ResolvedMediaType };\n\nexport type { MediaPosition };\nexport type MediaTreatment = \"none\" | \"subtle\" | \"cinematic\" | \"text-safe\";\n\nexport function resolveMediaTreatment(value: string): MediaTreatment {\n  return value === \"none\" || value === \"subtle\" || value === \"text-safe\" ? value : \"cinematic\";\n}\n\nexport interface MediaTreatmentLayer {\n  id: \"vignette\" | \"center-scrim\" | \"bottom-scrim\";\n  background: string;\n  style?: React.CSSProperties;\n}\n\n/**\n * Where the template puts its type. The scrim is shaped to the copy, not to\n * the frame: darkening picture the type never touches costs contrast in the\n * photo and buys no legibility. \"full\" is the conservative default for\n * templates that have not declared an anchor.\n */\nexport type MediaTextAnchor = \"center\" | \"bottom\" | \"full\";\n\n/**\n * Smoothstep-sampled alpha stops between `start`% and `end`% of the gradient\n * box, held at full strength before `start` and after `end`.\n *\n * A two-stop `rgba(0,0,0,a) → transparent` scrim ramps alpha linearly, so it\n * ends with a constant slope. Lateral inhibition in the eye amplifies that\n * slope discontinuity into a visible band — the grey bar cutting across the\n * frame that makes an overlay read as an overlay. Smoothstep flattens the\n * curve at both ends, so the scrim holds where the type sits and then leaves\n * without an edge: the same peak coverage over the copy, noticeably less of\n * the picture spent getting there.\n */\nconst SCRIM_STOP_COUNT = 7;\n\nfunction smoothstep(t: number): number {\n  return t * t * (3 - 2 * t);\n}\n\nfunction easedStops(\n  peakAlpha: number,\n  start: number,\n  end: number,\n  direction: \"fade-out\" | \"fade-in\",\n): string {\n  const alphaAt = (t: number): string => {\n    const eased = direction === \"fade-out\" ? 1 - smoothstep(t) : smoothstep(t);\n    return `rgba(0,0,0,${Number((peakAlpha * eased).toFixed(3))})`;\n  };\n  const stops: string[] = [];\n  if (start > 0) stops.push(`${alphaAt(0)} 0%`);\n  for (let i = 0; i < SCRIM_STOP_COUNT; i += 1) {\n    const t = i / (SCRIM_STOP_COUNT - 1);\n    const position = Number((start + (end - start) * t).toFixed(2));\n    stops.push(`${alphaAt(t)} ${position}%`);\n  }\n  if (end < 100) stops.push(`${alphaAt(1)} 100%`);\n  return stops.join(\", \");\n}\n\n/**\n * Export-safe contrast recipes. Overlays only: SVG capture cannot rely on CSS\n * filters, so a blur-behind-text plate is off the table.\n *\n * The scrims deliberately stop short of solving legibility on their own. A\n * uniform darkening strong enough to carry white type over a blown-out sky\n * needs roughly 0.8 alpha — at that point the photo is a texture, not a\n * picture. The cheaper half of the job belongs to the type: a per-glyph halo\n * (MEDIA_TEXT_SHADOW) buys local contrast exactly where it is needed and\n * costs the image nothing. Scrim for the plate, halo for the glyph.\n */\nexport function getMediaTreatmentLayers(\n  value: string,\n  anchor: MediaTextAnchor = \"full\",\n): MediaTreatmentLayer[] {\n  const treatment = resolveMediaTreatment(value);\n  // Nothing over the picture at all. Every other treatment exists to carry\n  // type across a photograph; where the scene has no type - a generated clip\n  // that is the whole point of the beat - even a vignette is something the\n  // viewer did not ask to look through.\n  if (treatment === \"none\") return [];\n  const vignette: MediaTreatmentLayer = {\n    id: \"vignette\",\n    background:\n      treatment === \"subtle\"\n        ? `radial-gradient(ellipse at center, ${easedStops(0.28, 45, 100, \"fade-in\")})`\n        : `radial-gradient(ellipse at center, ${easedStops(0.72, 32, 100, \"fade-in\")})`,\n  };\n  if (treatment === \"subtle\") return [vignette];\n\n  const textSafe = treatment === \"text-safe\";\n  const layers: MediaTreatmentLayer[] = [vignette];\n\n  if (anchor !== \"bottom\") {\n    layers.push({\n      id: \"center-scrim\",\n      background: textSafe\n        ? `radial-gradient(ellipse 92% 58% at 50% 50%, ${easedStops(0.46, 34, 90, \"fade-out\")})`\n        : `radial-gradient(ellipse 88% 52% at 50% 50%, ${easedStops(0.26, 30, 88, \"fade-out\")})`,\n    });\n  }\n\n  if (anchor !== \"center\") {\n    layers.push({\n      id: \"bottom-scrim\",\n      background: `linear-gradient(to top, ${easedStops(textSafe ? 0.64 : 0.5, 8, 100, \"fade-out\")})`,\n      style: { top: \"55%\" },\n    });\n  }\n\n  return layers;\n}\n\n/**\n * Whether the backdrop is actually painting, which is what decides if a scrim\n * is earned. \"pending\" is a browser-only state: static and export renders\n * never run effects and never wait on a network, so they start (and stay)\n * ready and their output is unchanged.\n */\ntype MediaPaintState = \"pending\" | \"ready\" | \"failed\";\n\nfunction initialMediaPaint(\n  wantsMedia: boolean,\n  resolved: ResolvedMediaType,\n  mediaUrl: string,\n  mediaPoster: string | undefined,\n): MediaPaintState {\n  if (typeof window === \"undefined\") return \"ready\";\n  if (!wantsMedia) return \"ready\";\n  // A poster paints the video's frame immediately, so the scene is already\n  // showing footage even though the stream is still decoding.\n  if (resolved === \"video\") return mediaPoster ? \"ready\" : \"pending\";\n  if (typeof Image === \"undefined\") return \"ready\";\n  // Preloaded or browser-cached media decodes synchronously. Reporting it\n  // ready on the first render keeps the common mid-playback case free of a\n  // gradient-then-photo flicker.\n  const cached = new Image();\n  cached.src = mediaUrl;\n  return cached.complete && cached.naturalWidth > 0 ? \"ready\" : \"pending\";\n}\n\nexport function getMediaBackgroundProps(variables: Record<string, unknown>) {\n  return {\n    mediaUrl: String(variables.mediaUrl || \"\"),\n    mediaType: String(variables.mediaType || \"auto\"),\n    mediaPoster: String(variables.mediaPoster || \"\"),\n    mediaPosition: String(variables.mediaPosition || \"center\"),\n    mediaTreatment: String(variables.mediaTreatment || \"cinematic\"),\n  };\n}\n\nexport interface SceneBackgroundProps {\n  style: TemplateStyle;\n  progress: number;\n  sceneDuration?: number;\n  width: number;\n  height: number;\n  mediaUrl?: string;\n  mediaType?: string;\n  /** Still image URL shown while the <video> backdrop decodes its first\n   *  frame. Without it the element renders transparent during the\n   *  ~50–400ms decode window and the gradient flashes through. */\n  mediaPoster?: string;\n  /** Cover-crop focal anchor. Keeps the important edge/subject visible. */\n  mediaPosition?: string;\n  /** Overlay recipe: subtle, cinematic, or stronger text-safe contrast. */\n  mediaTreatment?: string;\n  /** Where this template's copy sits, so the scrim is shaped to the type\n   *  instead of to the frame. Defaults to \"full\" (scrim both the middle and\n   *  the lower third) for templates that have not declared an anchor. */\n  textAnchor?: MediaTextAnchor;\n  /** Background motion effect (drift / pulse / Ken Burns). Applied to the photo/video. */\n  backgroundEffect?: string;\n  /** Stable seed for the gradient breathing animation. Pass the scene's\n   *  text content (or any stable string) — it's hashed deterministically. */\n  seed?: number | string;\n  /** Pause video when preview is paused. Defaults to true (export path). */\n  isPlaying?: boolean;\n  beatIntensity?: number;\n}\n\nexport const SceneBackground: React.FC<SceneBackgroundProps> = ({\n  style,\n  progress,\n  sceneDuration,\n  width: _width, // accepted for symmetry; not currently used in render\n  height: _height,\n  mediaUrl = \"\",\n  mediaType = \"auto\",\n  mediaPoster,\n  mediaPosition = \"center\",\n  mediaTreatment = \"cinematic\",\n  textAnchor = \"full\",\n  backgroundEffect,\n  seed,\n  isPlaying = true,\n  beatIntensity = 0,\n}) => {\n  void _width;\n  void _height;\n  const resolved = resolveMediaType(mediaType, mediaUrl);\n  const wantsMedia = resolved !== \"gradient\" && !!mediaUrl;\n  const externalVideoBackdrop = useExternalVideoBackdrop();\n  const hasExternalVideoBackdrop = externalVideoBackdrop !== false && resolved === \"video\";\n  const externalVideoFailed = externalVideoBackdrop === \"fallback\" && resolved === \"video\";\n  const externalVideoReady = externalVideoBackdrop === \"ready\" && resolved === \"video\";\n\n  // A scrim exists to hold type against footage. Until the footage is on\n  // screen there is nothing to hold it against, so the scrim would just be\n  // darkening the brand gradient it was never meant to touch — the scene\n  // reads as a muddy, vignetted version of the gradient scenes beside it.\n  // That window is not rare: it covers the whole load, and it never ends for\n  // a dead URL, a blocked host, or an empty stock search.\n  //\n  // So the media has to paint before anything darkens for it. Both edges of\n  // the swap land on the same commit — scrim and picture appear together,\n  // and the fallback is the clean gradient the docs always promised.\n  const [mediaPaint, setMediaPaint] = useState<MediaPaintState>(() =>\n    initialMediaPaint(wantsMedia, resolved, mediaUrl, mediaPoster),\n  );\n  useEffect(() => {\n    setMediaPaint(initialMediaPaint(wantsMedia, resolved, mediaUrl, mediaPoster));\n    // Video reports its own paint through onLoadedData / onError below.\n    if (!wantsMedia || resolved !== \"photo\") return;\n    if (typeof Image === \"undefined\") return;\n    let cancelled = false;\n    const probe = new Image();\n    probe.onload = () => {\n      if (!cancelled) setMediaPaint(\"ready\");\n    };\n    probe.onerror = () => {\n      if (!cancelled) setMediaPaint(\"failed\");\n    };\n    probe.src = mediaUrl;\n    if (probe.complete) setMediaPaint(probe.naturalWidth > 0 ? \"ready\" : \"failed\");\n    return () => {\n      cancelled = true;\n      probe.onload = null;\n      probe.onerror = null;\n    };\n  }, [mediaUrl, mediaPoster, resolved, wantsMedia]);\n\n  // The element stays mounted while pending — that is what loads it. Only a\n  // confirmed failure takes it back out.\n  const showMedia = wantsMedia && mediaPaint !== \"failed\";\n  const showTreatment = wantsMedia && mediaPaint === \"ready\";\n  const resolvedPosition = resolveMediaPosition(mediaPosition);\n  const resolvedTreatment = resolveMediaTreatment(mediaTreatment);\n  const treatmentLayers = getMediaTreatmentLayers(resolvedTreatment, textAnchor);\n\n  const gradSeed =\n    typeof seed === \"number\"\n      ? seed\n      : typeof seed === \"string\"\n        ? seed.split(\"\").reduce((acc, c) => acc + c.charCodeAt(0), 0)\n        : 0;\n\n  const bgTransform = getBackgroundTransform(\n    backgroundEffect,\n    progress,\n    beatIntensity,\n  );\n\n  return (\n    <>\n      {(!hasExternalVideoBackdrop || externalVideoFailed) && (\n        <BrandGradientOverlay\n          style={style}\n          progress={progress}\n          sceneDuration={sceneDuration}\n          seed={gradSeed}\n        />\n      )}\n\n      {showMedia && !hasExternalVideoBackdrop &&\n        (resolved === \"video\" ? (\n          <SceneVideoBackdrop\n            mediaUrl={mediaUrl}\n            mediaPoster={mediaPoster}\n            mediaPosition={mediaPosition}\n            backgroundEffect={backgroundEffect}\n            progress={progress}\n            beatIntensity={beatIntensity}\n            isPlaying={isPlaying}\n            onReady={() => setMediaPaint(\"ready\")}\n            onError={() => setMediaPaint(\"failed\")}\n          />\n        ) : (\n          <div\n            data-media-position={mediaPosition}\n            style={{\n              position: \"absolute\",\n              inset: 0,\n              transform: bgTransform.transform,\n              transformOrigin: bgTransform.transformOrigin,\n              backgroundImage: `url(${mediaUrl})`,\n              backgroundSize: \"cover\",\n              backgroundPosition: resolvedPosition,\n            }}\n          />\n        ))}\n\n      {(hasExternalVideoBackdrop ? externalVideoReady : showTreatment) && !externalVideoFailed &&\n        treatmentLayers.map((layer) => (\n          <div\n            key={layer.id}\n            data-media-treatment={resolvedTreatment}\n            data-media-overlay={layer.id}\n            style={{\n              position: \"absolute\",\n              inset: 0,\n              background: layer.background,\n              pointerEvents: \"none\",\n              ...layer.style,\n            }}\n          />\n        ))}\n    </>\n  );\n};\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/media-source.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/media-source.ts",
+      "content": "/**\n * How a scene's backdrop resolves from its variables. Pure, React-free, and\n * deliberately a leaf module: the player's media preloader shares it so the\n * question \"is this scene backed by a photo, a video, or the brand gradient?\"\n * has exactly one answer in the codebase.\n */\n\nconst VIDEO_EXTENSIONS = [\".mp4\", \".webm\", \".mov\", \".m4v\", \".avi\"];\n\nfunction isVideoUrl(url: string): boolean {\n  try {\n    const pathname = new URL(url).pathname.toLowerCase();\n    return VIDEO_EXTENSIONS.some((ext) => pathname.endsWith(ext));\n  } catch {\n    const lower = url.toLowerCase();\n    return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));\n  }\n}\n\nexport type ResolvedMediaType = \"photo\" | \"video\" | \"gradient\";\n\n/** Apple mobile browsers share WebKit's conservative video-decoder ceiling. */\nexport function limitsConcurrentVideoDecoders(): boolean {\n  if (typeof navigator === \"undefined\") return false;\n  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||\n    (navigator.platform === \"MacIntel\" && navigator.maxTouchPoints > 1);\n}\n\nexport function resolveMediaType(\n  mediaType: string,\n  mediaUrl: string,\n): ResolvedMediaType {\n  if (mediaType === \"gradient\") return \"gradient\";\n  if (mediaType === \"video\") return \"video\";\n  if (mediaType === \"photo\") return \"photo\";\n  // \"auto\" — detect from URL extension\n  return mediaUrl && isVideoUrl(mediaUrl) ? \"video\" : \"photo\";\n}\n\n/**\n * True when the scene actually renders a photo or video backdrop — i.e. a\n * mediaUrl is set and the template has not been pinned to the brand gradient.\n * Templates use it to switch their type onto the media legibility recipe.\n */\nexport function hasSceneMedia(variables: Record<string, unknown>): boolean {\n  return (\n    String(variables.mediaUrl || \"\").trim() !== \"\" &&\n    String(variables.mediaType || \"auto\") !== \"gradient\"\n  );\n}\n"
+    }
+  ],
+  "meta": {
+    "vanillasky": {
+      "layer": "template",
+      "tier": "free",
+      "label": "Full-bleed",
+      "description": "Immersive photo or video without a headline.",
+      "usesGlobalTextEffect": false,
+      "usesGlobalTransition": false,
+      "usesGlobalBackgroundEffect": false,
+      "textCanvas": "tight",
+      "family": "Media & motion",
+      "jobs": [
+        "setup",
+        "atmosphere",
+        "payoff"
+      ],
+      "register": "motion-led",
+      "useWhen": "Show a relevant place, activity or subject. The asset is resolved separately from a shot description. ",
+      "avoidWhen": "No relevant asset can be resolved or the scene needs structured explanation.",
+      "minDuration": 3,
+      "preferredDuration": 6,
+      "timing": {
+        "contentFields": [],
+        "contentUnit": "words",
+        "revealSeconds": 0,
+        "holdSeconds": 3,
+        "exitSeconds": 0
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "mediaKeyword": {
+            "type": "string",
+            "format": "stock-media-keyword",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+            "examples": [
+              "Ocean waves breaking on a rocky shore"
+            ]
+          },
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Host-only approved photo or video URL.",
+            "default": ""
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ],
+            "default": "video",
+            "description": "Host-resolved asset kind."
+          },
+          "mediaPoster": {
+            "type": "string",
+            "format": "uri",
+            "description": "Host-only approved poster URL for video decoding.",
+            "default": ""
+          },
+          "mediaSource": {
+            "type": "string",
+            "enum": [
+              "generate",
+              "stock"
+            ],
+            "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
+          },
+          "fallbackText": {
+            "type": "string",
+            "maxLength": 65,
+            "description": "Optional grounded concise chapter text if this shot cannot be resolved; not visible over footage."
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "x-vanillasky": {
+          "allowsStockMedia": true,
+          "requiredAnyOf": [
+            [
+              "mediaKeyword",
+              "mediaUrl"
+            ]
+          ]
+        }
+      }
+    }
+  }
+}

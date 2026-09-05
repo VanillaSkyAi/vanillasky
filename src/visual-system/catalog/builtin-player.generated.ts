@@ -6,543 +6,76 @@ import type { PlayerTemplateData } from "./player-kit.js";
 
 export const GENERATED_BUILTIN_PLAYER_TEMPLATES = [
   {
-    "id": "media",
+    "id": "cinemaMedia",
     "defaults": {
-      "texts": "Make an impact.",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic",
-      "confetti": false
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "reaction",
-    "defaults": {
-      "texts": "Still editing manually?",
-      "reactionTag": "manual",
       "mediaUrl": "",
       "mediaType": "video",
       "mediaPoster": ""
     },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
+    "usesGlobalTransition": false
   },
   {
-    "id": "confetti",
+    "id": "chapterTitle",
     "defaults": {
-      "texts": "Celebrate."
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "emojiBurst",
-    "defaults": {
-      "texts": "Let's go!"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "bigNumber",
-    "defaults": {
-      "texts": "Our biggest milestone yet.",
-      "value": 1000,
-      "confetti": false,
-      "label": "Total users",
-      "prefix": "",
-      "unit": "",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "barChart",
-    "defaults": {
-      "texts": "Revenue up 300%.",
-      "bars": [
-        {
-          "label": "Q1",
-          "value": 42
-        },
-        {
-          "label": "Q2",
-          "value": 58
-        },
-        {
-          "label": "Q3",
-          "value": 76
-        },
-        {
-          "label": "Q4",
-          "value": 91
-        }
-      ],
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "progressRing",
-    "defaults": {
-      "texts": "Almost there.",
-      "value": 75,
-      "label": "Complete",
-      "unit": "%",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "phoneMockup",
-    "defaults": {
-      "texts": "See it in action.",
-      "screenMediaUrl": "",
-      "screen1Url": "",
-      "screen2Url": "",
-      "screenFit": "cover",
-      "screenFocusX": 50,
-      "screenFocusY": 50,
-      "screenMotion": "pushIn",
-      "screenCalloutText": "",
-      "screenCalloutX": 70,
-      "screenCalloutY": 35,
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "webMockup",
-    "defaults": {
-      "frame": "browser",
-      "texts": "See it in action.",
-      "screenMediaUrl": "",
-      "screen1Url": "",
-      "screen2Url": "",
-      "screenFit": "cover",
-      "screenFocusX": 50,
-      "screenFocusY": 50,
-      "screenMotion": "pushIn",
-      "screenCalloutText": "",
-      "screenCalloutX": 70,
-      "screenCalloutY": 35,
-      "addressBarUrl": "",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "codeEditor",
-    "defaults": {
-      "texts": "Simple as this.",
-      "code": "import { getVideoDuration } from \"@vanillaskyai/video\";\nimport type { Video } from \"@vanillaskyai/video\";\n\nexport function duration(video: Video) {\n  return getVideoDuration(video);\n}",
-      "filename": "app.ts",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "terminal",
-    "defaults": {
-      "texts": "Ship it.",
-      "command": "npx vanillasky templates check",
-      "output": [],
-      "promptPrefix": "$",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "tweet",
-    "defaults": {
-      "authorName": "Your brand",
-      "authorHandle": "",
-      "authorVerified": false,
-      "message": "Just shipped the new feature 🚀",
-      "likes": 0,
-      "replies": 0,
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "notification",
-    "defaults": {
-      "appName": "Reminder",
-      "appIcon": "🔔",
-      "message": "Believe in your dreams, they will lead you.",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.35,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "chatMessenger",
-    "defaults": {
-      "msg1": "Have you tried it yet?",
-      "msg2": "Yes — it saves me hours|out",
-      "msg3": "Okay, send me the link",
-      "msg4": "",
-      "dateChip1": "",
-      "dateChip2": "",
-      "msg5": "",
-      "theme": "messenger"
+      "title": "A different perspective"
     },
     "usesGlobalTransition": false
   },
   {
-    "id": "chatWhatsapp",
+    "id": "focusCards",
     "defaults": {
-      "msg1": "Have you tried it yet?",
-      "msg2": "Yes — it saves me hours|out",
-      "msg3": "Okay, send me the link",
-      "msg4": "",
-      "dateChip1": "",
-      "dateChip2": "",
-      "msg5": "",
-      "theme": "whatsapp"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "milestone",
-    "defaults": {
-      "label": "Followers",
-      "targetNumber": 10000,
-      "startNumber": 0,
-      "badgeText": "",
-      "badgeEmoji": "🎉",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "reviewStack",
-    "defaults": {
-      "review1Title": "Life changing app",
-      "review1Body": "",
-      "review1Author": "",
-      "review2Title": "Best in class",
-      "review2Body": "",
-      "review2Author": "",
-      "review3Title": "Exceeded expectations",
-      "review3Body": "",
-      "review3Author": "",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "testimonial",
-    "defaults": {
-      "quote": "Best decision I made this year. Our conversion rate doubled in the first week.",
-      "authorName": "Jessica Torres",
-      "authorRole": "",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "incomingCall",
-    "defaults": {
-      "callerName": "Your brand",
-      "subtitle": "is calling....",
-      "declineLabel": "Decline",
-      "acceptLabel": "Accept",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "brandMessage",
-    "defaults": {
-      "message": "We built this for you.",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "promptInput",
-    "defaults": {
-      "promptText": "Make a launch video for our app",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "beforeAfter",
-    "defaults": {
-      "problemLabel": "BEFORE",
-      "problemHeadline": "Your calendar today.",
-      "solutionLabel": "AFTER",
-      "solutionHeadline": "Calmly organized.",
-      "problemEmojis": [
-        "📅",
-        "😰",
-        "💼",
-        "📊",
-        "⏰",
-        "💬",
-        "📞",
-        "🔔"
-      ],
-      "solutionEmojis": [
-        "✨",
-        "📋",
-        "✅",
-        "🎯"
-      ],
-      "showEmojis": true
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "tripleStats",
-    "defaults": {
-      "texts": "By the numbers.",
-      "stat1Value": "10K",
-      "stat1Label": "Users",
-      "stat2Value": "99.9%",
-      "stat2Label": "Uptime",
-      "stat3Value": "<50ms",
-      "stat3Label": "Latency",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
-  },
-  {
-    "id": "problemSolution",
-    "defaults": {
-      "problemLabel": "THE PROBLEM",
-      "problemText": "Teams waste 40% of time in meetings",
-      "solutionLabel": "THE SOLUTION",
-      "solutionText": "AI that summarizes in seconds",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
-    },
-    "usesGlobalTransition": false
-  },
-  {
-    "id": "cardList",
-    "defaults": {
-      "texts": "What you get.",
       "items": [
-        "Automate your savings on energy bills",
-        "Cleaner energy without raising your bill",
-        "Same account and service guaranteed"
-      ],
-      "itemEmojis": [],
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
+        "Listen closely",
+        "Notice the pattern",
+        "Make room for change"
+      ]
     },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
+    "usesGlobalTransition": false
   },
   {
-    "id": "steps",
+    "id": "editorialTimeline",
     "defaults": {
-      "texts": "How it works.",
-      "steps": [
-        "Describe",
-        "Preview",
-        "Export"
-      ],
-      "stepEmojis": [],
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
+      "events": [
+        {
+          "label": "Observe"
+        },
+        {
+          "label": "Understand"
+        },
+        {
+          "label": "Act"
+        }
+      ]
     },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
+    "usesGlobalTransition": false
   },
   {
-    "id": "ctaLogo",
+    "id": "mobileMessage",
     "defaults": {
-      "url": "",
-      "cta": "",
       "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
+      "mediaType": "video",
       "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
+      "message": "Can we talk?",
+      "app": "Messages"
     },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
+    "usesGlobalTransition": false
   },
   {
-    "id": "ctaMedia",
+    "id": "comparison",
     "defaults": {
-      "headline": "Make every moment count",
-      "url": "",
-      "cta": "",
-      "mediaUrl": "",
-      "mediaKeyword": "",
-      "mediaType": "auto",
-      "mediaPoster": "",
-      "mediaPosition": "center",
-      "mediaTreatment": "cinematic"
+      "leftText": "More distractions",
+      "rightText": "More room to think"
     },
-    "usesGlobalTransition": true,
-    "transitionTiming": {
-      "entryReadyProgress": 0.2,
-      "holdProgress": 0.7
-    }
+    "usesGlobalTransition": false
+  },
+  {
+    "id": "quote",
+    "defaults": {},
+    "usesGlobalTransition": false
+  },
+  {
+    "id": "keyFigure",
+    "defaults": {},
+    "usesGlobalTransition": false
   }
 ] as const satisfies readonly PlayerTemplateData[];
