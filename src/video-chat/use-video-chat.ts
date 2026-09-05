@@ -1,6 +1,6 @@
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { resolveVideoBrand } from "../protocol/background.js";
+import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import { decodeVideoSse } from "../protocol/sse.js";
 import { canStartPreparedSequence, preparedSceneDuration } from "../player/scene-readiness.js";
@@ -675,7 +675,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       dispatch({
         type: "partial",
         id,
-        video: { schemaVersion: "0.1", orientation, scenes: ready.slice(0, appended) as VideoScene[], style: style! },
+        video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: ready.slice(0, appended) as VideoScene[], style: style! },
       });
       if (planDone && !timelineCompleted) {
         timelineCompleted = true;
@@ -759,7 +759,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 
       try {
         for await (const event of decodeVideoSse(response.body)) {
-          if (!isCurrent() || currentAttempt !== attempt) return { video: { schemaVersion: "0.1", orientation, scenes: [], style: style! }, lines: [] };
+          if (!isCurrent() || currentAttempt !== attempt) return { video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: [], style: style! }, lines: [] };
           if (event.type === "response.start") style = event.data.style;
           if (event.type === "response.warning" || (event.type === "response.error" && !event.data.terminal)) {
             warn(event.type === "response.warning" && event.data.warning.message === MEDIA_RECOVERY_NOTICE
@@ -867,7 +867,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 
       return {
         video: {
-          schemaVersion: "0.1",
+          schemaVersion: VIDEO_SCHEMA_VERSION,
           orientation,
           scenes: ready.filter((entry): entry is VideoScene => entry != null),
           style,
@@ -921,7 +921,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         ? [ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
         : []);
       if (recovered.length > 0) {
-        style ??= { brand: resolveVideoBrand(), density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
+        style ??= { density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
         openingController.abort(new DOMException("Continuing completed response", "AbortError"));
         if (!timeline) {
           timeline = createSceneTimeline({ style, orientation });
@@ -930,7 +930,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         for (const scene of recovered.slice(appended)) timeline.add(scene);
         timeline.complete();
         if (timelineRef.current === timeline) timelineRef.current = undefined;
-        const video: Video = { schemaVersion: "0.1", orientation, style, scenes: recovered };
+        const video: Video = { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, style, scenes: recovered };
         dispatch({ type: "warning", id, message: "The response was interrupted; completed scenes are still available." });
         dispatch({ type: "complete", id, video, suggestions: [] });
         return video;
