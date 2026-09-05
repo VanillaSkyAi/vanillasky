@@ -68,14 +68,6 @@ function requiresAvailableMedia(template: SceneTemplateMetadata): boolean {
       isMediaProperty(template.schema.properties[name])));
 }
 
-const COMMON_MEDIA_VARIABLES = {
-  mediaUrl: "media",
-  mediaType: "enum(auto|photo|video|gradient)",
-  mediaPoster: "media",
-  mediaPosition: "enum(center|top|bottom|left|right)",
-  mediaTreatment: "enum(none|subtle|cinematic|text-safe)",
-} as const;
-
 function plannerCatalog(templates: SceneTemplateMetadata[], mediaResolverAvailable: boolean) {
   return templates.map((template) => {
     const gates = getTemplateSchemaGates(template.schema);
@@ -91,11 +83,6 @@ function plannerCatalog(templates: SceneTemplateMetadata[], mediaResolverAvailab
             : templateVariableNotation(property, template.schema.required?.includes(name) === true),
         ]),
     );
-    const usesCommonMedia = Object.entries(COMMON_MEDIA_VARIABLES)
-      .every(([name, notation]) => variables[name] === notation);
-    if (usesCommonMedia) {
-      for (const name of Object.keys(COMMON_MEDIA_VARIABLES)) delete variables[name];
-    }
     return {
       id: template.id,
       jobs: template.jobs,
@@ -107,9 +94,8 @@ function plannerCatalog(templates: SceneTemplateMetadata[], mediaResolverAvailab
       ...(gates.requiresStat ? { requiresStat: true } : {}),
       ...(gates.requiresQuote ? { requiresQuote: true } : {}),
       ...(gates.requiresScreenshot ? { requiresScreenshot: true } : {}),
-      ...(gates.requiredAnyOf.length > 0 ? { requiredAnyOf: gates.requiredAnyOf } : {}),
+      ...(gates.requiredAnyOf.length > 0 ? { requiredAnyOf: gates.requiredAnyOf.map(group => group.filter(name => name !== "mediaKeyword" || exposeMediaKeyword)) } : {}),
       schema: plannerSchema(template.schema, exposeMediaKeyword),
-      ...(usesCommonMedia ? { media: true } : {}),
       variables,
     };
   });
@@ -163,7 +149,6 @@ export function createTemplateSystemPrompt(options: {
     "TRUSTED TEMPLATE CATALOG",
     "Only use template IDs from this catalog. Only emit variables declared for the selected template.",
     "Variable notation is type[count]{characters}(options)! where count is list cardinality, characters is the inclusive character count for a string or each string-array item, and ! means required. Omitted ! means optional.",
-    `seconds is [minimum, preferred]. media=true adds these optional variables: ${Object.entries(COMMON_MEDIA_VARIABLES).map(([name, notation]) => `${name}:${notation}`).join(", ")}.`,
     "Choose a template only when the permitted factual basis contains every fact it needs. Never invent peer values to complete a chart, comparison, stat set, timeline, or list.",
     ...PACING_PLANNER_RULES,
     "Do not compress a list, sequence, metric set, or comparison into a general-purpose prose field when a specific catalog template can show that structure.",

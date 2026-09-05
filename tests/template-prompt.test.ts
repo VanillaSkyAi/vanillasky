@@ -50,10 +50,10 @@ describe("template-aware open prompt", () => {
     const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
     const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
     const strictPrompt = createTemplateSystemPrompt({
-      kit: loadAcceptanceKit(["steps", "media"]),
+      kit: loadAcceptanceKit(["editorialTimeline", "cinemaMedia"]),
     });
     const generalPrompt = createTemplateSystemPrompt({
-      kit: loadAcceptanceKit(["steps", "media"]),
+      kit: loadAcceptanceKit(["editorialTimeline", "cinemaMedia"]),
       knowledgeMode: "general",
     });
 
@@ -73,9 +73,9 @@ describe("template-aware open prompt", () => {
   it("only emits specialized prose for capabilities installed in the kit", async () => {
     const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
     const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
-    const prompt = createTemplateSystemPrompt({ kit: loadAcceptanceKit(["steps"]) });
+    const prompt = createTemplateSystemPrompt({ kit: loadAcceptanceKit(["editorialTimeline"]) });
 
-    expect(prompt).toContain("steps");
+    expect(prompt).toContain("editorialTimeline");
     expect(prompt).not.toContain("cardList");
     expect(prompt).not.toContain("tripleStats");
     expect(prompt).not.toContain("ctaMedia");
@@ -138,112 +138,25 @@ describe("template-aware open prompt", () => {
     expect(catalog[0].variables).toHaveProperty("mediaUrl");
   });
 
-  it("keeps the complete bundled catalog compact enough for low-latency planning", async () => {
-    const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
-    const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
-    const prompt = createTemplateSystemPrompt({
-      kit: loadAcceptanceKit(),
-      suppliedMediaAvailable: true,
-    });
-
-    expect(prompt.length).toBeLessThan(18_000);
-    expect(prompt).toContain('"id":"bigNumber"');
-    expect(prompt).toContain('"value":"number!"');
-    expect(prompt).toContain("mediaTreatment:enum(");
-    expect(prompt).not.toContain('"mediaKeyword"');
-    expect(prompt).toContain("Never invent peer values");
-    expect(prompt).toContain("Do not repeat the same list, metric, or claim");
-    expect(prompt).toContain("once a fact is visible, treat it as unavailable");
-    expect(prompt).toContain("Keep related entries adjacent");
-    expect(prompt).toContain("Ordering never permits merging or omitting entries");
-    expect(prompt).toContain("Do not infer that something is scheduled, ready, triggered");
-    expect(prompt).toContain("cardList and steps each need two or three unused facts");
-    expect(prompt).toContain("Never invent a fact to fill a collection");
-    expect(prompt).toContain('"items":"string-array[2..3]!"');
-    expect(prompt).toContain('"steps":"string-array[2..3]!"');
-    expect(prompt).toContain('"itemEmojis":"string-array[0..3]"');
-    expect(prompt).toContain("Never turn a role, relationship, or summary into speech");
-    expect(prompt).toContain("mediaType=gradient");
-    expect(prompt).toContain("emit actual JSON arrays");
-    expect(prompt).toContain("Do not use pipes or newlines as list delimiters");
-    expect(prompt).toContain("Keep list labels to 1–3 words");
-    expect(prompt).toContain("Keep step labels to 1–2 words and at most 18 characters");
-    expect(prompt).toContain("media, ctaMedia, and reaction are forbidden as the first generated body template");
-
-    const catalog = JSON.parse(prompt.trim().split("\n").at(-1) ?? "[]");
-    for (const template of catalog) {
-      expect(template.variables).not.toHaveProperty("mediaKeyword");
-      if (template.schema?.properties) {
-        expect(template.schema.properties).not.toHaveProperty("mediaKeyword");
-      }
-    }
-    const reaction = catalog.find(({ id }: { id: string }) => id === "reaction");
-    expect(reaction?.variables).toHaveProperty("reactionTag");
-    expect(reaction?.variables).toHaveProperty("mediaUrl");
-    expect(reaction?.requiredAnyOf).toEqual([["mediaUrl"]]);
-    const bigNumber = catalog.find(({ id }: { id: string }) => id === "bigNumber");
-    expect(bigNumber?.media).toBe(true);
-    expect(bigNumber?.variables).not.toHaveProperty("mediaUrl");
+  it("keeps eight grounded templates bounded and fully described", async () => {
+    const {createTemplateSystemPrompt}=await import("../src/visual-system/catalog/internal");
+    const {loadAcceptanceKit}=await import("../scripts/acceptance/catalog");
+    const prompt=createTemplateSystemPrompt({kit:loadAcceptanceKit(),mediaResolverAvailable:true});
+    const catalog=JSON.parse(prompt.trim().split("\n").at(-1)!);
+    expect(catalog).toHaveLength(8);
+    expect(prompt.length).toBeLessThan(22000);
+    for(const entry of catalog){expect(entry.avoid).toBeTruthy();expect(entry.schema.properties).toBeTruthy();}
+    expect(catalog.find((entry:{id:string})=>entry.id==='keyFigure').variables).toEqual({value:'string{1..14}!',label:'string{1..50}!'});
+    expect(prompt).not.toContain('mediaType=gradient');
   });
-
-  it("hides templates whose required media cannot be supplied", async () => {
-    const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
-    const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
-    const kit = loadAcceptanceKit(["bigNumber", "media", "reaction", "ctaMedia"]);
-
-    const withoutMedia = createTemplateSystemPrompt({ kit });
-    const withSuppliedMedia = createTemplateSystemPrompt({ kit, suppliedMediaAvailable: true });
-    const withoutCatalog = JSON.parse(withoutMedia.trim().split("\n").at(-1) ?? "[]");
-    const withCatalog = JSON.parse(withSuppliedMedia.trim().split("\n").at(-1) ?? "[]");
-
-    expect(withoutCatalog.map(({ id }: { id: string }) => id)).toEqual(["bigNumber", "media"]);
-    expect(withSuppliedMedia).not.toContain('"mediaKeyword"');
-    expect(withCatalog).toHaveLength(4);
-    expect(withCatalog.map(({ id }: { id: string }) => id)).toEqual(expect.arrayContaining([
-      "bigNumber", "media", "reaction", "ctaMedia",
-    ]));
-  });
-
-  it("exposes bounded media intent only when the host configures a resolver", async () => {
-    const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
-    const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
-    const kit = loadAcceptanceKit(["bigNumber", "media", "confetti", "emojiBurst"]);
-
-    const withoutResolver = createTemplateSystemPrompt({ kit });
-    const withResolver = createTemplateSystemPrompt({ kit, mediaResolverAvailable: true });
-    const catalog = JSON.parse(withResolver.trim().split("\n").at(-1) ?? "[]");
-
-    expect(withoutResolver).not.toContain('"mediaKeyword"');
-    expect(withResolver).toContain('"mediaKeyword":"string{2..80}"');
-    expect(withResolver).toContain("Prefer a relevant resolved image or video background on later media-capable scenes");
-    expect(withResolver).not.toContain("Never expose a loading placeholder or unresolved media keyword");
-    expect(withResolver).toContain("The host removes mediaKeyword before the complete scene reaches the browser");
-    expect(withResolver).toContain("End with a grounded payoff using media, emojiBurst, or confetti");
-    expect(withResolver).toContain('"placement":"closer"');
-    expect(withResolver).toContain("Emit exactly one closer immediately after the first playable body scene");
-    expect(withResolver).toContain("answer the story's so-what");
-    expect(withResolver).toContain("6–12 words");
-    expect(withResolver).toContain("The runtime holds that closer and appends it last");
-    expect(catalog.find(({ id }: { id: string }) => id === "media")?.jobs).toContain("payoff");
-  });
-
-  it("keeps structured facts and the closer in content-fit scenes", async () => {
-    const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/internal");
-    const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
-    const prompt = createTemplateSystemPrompt({
-      kit: loadAcceptanceKit(["brandMessage", "steps", "ctaLogo"]),
-    });
-
-    expect(prompt).toContain(
-      "Do not compress a list, sequence, metric set, or comparison into a general-purpose prose field",
-    );
-    expect(prompt).toContain(
-      "keep that concise action closer as its own final scene",
-    );
-    expect(prompt).toContain(
-      "When a grounded CTA or URL is supplied and the catalog contains jobs:[ask], emit that final closer",
-    );
-    expect(prompt).not.toContain("brand stamp may stand alone");
-    expect(prompt).toContain("A brand name may accompany the action but never qualifies as an ask by itself");
+  it("hides footage templates when no asset can satisfy their required fields", async () => {
+    const {createTemplateSystemPrompt}=await import("../src/visual-system/catalog/internal");
+    const {loadAcceptanceKit}=await import("../scripts/acceptance/catalog");
+    const kit=loadAcceptanceKit();
+    const without=createTemplateSystemPrompt({kit});
+    const supplied=createTemplateSystemPrompt({kit,suppliedMediaAvailable:true});
+    expect(without).not.toContain('"id":"cinemaMedia"');
+    expect(supplied).toContain('"id":"cinemaMedia"');
+    expect(supplied).not.toContain('"mediaKeyword"');
   });
 });

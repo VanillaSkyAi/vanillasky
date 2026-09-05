@@ -13,8 +13,8 @@ const scene = (id: string) => JSON.stringify({
   type: "scene.add",
   scene: {
     id,
-    templateId: "notification",
-    variables: { appName: "VanillaSky", message: id },
+    templateId: "mobileMessage",
+    variables: { app: "VanillaSky", message: id },
     timing: { fixedDuration: 4 },
   },
 });

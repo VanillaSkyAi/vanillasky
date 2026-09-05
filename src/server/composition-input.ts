@@ -1,4 +1,3 @@
-import { resolveVideoBrand } from "../protocol/background.js";
 import {
   MAX_RETAINED_INSTRUCTIONS_LENGTH,
   MAX_RETAINED_MEDIA_URL_LENGTH,
@@ -64,7 +63,6 @@ export function validateVideoInput(input: VideoInput): void {
       throw new Error(`Video response supplied media ${index} poster URL must be at most ${MAX_RETAINED_MEDIA_URL_LENGTH} characters`);
     }
   }
-  resolveVideoBrand();
 }
 
 export function buildInitialComposition(
@@ -127,7 +125,6 @@ export function buildInitialComposition(
       scenes,
       ...(audio ? { audio } : {}),
       style: {
-        brand: resolveVideoBrand(),
         density: input.style?.density ?? "normal",
         motion: input.style?.motion ?? "normal",
         defaultBackgroundEffect: input.style?.backgroundEffect ?? "static",

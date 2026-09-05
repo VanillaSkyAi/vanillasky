@@ -1,9 +1,10 @@
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
-import type {
-  VideoOrientation,
-  VideoPlanPart,
-  VideoScene,
-  VideoStyleOptions,
+import {
+  VIDEO_PROTOCOL_VERSION,
+  type VideoOrientation,
+  type VideoPlanPart,
+  type VideoScene,
+  type VideoStyleOptions,
 } from "../protocol/types.js";
 import {
   createVideoHandler,
@@ -891,7 +892,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         headers: forwardedHeaders,
         signal: request.signal,
         body: JSON.stringify({
-          protocolVersion: "0.5",
+          protocolVersion: VIDEO_PROTOCOL_VERSION,
           requestId,
           input: {
             input: conversationInput(input.prompt, input.conversation, input.opening),

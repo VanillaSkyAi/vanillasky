@@ -98,11 +98,5 @@ export function buildVideoUserPrompt(input: VideoInput, openingDurationSec = 0):
     "",
     "SUPPLIED MEDIA",
     JSON.stringify(suppliedMediaReferences(input)),
-    "",
-    "BRAND",
-    JSON.stringify({
-      ...(input.brand?.name?.trim() ? { name: input.brand.name.trim() } : {}),
-      hasLogo: Boolean(input.brand?.logoUrl?.trim()),
-    }),
   ].join("\n");
 }

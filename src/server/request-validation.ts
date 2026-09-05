@@ -1,4 +1,3 @@
-import { validateBrandInput } from "../protocol/background.js";
 import { MAX_RETAINED_MEDIA_URL_LENGTH } from "../protocol/persistence.js";
 import {
   VIDEO_PROTOCOL_VERSION,
@@ -77,7 +76,6 @@ export function parseVideoRequest(value: unknown): VideoRequest {
     "orientation",
     "style",
     "opening",
-    "brand",
     "personalization",
     "suppliedMedia",
     "audio",
@@ -194,7 +192,6 @@ export function parseVideoRequest(value: unknown): VideoRequest {
       );
     }
   }
-  if (input.brand != null) validateBrandInput(input.brand, "request.input.brand");
   jsonValue(input, "request.input");
   if (request.capabilities != null) capabilities(request.capabilities, "request.capabilities");
   if (request.resume != null) {
