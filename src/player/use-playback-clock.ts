@@ -15,6 +15,8 @@ interface PlaybackClockOptions {
   posterBridgeKeysRef?: { current: Set<string> };
   callbacksRef: {
     current: {
+      narrationReady?: () => boolean;
+      onError?: (error: Error, state: VideoState) => void;
       onStallChange?: (stalled: boolean) => unknown;
       onSceneChange?: (scene: VideoScene, index: number) => void;
     };
@@ -39,6 +41,12 @@ export function usePlaybackClock({
   useEffect(() => {
     if (!isPlaying) return;
     let stalled = false;
+    let onsetWaitSeconds = 0;
+    const failNarration = (error: Error, state: VideoState) => {
+      setIsPlaying(false);
+      try { void Promise.resolve(callbacksRef.current.onError?.(error, state)).catch(() => undefined); }
+      catch { /* Observer failures cannot escape the playback loop. */ }
+    };
     const reportStall = (next: boolean) => {
       if (stalled === next) return;
       stalled = next;
@@ -49,7 +57,19 @@ export function usePlaybackClock({
     const tick = (now: number) => {
       const current = stateRef.current;
       const config = current.config;
-      const delta = Math.max(0, (now - previous) / 1000);
+      const elapsed = Math.max(0, (now - previous) / 1000);
+      let narrationReady = true;
+      try { narrationReady = callbacksRef.current.narrationReady?.() !== false; }
+      catch (cause) {
+        failNarration(cause instanceof Error ? cause : new Error("Narration readiness failed"), current);
+        return;
+      }
+      onsetWaitSeconds = narrationReady ? 0 : onsetWaitSeconds + elapsed;
+      if (onsetWaitSeconds >= 8) {
+        failNarration(new Error("Narration did not report audio onset within eight seconds"), current);
+        return;
+      }
+      const delta = narrationReady ? elapsed : 0;
       previous = now;
       const settled = current.status === "complete" || current.status === "error" || current.status === "aborted";
       const looping = loopRef.current && settled;

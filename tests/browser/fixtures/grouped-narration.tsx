@@ -14,11 +14,20 @@ import flowers from "./media-transition/sunflowers.mp4?url";
 const probe: Array<Record<string, unknown>> = [];
 Object.assign(window, { narrationProbe: probe });
 const text = "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light.";
+const delayedOnset = new URLSearchParams(location.search).has("delayedOnset");
+let firstAudioPlay = true;
 const NativeAudio = window.Audio;
 let playingAudio: HTMLAudioElement | undefined;
 window.Audio = function (src?: string) {
   const audio = new NativeAudio(src);
   playingAudio = audio;
+  if (delayedOnset) {
+    const playNow = audio.play.bind(audio);
+    audio.play = async () => {
+      if (firstAudioPlay) { firstAudioPlay = false; await new Promise((resolve) => setTimeout(resolve, 1500)); }
+      return playNow();
+    };
+  }
   const nativePlay = audio.play.bind(audio);
   audio.play = () => nativePlay().catch(error => {
     probe.push({ kind: "play-rejected", message: String(error), readyState: audio.readyState });
@@ -47,7 +56,8 @@ function App() {
   };
   return <><button onClick={() => void start().catch(error => probe.push({ kind: "prepare-error", message: String(error) }))}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>
     <div style={{ width: 360 }}>{video && <VideoPlayer key={run} video={video} autoPlay controls={false}
-      onError={(error) => probe.push({ kind: "player-error", message: String(error) })}
+      onError={(error) => { narration.interrupt(); probe.push({ kind: "player-error", message: String(error) }); }}
+      narrationReady={narration.isReady}
       onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
       onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0 }); narration.onSceneChange(scene, index); }}
     />}</div></>;

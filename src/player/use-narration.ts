@@ -40,6 +40,8 @@ export interface NarrationOptions {
 }
 
 export interface Narration {
+  /** Pair with VideoPlayer.narrationReady to hold grouped cuts until actual audio onset. */
+  isReady: () => boolean;
   /**
    * Hand this to the player's `onSceneChange`.
    *
@@ -59,12 +61,15 @@ export function useNarration(options: NarrationOptions): Narration {
   optionsRef.current = options;
 
   const groupRef = useRef<{ id: string; text: string } | undefined>(undefined);
+  const readyRef = useRef(true);
+  const isReady = useCallback(() => readyRef.current, []);
   const currentRef = useRef<AbortController | undefined>(undefined);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.
   const spokenIndexRef = useRef<number | undefined>(undefined);
 
   const stop = useCallback(() => {
+    readyRef.current = true;
     currentRef.current?.abort();
     currentRef.current = undefined;
     groupRef.current = undefined;
@@ -98,6 +103,7 @@ export function useNarration(options: NarrationOptions): Narration {
 
     const controller = new AbortController();
     currentRef.current = controller;
+    readyRef.current = !group;
     setSpeaking(true);
     void (async () => {
       try {
@@ -109,6 +115,7 @@ export function useNarration(options: NarrationOptions): Narration {
             if (started || controller.signal.aborted || currentRef.current !== controller
               || (!group && spokenIndexRef.current !== index) || optionsRef.current.enabled === false) return;
             started = true;
+            readyRef.current = true;
             try { void Promise.resolve(optionsRef.current.onSpeechStart?.(source)).catch(() => undefined); }
             catch { /* Observer failures do not affect narration. */ }
           },
@@ -119,11 +126,12 @@ export function useNarration(options: NarrationOptions): Narration {
       } finally {
         if (currentRef.current === controller) {
           currentRef.current = undefined;
+          readyRef.current = true;
           setSpeaking(false);
         }
       }
     })();
   }, [stop]);
 
-  return { onSceneChange, interrupt, speaking };
+  return { onSceneChange, interrupt, speaking, isReady };
 }

@@ -210,3 +210,29 @@ it("keeps a prepared paragraph across cuts, seeks on replay, and aborts interrup
   expect(calls[1]!.signal.aborted).toBe(true);
   unmount();
 });
+
+it("opens grouped clock readiness only for current onset, completion, or interruption", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  const starts: Array<(() => void) | undefined> = [];
+  const endings: Array<() => void> = [];
+  const voice = { supportsOffsets: true, speak: (_text: string, options: { onStart?: () => void }) => {
+    starts.push(options.onStart);
+    return new Promise<void>((resolve) => endings.push(resolve));
+  } };
+  const grouped = { ...scene("first", "One."), narrationGroup: { id: "group", text: "One.", offsetSeconds: 0, durationSeconds: 3, totalSeconds: 3 } };
+  const { result, unmount } = renderHook(() => useNarration({ voice }));
+  act(() => result.current.onSceneChange(grouped, 0));
+  expect(result.current.isReady()).toBe(false);
+  act(() => result.current.interrupt());
+  expect(result.current.isReady()).toBe(true);
+  act(() => result.current.onSceneChange(grouped, 0));
+  act(() => starts[0]?.());
+  expect(result.current.isReady()).toBe(false);
+  act(() => starts[1]?.());
+  expect(result.current.isReady()).toBe(true);
+  act(() => result.current.onSceneChange({ ...grouped, id: "another", narrationGroup: { ...grouped.narrationGroup, id: "another" } }, 1));
+  expect(result.current.isReady()).toBe(false);
+  await act(async () => endings[2]?.());
+  expect(result.current.isReady()).toBe(true);
+  unmount();
+});

@@ -39,6 +39,8 @@ interface VideoPlayerSharedProps {
    * where a replay scrim would cover the answer the moment it finished.
    */
   controls?: boolean;
+  /** Optional synchronous onset handshake from useNarration.isReady. Does not pause audio or prevent the first scene cue. */
+  narrationReady?: () => boolean;
   /**
    * Hold the playhead where it is, and release it again.
    *

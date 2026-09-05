@@ -1077,6 +1077,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     autoPlay: true,
     paused: state.status === "paused",
     controls: false,
+    narrationReady: narration.isReady,
     orientation: shownTurn?.fixedOrientation ? shownTurn.orientation : "auto" as const,
     onFramePresented: () => {
       const timing = firstFrameRef.current;
@@ -1115,6 +1116,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     },
     onError: (cause: Error) => {
       if (stateRef.current.playerKey !== playbackKey) return;
+      narrationRef.current.interrupt();
       const id = stateRef.current.turns.at(-1)?.id;
       if (id) dispatch({ type: "error", id, error: errorFrom(cause) });
     },
