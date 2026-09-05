@@ -1,3 +1,4 @@
+import { MountedReadinessContext } from "./mounted-scene-readiness.js";
 import {
   useEffect,
   useMemo,
@@ -107,6 +108,13 @@ export function VideoPlayerRuntime({
   const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
+  const visualReadyRef = useRef<string | undefined>(undefined);
+  const reportVisualReady = useMemo(() => (key: string, error?: Error) => {
+    if (error) {
+      setIsPlaying(false);
+      callbacksRef.current.onError?.(error, stateRef.current);
+    } else visualReadyRef.current = key;
+  }, []);
   const playbackEndedRef = useRef(false);
 
   stateRef.current = state;
@@ -156,6 +164,7 @@ export function VideoPlayerRuntime({
     setActiveStream(stream);
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());
+    visualReadyRef.current = undefined;
     setCurrentTime(0);
     setIsMuted(resolvedStartMuted);
     setIsPlaying(shouldAutoPlay && !reducedMotion && !autoStartReplacement);
@@ -223,6 +232,7 @@ export function VideoPlayerRuntime({
     stateRef.current = reset;
     timeRef.current = 0;
     setState(reset);
+    visualReadyRef.current = undefined;
     setCurrentTime(0);
 
     if (video) {
@@ -291,6 +301,7 @@ export function VideoPlayerRuntime({
     audioRef,
     loopRef,
     sceneIndexRef,
+    visualReadyRef,
     callbacksRef,
     setCurrentTime,
     setIsPlaying,
@@ -316,6 +327,7 @@ export function VideoPlayerRuntime({
           // the required user gesture and restart audio and motion together.
           audio.currentTime = 0;
           timeRef.current = 0;
+          visualReadyRef.current = undefined;
           setCurrentTime(0);
           setStartRequested(false);
           setIntroPlaying(false);
@@ -342,6 +354,7 @@ export function VideoPlayerRuntime({
 
     if (state.config.scenes[0]?.id === "supplied-opening") {
       timeRef.current = 0;
+      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.volume = state.config.audio?.volume ?? 1;
       introStartedAtRef.current = null;
@@ -357,6 +370,7 @@ export function VideoPlayerRuntime({
     const remaining = Math.max(0, MINIMUM_GENERATION_INTRO_MS - (performance.now() - startedAt));
     const startGeneratedVideo = () => {
       timeRef.current = 0;
+      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.volume = state.config?.audio?.volume ?? 1;
       introStartedAtRef.current = null;
@@ -424,6 +438,7 @@ export function VideoPlayerRuntime({
         .catch(() => {
           audio.currentTime = 0;
           timeRef.current = 0;
+          visualReadyRef.current = undefined;
           setCurrentTime(0);
           setIsPlaying(false);
         });
@@ -447,6 +462,7 @@ export function VideoPlayerRuntime({
         audio.volume = volume;
         audio.currentTime = 0;
         timeRef.current = 0;
+        visualReadyRef.current = undefined;
         setCurrentTime(0);
         introStartedAtRef.current = null;
         setStartRequested(false);
@@ -462,6 +478,7 @@ export function VideoPlayerRuntime({
     }
     if (!isPlaying && ended) {
       timeRef.current = 0;
+      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.currentTime = 0;
       startPlayback();
@@ -527,7 +544,8 @@ export function VideoPlayerRuntime({
         onStart={armPlayback}
       />
       {!generationCoverVisible && config?.scenes.length ? (
-        <VideoFrame
+        <MountedReadinessContext.Provider value={reportVisualReady}>
+          <VideoFrame
           kit={kit}
           onFramePresented={!showStartPoster && onFramePresented ? reportFramePresented : undefined}
           config={displayConfig!}
@@ -545,6 +563,7 @@ export function VideoPlayerRuntime({
             transformOrigin: "top left",
           }}
         />
+        </MountedReadinessContext.Provider>
       ) : null}
       <StartPosterButton
         visible={showStartPoster}

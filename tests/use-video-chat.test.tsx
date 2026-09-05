@@ -497,7 +497,7 @@ describe("useVideoChat", () => {
       });
       return new Response(stream, { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let first!: Promise<Video | undefined>;
     act(() => { first = result.current.ask("Abandon this response"); });
@@ -719,7 +719,7 @@ describe("useVideoChat", () => {
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Cancel after playback starts"); });
@@ -759,7 +759,7 @@ describe("useVideoChat", () => {
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Fail after playback starts"); });
@@ -782,7 +782,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=narration")
       ? Response.json({ line: "" }, { status }) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
     await act(async () => { await result.current.ask("Keep going"); });
     expect(result.current.currentTurn?.video?.scenes[0]?.narration).toBe("First");
     expect(result.current.warnings.length).toBeGreaterThan(0);

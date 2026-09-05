@@ -1,3 +1,4 @@
+import { MountedSceneReadiness } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -485,6 +486,7 @@ export function VideoFrame({
         ...style,
       }}
     >
+      <MountedSceneReadiness scene={active.scene} playing={playing} />
       <div
         data-video-canvas="true"
         style={{

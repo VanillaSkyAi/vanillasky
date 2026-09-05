@@ -1,3 +1,4 @@
+import { sceneReadinessKey } from "./mounted-scene-readiness.js";
 import { useEffect } from "react";
 import type { VideoScene } from "../protocol/types.js";
 import type { VideoState } from "../protocol/state.js";
@@ -10,6 +11,7 @@ interface PlaybackClockOptions {
   audioRef: { current: HTMLAudioElement | null };
   loopRef: { current: boolean };
   sceneIndexRef: { current: number };
+  visualReadyRef?: { current: string | undefined };
   callbacksRef: {
     current: {
       onStallChange?: (stalled: boolean) => unknown;
@@ -27,6 +29,7 @@ export function usePlaybackClock({
   audioRef,
   loopRef,
   sceneIndexRef,
+  visualReadyRef,
   callbacksRef,
   setCurrentTime,
   setIsPlaying,
@@ -59,6 +62,10 @@ export function usePlaybackClock({
         } else {
           nextTime = Math.min(raw, duration);
         }
+        const ranges = resolveVideoTimeline(config);
+        const target = ranges.find(range => nextTime >= range.start && nextTime < range.end) ?? ranges.at(-1);
+        const waitingForVisual = Boolean(target && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(target.scene));
+        if (waitingForVisual && target) nextTime = target.start;
         if (nextTime !== timeRef.current) {
           timeRef.current = nextTime;
           setCurrentTime(nextTime);
@@ -78,7 +85,7 @@ export function usePlaybackClock({
           if (remaining <= 0 && !looping) audio.pause();
         }
         const notify = callbacksRef.current.onSceneChange;
-        if (notify) {
+        if (notify && !waitingForVisual) {
           if (wrapped) sceneIndexRef.current = -1;
           const ranges = resolveVideoTimeline(config);
           const index = ranges.findIndex((range) => nextTime >= range.start && nextTime < range.end);
@@ -90,7 +97,8 @@ export function usePlaybackClock({
         }
       }
       const duration = current.config ? getVideoDuration(current.config) : 0;
-      reportStall(!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration);
+      const active = current.config ? resolveVideoTimeline(current.config).find(range => timeRef.current >= range.start && timeRef.current < range.end) : undefined;
+      reportStall(Boolean(active && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(active.scene)) || (!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration));
       if (!settled || looping || timeRef.current < duration) frame = requestAnimationFrame(tick);
       else setIsPlaying(false);
     };

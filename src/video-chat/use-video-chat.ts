@@ -3,7 +3,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { resolveVideoBrand } from "../protocol/background.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import { decodeVideoSse } from "../protocol/sse.js";
-import { getSceneDuration } from "../protocol/scene-duration.js";
+import { canStartPreparedSequence, preparedSceneDuration } from "../player/scene-readiness.js";
 import type { VideoEvent } from "../protocol/events.js";
 import type {
   Video,
@@ -20,6 +20,7 @@ import { preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.
 import { getBuiltinTemplateMetadata } from "../visual-system/catalog/builtin-metadata.js";
 import type { TemplateRegistry } from "../visual-system/catalog/kit.js";
 import { warmSceneMedia } from "../player/warm-scene-media.js";
+import { prepareSceneMedia } from "../player/prepare-scene-media.js";
 import type {
   VideoChatCapabilities,
   VideoChatAskOptions,
@@ -411,9 +412,8 @@ function pacedScene(
   spokenSeconds: number | undefined,
   templates?: TemplateRegistry,
 ): VideoScene {
-  const held = spokenSeconds && spokenSeconds > 0
-    ? spokenSeconds + 0.8
-    : getSceneDuration(scene, templates?.getTemplateMetadata(scene.templateId) ?? getBuiltinTemplateMetadata(scene.templateId));
+  const held = preparedSceneDuration(scene, spokenSeconds,
+    templates?.getTemplateMetadata(scene.templateId) ?? getBuiltinTemplateMetadata(scene.templateId));
   const {
     startTime: _startTime,
     endTime: _endTime,
@@ -685,7 +685,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return;
       }
       if (!timeline) {
-        if (!style || openingActive || heldRef.current || available === appended) return;
+        if (!style || openingActive || heldRef.current || available === appended
+          || !canStartPreparedSequence(ready, planDone)) return;
         timeline = createSceneTimeline({ style, orientation });
         timelineRef.current = timeline;
         openingController.abort(new DOMException("Opening replaced by response", "AbortError"));
@@ -820,9 +821,12 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           const plannedScene = event.data.scene;
           planned[position] = plannedScene;
           received[position] = prepareVisualScene(plannedScene, mode);
-          if (!currentOptions.templates?.getTemplate(plannedScene.templateId)) {
-            preloadBuiltinTemplate(plannedScene.templateId);
-          }
+          const rendererReady = currentOptions.templates?.getTemplate(plannedScene.templateId)
+            ? Promise.resolve() : Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
+          const visualPreparation = Promise.all([rendererReady, prepareSceneMedia(plannedScene.variables, controller.signal)])
+            .then(() => undefined, () => { throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" }); });
+          // Attach a handler immediately while speech preparation runs in parallel.
+          void visualPreparation.catch(() => undefined);
           warmSceneMedia(plannedScene.variables);
 
           const narrated = narrating.then(async () => {
@@ -860,10 +864,12 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               })
               : undefined;
             if (!isCurrent() || currentAttempt !== attempt) return;
+            await visualPreparation;
             ready[position] = pacedScene(withNarration, spoken?.seconds, currentOptions.templates);
             flush();
-          }).catch(() => {
+          }).catch((cause: unknown) => {
             if (!isCurrent() || currentAttempt !== attempt) return;
+            if (cause instanceof VideoError && cause.code === "media_not_ready") { terminalError = cause; return; }
             ready[position] = { ...received[position]!, timing: { fixedDuration: 5 } };
             warn("Some parts were simplified so the response could continue.");
             flush();
@@ -874,6 +880,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         terminalError = errorFrom(cause);
       }
       await Promise.all(pending);
+      if (terminalError?.code === "media_not_ready") throw terminalError;
       if (terminalError && ready.some(Boolean) && style) {
         warn("The response was interrupted; completed scenes are still available.");
       } else if (terminalError) throw terminalError;
@@ -897,7 +904,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       try {
         response = await untilAborted(runAttempt(attempt), controller.signal);
       } catch (cause) {
-        if (controller.signal.aborted || timeline || spokenHook) throw cause;
+        if (controller.signal.aborted || timeline || spokenHook
+            || (cause instanceof VideoError && cause.code === "media_not_ready")) throw cause;
         attempt += 1;
         ready = [];
         received = [];
@@ -932,7 +940,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return undefined;
       }
       terminal = true;
-      const recovered = received.flatMap((scene, index) => scene
+      const recovered = cause instanceof VideoError && cause.code === "media_not_ready" ? [] : received.flatMap((scene, index) => scene
         ? [ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
         : []);
       if (recovered.length > 0) {

@@ -264,6 +264,9 @@ export interface VideoTemplatePacing {
   minDuration?: number;
   preferredDuration?: number;
   timing?: {
+    readonly revealSeconds?: number;
+    readonly holdSeconds?: number;
+    readonly exitSeconds?: number;
     readonly contentFields: readonly string[];
     readonly contentUnit: "words" | "characters" | "items";
   };
