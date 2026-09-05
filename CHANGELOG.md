@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.8.8
+
 - Use equal spacing between Sessions, Settings, and Voice controls on mobile and desktop.
 
 ## 0.8.7
