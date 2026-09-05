@@ -10,7 +10,7 @@ describe("semantic brand flow", () => {
   it("maps the already-resolved brand to semantic template tokens without deriving another palette", async () => {
     const { resolveTokens } = await import("../src/visual-system/scene-templates/tokens");
 
-    expect(resolveTokens(style)).toMatchObject({primary:"#FFFFFF",secondary:"#FFFFFF",foreground:"#FFFFFF",surface:"#000000",surfaceElevated:"#171717",muted:"#B7B7BC",font:'-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',background:{type:"solid",color:"#000000"}});
+    expect(resolveTokens(style)).toMatchObject({primary:"#FFFFFF",secondary:"#FFFFFF",foreground:"#FFFFFF",surface:"#000000",surfaceElevated:"#171717",muted:"#B7B7BC",font:'-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif',background:{type:"solid",color:"#000000"}});
     expect(resolveTokens(style)).not.toHaveProperty("name");
     expect(resolveTokens(style)).not.toHaveProperty("logoUrl");
   });

@@ -1,7 +1,4 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { StepsList } from "../src/visual-system/primitives/infographic/StepsList";
 import { renderArchetype, TEXT_ARCHETYPES } from "../src/visual-system/scene-templates/text-archetypes";
 
 describe("global transition hold contract", () => {
@@ -50,23 +47,3 @@ describe("global transition hold contract", () => {
   });
 });
 
-describe("StepsList connector exits", () => {
-  it.each([
-    { width: 1080, height: 1920, gradient: "to bottom" },
-    { width: 1920, height: 1080, gradient: "to right" },
-  ])("fades and translates $gradient connectors with their items", ({ width, height, gradient }) => {
-    const markup = renderToStaticMarkup(createElement(StepsList, {
-      progress: 1,
-      width,
-      height,
-      steps: [{ title: "Connect" }, { title: "Generate" }, { title: "Share" }],
-    }));
-    const connectorStyles = [...markup.matchAll(/<div style="([^"]*background:linear-gradient[^"]*)"/g)]
-      .map((match) => match[1])
-      .filter((connectorStyle) => connectorStyle.includes(gradient));
-
-    expect(connectorStyles).toHaveLength(2);
-    expect(connectorStyles.every((connectorStyle) => connectorStyle.includes("opacity:0"))).toBe(true);
-    expect(connectorStyles.every((connectorStyle) => connectorStyle.includes("translateX(-90px)"))).toBe(true);
-  });
-});

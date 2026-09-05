@@ -39,7 +39,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "format": "stock-media-keyword",
           "minLength": 1,
           "maxLength": 80,
-          "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
           "examples": [
             "Ocean waves breaking on a rocky shore"
           ]
@@ -179,7 +179,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
             "Notice the pattern",
             "Make room for change"
           ],
-          "description": "2–4 parallel phrases, about2–6words each; no heading or numbering."
+          "description": "2–4 parallel phrases, about 2–6 words each; no heading or numbering."
         }
       },
       "required": [
@@ -247,7 +247,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
               "label": "Act"
             }
           ],
-          "description": "3–5 ordered events or actions, each with one shortlabel; no dates."
+          "description": "3–5 ordered events or actions, each with one short label; no dates."
         }
       },
       "required": [
@@ -291,7 +291,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "format": "stock-media-keyword",
           "minLength": 1,
           "maxLength": 80,
-          "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
           "examples": [
             "Ocean waves breaking on a rocky shore"
           ]
@@ -321,13 +321,13 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "type": "string",
           "maxLength": 120,
           "default": "Can we talk?",
-          "description": "Exact supplied or explicitly illustrative message, preferably6–16words."
+          "description": "Exact supplied or explicitly illustrative message, preferably 6–16 words."
         },
         "app": {
           "type": "string",
           "maxLength": 24,
           "default": "Messages",
-          "description": "Optional app label; Messages is the visualdefault."
+          "description": "Optional app label; Messages is the visual default."
         },
         "mediaSource": {
           "type": "string",
@@ -382,19 +382,19 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
         "leftLabel": {
           "type": "string",
           "maxLength": 20,
-          "description": "Optional shortidentifier for the first alternative."
+          "description": "Optional short identifier for the first alternative."
         },
         "rightLabel": {
           "type": "string",
           "maxLength": 20,
-          "description": "Optional shortidentifier for the second alternative."
+          "description": "Optional short identifier for the second alternative."
         },
         "leftText": {
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
           "default": "More distractions",
-          "description": "First real alternative in one shortphrase."
+          "description": "First real alternative in one short phrase."
         },
         "rightText": {
           "type": "string",
@@ -458,7 +458,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "examples": [
             "Illustrative example"
           ],
-          "description": "Grounded attribution belonging to these exact quotedwords."
+          "description": "Grounded attribution belonging to these exact quoted words."
         }
       },
       "required": [
@@ -515,7 +515,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "examples": [
             "Illustrative example"
           ],
-          "description": "Exactly one shortlabel identifying the quantity and its context."
+          "description": "Exactly one short label identifying the quantity and its context."
         }
       },
       "required": [

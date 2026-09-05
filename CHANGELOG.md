@@ -4,6 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Package licensed, self-hosted Roboto fallback fonts for the fixed cinematic typography; remove unused promotional template primitives.
+
+
 ### Breaking changes
 
 - Replace the 28 promotional templates with eight cinematic templates: Full-bleed, Chapter, Focus cards, Timeline, Reach out, Comparison, Quote, and Key figure. Graphics use fixed black backgrounds and white/neutral system typography; only Full-bleed and Reach out accept media.

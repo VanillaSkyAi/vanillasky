@@ -28,7 +28,7 @@
       "path": "src/visual-system/scene-templates/editorial-typography.ts",
       "type": "registry:component",
       "target": "vanillasky/scene-templates/editorial-typography.ts",
-      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
+      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
     }
   ],
   "meta": {
@@ -68,19 +68,19 @@
           "leftLabel": {
             "type": "string",
             "maxLength": 20,
-            "description": "Optional shortidentifier for the first alternative."
+            "description": "Optional short identifier for the first alternative."
           },
           "rightLabel": {
             "type": "string",
             "maxLength": 20,
-            "description": "Optional shortidentifier for the second alternative."
+            "description": "Optional short identifier for the second alternative."
           },
           "leftText": {
             "type": "string",
             "minLength": 1,
             "maxLength": 60,
             "default": "More distractions",
-            "description": "First real alternative in one shortphrase."
+            "description": "First real alternative in one short phrase."
           },
           "rightText": {
             "type": "string",

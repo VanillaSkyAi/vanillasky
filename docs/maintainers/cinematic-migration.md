@@ -26,3 +26,9 @@ After re-authoring that title as a chapter:
 ```
 
 Evidence: persistence tests preserve the untouched old release fixture and assert rejection, accept current-style round trips, reject hidden/non-JSON input as before, and pin new checksums. Template tests cover both orientations, deterministic seeking, exact evidence text and single-decoder backdrop ownership. Final packed consumer and mobile playback checks remain release gates.
+
+## Render fonts
+
+The cinematic templates use `-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif` at regular and medium weights. Apple devices keep native system typography. The existing `@vanillaskyai/video/video-chat.css` entry registers packaged Roboto v51 WOFF2 subsets as the fallback for environments without those fonts. Standalone player and source-owned template integrations should also import that stylesheet. No font is fetched from Google at runtime; browsers fetch local packaged subsets only when Roboto is selected for the rendered glyphs. The font assets include the SIL Open Font License and a source/hash manifest.
+
+Live native fonts and a Linux renderer’s Roboto have slightly different metrics. For repeatable exports, keep the browser, installed fonts, viewport and package version fixed, and await `document.fonts.ready` after mounting the final scene before capturing frames. This is a host export responsibility; the SDK does not add a separate export API or force downloaded fonts onto Apple devices.

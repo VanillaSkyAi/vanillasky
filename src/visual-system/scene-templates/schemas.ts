@@ -10,7 +10,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "format": "stock-media-keyword",
         "minLength": 1,
         "maxLength": 80,
-        "description": "2\u20138 word literal subject/action search intent, max80characters. Host resolves URLs.",
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
         "examples": [
           "Ocean waves breaking on a rocky shore"
         ]
@@ -94,7 +94,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
           "Notice the pattern",
           "Make room for change"
         ],
-        "description": "2\u20134 parallel phrases, about2\u20136words each; no heading or numbering."
+        "description": "2\u20134 parallel phrases, about 2\u20136 words each; no heading or numbering."
       }
     },
     "required": [
@@ -134,7 +134,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
             "label": "Act"
           }
         ],
-        "description": "3\u20135 ordered events or actions, each with one shortlabel; no dates."
+        "description": "3\u20135 ordered events or actions, each with one short label; no dates."
       }
     },
     "required": [
@@ -150,7 +150,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "format": "stock-media-keyword",
         "minLength": 1,
         "maxLength": 80,
-        "description": "2\u20138 word literal subject/action search intent, max80characters. Host resolves URLs.",
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
         "examples": [
           "Ocean waves breaking on a rocky shore"
         ]
@@ -180,13 +180,13 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "type": "string",
         "maxLength": 120,
         "default": "Can we talk?",
-        "description": "Exact supplied or explicitly illustrative message, preferably6\u201316words."
+        "description": "Exact supplied or explicitly illustrative message, preferably 6\u201316 words."
       },
       "app": {
         "type": "string",
         "maxLength": 24,
         "default": "Messages",
-        "description": "Optional app label; Messages is the visualdefault."
+        "description": "Optional app label; Messages is the visual default."
       },
       "mediaSource": {
         "type": "string",
@@ -211,19 +211,19 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
       "leftLabel": {
         "type": "string",
         "maxLength": 20,
-        "description": "Optional shortidentifier for the first alternative."
+        "description": "Optional short identifier for the first alternative."
       },
       "rightLabel": {
         "type": "string",
         "maxLength": 20,
-        "description": "Optional shortidentifier for the second alternative."
+        "description": "Optional short identifier for the second alternative."
       },
       "leftText": {
         "type": "string",
         "minLength": 1,
         "maxLength": 60,
         "default": "More distractions",
-        "description": "First real alternative in one shortphrase."
+        "description": "First real alternative in one short phrase."
       },
       "rightText": {
         "type": "string",
@@ -259,7 +259,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "examples": [
           "Illustrative example"
         ],
-        "description": "Grounded attribution belonging to these exact quotedwords."
+        "description": "Grounded attribution belonging to these exact quoted words."
       }
     },
     "required": [
@@ -288,7 +288,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "examples": [
           "Illustrative example"
         ],
-        "description": "Exactly one shortlabel identifying the quantity and its context."
+        "description": "Exactly one short label identifying the quantity and its context."
       }
     },
     "required": [

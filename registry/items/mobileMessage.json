@@ -48,7 +48,7 @@
       "path": "src/visual-system/scene-templates/editorial-typography.ts",
       "type": "registry:component",
       "target": "vanillasky/scene-templates/editorial-typography.ts",
-      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
+      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
     }
   ],
   "meta": {
@@ -88,7 +88,7 @@
             "format": "stock-media-keyword",
             "minLength": 1,
             "maxLength": 80,
-            "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+            "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
             "examples": [
               "Ocean waves breaking on a rocky shore"
             ]
@@ -118,13 +118,13 @@
             "type": "string",
             "maxLength": 120,
             "default": "Can we talk?",
-            "description": "Exact supplied or explicitly illustrative message, preferably6–16words."
+            "description": "Exact supplied or explicitly illustrative message, preferably 6–16 words."
           },
           "app": {
             "type": "string",
             "maxLength": 24,
             "default": "Messages",
-            "description": "Optional app label; Messages is the visualdefault."
+            "description": "Optional app label; Messages is the visual default."
           },
           "mediaSource": {
             "type": "string",

@@ -276,7 +276,7 @@ export function resolveTokens(
     surfaceElevated: "#171717",
     foreground: "#FFFFFF",
     muted: "#B7B7BC",
-    font: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
+    font: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif',
     scriptFont: "Georgia",
     preset: composedPreset,
     density,

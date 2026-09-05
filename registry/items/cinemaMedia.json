@@ -74,7 +74,7 @@
             "format": "stock-media-keyword",
             "minLength": 1,
             "maxLength": 80,
-            "description": "2–8 word literal subject/action search intent, max80characters. Host resolves URLs.",
+            "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
             "examples": [
               "Ocean waves breaking on a rocky shore"
             ]

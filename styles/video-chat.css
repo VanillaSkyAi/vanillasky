@@ -1,3 +1,5 @@
+@import "./fonts/roboto.css";
+
 /* Scoped immersive VideoChat interface. Import this stylesheet once.
  * All tokens, element rules and animation names belong to the component.
  * Override --vs-chat-height / --vs-chat-min-height to fit an embedded host. */
@@ -1048,27 +1050,6 @@
 @media (max-width: 700px) {
   .vanillasky-video-chat .sheet-popover { max-height: calc(100% - 102px); }
 }
-
-/* A still from the current response softly fills unused aspect-ratio space.
-   Frame is mounted paused by the component; only the main player animates. */
-.vanillasky-video-chat .stage > .ambient-media {
-  inset: -40px;
-  width: calc(100% + 80px);
-  height: calc(100% + 80px);
-  display: block;
-  overflow: hidden;
-  z-index: 0;
-  background: var(--vs-media-ground);
-  opacity: 1;
-  pointer-events: none;
-}
-.vanillasky-video-chat .ambient-media .frame-media {
-  max-width: none;
-  max-height: none;
-  object-fit: cover;
-  filter: blur(32px) saturate(.85);
-  opacity: .62;
-}
 .vanillasky-video-chat .opening-wash {
   position: absolute;
   inset: 0;
@@ -1093,7 +1074,6 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  .vanillasky-video-chat .stage > .ambient-media { display: none; }
 }
 
 @media (pointer: coarse) {
