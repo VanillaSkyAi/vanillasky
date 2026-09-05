@@ -7,7 +7,6 @@ import { canStartPreparedSequence, preparedSceneDuration } from "../player/scene
 import type { VideoEvent } from "../protocol/events.js";
 import type {
   Video,
-  VideoBrandInput,
   VideoOrientation,
   VideoScene,
   VideoStyle,
@@ -62,7 +61,6 @@ export interface UseVideoChatOptions {
   templates?: TemplateRegistry;
   mode?: VideoChatMode;
   orientation?: VideoOrientation;
-  brand?: VideoBrandInput;
   style?: VideoStyleOptions;
   headers?: HeadersInit;
   credentials?: RequestCredentials;
@@ -424,24 +422,6 @@ function pacedScene(
   return { ...scene, timing: { ...timing, fixedDuration: held } };
 }
 
-function prepareVisualScene(scene: VideoScene, mode: VideoChatMode): VideoScene {
-  const overMedia = typeof (scene.variables as { mediaUrl?: unknown }).mediaUrl === "string";
-  const filmed = mode === "full" && overMedia;
-  const shown = filmed
-    ? {
-        ...scene,
-        backgroundEffect: "static" as const,
-        variables: {
-          ...scene.variables,
-          texts: "",
-          mediaTreatment: "none",
-          confetti: false,
-        },
-      }
-    : scene;
-  return overMedia ? { ...shown, textArchetype: "subtle" } : shown;
-}
-
 /** Own a complete video conversation while the application owns its UI. */
 export function useVideoChat(options: UseVideoChatOptions = {}): UseVideoChatResult {
   return useVideoChatSession(options).chat;
@@ -626,9 +606,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       throw new VideoError("timeoutMs must be positive", { code: "invalid_option" });
     }
     const timeout = setTimeout(() => controller.abort(new DOMException("Video chat timed out", "TimeoutError")), timeoutMs);
-    const requestedMode = currentOptions.mode ?? "templates";
-    const knownModes = stateRef.current.capabilities?.modes;
-    const mode = knownModes && !knownModes.includes(requestedMode) ? "templates" : requestedMode;
+    const mode = "cinematic" as const;
     const orientation = currentOptions.orientation ?? "landscape";
     const id = (currentOptions.createTurnId ?? defaultTurnId)();
     const conversation = conversationFor(stateRef.current.turns);
@@ -641,7 +619,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       prompt,
       completed: false,
       orientation,
-      fixedOrientation: mode === "full",
+      fixedOrientation: true,
       suggestions: [],
       ...(openingMedia ? { openingMedia } : {}),
     };
@@ -718,7 +696,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         const media = sanitizeVideoChatMedia(payload.media);
         if (media && isOpeningCurrent() && !timeline) dispatch({ type: "opening-media", id, media });
       } catch {
-        // Stock footage is an enhancement; the branded ground remains usable.
+        // Stock footage is an enhancement; the black ground remains usable.
       }
     };
 
@@ -765,7 +743,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           mode,
           orientation,
           conversation,
-          ...(currentOptions.brand ? { brand: currentOptions.brand } : {}),
           ...(currentOptions.style ? { style: currentOptions.style } : {}),
         }),
       }, controller.signal);
@@ -820,7 +797,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           const position = event.data.position;
           const plannedScene = event.data.scene;
           planned[position] = plannedScene;
-          received[position] = prepareVisualScene(plannedScene, mode);
+          received[position] = plannedScene;
           const rendererReady = currentOptions.templates?.getTemplate(plannedScene.templateId)
             ? Promise.resolve() : Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
           const visualPreparation = Promise.all([rendererReady, prepareSceneMedia(plannedScene.variables, controller.signal)])
@@ -854,7 +831,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           narrating = narrated.catch(() => "");
           pending.push(narrated.then(async (line) => {
             if (!isCurrent() || currentAttempt !== attempt) return;
-            const visual = prepareVisualScene(plannedScene, mode);
+            const visual = plannedScene;
             const withNarration = line ? { ...visual, narration: line } : visual;
             const spoken = line
               ? await prepareSpeech(line, controller.signal).catch((cause: unknown) => {
@@ -944,7 +921,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         ? [ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
         : []);
       if (recovered.length > 0) {
-        style ??= { brand: resolveVideoBrand(currentOptions.brand), density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
+        style ??= { brand: resolveVideoBrand(), density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
         openingController.abort(new DOMException("Continuing completed response", "AbortError"));
         if (!timeline) {
           timeline = createSceneTimeline({ style, orientation });
@@ -1042,7 +1019,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 
   const currentTurn = state.turns.at(-1);
   const shownTurn = state.turns.find((turn) => turn.id === state.shownTurnId) ?? currentTurn;
-  const availableModes = state.capabilities?.modes ?? (["templates"] as const);
+  const availableModes = state.capabilities?.modes ?? (["cinematic"] as const);
   const suggestions = shownTurn?.suggestions ?? [];
   const fullTranscript = shownTurn ? transcriptFor(shownTurn) : [];
   const transcript = shownTurn && shownTurn === currentTurn && state.playback?.kind !== "video"
