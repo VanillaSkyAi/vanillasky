@@ -67,6 +67,7 @@ export function VideoPlayerRuntime({
   onError,
   onSceneChange,
   onFramePresented,
+  onMediaFramePresented,
   onStallChange,
   onStateChange,
 }: VideoPlayerRuntimeProps): ReactElement {
@@ -106,21 +107,29 @@ export function VideoPlayerRuntime({
   const timeRef = useRef(currentTime);
   const audioRef = useRef<HTMLAudioElement>(null);
   const introStartedAtRef = useRef<number | null>(autoStartGeneration ? performance.now() : null);
-  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onStallChange, onStateChange });
+  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
+  const mediaFrameReportedRef = useRef(false);
   const visualReadyRef = useRef<string | undefined>(undefined);
-  const reportVisualReady = useMemo(() => (key: string, error?: Error) => {
+  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false) => {
     if (error) {
       setIsPlaying(false);
       callbacksRef.current.onError?.(error, stateRef.current);
-    } else visualReadyRef.current = key;
+    } else {
+      visualReadyRef.current = key;
+      if (actualVideoFrame && !mediaFrameReportedRef.current) {
+        mediaFrameReportedRef.current = true;
+        try { void Promise.resolve(callbacksRef.current.onMediaFramePresented?.()).catch(() => undefined); }
+        catch { /* Metrics cannot stop playback. */ }
+      }
+    }
   }, []);
   const playbackEndedRef = useRef(false);
 
   stateRef.current = state;
   timeRef.current = currentTime;
-  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onStallChange, onStateChange };
+  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
   loopRef.current = loop;
 
   const reportFramePresented = useMemo(() => {
@@ -164,6 +173,7 @@ export function VideoPlayerRuntime({
     const autoStartReplacement = Boolean(playbackMode && stream && shouldAutoPlay && !reducedMotion);
     setActiveStream(stream);
     setActiveSavedVideo(video);
+    mediaFrameReportedRef.current = false;
     sceneIndexRef.current = -1;
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());

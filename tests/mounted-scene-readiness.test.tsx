@@ -22,7 +22,7 @@ describe("actual mounted media readiness", () => {
     Object.defineProperty(video, "readyState", {value: 2, configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).not.toHaveBeenCalled();
     act(() => presented?.(0, {} as VideoFrameCallbackMetadata));
-    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined);
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
     expect(view.container.querySelectorAll("video")).toHaveLength(1);
   });
   it("a next-scene source handoff does not inherit readiness or allocate another decoder", async () => {
@@ -46,6 +46,6 @@ describe("actual mounted media readiness", () => {
   it("reports a bounded decode failure rather than starting narration over black", async () => {
     vi.useFakeTimers(); const report = vi.fn(); render(fixture(report));
     await act(() => vi.advanceTimersByTimeAsync(8000));
-    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
+    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
   });
 });

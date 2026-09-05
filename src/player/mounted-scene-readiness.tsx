@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef } from "react";
 import type { VideoScene } from "../protocol/types.js";
 
-export const MountedReadinessContext = createContext<((key: string, error?: Error) => void) | undefined>(undefined);
+export const MountedReadinessContext = createContext<((key: string, error?: Error, actualVideoFrame?: boolean) => void) | undefined>(undefined);
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
 /** Observes the real mounted surface, never a detached decoder or speculative URL. */
@@ -16,7 +16,7 @@ export function MountedSceneReadiness({ scene, playing, fallback = false }: { sc
     let callback: number | undefined;
     let observed: HTMLVideoElement | undefined;
     const start = performance.now();
-    const finish = (error?: Error) => { if (!stopped) { stopped = true; report(key, error); } };
+    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; report(key, error, actualVideoFrame); } };
     const check = () => {
       if (stopped) return;
       const root = marker.current?.closest('[data-video-frame]');
@@ -33,10 +33,10 @@ export function MountedSceneReadiness({ scene, playing, fallback = false }: { sc
           if (video && video.getAttribute('src') === mediaUrl && video.readyState >= 2) {
             observed = video;
             if (video.requestVideoFrameCallback) {
-              callback = video.requestVideoFrameCallback(() => finish());
+              callback = video.requestVideoFrameCallback(() => finish(undefined, true));
               return;
             }
-            finish(); return;
+            finish(undefined, true); return;
           }
         } else {
           const image = [...(layer.querySelectorAll('img') ?? [])].find(element => element.getAttribute('src') === mediaUrl);

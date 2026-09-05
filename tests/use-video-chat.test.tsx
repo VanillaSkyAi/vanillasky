@@ -187,6 +187,9 @@ describe("useVideoChat", () => {
     expect(metrics).toEqual([]);
     now = 150;
     act(() => result.current.playerProps?.onFramePresented?.());
+    now = 175;
+    act(() => result.current.playerProps?.onMediaFramePresented?.());
+    act(() => result.current.playerProps?.onMediaFramePresented?.());
     now = 200;
     act(() => speechStarted?.());
     act(() => speechStarted?.());
@@ -196,6 +199,7 @@ describe("useVideoChat", () => {
     act(() => result.current.playerProps?.onStallChange?.(false));
     expect(metrics).toEqual([
       { type: "first-frame", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 50 },
+      { type: "first-media-frame", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 75 },
       { type: "first-speech", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 100, source: "custom" },
       { type: "stall", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 450, durationMs: 250, reason: "scene-generation" },
     ]);
@@ -204,7 +208,7 @@ describe("useVideoChat", () => {
     act(() => result.current.cancel());
     act(() => result.current.playerProps?.onFramePresented?.());
     act(() => speechStarted?.());
-    expect(metrics).toHaveLength(3);
+    expect(metrics).toHaveLength(4);
   });
 
   it("excludes pauses from starvation and isolates rejected metric observers", async () => {

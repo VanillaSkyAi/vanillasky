@@ -82,6 +82,7 @@ export type VideoChatPlaybackMetric = {
   elapsedMs: number;
 } & (
   | { type: "first-frame" }
+  | { type: "first-media-frame" }
   | { type: "first-speech"; source: "browser" | "generated" | "custom" }
   | { type: "stall"; durationMs: number; reason: "scene-generation" }
 );
@@ -473,6 +474,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     startedAt: number;
     reported: boolean;
     speechReported: boolean;
+    mediaReported?: boolean;
     active: boolean;
     stallStartedAt?: number;
   } | undefined>(undefined);
@@ -1042,6 +1044,13 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       const elapsedMs = Math.max(0, Math.round(monotonicNow() - timing.startedAt));
       observe(() => optionsRef.current.onFirstFrame?.({ turnId: timing.turnId, mode: timing.mode, timeToFirstFrameMs: elapsedMs }));
       reportMetric({ type: "first-frame", turnId: timing.turnId, mode: timing.mode, elapsedMs });
+    },
+    onMediaFramePresented: () => {
+      const timing = firstFrameRef.current;
+      if (stateRef.current.playerKey !== playbackKey || state.playback?.kind !== "stream" || !timing?.active || timing.mediaReported) return;
+      timing.mediaReported = true;
+      reportMetric({type: "first-media-frame", turnId: timing.turnId, mode: timing.mode,
+        elapsedMs: Math.max(0, Math.round(monotonicNow() - timing.startedAt))});
     },
     onStallChange: (stalled: boolean) => {
       if (stateRef.current.playerKey !== playbackKey || state.playback?.kind !== "stream") return;

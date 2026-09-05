@@ -62,6 +62,8 @@ interface VideoPlayerSharedProps {
   onError?: (error: Error) => void;
   /** First active scene committed, observed at the next animation frame; excludes idle posters. */
   onFramePresented?: () => unknown;
+  /** First actual mounted video frame; excludes graphics, posters and safe fallbacks. */
+  onMediaFramePresented?: () => unknown;
   /** Stream playback has reached its available scenes; excludes initial waiting and deliberate pauses. */
   onStallChange?: (stalled: boolean) => unknown;
   /** Fires when the scene under the playhead changes, including on a loop wrap. */
