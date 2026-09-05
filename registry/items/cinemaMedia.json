@@ -100,6 +100,11 @@
             "description": "Host-only approved poster URL for video decoding.",
             "default": ""
           },
+          "shotDirection": {
+            "type": "string",
+            "maxLength": 220,
+            "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+          },
           "mediaSource": {
             "type": "string",
             "enum": [

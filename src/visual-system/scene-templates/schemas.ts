@@ -36,6 +36,11 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "description": "Host-only approved poster URL for video decoding.",
         "default": ""
       },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+      },
       "mediaSource": {
         "type": "string",
         "enum": [
@@ -187,6 +192,11 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "maxLength": 24,
         "default": "Messages",
         "description": "Optional app label; Messages is the visual default."
+      },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
       },
       "mediaSource": {
         "type": "string",

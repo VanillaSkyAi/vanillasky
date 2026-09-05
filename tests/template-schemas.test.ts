@@ -9,6 +9,17 @@ describe('cinematic schemas',()=>{
    expect(schemas[id].properties.mediaPoster.format).toBe('uri');
   }
  });
+ it('keeps optional generation direction separate from the bounded stock query',()=>{
+  for(const id of ['cinemaMedia','mobileMessage'] as const){
+   expect(schemas[id].properties).toHaveProperty('shotDirection', {
+    type: 'string', maxLength: 220,
+    description: 'Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text.',
+   });
+   expect(schemas[id].required).not.toContain('shotDirection');
+   expect(schemas[id].properties.mediaKeyword.maxLength).toBe(80);
+   expect(schemas[id].properties.mediaKeyword.format).toBe('stock-media-keyword');
+  }
+ });
  it('never inserts factual defaults into an absent quotation or statistic',()=>{
   expect(schemas.quote.properties.quote).not.toHaveProperty('default');
   expect(schemas.quote.properties.attribution).not.toHaveProperty('default');
