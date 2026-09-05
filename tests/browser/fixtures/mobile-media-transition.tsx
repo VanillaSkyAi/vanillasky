@@ -40,9 +40,8 @@ const probeVideo: Video = {
   scenes: [
     {
       id: "first-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 1 — FOREST WATERFALL|ONE VIDEO ELEMENT — FIRST SOURCE ACTIVE",
         mediaUrl: waterfallVideo,
         mediaType: "video",
         mediaPoster: waterfallPoster,
@@ -51,9 +50,8 @@ const probeVideo: Video = {
     },
     {
       id: "second-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 2 — RAINY CITY TRAM|SAME ELEMENT — SOURCE CHANGE ONE",
         mediaUrl: tramVideo,
         mediaType: "video",
         mediaPoster: tramPoster,
@@ -62,9 +60,8 @@ const probeVideo: Video = {
     },
     {
       id: "third-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 3 — SUNFLOWERS|SAME ELEMENT — SOURCE CHANGE TWO",
         mediaUrl: sunflowersVideo,
         mediaType: "video",
         mediaPoster: sunflowersPoster,
@@ -73,6 +70,10 @@ const probeVideo: Video = {
     },
   ],
 };
+
+if (new URLSearchParams(window.location.search).has("noPoster")) {
+  for (const scene of probeVideo.scenes) delete scene.variables.mediaPoster;
+}
 
 const mediaEvents = [
   "loadstart", "loadedmetadata", "loadeddata", "canplay", "play", "playing",
@@ -201,7 +202,10 @@ function Probe() {
 
   return <main>
     <div data-probe-stage data-poster-background="none">
-      <VideoPlayer video={probeVideo} width={366} autoPlay startMuted loop ariaLabel="Mobile media transition probe" />
+      <VideoPlayer video={probeVideo} width={366} autoPlay startMuted loop onSceneChange={(scene) => {
+        const video = document.querySelector("video");
+        window.__mobileMediaTransitionProbe?.push({at: performance.now(), kind: "scene-narration-cue", sceneId: scene.id, readyState: video?.readyState, currentSrc: video?.currentSrc});
+      }} ariaLabel="Mobile media transition probe" />
     </div>
     {diagnosticsEnabled && <pre aria-label="Media transition event log" />}
   </main>;

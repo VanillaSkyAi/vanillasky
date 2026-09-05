@@ -45,7 +45,7 @@ export function MountedSceneReadiness({ scene, playing }: { scene: VideoScene; p
       if (performance.now() - start >= 8_000) { finish(new Error("Scene media did not become ready")); return; }
       frame = requestAnimationFrame(check);
     };
-    frame = requestAnimationFrame(check);
+    check();
     const timeout = setTimeout(() => finish(new Error("Scene media did not become ready")), 8_000);
     return () => {
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
