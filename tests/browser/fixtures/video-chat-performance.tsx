@@ -10,8 +10,8 @@ import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 let releaseScene = () => {};
 const scenes: VideoScene[] = [1, 2].map((value) => ({
   id: `scene-${value}`, templateId: "keyFigure",
-  variables: { value: String(value), texts: "A controlled response" },
-  timing: { fixedDuration: 4 }, narration: "A short line.",
+  variables: { value: String(value), label: "A controlled response" },
+  timing: { fixedDuration: 8 }, narration: "A short line.",
 }));
 const fetcher: typeof fetch = async (input) => {
   const action = new URL(String(input), location.origin).searchParams.get("action");
@@ -29,7 +29,7 @@ const fetcher: typeof fetch = async (input) => {
         const event = { protocolVersion: "0.6", type, eventId: `controlled:${sequence}`, runId: "controlled", sequence: sequence++, data };
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       };
-      emit("response.start", { requestId: "controlled", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["bigNumber"], extensions: ["data.video-chat-opening"] } });
+      emit("response.start", { requestId: "controlled", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["keyFigure"], extensions: ["data.video-chat-opening"] } });
       emit("data.video-chat-opening", { line: "An opening hook.", keyword: "" });
       emit("scene.add", { scene: scenes[0], position: 0 });
       releaseScene = () => {
@@ -43,7 +43,7 @@ const fetcher: typeof fetch = async (input) => {
   }), { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6" } });
 };
 const voice: VideoChatVoice = {
-  prepare: async () => ({ seconds: 0.1 }),
+  prepare: async () => ({ seconds: new URLSearchParams(location.search).has("shortBuffer") ? 0.1 : 7.2 }),
   speak: async (_text, options) => {
     if (!options.signal.aborted) options.onStart?.();
   },

@@ -12,10 +12,9 @@ function playerVideo(duration: number): Video {
     orientation: "portrait",
     scenes: [{
       id: "activation",
-      templateId: "cinemaMedia",
+      templateId: "chapterTitle",
       variables: {
-        texts: "Faster first value drives lasting retention.",
-        mediaType: "gradient",
+        title: "Lasting retention",
       },
       timing: { fixedDuration: duration },
     }],
