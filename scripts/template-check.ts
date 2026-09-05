@@ -297,7 +297,7 @@ export async function checkTemplateIntegrity(options: TemplateCheckOptions): Pro
         "src/visual-system/scene-templates/schemas.ts", `Add BUILTIN_TEMPLATE_SCHEMAS.${id}.`);
     } else {
       for (const field of schema.required ?? []) {
-        if (!schema.properties?.[field] || (schema.properties[field].default === undefined && !schema.properties[field].examples?.length)) {
+        if (!schema.properties?.[field] || (schema.properties[field].default === undefined && !(Array.isArray(schema.properties[field].examples) && schema.properties[field].examples.length > 0))) {
           issue(issues, id, "required-default-missing", `Required schema field ${JSON.stringify(field)} has no default or example.`,
             "src/visual-system/scene-templates/schemas.ts", `Add a representative example to ${id}.${field}; use defaults only for non-factual presentation settings.`);
         }
