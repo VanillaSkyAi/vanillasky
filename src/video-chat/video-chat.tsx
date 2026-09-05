@@ -227,7 +227,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     <header className="chrome" {...controlEvents}>
       <div className="session-brand"><Logo /></div>
       <div className="group">
-        {<button
+        <button
           ref={historyButtonRef}
           type="button"
           className="pill"
@@ -238,9 +238,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
           onClick={() => { setHistoryOpen((open) => !open); setSettingsOpen(false); }}
         >
           <Sessions /><span className="nav-label">Sessions</span>
-        </button>}
-      </div>
-      <div className="group">
+        </button>
         <button
           ref={settingsButtonRef}
           type="button"

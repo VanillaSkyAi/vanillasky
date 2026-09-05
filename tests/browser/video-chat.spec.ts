@@ -134,3 +134,23 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     expect(errors).toEqual([]);
   });
 }
+
+for (const width of [390, 700, 1440]) test(`header controls have equal gaps at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.route("**/api/video-chat**", (route) => route.fulfill({ json: { prompts: [] } }));
+  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/video-chat.html");
+  const buttons = page.locator(".chrome button");
+  await expect(buttons).toHaveCount(3);
+  const boxes = await buttons.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const [sessions, settings, voice] = boxes;
+  const firstGap = settings.x - sessions.x - sessions.width;
+  const secondGap = voice.x - settings.x - settings.width;
+  expect(firstGap).toBeGreaterThanOrEqual(6);
+  expect(Math.abs(firstGap - secondGap)).toBeLessThan(0.5);
+  expect(sessions.y).toBe(settings.y);
+  expect(settings.y).toBe(voice.y);
+  expect(voice.x + voice.width).toBeLessThanOrEqual(width);
+});

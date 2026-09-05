@@ -773,7 +773,6 @@
 @media (max-width: 700px) {
   .vanillasky-video-chat .chrome .nav-label { display: none; }
   .vanillasky-video-chat .chrome .round:has(.nav-label), .vanillasky-video-chat .chrome .pill:has(.nav-label) { width: 44px; padding: 0; }
-  .vanillasky-video-chat .chrome > .group:first-of-type { margin-left: auto; }
 }
 
 .vanillasky-video-chat .chrome .session-brand { flex: 1 1 auto; }

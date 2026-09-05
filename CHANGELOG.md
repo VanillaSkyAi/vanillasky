@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Use equal spacing between Sessions, Settings, and Voice controls on mobile and desktop.
+
 - Package licensed, self-hosted Roboto fallback fonts for the fixed cinematic typography; remove unused promotional template primitives.
 
 
@@ -26,6 +28,7 @@ Remove brand options and regenerate source-owned templates from the new catalog.
 ```tsx
 <VideoChat options={{ endpoint: "/api/video-chat" }} />
 ```
+
 
 ## 0.8.7
 
