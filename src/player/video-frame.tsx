@@ -125,19 +125,7 @@ function rangesAreContiguous(left: VideoSceneRange, right: VideoSceneRange): boo
   return Math.abs(left.end - right.start) <= ulpTolerance;
 }
 
-function brandBackground(config: Video): string {
-  const background = config.style.brand.background;
-  return background.type === "solid"
-    ? background.color
-    : `linear-gradient(135deg, ${background.colors[0]}, ${background.colors[1]})`;
-}
-
-function brandBackgroundFallback(config: Video): string {
-  const background = config.style.brand.background;
-  return background.type === "solid" ? background.color : background.colors[0];
-}
-
-/** True when the scene paints a photo or video rather than the brand gradient. */
+/** True when the scene paints a photo or video rather than black. */
 function sceneHasBackdrop(range: VideoSceneRange): boolean {
   return String(range.scene.variables.mediaType || "auto") !== "gradient" &&
     String(range.scene.variables.mediaUrl || "").trim() !== "";
@@ -322,7 +310,7 @@ export function VideoFrame({
       <div
         data-video-frame={timeline.length === 0 ? "empty" : "gap"}
         className={className}
-        style={{ width, height, background: brandBackground(config), ...style }}
+        style={{ width, height, background: "#000", ...style }}
       />
     );
   }
@@ -482,7 +470,7 @@ export function VideoFrame({
         height,
         position: "relative",
         overflow: "hidden",
-        background: brandBackground(config),
+        background: "#000",
         ...style,
       }}
     >
@@ -500,13 +488,13 @@ export function VideoFrame({
         }}
       >
         <div
-          data-player-background="brand"
+          data-player-background="black"
           aria-hidden="true"
           style={{
             position: "absolute",
             inset: 0,
-            background: brandBackground(config),
-            backgroundColor: brandBackgroundFallback(config),
+            background: "#000",
+            backgroundColor: "#000",
             pointerEvents: "none",
           }}
         />
