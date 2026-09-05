@@ -79,6 +79,7 @@ interface GenerationCoverProps {
 
 export function GenerationCover({
   visible,
+  config,
   isMuted,
   startRequested,
   isPlaying,
@@ -129,6 +130,7 @@ export function GenerationCover({
 
 export function StartPosterButton({
   visible,
+  config,
   isMuted,
   onStart,
 }: {
