@@ -87,11 +87,12 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (!video) return;
     if (!isPlaying) {
       video.pause();
-      startedVideoUrl.current = undefined;
-      startedPlaybackId.current = undefined;
       return;
     }
-    if (startedPlaybackId.current === playbackId) return;
+    if (startedPlaybackId.current === playbackId) {
+      if (!video.ended) void video.play().catch(() => {});
+      return;
+    }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
     video.playbackRate = 1;
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
@@ -169,7 +170,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         src={mediaUrl}
         poster={retainPoster || decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
         muted={resolvedMuted}
-        loop
+        loop={false}
         playsInline
         preload="auto"
         onLoadedData={(event) => {
