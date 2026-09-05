@@ -989,6 +989,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const replay = useCallback(() => {
     const turn = stateRef.current.turns.find((entry) => entry.id === stateRef.current.shownTurnId);
     if (!turn?.completed || !turn.video) return;
+    runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
       runRef.current += 1;
@@ -1016,6 +1017,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const selectTurn = useCallback((id: string) => {
     const turn = stateRef.current.turns.find((entry) => entry.id === id);
     if (!turn?.completed || !turn.video) return;
+    runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
       runRef.current += 1;
