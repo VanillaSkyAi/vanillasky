@@ -1,16 +1,11 @@
-/**
- * Whether the response uses rendered templates or generated footage.
- */
+/** The director combines footage and graphics per scene. */
 export interface VisualMode {
-  id: "templates" | "full";
+  id: "cinematic";
   label: string;
   note: string;
 }
-
 export const visualModes: VisualMode[] = [
-  { id: "templates", label: "Templates only", note: "Animated text, diagrams and charts" },
-  { id: "full", label: "Full AI video", note: "AI-generated footage · billed per clip" },
+  { id: "cinematic", label: "Cinematic", note: "A coherent mix of footage and editorial graphics" },
 ];
-
 export const defaultMode = visualModes[0];
-export const modeById = (id: string): VisualMode => visualModes.find((mode) => mode.id === id) ?? defaultMode;
+export const modeById = (_id: string): VisualMode => defaultMode;

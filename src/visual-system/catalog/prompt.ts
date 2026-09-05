@@ -11,6 +11,8 @@ import { PACING_PLANNER_RULES } from "../../server/pacing.js";
 
 function plannerProperty(property: TemplateJsonSchemaProperty): TemplateJsonSchemaProperty {
   return {
+    ...(property.description == null ? {} : { description: property.description }),
+    ...(property.examples == null ? {} : { examples: property.examples.slice(0, 1) }),
     ...(property.type == null ? {} : { type: property.type }),
     ...(property.format == null ? {} : { format: property.format }),
     ...(property.enum == null ? {} : { enum: property.enum }),
@@ -50,14 +52,6 @@ function plannerSchema(schema: TemplateJsonSchema, exposeMediaKeyword: boolean):
       additionalProperties: schema.additionalProperties,
     }),
   };
-}
-
-function needsPlannerSchema(schema: TemplateJsonSchema): boolean {
-  const visit = (property: TemplateJsonSchema["properties"][string]): boolean =>
-    property.minimum != null || property.maximum != null ||
-    property.type === "object" ||
-    (property.items != null && visit(property.items));
-  return Object.values(schema.properties).some(visit);
 }
 
 function isMediaProperty(property: TemplateJsonSchemaProperty | undefined): boolean {
@@ -106,6 +100,7 @@ function plannerCatalog(templates: SceneTemplateMetadata[], mediaResolverAvailab
       id: template.id,
       jobs: template.jobs,
       use: template.useWhen ?? template.description,
+      ...(template.avoidWhen ? { avoid: template.avoidWhen } : {}),
       ...(template.minDuration == null && template.preferredDuration == null ? {} : {
         seconds: [template.minDuration ?? null, template.preferredDuration ?? null],
       }),
@@ -113,7 +108,7 @@ function plannerCatalog(templates: SceneTemplateMetadata[], mediaResolverAvailab
       ...(gates.requiresQuote ? { requiresQuote: true } : {}),
       ...(gates.requiresScreenshot ? { requiresScreenshot: true } : {}),
       ...(gates.requiredAnyOf.length > 0 ? { requiredAnyOf: gates.requiredAnyOf } : {}),
-      ...(needsPlannerSchema(template.schema) ? { schema: plannerSchema(template.schema, exposeMediaKeyword) } : {}),
+      schema: plannerSchema(template.schema, exposeMediaKeyword),
       ...(usesCommonMedia ? { media: true } : {}),
       variables,
     };
@@ -146,8 +141,6 @@ export function createTemplateSystemPrompt(options: {
     (options.mediaResolverAvailable === true && getStandardMediaResolverContract(template.schema) != null));
   const resolverMediaAvailable = options.mediaResolverAvailable === true &&
     templates.some(({ schema }) => getStandardMediaResolverContract(schema) != null);
-  const ids = new Set(templates.map(({ id }) => id));
-  const fields = new Set(templates.flatMap(({ schema }) => Object.keys(schema.properties)));
   const basePrompt = createVideoSystemPrompt(options.knowledgeMode, options.narrate === true)
     .split("\n")
     .filter((line) =>
@@ -159,21 +152,8 @@ export function createTemplateSystemPrompt(options: {
       !(resolverMediaAvailable && line.includes("Never expose a loading placeholder or unresolved media keyword"))
     )
     .join("\n");
-  const factRules = [
-    ...(ids.has("cardList") ? ["cardList needs two or three unused parallel facts"] : []),
-    ...(ids.has("steps") ? ["steps needs two or three unused sequential facts"] : []),
-    ...(ids.has("tripleStats") ? ["tripleStats needs exactly three unused peer values"] : []),
-  ];
-  const mediaTemplates = ["media", "ctaMedia", "reaction"].filter((id) => ids.has(id));
-  const mediaTemplateNames = mediaTemplates.length === 3
-    ? "media, ctaMedia, and reaction"
-    : mediaTemplates.join(", ");
-  const terminalPayoffs = ["media", "emojiBurst", "confetti"].filter((id) => ids.has(id));
-  const terminalPayoffNames = terminalPayoffs.length < 2
-    ? terminalPayoffs.join("")
-    : `${terminalPayoffs.slice(0, -1).join(", ")}, or ${terminalPayoffs.at(-1)}`;
-  const listFields = ["items", "itemEmojis", "steps", "stepEmojis", "problemEmojis", "solutionEmojis"]
-    .filter((name) => fields.has(name));
+  const mediaTemplates = templates.filter(({schema})=>getStandardMediaResolverContract(schema)!=null).map(({id})=>id);
+  const terminalPayoffs = templates.filter(({jobs})=>jobs?.includes("payoff")).map(({id})=>id);
   return [
     basePrompt.trim(),
     options.basePrompt?.trim()
@@ -186,35 +166,20 @@ export function createTemplateSystemPrompt(options: {
     `seconds is [minimum, preferred]. media=true adds these optional variables: ${Object.entries(COMMON_MEDIA_VARIABLES).map(([name, notation]) => `${name}:${notation}`).join(", ")}.`,
     "Choose a template only when the permitted factual basis contains every fact it needs. Never invent peer values to complete a chart, comparison, stat set, timeline, or list.",
     ...PACING_PLANNER_RULES,
-    ids.has("cardList") && ids.has("steps") && ids.has("tripleStats")
-      ? "Fact availability carries across templates: cardList and steps each need two or three unused facts (parallel for cardList, sequential for steps) and must carry only the count the evidence supports, and tripleStats needs exactly three unused peer values. Never invent a fact to fill a collection, and do not fill one with facts already shown in another scene."
-      : factRules.length > 0
-        ? `Fact availability carries across templates: ${factRules.join(", and ")}. Use only the count the evidence supports. Never invent a fact to fill a collection, and do not fill one with facts already shown in another scene.`
-      : undefined,
     "Do not compress a list, sequence, metric set, or comparison into a general-purpose prose field when a specific catalog template can show that structure.",
     "If the catalog includes a suitable ask template and the input supplies a grounded CTA or URL, keep that concise action closer as its own final scene instead of folding it into preceding content.",
     "When a grounded CTA or URL is supplied and the catalog contains jobs:[ask], emit that final closer. A brand name may accompany the action but never qualifies as an ask by itself.",
-    terminalPayoffs.length > 0
-      ? `When the input has no clear grounded action, never invent one and do not use jobs:[ask]. End with a grounded payoff using ${terminalPayoffNames}. Its concise 6–12 words of declarative copy must answer the story's so-what without repeating hook or setup language. Use media for an honest visual payoff, emojiBurst for playful delight, and confetti only for a real celebration, win, or milestone.`
-      : undefined,
+    terminalPayoffs.length > 0 ? `When there is no grounded action, end with a concise supported payoff using a suitable template from ${terminalPayoffs.join(", ")}. Do not repeat the hook or invent a CTA.` : undefined,
     "requiresQuote is a hard gate: use those templates only for exact quoted words and attribution present in raw input. Never turn a role, relationship, or summary into speech. requiresScreenshot likewise needs an actual supplied screenshot URL.",
     templates.some(({ schema }) => (schema["x-vanillasky"]?.requiredAnyOf?.length ?? 0) > 0)
       ? "requiredAnyOf is a hard presence gate: satisfy every listed group with at least one non-empty value."
       : undefined,
     mediaTemplates.length > 0 && options.mediaOnFirstScene !== true
-      ? `For streaming startup, ${mediaTemplateNames} ${mediaTemplates.length === 1 ? "is" : "are"} forbidden as the first generated body template, even when mediaType is gradient. Start with a content-fit non-media template.`
-      : undefined,
-    listFields.length > 0
-      ? `For list variables (${listFields.join(", ")}), emit actual JSON arrays. Keep list labels to 1–3 words. Keep step labels to 1–2 words and at most 18 characters. Do not use pipes or newlines as list delimiters.`
-      : undefined,
-    fields.has("bars")
-      ? 'For bars, emit an actual JSON array of 2–6 grounded objects with "label" and "value" fields. Use comparable units and avoid a largest-to-smallest positive ratio above 20. Do not encode bars as a string.'
-      : undefined,
+      ? `The host owns immediate startup; reserve external media templates (${mediaTemplates.join(", ")}) for later beats when an asset-free opening is required.` : undefined,
+    "For list and event variables emit actual JSON arrays. Follow each field's content budget; never use pipe-delimited strings or invent entries.",
     resolverMediaAvailable
-      ? `Prefer a relevant resolved image or video background on ${options.mediaOnFirstScene === true ? "every media-capable scene, the first included," : "later media-capable scenes"} whenever the permitted factual basis names a concrete person, place, product context, activity, or outcome that can be depicted honestly. Emit mediaKeyword on scene.add as a specific 2–8 word semantic query of at most 80 characters. The host removes mediaKeyword before the complete scene reaches the browser and replaces it with an approved asset. Use mediaType=gradient for abstract, sensitive, unsafe, or visually ambiguous material. Never emit or invent mediaUrl or mediaPoster.`
-      : mediaTemplates.length > 0
-      ? `Use exact grounded values for required fields. mediaUrl must come verbatim from supplied input. Stock queries are not available. Do not select ${mediaTemplateNames} without a supplied mediaUrl; if another template has no mediaUrl, explicitly use mediaType=gradient. mediaType auto detects a URL, while gradient deliberately uses no external asset.`
-      : "Use exact grounded values for required fields.",
+      ? "Media-capable scenes may carry mediaKeyword: a literal 2–8 word shot description, at most 80 characters. Choose mediaSource=generate for distinctive illustrative shots and mediaSource=stock for common subjects a verified asset can depict. Keep people, actions and essential details precise. Never broaden an exact identity or action into unrelated atmosphere. Supply a grounded fallbackText where declared. Only the host fills mediaUrl and mediaPoster; never invent them. If no media fits an abstract beat, choose an appropriate graphic template instead."
+      : "Use media only when a supplied asset satisfies the scene. Never invent asset URLs. Otherwise choose a grounded graphic template.",
     "Catalog guidance describes composition; it is not a factual source and must never replace the permitted factual basis.",
     JSON.stringify(plannerCatalog(templates, resolverMediaAvailable)),
     // Last, because the catalogue is thousands of tokens of per-scene field

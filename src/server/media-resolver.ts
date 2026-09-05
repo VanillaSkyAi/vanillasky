@@ -69,7 +69,8 @@ function fallbackVariables(
   delete fallback.mediaKeyword;
   delete fallback.mediaUrl;
   delete fallback.mediaPoster;
-  fallback.mediaType = "gradient";
+  delete fallback.mediaType;
+  delete fallback.mediaSource;
   return fallback;
 }
 
@@ -198,7 +199,17 @@ async function resolvePartVariables(options: {
       scene: options.part.scene,
       variables: options.part.scene.variables,
     });
-    return { ...options.part, scene: { ...options.part.scene, variables } };
+    if (options.templateId === "cinemaMedia" && !variables.mediaUrl) {
+      const title = variables.fallbackText;
+      if (typeof title !== "string" || !title.trim() || [...title].length > 65) {
+        throw new Error("A media scene without a usable asset requires grounded fallbackText (1–65 characters)");
+      }
+      return { ...options.part, scene: { ...options.part.scene, templateId: "chapterTitle", variables: { title: title.trim() } } };
+    }
+    const rendered = { ...variables };
+    delete rendered.mediaSource;
+    delete rendered.fallbackText;
+    return { ...options.part, scene: { ...options.part.scene, variables: rendered } };
   }
   return options.part;
 }
@@ -225,7 +236,7 @@ export function createMediaResolvingPlanner(options: {
    * Nothing bounded this. The planner decides how many scenes a video has, and
    * every one of them may resolve media - free when it is searched for, a paid
    * clip each when it is generated. Past the ceiling a scene falls back to the
-   * brand gradient: the video is poorer, it is not broken, and nobody is billed
+   * grounded text treatment; nobody is billed
    * for the difference.
    */
   maxResolvedMedia?: number;
