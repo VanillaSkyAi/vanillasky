@@ -1,4 +1,4 @@
-import { MountedSceneReadiness, PreparedPosterReadiness } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, PreparedSceneReadiness } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -414,6 +414,7 @@ export function VideoFrame({
         ? firstVideoRange
         : undefined
     : undefined;
+  const preparedReadinessRange = posterPreparationRange ?? (contiguousNext && sceneHasVideoBackdrop(contiguousNext) ? contiguousNext : undefined);
   const preparedPoster = posterPreparationRange && String(
     posterPreparationRange.scene.variables.mediaPoster || "",
   ) ? {
@@ -476,7 +477,7 @@ export function VideoFrame({
       }}
     >
       <MountedSceneReadiness scene={active.scene} playing={playing} />
-      {preparedPoster && posterPreparationRange && <PreparedPosterReadiness scene={posterPreparationRange.scene} />}
+      {preparedReadinessRange && <PreparedSceneReadiness scene={preparedReadinessRange.scene} />}
       <div
         data-video-canvas="true"
         style={{

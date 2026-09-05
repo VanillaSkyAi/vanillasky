@@ -56,8 +56,8 @@ export function MountedSceneReadiness({ scene, playing, fallback = false }: { sc
   return <span ref={marker} hidden />;
 }
 
-/** Only an existing decoded poster plane can authorize a decoder-free cut. */
-export function PreparedPosterReadiness({ scene }: { scene: VideoScene }) {
+/** Authorize a cut only from an existing decoded poster or mounted preroll plane. */
+export function PreparedSceneReadiness({ scene }: { scene: VideoScene }) {
   const marker = useRef<HTMLSpanElement>(null);
   const report = useContext(MountedReadinessContext);
   useEffect(() => {
@@ -67,6 +67,15 @@ export function PreparedPosterReadiness({ scene }: { scene: VideoScene }) {
     const check = () => {
       if (stopped) return;
       const root = marker.current?.closest("[data-video-frame]");
+      const incoming = root?.querySelector<HTMLElement>("[data-scene-layer='incoming']");
+      const video = incoming?.getAttribute("data-layer-scene-id") === scene.id ? incoming.querySelector("video") : undefined;
+      // HAVE_CURRENT_DATA means this mounted preroll already has its first
+      // decoded frame. This prepares the cut; it is not an actual on-screen
+      // video-frame metric, which the active surface reports separately.
+      if (video && video.getAttribute("src") === scene.variables.mediaUrl && video.readyState >= 2) {
+        report(sceneReadinessKey(scene), undefined, false, true);
+        return;
+      }
       const image = [...(root?.querySelectorAll<HTMLImageElement>("img[data-video-poster-plane='prepared']") ?? [])]
         .find((image) => image.getAttribute("src") === scene.variables.mediaPoster);
       if (image?.complete && image.naturalWidth > 0) {

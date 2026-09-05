@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MountedReadinessContext, MountedSceneReadiness, PreparedPosterReadiness } from "../src/player/mounted-scene-readiness";
+import { MountedReadinessContext, MountedSceneReadiness, PreparedSceneReadiness } from "../src/player/mounted-scene-readiness";
 import type { VideoScene } from "../src/protocol/types";
 const scene: VideoScene = {id: "first", templateId: "cinemaMedia", variables: {mediaType: "video", mediaUrl: "https://example.com/first.mp4"}, timing: {fixedDuration: 4}};
 afterEach(() => {cleanup(); vi.useRealTimers();});
@@ -55,7 +55,7 @@ it("authorizes a poster bridge only after its mounted image decodes", async () =
   vi.useFakeTimers();
   const report = vi.fn();
   const next = { ...scene, variables: { ...scene.variables, mediaPoster: "/next.jpg" } };
-  const view = render(<MountedReadinessContext.Provider value={report}><div data-video-frame="ready"><PreparedPosterReadiness scene={next} /><img data-video-poster-plane="prepared" src="/next.jpg" /></div></MountedReadinessContext.Provider>);
+  const view = render(<MountedReadinessContext.Provider value={report}><div data-video-frame="ready"><PreparedSceneReadiness scene={next} /><img data-video-poster-plane="prepared" src="/next.jpg" /></div></MountedReadinessContext.Provider>);
   const image = view.container.querySelector("img")!;
   let decoded!: () => void;
   image.decode = vi.fn(() => new Promise<void>((resolve) => { decoded = resolve; }));
@@ -66,4 +66,18 @@ it("authorizes a poster bridge only after its mounted image decodes", async () =
   await act(async () => decoded());
   expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, false, true);
   expect(view.container.querySelectorAll("video")).toHaveLength(0);
+});
+
+
+it("uses decoded native preroll for readiness without claiming actual video presentation", async () => {
+  vi.useFakeTimers();
+  const report = vi.fn();
+  const view = render(<MountedReadinessContext.Provider value={report}><div data-video-frame="ready"><PreparedSceneReadiness scene={scene} /><div data-scene-layer="incoming" data-layer-scene-id={scene.id}><video src={String(scene.variables.mediaUrl)} /></div></div></MountedReadinessContext.Provider>);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { configurable: true, value: 1 });
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(report).not.toHaveBeenCalled();
+  Object.defineProperty(video, "readyState", { configurable: true, value: 2 });
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, false, true);
 });

@@ -1,7 +1,7 @@
 import { devices, expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-test("one prerecorded paragraph survives two visual cuts", async ({ browser }, info) => {
-  const context = await browser.newContext({ ...devices["iPhone 13"] });
+test("one prerecorded paragraph survives two visual cuts", async ({ browser, browserName }, info) => {
+  const context = await browser.newContext(browserName === "webkit" ? { ...devices["iPhone 13"] } : {});
   const page = await context.newPage();
   test.setTimeout(30000);
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html");
