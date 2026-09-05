@@ -304,7 +304,8 @@ function readGeneratedFirstShot(value: unknown): VideoChatFirstShot | undefined 
   const text = bounded(shot.text, 65);
   const narration = bounded(shot.narration, 300);
   const mediaKeyword = bounded(shot.mediaKeyword, 80).match(/\S+/gu)?.slice(0, 8).join(" ") ?? "";
-  return text && narration && mediaKeyword ? { text, narration, mediaKeyword } : undefined;
+  const shotDirection = bounded(shot.shotDirection, 220);
+  return text && narration && mediaKeyword ? { text, narration, mediaKeyword, ...(shotDirection ? {shotDirection} : {}) } : undefined;
 }
 
 function boundedWords(value: unknown, maximum: number, characters: number): string {
@@ -346,6 +347,7 @@ function reservedFirstScene(
       variables: {
         fallbackText: firstShot.text,
         mediaSource: "generate",
+        ...(firstShot.shotDirection ? {shotDirection: firstShot.shotDirection} : {}),
         mediaType: "video",
         mediaKeyword: firstShot.mediaKeyword,
       },
@@ -666,7 +668,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     const reusedUrls = new Set<string>();
     const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
       ? async (query, context) => {
-          const reuseKey = JSON.stringify([query, context.generatedLook ?? ""]);
+          const reuseKey = JSON.stringify([query, context.generatedLook ?? "", context.scene.variables.shotDirection ?? "", context.input.orientation ?? "landscape"]);
           const remember = (media: ResolvedMedia | null) => {
             if (media?.type === "video") completedVideos.set(reuseKey, media);
             return media;

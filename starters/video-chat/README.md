@@ -43,32 +43,30 @@ Restart the development server after changing keys. Open
 
 ## How a response is made
 
-1. The planner streams one 6-9 word spoken hook, then continues into the scenes
-   without starting a second model call.
-2. A clicked welcome card starts its prewritten hook and loaded footage
-   immediately; a typed prompt resolves the streamed keyword through the
-   optional stock provider.
-3. The SDK speaks that hook while the same model continues planning the visual
-   response. In full AI mode, the first streamed object also reserves the exact
-   first generated shot so it can render while scenes two through five arrive.
-4. The opening footage loops or holds until the first planned scene and its
-   voice are ready, then the response timeline takes over without a blank gap.
-5. The SDK holds every planned scene for its measured or estimated speech time
-   and loads possible next prompts independently after the response completes.
+The planner streams a short spoken hook, then complete narrated scenes. When a
+generated provider is configured, an early shot can start generating while the
+rest of the story is planned. The director chooses footage or one of eight
+editorial templates for each beat; there is one cinematic mode.
 
-The text model is the only required provider. Generated speech, transcription,
-stock media, and generated video are independent upgrades and never prevent a
-template response from completing.
+Playback starts after a contiguous preparation cushion, or after a shorter
+complete response is ready. Media is decoded before use. At a late video cut,
+the player holds its clock and narration until a usable frame appears, with a
+bounded error path. The first hook can play during preparation.
 
-## Visual modes
+`mediaSource: "generate"` requests a distinctive illustrative shot;
+`mediaSource: "stock"` requests approved footage. Generation attempts, including
+failures, share the host's `maxGeneratedVideos` ceiling. A stock miss never
+broadens the subject automatically. A failed full-bleed scene uses its grounded
+`fallbackText` as a chapter card.
 
-The templates mode is always available. Full AI video appears only when a
-video provider is configured.
+## Reviewed stock
 
-| Mode | Generated scenes | Cost profile |
-| --- | ---: | --- |
-| Templates only | 0 | Rendered locally |
-| Full AI video | 5 | Every beat generated |
+The starter's `approvedStock` index in `stock.ts` is deliberately empty. Add an
+asset only after inspecting its content, poster and allowed orientations. List
+literal matching queries and a reviewed description. Add those available
+queries to your host instructions so the planner can choose them when relevant.
+An unreviewed query returns `null` without a network search or unrelated result.
+The host owns licensing, storage, clip rendition and retention.
 
 The provider names its own model. Override the tested defaults with
 `ANTHROPIC_PLANNER_MODEL`, `ANTHROPIC_NARRATION_MODEL`, or `FAL_VIDEO_MODEL`

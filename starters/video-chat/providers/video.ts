@@ -8,16 +8,17 @@ async function filmScene(
   generatedLook: string | undefined,
   orientation: "portrait" | "landscape",
   signal: AbortSignal,
+  shotDirection?: string,
 ) {
   fal.config({ credentials: process.env.FAL_KEY });
   const started = Date.now();
-  console.log(`[video-chat] filming: ${subject.slice(0, 70)}`);
   try {
     const result = await fal.subscribe(VIDEO_MODEL, {
       input: {
         prompt: [
-          `Locked-off shot, ${orientation === "portrait" ? "9:16 vertical" : "16:9"}. ${subject}.`,
-          "One slow continuous camera move. Physically plausible motion.",
+          `Cinematic shot, ${orientation === "portrait" ? "9:16 vertical" : "16:9"}. ${subject}.`,
+          "Use a steady composition or one restrained camera move. Physically plausible motion.",
+          shotDirection,
           "No on-screen text, captions, subtitles, watermarks or logos.",
           "Diegetic sound only. No music, no voiceover.",
           generatedLook,
@@ -44,8 +45,8 @@ async function filmScene(
 /** Optional generated video and transcription; credentials remain server-only. */
 export const videoProvider: Pick<VideoChatHandlerOptions, "generateVideo" | "transcribe"> = {
   generateVideo: process.env.FAL_KEY
-    ? async (query, { generatedLook, orientation, signal }) => ({
-        url: await filmScene(query, generatedLook, orientation, signal),
+    ? async (query, { generatedLook, orientation, signal, scene }) => ({
+        url: await filmScene(query, generatedLook, orientation, signal, typeof scene?.variables.shotDirection === "string" ? scene.variables.shotDirection : undefined),
         type: "video" as const,
       })
     : undefined,

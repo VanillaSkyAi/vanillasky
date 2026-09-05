@@ -61,11 +61,10 @@ dependencies and never enter the browser bundle.
 The planner emits a 6-9 word hook first, then continues into the scenes in the
 same stream. The stock lookup is a separate cancellable request, so it cannot
 delay speech or planning. A welcome card can carry a prewritten `opening`, which
-starts immediately with its already-loaded media. For a full AI response, the
+starts immediately with its already-loaded media. When generated shots are available, the
 same first streamed object reserves the exact first body scene. Its clip starts
-generating while the planner continues with scenes two through five. Template
-responses stream their first resolved scene without waiting for the rest of the
-plan, and normal narration is written in that same planner call rather than
+generating while the planner continues the story. Playback begins after its
+contiguous preparation cushion, without requiring the entire plan, and normal narration is written in that same planner call rather than
 through a second model round trip.
 
 The matching complete React interface is one component and one scoped style
@@ -121,14 +120,10 @@ streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
 }),
 ```
 
-Measured on one grounded chat answer with the 28 built-in templates, leaving
-the Anthropic default in place cost roughly twenty seconds before the first
-scene; disabling reasoning brought the same plan to a few seconds. Other
-providers expose equivalent controls under their own names. Treat the exact
-values as host-owned tuning: the lowest effort setting is the fastest, but a
-weaker plan misses schema limits more often, which shows up as rejected scenes
-in `onComplete`. Compare `timeToFirstSceneMs` and `rejectedSceneCount` across
-settings before fixing one.
+Reasoning settings can substantially affect startup latency. Measure them with
+your installed catalog and representative requests. Compare first-scene timing,
+rejected scenes and factual accuracy; the fastest token stream is not useful if
+its scenes cannot be rendered. Keep these settings in the provider adapter.
 
 VanillaSky never sets these controls. Provider selection, sampling parameters,
 and credentials stay with the application.
@@ -185,10 +180,8 @@ is intentionally substantial. It is stable for the same SDK version, template
 kit, media policy, and base prompt. Record input-token usage, keep the selected
 kit no broader than the product needs, and enable provider-side prompt caching
 where the chosen provider/model supports it. VanillaSky does not assume one
-provider's cache controls in its provider-neutral adapter. With the 28 built-in
-templates, the current catalog prompt is roughly 28,000 characters (about
-7,000 tokens before user input; tokenizer-dependent); provider-reported usage
-is the authoritative measurement.
+provider's cache controls in its provider-neutral adapter. The cinematic catalog contains eight templates; use provider-reported token
+usage as the authoritative measurement rather than a character estimate.
 
 Provider finish reasons `error` and `tool-calls` are terminal failures.
 `length` and `content-filter` may complete with already accepted scenes; a
