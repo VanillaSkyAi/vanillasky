@@ -16,6 +16,7 @@
       "SceneDurationBounds",
       "Video",
       "VideoAudio",
+      "VideoNarrationGroup",
       "VideoOrientation",
       "VideoScene",
       "VideoStatus",

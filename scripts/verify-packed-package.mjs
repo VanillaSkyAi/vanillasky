@@ -211,10 +211,10 @@ const videoChat = createVideoChatHandler({
   generateText: async () => "Provider-neutral text",
 });
 const chatCapabilities = await videoChat(new Request("https://app.example/api/video-chat?action=capabilities"));
-if ((await chatCapabilities.json()).modes.join() !== "templates") throw new Error("Packed video chat capabilities drifted");
+if ((await chatCapabilities.json()).modes.join() !== "cinematic") throw new Error("Packed video chat capabilities drifted");
 const chatResponse = await videoChat(new Request("https://app.example/api/video-chat?action=response", {
   method: "POST",
-  body: JSON.stringify({ prompt: "Tell me a tiny story", mode: "templates" }),
+  body: JSON.stringify({ prompt: "Tell me a tiny story", mode: "cinematic" }),
 }));
 if (!(await chatResponse.text()).includes('"type":"response.complete"')) throw new Error("Packed video chat response did not complete");
 `);
@@ -530,9 +530,9 @@ const resilientChat = server.createVideoChatHandler({
   },
   streamText: () => (async function* () {
     yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth around the world.", mediaKeyword: "ocean currents" }) + "\\n";
-    yield JSON.stringify({ type: "scene.add", scene: { id: "packed-completed-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\\n";
+    yield JSON.stringify({ type: "scene.add", scene: { id: "packed-completed-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\\n";
     yield '{"type":"scene.add", malformed}\\n';
-    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "packed-recovered-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Currents connect our oceans.", timing: { fixedDuration: 5 } } }) + "\\n";
+    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "packed-recovered-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, narration: "Currents connect our oceans.", timing: { fixedDuration: 5 } } }) + "\\n";
     yield '{"type":"plan.complete"}\\n';
   })(),
 });
@@ -587,7 +587,7 @@ const deadlineChat = server.createVideoChatHandler({
   streamText: () => (async function* () {
     yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth.", mediaKeyword: "ocean currents" }) + "\\n";
     for (const id of ["deadline-completed", "deadline-fallback"]) {
-      yield JSON.stringify({ type: "scene.add", scene: { id, templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, timing: { fixedDuration: 5 } } }) + "\\n";
+      yield JSON.stringify({ type: "scene.add", scene: { id, templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, timing: { fixedDuration: 5 } } }) + "\\n";
     }
     yield '{"type":"plan.complete"}\\n';
   })(),
@@ -711,18 +711,18 @@ const performanceOptions: UseVideoChatOptions = {
     return elapsed;
   },
 };
-const metric: VideoChatPlaybackMetric = { type: "first-frame", turnId: "turn", mode: "templates", elapsedMs: 10 };
+const metric: VideoChatPlaybackMetric = { type: "first-frame", turnId: "turn", mode: "cinematic", elapsedMs: 10 };
 // @ts-expect-error Performance events contain no prompt text.
-const promptMetric: VideoChatPlaybackMetric = { type: "first-frame", turnId: "turn", mode: "templates", elapsedMs: 10, prompt: "private" };
+const promptMetric: VideoChatPlaybackMetric = { type: "first-frame", turnId: "turn", mode: "cinematic", elapsedMs: 10, prompt: "private" };
 // @ts-expect-error Speech source is a bounded category, never a provider name.
-const providerMetric: VideoChatPlaybackMetric = { type: "first-speech", turnId: "turn", mode: "templates", elapsedMs: 10, source: "provider" };
+const providerMetric: VideoChatPlaybackMetric = { type: "first-speech", turnId: "turn", mode: "cinematic", elapsedMs: 10, source: "provider" };
 void createdChatVoice.speak("Spoken onset", { signal: new AbortController().signal, onStart: (source) => {
   const kind: "browser" | "generated" | undefined = source;
   void kind;
 } });
 void [metricTypeChecks, performanceOptions, metric, promptMetric, providerMetric];
 
-const videoChatProps: VideoChatProps = { options: { voice: chatVoice }, className: "customer-shell", generatedVideoLabel: "Video preview", generatedVideoDescription: "One generated clip", showRecoveryNotice: true };
+const videoChatProps: VideoChatProps = { options: { voice: chatVoice }, className: "customer-shell", showRecoveryNotice: true };
 const packedVideoChat = createElement(VideoChat, videoChatProps);
 const PackedChatTypeProbe = () => {
   const chat = useVideoChat({ voice: chatVoice, ...performanceOptions });
@@ -821,7 +821,7 @@ const mediaVideo = {
 const error = new VideoError("Safe browser error", { code: "video_failed", cause: new Error("provider secret") });
 const videoChatFetcher = async (input) => {
   const action = new URL(String(input), globalThis.location.href).searchParams.get("action");
-  if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: false, stockMedia: false, transcription: false, modes: ["templates"] });
+  if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: false, stockMedia: false, transcription: false, modes: ["cinematic"] });
   if (action === "welcome") return Response.json({ hero: null, cards: [{ prompt: "Invent a tiny packed story", media: { type: "video", url: new URL("/first.mp4", globalThis.location.href).href, posterUrl: new URL("/card-poster.svg", globalThis.location.href).href } }] });
   return new Response("missing", { status: 404 });
 };
@@ -882,7 +882,7 @@ createRoot(document.getElementById("root")).render(mediaProbe
     }
     if (!opened) throw new Error("Packed consumer preview did not start");
     await page.waitForTimeout(500);
-    await page.waitForFunction(() => globalThis.document.querySelector("#video-chat-hook")?.getAttribute("data-modes") === "templates");
+    await page.waitForFunction(() => globalThis.document.querySelector("#video-chat-hook")?.getAttribute("data-modes") === "cinematic");
     if (await page.locator("#video-chat-hook").getAttribute("data-status") !== "idle") {
       throw new Error("Packed video-chat hook did not initialize");
     }

@@ -33,7 +33,7 @@ describe("public package surface", () => {
     expect(manifest.files).toContain("styles/video-chat.css");
     expect(manifest.files).toContain("starters/video-chat/src/main.tsx");
     expect(manifest.files).not.toContain("starters/video-chat/vanillasky");
-    expect(manifest.sideEffects).toEqual(["./styles/video-chat.css"]);
+    expect(manifest.sideEffects).toEqual(["./styles/video-chat.css", "./styles/fonts/roboto.css"]);
     expect(manifest.bin).toEqual({ vanillasky: "bin/vanillasky.js" });
     expect(architecture).toContain("`vanillasky init`, `doctor`, and `providers add`, plus `vanillasky templates create`, `add`, `sync`, `check`, `list`, and `describe`");
     expect(architecture).toContain("six small code entry points and one scoped stylesheet");

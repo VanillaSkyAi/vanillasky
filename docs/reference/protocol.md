@@ -100,3 +100,11 @@ SDK does not prescribe or operate a persistence service.
 Validate adapter output and persisted replay logs against this protocol before
 accepting them. A replay log must preserve ordering, checksums, and a terminal
 event.
+
+## Host-authored narration across cuts
+
+`VideoScene.narrationGroup` optionally joins adjacent shots to one prepared spoken paragraph. A host supplies the shared `id`, `text`, measured `totalSeconds`, and each segment's `offsetSeconds` and `durationSeconds`. Each scene retains its narration fragment and a matching `timing.fixedDuration`; fragments must exactly cover the paragraph in order. The planner cannot emit this field or guess speech timings.
+
+Grouped playback requires prepared speech with `supportsOffsets: true`. The generated-audio voice supports offsets; browser speech synthesis does not. The chat hook prepares and validates a complete group before showing its first scene, including saved replay. Hosts using a standalone player must prepare the paragraph and coordinate narration themselves before starting playback. Unsupported voices and mismatched measured durations fail explicitly. Default planner responses still prepare narration per scene.
+
+Readiness holds pause narration together with the picture. The same audio continues across adjacent group scenes; replay starts a new playback session. This preserves words through delayed media rather than promising uninterrupted playback on every network.
