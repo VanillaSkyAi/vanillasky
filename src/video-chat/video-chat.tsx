@@ -154,7 +154,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const current = chat.currentTurn;
   const shown = chat.shownTurn;
   const showing = chat.playerProps != null;
-  const ambientPoster = shown?.openingMedia?.type === "image" ? shown.openingMedia.url : shown?.openingMedia?.posterUrl;
   const waitingForPicture = chat.turns.length > 0 && !showing
     && (chat.status === "composing" || chat.status === "playing" || chat.status === "paused");
   const filmingStep = useFilmingStep(waitingForPicture, current?.id);
@@ -264,7 +263,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
 
     <div className="stage-area">
       <div className="stage" style={{ background: "#000" }}>
-        {showing && <div className="ambient-media" aria-hidden="true">{ambientPoster && <img className="frame-media" src={ambientPoster} alt="" />}</div>}
         {!showing && <>
           <div className="ground" aria-hidden="true" />
           {shown?.openingMedia && <>
