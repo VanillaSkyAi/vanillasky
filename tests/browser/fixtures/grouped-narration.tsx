@@ -19,7 +19,12 @@ let playingAudio: HTMLAudioElement | undefined;
 window.Audio = function (src?: string) {
   const audio = new NativeAudio(src);
   playingAudio = audio;
-  for (const kind of ["playing", "pause", "ended", "seeking"]) audio.addEventListener(kind, () => probe.push({ kind, audioTime: audio.currentTime, at: performance.now() }));
+  const nativePlay = audio.play.bind(audio);
+  audio.play = () => nativePlay().catch(error => {
+    probe.push({ kind: "play-rejected", message: String(error), readyState: audio.readyState });
+    throw error;
+  });
+  for (const kind of ["playing", "pause", "ended", "seeking", "error", "stalled", "waiting"]) audio.addEventListener(kind, () => probe.push({ kind, audioTime: audio.currentTime, readyState: audio.readyState, error: audio.error?.message, at: performance.now() }));
   probe.push({ kind: "audio-created" });
   return audio;
 } as unknown as typeof Audio;
@@ -31,6 +36,7 @@ function App() {
   const start = async () => {
     narration.interrupt();
     const prepared = await voice.prepare(text);
+    probe.push({ kind: "prepared", ...prepared });
     const segment = prepared.seconds / 3;
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [waterfall, tram, flowers].map((mediaUrl, index) => ({
       id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: segment },
@@ -39,8 +45,9 @@ function App() {
     })) });
     setRun((value) => value + 1);
   };
-  return <><button onClick={() => void start()}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>
+  return <><button onClick={() => void start().catch(error => probe.push({ kind: "prepare-error", message: String(error) }))}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>
     <div style={{ width: 360 }}>{video && <VideoPlayer key={run} video={video} autoPlay controls={false}
+      onError={(error) => probe.push({ kind: "player-error", message: String(error) })}
       onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
       onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0 }); narration.onSceneChange(scene, index); }}
     />}</div></>;

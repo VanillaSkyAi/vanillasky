@@ -6,7 +6,16 @@ test("one prerecorded paragraph survives two visual cuts", async ({ browser }, i
   test.setTimeout(30000);
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html");
   await page.getByText("Play prerecorded paragraph").click();
+  try {
   await expect.poll(() => page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string }> }).narrationProbe.filter((event) => event.kind === "ended").length), { timeout: 15000 }).toBe(1);
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => ({
+      probe: (window as unknown as { narrationProbe: unknown[] }).narrationProbe,
+      video: [...document.querySelectorAll("video")].map((media) => ({ readyState: media.readyState, currentTime: media.currentTime, duration: media.duration, paused: media.paused, error: media.error?.message })),
+    }));
+    console.error("Grouped narration failure:", JSON.stringify(diagnostics));
+    throw error;
+  }
   const probe = await page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string; index?: number; audioTime?: number }> }).narrationProbe);
   expect(probe.filter((event) => event.kind === "audio-created")).toHaveLength(1);
   expect(probe.filter((event) => event.kind === "pause" && event.audioTime! < 6)).toHaveLength(0);
