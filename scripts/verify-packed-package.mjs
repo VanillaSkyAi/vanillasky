@@ -1005,29 +1005,17 @@ createRoot(document.getElementById("root")).render(mediaProbe
       await packedChat.getByRole("button", { name: "Settings", exact: true }).click();
       const settings = packedChat.getByRole("dialog", { name: "Settings", exact: true });
       await settings.waitFor({ state: "visible" });
-      const headingLayout = await settings.evaluate((element) => {
-        // Measure the painted text, not the special fieldset/legend layout box.
-        for (const animation of element.getAnimations({ subtree: true })) {
-          if (animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
-        }
-        return ["playback", "visual", "style"].map((kind) => {
-          const fieldset = element.querySelector("." + kind + "-options");
-          const legend = fieldset.querySelector("legend");
-          const range = element.ownerDocument.createRange();
-          range.selectNodeContents(legend);
-          const text = range.getBoundingClientRect();
-          const choices = fieldset.querySelector("." + kind + "-choices");
-          return { kind, label: legend.textContent, left: text.left, gap: choices ? choices.getBoundingClientRect().top - text.bottom : null };
-        });
+      const settingsState = await settings.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          headings: Array.from(element.querySelectorAll("fieldset legend"), (item) => item.textContent),
+          switches: element.querySelectorAll('[role="switch"]').length,
+          obsoleteChoices: element.querySelectorAll(".visual-options, .style-options").length,
+          fits: box.left >= 0 && box.right <= globalThis.innerWidth && box.top >= 0 && box.bottom <= globalThis.innerHeight,
+        };
       });
-      if (headingLayout.map((heading) => heading.label).join("|") !== "Watching|Video creation|Video style") {
-        throw new Error("Packed Settings headings lost their fieldset semantics");
-      }
-      if (Math.max(...headingLayout.map((heading) => heading.left)) - Math.min(...headingLayout.map((heading) => heading.left)) > 1) {
-        throw new Error("Packed Settings headings are not horizontally aligned");
-      }
-      if (headingLayout.some((heading) => heading.kind !== "playback" && (heading.gap === null || heading.gap < 8))) {
-        throw new Error("Packed Settings choice backgrounds overlap their headings: " + JSON.stringify(headingLayout));
+      if (settingsState.headings.join() !== "Watching" || settingsState.switches !== 2 || settingsState.obsoleteChoices || !settingsState.fits) {
+        throw new Error("Packed cinematic Settings lost watching controls or reintroduced removed choices: " + JSON.stringify(settingsState));
       }
       if (process.env.VANILLASKY_PACKED_SCREENSHOT_DIR) {
         await page.screenshot({ animations: "disabled", path: join(process.env.VANILLASKY_PACKED_SCREENSHOT_DIR, viewport.width < 600 ? "settings-spacing-mobile.png" : "settings-spacing-desktop.png") });
@@ -1106,11 +1094,11 @@ const probe = (id) => defineTemplate({
   usesGlobalTransition: true,
   transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
   schema,
-  component: ({ progress, motionProgress }) => createElement("button", {
+  component: ({ progress, motionProgress, variables }) => createElement("button", {
     "data-probe": id,
     "data-progress": progress.toFixed(3),
     "data-motion-progress": motionProgress?.toFixed(3),
-  }, id, createElement("span", {
+  }, id, variables.mediaUrl ? createElement("img", { src: variables.mediaUrl, width: 32, height: 18, alt: "Probe background" }) : null, createElement("span", {
     "data-transition-semantic": "transient",
     style: { visibility: "var(--vanillasky-transition-semantic-visibility, visible)" },
   }, "0x")),
@@ -1127,8 +1115,8 @@ const video = {
   schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [
-    { id: "react19-opening-scene", templateId: "react19-opening", variables: { mediaUrl: "opening.jpg" }, timing: { fixedDuration: 0.6 } },
-    { id: "react19-incoming-scene", templateId: "react19-incoming", variables: { mediaUrl: "incoming.jpg" }, timing: { fixedDuration: 0.6 } },
+    { id: "react19-opening-scene", templateId: "react19-opening", variables: { mediaUrl: ${previewImageUrl}, mediaType: "photo" }, timing: { fixedDuration: 0.6 } },
+    { id: "react19-incoming-scene", templateId: "react19-incoming", variables: { mediaUrl: ${JSON.stringify("data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#143D24"/></svg>'))}, mediaType: "photo" }, timing: { fixedDuration: 0.6 } },
   ],
   style: {
     defaultTransition: "crossfade",
