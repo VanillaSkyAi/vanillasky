@@ -67,8 +67,7 @@ hover movement remain inside the rail's available space.
 ## Layout and access
 
 The foreground video preserves its scene ratio, so diagrams and text remain
-visible without cropping or distortion. Ambient opening media fills the
-surrounding viewport, with a gradient fallback when media is unavailable.
+visible without cropping or distortion. The surrounding viewport remains black during playback.
 Display layout does not rewrite the saved response's orientation. See
 [responsive orientation](responsive-orientation.md) for saved videos and custom
 players.
@@ -79,9 +78,9 @@ radio behavior, and popovers support Escape and outside-click dismissal.
 Reduced motion removes movement and fades; increased contrast strengthens
 surface opacity and borders.
 
-## Branding
+## Customization
 
 Use the existing `welcomeTitle`, `className` and `options` props to customize
-copy, scoped CSS properties and generated video branding. There is no separate
+copy, scoped CSS properties and generated footage direction. There is no separate
 light/dark appearance picker. See [customization](customization.md) for examples.
 Use `useVideoChat` when the application needs to own the whole interface.

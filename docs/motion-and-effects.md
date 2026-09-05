@@ -47,22 +47,14 @@ only when two ranges are contiguous (allowing floating-point arithmetic noise)
 and both templates declare `usesGlobalTransition: true` with valid
 `transitionTiming` metadata. It is also conditional on the effective backdrop:
 the 300 ms outer crossfade runs only when the resolved background media changes.
-Scenes that share the brand gradient, or the same resolved media backdrop, do
+Scenes that share the black base, or the same resolved media backdrop, do
 not crossfade. This keeps one stable background visible while each template
 plays its own entrance, hold, and exit choreography.
 
-Animated brand gradients use a closed, eased loop per scene. Every gradient
-family reaches the exact same zero-velocity frame at progress `0` and `1`, and
-content-seeded variation converges before the boundary. A same-gradient cut
-therefore changes only the foreground template; the backdrop cannot jump or
-flash between scene-specific phases.
-
-The player owns a persistent brand-color backdrop beneath every scene. Built-in
-renderers preload through the same component state used for playback, so their
-first frame does not suspend when a new template type appears. If a genuinely
-cold custom renderer does suspend, its transparent loading frame reveals the
-brand backdrop rather than a black canvas. Scene media still belongs to the
-scene and covers that base only while the media scene is active.
+The player owns a fixed black backdrop beneath the scenes. Built-in renderers
+preload through the same component state used for playback. A cold custom
+renderer reveals this black base while loading. Resolved scene media covers it
+only while the media scene is active.
 
 During a changed-media overlap, the current scene continues to its exact end.
 The incoming component may be pre-mounted for media readiness, but remains
@@ -98,7 +90,7 @@ also protects intentional hard cuts; it does not pause or otherwise alter the
 visual or soundtrack clocks.
 
 Undefined or unknown transition names preserve a hard cut and unmodified local
-motion. Overlapping ranges also hard-cut. A timeline gap renders the owned brand
+motion. Overlapping ranges also hard-cut. A timeline gap renders the fixed black
 background instead of replaying an earlier scene.
 
 ## Reduced motion

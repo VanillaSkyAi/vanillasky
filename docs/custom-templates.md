@@ -120,7 +120,7 @@ the selected catalog contains a template with one of those two jobs.
 Customer templates hard-cut by default. Opt into renderer-owned fades only
 for scenes that use the standard media-background variables, and only after
 both timing points are visually tested in portrait and landscape. Shared render
-gradients and unchanged media do not crossfade:
+black backgrounds and unchanged media do not crossfade:
 
 ```tsx
 export default defineTemplate({
@@ -314,8 +314,8 @@ maps.
 
 Useful formats add grounding behavior:
 
-- `grounded-stat` marks numeric statistical evidence for the planner; it does
-  not compare the value against raw input at runtime;
+- `grounded-stat` accepts numeric or string quantities and requires an exact
+  quantity in raw input, preserving its unit;
 - `grounded-quote` requires the quote to exist verbatim in the input;
 - `uri` validates approved media URLs restored by the server;
 - `stock-media-keyword` is only for hosts that resolve stock media before a
@@ -324,14 +324,13 @@ Useful formats add grounding behavior:
 Templates whose core proof needs a real statistic can add
 `"x-vanillasky": { "requiresStat": true }`. See the structured-data reference for a complete example.
 
-For media-backed chat scenes, copy the built-in `media` template and keep its
+For media-backed chat scenes, copy the built-in `cinemaMedia` template and keep its
 `mediaKeyword`, `mediaUrl`, and `mediaType` contract. Configure `searchMedia` on
 the chat handler so the server resolves semantic searches into approved assets.
 The chat request does not accept a separate supplied-media input list.
 
-The automatic `opening` uses the built-in `media` variables (`texts` and
-`mediaType: "gradient"`). If you replace `media` while using automatic
-openings, keep that variable contract.
+The automatic `opening` uses the built-in `chapterTitle` variable `title`.
+If you replace that template while using automatic openings, keep this contract.
 
 ## What belongs where
 
