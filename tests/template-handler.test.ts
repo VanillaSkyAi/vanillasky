@@ -155,7 +155,7 @@ describe("createVideoHandler", () => {
       authorize: "none",
       heartbeatMs: false,
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"body-1","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":29}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"body-1","templateId":"keyFigure","variables":{"value":"42 million","label":"Revenue"},"timing":{"fixedDuration":29}}}\n';
         yield '{"type":"scene.add","scene":{"id":"close-1","templateId":"chapterTitle","variables":{"title":"Read every new OpenAI release note with your team"},"timing":{"fixedDuration":4}},"placement":"closer"}\n';
         yield '{"type":"plan.complete"}\n';
       },
@@ -487,7 +487,7 @@ describe("createVideoHandler", () => {
       heartbeatMs: false,
       streamText: async function* (context) {
         systemPrompt = context.systemPrompt;
-        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42 million","label":"Revenue"},"timing":{"fixedDuration":4}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });
@@ -577,7 +577,7 @@ describe("createVideoHandler", () => {
       heartbeatMs: false,
       streamText: async function* (context) {
         systemPrompt = context.systemPrompt;
-        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42","label":"million"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"proof","templateId":"keyFigure","variables":{"value":"42 million","label":"Revenue"},"timing":{"fixedDuration":4}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
     });

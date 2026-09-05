@@ -4,7 +4,7 @@ const STRING_FORMATS = new Set(["uri", "supplied-image", "grounded-quote", "stoc
 
 export function isTemplatePropertyFormatSupported(format: string, type: string): boolean {
   return format === "grounded-stat"
-    ? type === "number" || type === "integer"
+    ? type === "string" || type === "number" || type === "integer"
     : STRING_FORMATS.has(format) && type === "string";
 }
 
@@ -28,6 +28,8 @@ export interface TemplateValueValidationOptions {
   allowEmptyOptionalMedia?: boolean;
   optional?: boolean;
   includeTypeArticle?: boolean;
+  /** Pending model media references are resolved and authorized downstream. */
+  deferMediaUrls?: boolean;
 }
 
 export function validateTemplateSchemaValue(
@@ -43,7 +45,7 @@ export function validateTemplateSchemaValue(
     const text = value as string;
     if (schema.minLength != null && text.length < schema.minLength) fail(`must contain at least ${schema.minLength} characters`);
     if (schema.maxLength != null && text.length > schema.maxLength) fail(`must contain at most ${schema.maxLength} characters`);
-    if (schema.format === "uri" || schema.format === "supplied-image") {
+    if (!options.deferMediaUrls && (schema.format === "uri" || schema.format === "supplied-image")) {
       const emptySentinel = options.allowEmptyOptionalMedia && options.optional && text === "";
       if (!emptySentinel && !validUrl(text)) fail("must be a valid URL");
     }

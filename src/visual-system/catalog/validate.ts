@@ -43,7 +43,7 @@ function schemaValues(schema: TemplateJsonSchema, variables: Record<string, unkn
   return values;
 }
 
-function validateSchema(schema: TemplateJsonSchema, value: unknown): void {
+export function validateTemplateSceneStructure(schema: TemplateJsonSchema, value: unknown, deferMediaUrls = false): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Template variable variables must be object");
   }
@@ -59,6 +59,7 @@ function validateSchema(schema: TemplateJsonSchema, value: unknown): void {
   }
   for (const [name, property] of Object.entries(schema.properties)) {
     if (Object.hasOwn(object, name)) validateTemplateSchemaValue(property, object[name], name, {
+      deferMediaUrls,
       errorPrefix: "Template variable ",
       includeTypeArticle: true,
       allowEmptyOptionalMedia: property.default === "",
@@ -87,6 +88,29 @@ function suppliedUrls(input: VideoInput): Set<string> {
   return urls;
 }
 
+/** Exact quantity matching: normalize typography, never convert units or magnitudes. */
+function containsSuppliedQuantity(input: string, value: unknown): boolean {
+  if (typeof value !== "string" && typeof value !== "number") return false;
+  const normalize = (text: string) => text.normalize("NFKC").replace(/\u2212/g, "-")
+    .replace(/\s+/gu, " ").replace(/([\p{Sc}]) (?=[+−-]?\d)/gu, "$1")
+    .replace(/(\d) (?=[%‰])/gu, "$1").trim();
+  const quantity = normalize(String(value));
+  if (!/\d/u.test(quantity)) return false;
+  const source = normalize(input);
+  let offset = source.indexOf(quantity);
+  while (offset !== -1) {
+    const before = source.slice(0, offset);
+    const after = source.slice(offset + quantity.length);
+    // Neither a digit within a larger number nor a number stripped of its currency/unit.
+    const beginsInside = /[\p{L}\p{N}\p{Sc}%‰+−-]$/u.test(before) || /\d[.,]$/u.test(before);
+    const endsInside = /^[\p{L}\p{N}\p{Sc}%‰]/u.test(after) || /^[.,]\d/u.test(after);
+    const dropsUnit = /\d$/u.test(quantity) && /^ (?:%|‰|percent\b|per cent\b|thousand\b|million\b|billion\b|trillion\b|usd\b|eur\b|gbp\b|dollars?\b|euros?\b|pounds?\b)/iu.test(after);
+    if (!beginsInside && !endsInside && !dropsUnit) return true;
+    offset = source.indexOf(quantity, offset + 1);
+  }
+  return false;
+}
+
 export function createTemplateSceneValidator(options: {
   kit: ServerTemplateRegistry;
   /** Authorize an app-approved URL in addition to URLs supplied with the request. */
@@ -101,7 +125,7 @@ export function createTemplateSceneValidator(options: {
     const schema = template.schema;
     const gates = getTemplateSchemaGates(schema);
     validateConditionalPresence(scene.templateId, gates.requiredAnyOf, scene.variables);
-    validateSchema(schema, scene.variables);
+    validateTemplateSceneStructure(schema, scene.variables);
     const values = schemaValues(schema, scene.variables);
 
     const allowedUrls = suppliedUrls(context.input);
@@ -126,6 +150,13 @@ export function createTemplateSceneValidator(options: {
         variable: path,
       });
       if (!permitted) throw new Error(`Template variable ${path} must use supplied media`);
+    }
+
+    if (gates.requiresStat) {
+      const quantities = values.filter(({ property }) => property.format === "grounded-stat");
+      if (!quantities.length || quantities.some(({ value }) => !containsSuppliedQuantity(context.input.input, value))) {
+        throw new Error(`Template ${scene.templateId} requires an exact supplied quantity, preserving its unit`);
+      }
     }
 
     if (gates.requiresQuote) {

@@ -128,7 +128,7 @@ describe("template scene validator", () => {
       component: () => null,
     })] });
     const validate = createTemplateSceneValidator({ kit: schemaKit });
-    const context = { input: { input: "A grounded result." }, previousScenes: [] };
+    const context = { input: { input: "A grounded result of 58." }, previousScenes: [] };
     const OriginalFunction = globalThis.Function;
     globalThis.Function = (() => { throw new Error("Code generation disallowed"); }) as unknown as FunctionConstructor;
     try {
