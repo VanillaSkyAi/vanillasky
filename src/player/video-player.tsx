@@ -95,6 +95,7 @@ export function VideoPlayerRuntime({
   const [state, setState] = useState<VideoState>(() => video ? savedVideoState(video) : createVideoState());
   const [currentTime, setCurrentTime] = useState(0);
   const [activeStream, setActiveStream] = useState(stream);
+  const [activeSavedVideo, setActiveSavedVideo] = useState(video);
   const [replacementPending, setReplacementPending] = useState(false);
   const [startRequested, setStartRequested] = useState(autoStartGeneration);
   const [introPlaying, setIntroPlaying] = useState(autoStartGeneration);
@@ -159,12 +160,13 @@ export function VideoPlayerRuntime({
       .catch(() => context.close());
   };
 
-  if (stream !== activeStream) {
+  if (stream !== activeStream || video !== activeSavedVideo) {
     const autoStartReplacement = Boolean(playbackMode && stream && shouldAutoPlay && !reducedMotion);
     setActiveStream(stream);
+    setActiveSavedVideo(video);
+    sceneIndexRef.current = -1;
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());
-    visualReadyRef.current = undefined;
     setCurrentTime(0);
     setIsMuted(resolvedStartMuted);
     setIsPlaying(shouldAutoPlay && !reducedMotion && !autoStartReplacement);
@@ -232,7 +234,6 @@ export function VideoPlayerRuntime({
     stateRef.current = reset;
     timeRef.current = 0;
     setState(reset);
-    visualReadyRef.current = undefined;
     setCurrentTime(0);
 
     if (video) {
@@ -327,7 +328,6 @@ export function VideoPlayerRuntime({
           // the required user gesture and restart audio and motion together.
           audio.currentTime = 0;
           timeRef.current = 0;
-          visualReadyRef.current = undefined;
           setCurrentTime(0);
           setStartRequested(false);
           setIntroPlaying(false);
@@ -354,7 +354,6 @@ export function VideoPlayerRuntime({
 
     if (state.config.scenes[0]?.id === "supplied-opening") {
       timeRef.current = 0;
-      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.volume = state.config.audio?.volume ?? 1;
       introStartedAtRef.current = null;
@@ -370,7 +369,6 @@ export function VideoPlayerRuntime({
     const remaining = Math.max(0, MINIMUM_GENERATION_INTRO_MS - (performance.now() - startedAt));
     const startGeneratedVideo = () => {
       timeRef.current = 0;
-      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.volume = state.config?.audio?.volume ?? 1;
       introStartedAtRef.current = null;
@@ -438,7 +436,6 @@ export function VideoPlayerRuntime({
         .catch(() => {
           audio.currentTime = 0;
           timeRef.current = 0;
-          visualReadyRef.current = undefined;
           setCurrentTime(0);
           setIsPlaying(false);
         });
@@ -462,7 +459,6 @@ export function VideoPlayerRuntime({
         audio.volume = volume;
         audio.currentTime = 0;
         timeRef.current = 0;
-        visualReadyRef.current = undefined;
         setCurrentTime(0);
         introStartedAtRef.current = null;
         setStartRequested(false);
@@ -478,7 +474,6 @@ export function VideoPlayerRuntime({
     }
     if (!isPlaying && ended) {
       timeRef.current = 0;
-      visualReadyRef.current = undefined;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.currentTime = 0;
       startPlayback();

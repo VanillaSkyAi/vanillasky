@@ -8,11 +8,11 @@ const audioUrl = "data:audio/wav;base64,UklGRg==";
 
 function playerVideo(duration: number): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "portrait",
     scenes: [{
       id: "activation",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
         texts: "Faster first value drives lasting retention.",
         mediaType: "gradient",

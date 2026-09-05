@@ -52,6 +52,7 @@ function SafeScene({ scene, onFramePresented }: { scene: VideoScene; onFramePres
       font: "500 clamp(20px, 4vw, 64px)/1.3 system-ui", overflow: "hidden",
     }}
   >
+    <MountedSceneReadiness scene={scene} playing fallback />
     <PresentedScene notify={onFramePresented} />
     <p>{copy.slice(0, 600) || "Your response continues."}</p>
     <small style={{ fontSize: "0.3em" }} role="status">This scene uses a simpler layout.</small>

@@ -9,7 +9,7 @@ import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 afterEach(() => {cleanup(); vi.useRealTimers();});
 it("holds first-frame and cut narration until the mounted scene is ready, then resumes without accumulating wall time", async () => {
   vi.useFakeTimers();
-  const video: Video = {schemaVersion: "0.1", orientation: "landscape", style: TEST_VIDEO_STYLE, scenes: [0,1].map(index => ({id: `scene-${index}`, templateId: "media", variables: {mediaUrl: `https://example.com/${index}.mp4`, mediaType: "video"}, timing: {fixedDuration: 1}}))};
+  const video: Video = {schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE, scenes: [0,1].map(index => ({id: `scene-${index}`, templateId: "media", variables: {mediaUrl: `https://example.com/${index}.mp4`, mediaType: "video"}, timing: {fixedDuration: 1}}))};
   const timeRef = {current: 0}; const visualReadyRef: {current: string | undefined} = {current: undefined};
   const change = vi.fn(); const stall = vi.fn(); const playing = vi.fn();
   const options = {stateRef: {current: {...createVideoState(), status: "complete" as const, config: video}}, timeRef, visualReadyRef, audioRef: {current: null}, loopRef: {current: false}, sceneIndexRef: {current: -1}, callbacksRef: {current: {onSceneChange: change, onStallChange: stall}}, setCurrentTime: vi.fn(), setIsPlaying: playing};

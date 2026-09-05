@@ -17,7 +17,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
       yield JSON.stringify({ type: "video-chat.opening", spokenHook: "The Moon turns once around its orbit.", mediaKeyword: "moon" }) + "\n";
       for (const [index, text] of (turn === 1 ? ["The Moon rotates once per orbit.", "One face stays toward Earth."] : ["Walk around a friend while facing them.", "You turn once during the trip."]).entries()) {
         yield JSON.stringify({ type: "scene.add", ...(index === 1 ? { placement: "closer" } : {}), scene: {
-          id: `turn-${turn}-${index}`, templateId: "media", variables: { texts: text, mediaKeyword: "moon", mediaType: "video" }, narration: text, timing: { fixedDuration: 4 },
+          id: `turn-${turn}-${index}`, templateId: "cinemaMedia", variables: { texts: text, mediaKeyword: "moon", mediaType: "video" }, narration: text, timing: { fixedDuration: 4 },
         } }) + "\n";
       }
       yield '{"type":"plan.complete"}\n';
@@ -79,7 +79,7 @@ test("plays posterless intro footage through the hook, then replaces it with the
     generateText: async () => "[]",
     streamText: async function* () {
       yield JSON.stringify({ type: "video-chat.opening", spokenHook: "A waterfall starts our short journey.", mediaKeyword: "waterfall", fallbackKeyword: "river" }) + "\n";
-      yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "body", templateId: "media", variables: { texts: "Water flows downhill" }, narration: "Water keeps moving through the landscape.", timing: { fixedDuration: 4 } } }) + "\n";
+      yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "body", templateId: "cinemaMedia", variables: { texts: "Water flows downhill" }, narration: "Water keeps moving through the landscape.", timing: { fixedDuration: 4 } } }) + "\n";
       yield '{"type":"plan.complete"}\n';
     },
   });

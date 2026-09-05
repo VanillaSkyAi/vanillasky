@@ -30,7 +30,7 @@ declare global {
 }
 
 const probeVideo: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   style: {
     ...TEST_VIDEO_STYLE,

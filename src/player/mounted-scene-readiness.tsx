@@ -5,7 +5,7 @@ export const MountedReadinessContext = createContext<((key: string, error?: Erro
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
 /** Observes the real mounted surface, never a detached decoder or speculative URL. */
-export function MountedSceneReadiness({ scene, playing }: { scene: VideoScene; playing: boolean }) {
+export function MountedSceneReadiness({ scene, playing, fallback = false }: { scene: VideoScene; playing: boolean; fallback?: boolean }) {
   const marker = useRef<HTMLSpanElement>(null);
   const report = useContext(MountedReadinessContext);
   const key = sceneReadinessKey(scene);
@@ -20,6 +20,7 @@ export function MountedSceneReadiness({ scene, playing }: { scene: VideoScene; p
     const check = () => {
       if (stopped) return;
       const root = marker.current?.closest('[data-video-frame]');
+      if (fallback && root?.querySelector("[data-scene-fallback]")) { finish(); return; }
       const layer = root?.querySelector('[data-scene-layer="active"]');
       const loading = layer?.querySelector('[data-template-loading]');
       const mediaUrl = String(scene.variables.mediaUrl || "");
@@ -51,6 +52,6 @@ export function MountedSceneReadiness({ scene, playing }: { scene: VideoScene; p
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
       if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
     };
-  }, [key, report, scene, playing]);
+  }, [key, report, scene, playing, fallback]);
   return <span ref={marker} hidden />;
 }
