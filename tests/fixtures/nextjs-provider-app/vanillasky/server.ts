@@ -25,18 +25,18 @@ const templateMetadata: ServerTemplateMetadata[] = [
           "default": "Activation improved"
         },
         "previous": {
-          "type": "number",
+          "type": "string",
           "format": "grounded-stat",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 41
+          "minLength": 1,
+          "maxLength": 8,
+          "default": "41%"
         },
         "current": {
-          "type": "number",
+          "type": "string",
           "format": "grounded-stat",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 58
+          "minLength": 1,
+          "maxLength": 8,
+          "default": "58%"
         },
         "explanation": {
           "type": "string",

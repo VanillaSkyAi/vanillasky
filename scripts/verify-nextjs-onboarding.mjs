@@ -240,7 +240,7 @@ export function ${exportName}(modelId: string) {
           controller.enqueue({
             type: "text-delta",
             id: "text-1",
-            delta: '{"type":"video-chat.opening","spokenHook":"Activation climbed after guided onboarding.","mediaKeyword":"product onboarding"}\\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed video chat","previous":41,"current":58,"explanation":"Guided onboarding helped more users reach value."},"timing":{"fixedDuration":6},"narration":"Guided onboarding raised activation from forty-one to fifty-eight percent."}}\\n{"type":"plan.complete"}\\n',
+            delta: '{"type":"video-chat.opening","spokenHook":"Activation climbed after guided onboarding.","mediaKeyword":"product onboarding"}\\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed video chat","previous":"41%","current":"58%","explanation":"Guided onboarding helped more users reach value."},"timing":{"fixedDuration":6},"narration":"Guided onboarding raised activation from forty-one to fifty-eight percent."}}\\n{"type":"plan.complete"}\\n',
           });
           controller.enqueue({ type: "text-end", id: "text-1" });
           controller.enqueue({
@@ -271,7 +271,7 @@ function installDeterministicProviders(app) {
 }
 
 function compatibilityNativeSse(expectation) {
-  const plan = '{"type":"video-chat.opening","spokenHook":"Provider streaming works inside video chat.","mediaKeyword":"video conversation"}\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed provider compatibility","previous":41,"current":58,"explanation":"A real provider package parsed its native stream without a network call."},"timing":{"fixedDuration":6},"narration":"The provider streamed a validated video-chat response without a network call."}}\n{"type":"plan.complete"}\n';
+  const plan = '{"type":"video-chat.opening","spokenHook":"Provider streaming works inside video chat.","mediaKeyword":"video conversation"}\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed provider compatibility","previous":"41%","current":"58%","explanation":"A real provider package parsed its native stream without a network call."},"timing":{"fixedDuration":6},"narration":"The provider streamed a validated video-chat response without a network call."}}\n{"type":"plan.complete"}\n';
   if (expectation.provider === "google") {
     return [
       {
@@ -714,7 +714,11 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
     await page.getByText("in video, not text.").waitFor();
     await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Activation increased from 41% to 58% after guided onboarding.");
     await page.getByRole("button", { name: "Ask", exact: true }).click();
-    await page.locator('[data-template-id="activationLift"]').first().waitFor({ timeout: 10_000 });
+    try {
+      await page.locator('[data-template-id="activationLift"]').first().waitFor({ timeout: 10_000 });
+    } catch (cause) {
+      throw new Error(`Custom template did not become visible: ${await page.locator("body").innerText()}; browser=${JSON.stringify(errors)}; response=${JSON.stringify(responseBodies)}`, { cause });
+    }
     await waitForResponseBodies(responseBodies, 1);
     await waitForOutput(development.output, /"event":"video\.complete"/);
     const complete = await waitForJsonEvent(development.output, "video.complete");
