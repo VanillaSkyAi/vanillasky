@@ -37,9 +37,9 @@ describe("custom template reference journey", () => {
     const readme = readFileSync(join(root, "README.md"), "utf8");
 
     expect(guide).toContain("npx vanillasky templates create customer-health");
-    expect(guide).toContain("npx vanillasky templates add bigNumber");
-    expect(guide).toContain("npx vanillasky templates add bigNumber --dry-run");
-    expect(guide).toContain("npx vanillasky templates add bigNumber --diff");
+    expect(guide).toContain("npx vanillasky templates add keyFigure");
+    expect(guide).toContain("npx vanillasky templates add keyFigure --dry-run");
+    expect(guide).toContain("npx vanillasky templates add keyFigure --diff");
     expect(guide).toContain("npx vanillasky templates list");
     expect(guide).toContain("npx vanillasky templates describe customer-health");
     expect(guide).toContain("vanillasky/templates/customer-health.tsx");
@@ -119,10 +119,10 @@ describe("custom template reference contracts", () => {
     }
   });
 
-  it("describes grounded-stat as planner guidance rather than input comparison", () => {
+  it("documents exact runtime evidence validation for grounded quantities", () => {
     const guide = readFileSync(join(root, "docs/custom-templates.md"), "utf8");
 
-    expect(guide).not.toContain("`grounded-stat` requires the number to exist in the factual input");
-    expect(guide).toContain("`grounded-stat` marks numeric statistical evidence for the planner");
+    expect(guide).toContain("`grounded-stat` accepts numeric or string quantities and requires an exact");
+    expect(guide).toContain("quantity in raw input, preserving its unit");
   });
 });

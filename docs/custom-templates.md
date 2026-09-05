@@ -37,7 +37,7 @@ npx vanillasky templates describe customer-health
 Or copy a built-in when its behavior is already close:
 
 ```bash
-npx vanillasky templates add bigNumber
+npx vanillasky templates add keyFigure
 ```
 
 Then edit the owned `.tsx` file, regenerate the two small registries, and check
@@ -50,7 +50,7 @@ npx vanillasky templates check
 
 For an original template, the source is
 `vanillasky/templates/customer-health.tsx`. For the copied built-in, it is
-`vanillasky/templates/bigNumber.tsx`. These are application source: commit them,
+`vanillasky/templates/keyFigure.tsx`. These are application source: commit them,
 review them, and change them like any other React component.
 
 `create` and `add` run `sync` once, so the generated entry points exist
@@ -62,8 +62,8 @@ registry parity.
 Preview either operation without applying the proposed file writes:
 
 ```bash
-npx vanillasky templates add bigNumber --dry-run
-npx vanillasky templates add bigNumber --diff
+npx vanillasky templates add keyFigure --dry-run
+npx vanillasky templates add keyFigure --diff
 ```
 
 `--dry-run` lists every proposed file and `--diff` shows its content changes,

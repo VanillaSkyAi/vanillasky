@@ -348,7 +348,7 @@ describe("release workflow", () => {
     expect(verifier).toContain('join(app, "src", "template-ownership.ts")');
     expect(verifier).toContain('export { templates as browserTemplates } from "../vanillasky/index";');
     expect(verifier).toContain('export { templates as serverTemplates } from "../vanillasky/server";');
-    expect(verifier.indexOf('runCli(["templates", "add", "bigNumber"])'))
+    expect(verifier.indexOf('runCli(["templates", "add", "keyFigure"])'))
       .toBeLessThan(verifier.lastIndexOf('run("npm", ["run", "build"], app)'));
   });
 
@@ -366,8 +366,8 @@ describe("release workflow", () => {
     for (const command of ["list", "describe", "create", "add", "sync", "check"]) {
       expect(verifier).toContain(`runCli(["templates", "${command}"`);
     }
-    expect(verifier).toContain('runCli(["templates", "add", "bigNumber", "--dry-run"]');
-    expect(verifier).toContain('runCli(["templates", "add", "bigNumber", "--diff"]');
+    expect(verifier).toContain('runCli(["templates", "add", "keyFigure", "--dry-run"]');
+    expect(verifier).toContain('runCli(["templates", "add", "keyFigure", "--diff"]');
     expect(verifier).toContain('runCli(["templates", "sync", "--check"]');
     expect(verifier).toContain("assertProjectImports");
     expect(verifier).toContain("tsconfigSnapshot");

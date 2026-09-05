@@ -34,7 +34,7 @@ describe("POST /api/video-chat", () => {
         body: JSON.stringify({
           prompt: "Explain why the Moon shows one face",
           opening: "The Moon turns, perfectly matching its orbit.",
-          mode: "templates",
+          mode: "cinematic",
           orientation: "landscape",
         }),
       },
