@@ -330,46 +330,13 @@ describe("template scene validator", () => {
     })).toThrow(/requiredAnyOf.*invented.*not declared/i);
   });
 
-  it("enforces the reaction, logo closer, and media closer commit gates", () => {
-    const validate = createTemplateSceneValidator({
-      kit: createServerTemplateRegistry({ templates: BUILTIN_TEMPLATE_CATALOG }),
-      allowMediaUrl: () => true,
-    });
-    const context = { input: { input: "Try VanillaSky at vanillasky.ai." }, previousScenes: [] };
-    const clip = "https://cdn.example/reaction.mp4";
-
-    expect(() => validate(scene("reaction", {
-      texts: "That was fast",
-      reactionTag: "wow",
-      mediaKeyword: "surprised reaction",
-    }), context)).toThrow(/mediaUrl/i);
-    expect(() => validate(scene("reaction", {
-      texts: "That was fast",
-      reactionTag: "wow",
-      mediaUrl: clip,
-    }), context)).not.toThrow();
-
-    expect(() => validate(scene("ctaLogo", {
-      cta: "  ",
-      url: "",
-    }), context)).toThrow(/cta or url/i);
-    expect(() => validate(scene("ctaLogo", {
-      url: "vanillasky.ai",
-    }), context)).not.toThrow();
-
-    expect(() => validate(scene("ctaMedia", {
-      headline: "Make every moment count",
-      cta: "Try it now",
-      mediaKeyword: "creative video",
-    }), context)).toThrow(/mediaUrl/i);
-    expect(() => validate(scene("ctaMedia", {
-      headline: "Make every moment count",
-      mediaUrl: clip,
-    }), context)).toThrow(/cta or url/i);
-    expect(() => validate(scene("ctaMedia", {
-      headline: "Make every moment count",
-      cta: "Try it now",
-      mediaUrl: clip,
-    }), context)).not.toThrow();
+  it("requires content that matches the eight cinematic contracts",()=>{
+    const validate=createTemplateSceneValidator({kit:createServerTemplateRegistry({templates:BUILTIN_TEMPLATE_CATALOG}),allowMediaUrl:()=>true});
+    const context={input:{input:"A rocky coast. Can we talk?"},previousScenes:[]};
+    expect(()=>validate(scene("cinemaMedia",{}),context)).toThrow(/mediaKeyword|mediaUrl/);
+    expect(()=>validate(scene("cinemaMedia",{mediaUrl:"https://cdn.example/coast.mp4",mediaType:"video"}),context)).not.toThrow();
+    expect(()=>validate(scene("mobileMessage",{message:"Can we talk?"}),context)).not.toThrow();
+    expect(()=>validate(scene("focusCards",{items:["One"]}),context)).toThrow();
+    expect(()=>validate(scene("editorialTimeline",{events:[{label:"One",date:"2026"},{label:"Two"},{label:"Three"}]}),context)).toThrow();
   });
 });

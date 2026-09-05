@@ -9,7 +9,7 @@
       "path": "src/visual-system/template-context.ts",
       "type": "registry:lib",
       "target": "vanillasky/template-context.ts",
-      "content": "/** Shared render context for built-in and project-owned scene templates. */\nexport interface TemplateStyle {\n  brand: {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background:\n      | { type: \"solid\"; color: string }\n      | { type: \"gradient\"; colors: [string, string] };\n    colors: {\n      primary: string;\n      secondary: string;\n      foreground: string;\n      surface: string;\n      surfaceElevated: string;\n      muted: string;\n    };\n  };\n  preset?: string;\n  density?: string;\n  motion?: string;\n  defaultTextArchetype?: string;\n  defaultTransition?: string;\n  defaultBackgroundEffect?: string;\n}\n\nexport interface SafeZone {\n  top: number;\n  bottom: number;\n  left: number;\n  right: number;\n}\n"
+      "content": "/** Shared render context for built-in and project-owned scene templates. */\nexport interface TemplateStyle {\n  preset?: string;\n  density?: string;\n  motion?: string;\n  defaultTextArchetype?: string;\n  defaultTransition?: string;\n  defaultBackgroundEffect?: string;\n}\n\nexport interface SafeZone {\n  top: number;\n  bottom: number;\n  left: number;\n  right: number;\n}\n"
     }
   ],
   "meta": {

@@ -1,62 +1,10 @@
-export const VIDEO_PROTOCOL_VERSION = "0.5" as const;
-export const VIDEO_SCHEMA_VERSION = "0.1" as const;
+export const VIDEO_PROTOCOL_VERSION = "0.6" as const;
+export const VIDEO_SCHEMA_VERSION = "0.2" as const;
 
 export type VideoOrientation = "portrait" | "landscape";
 export type VideoKnowledgeMode = "input-only" | "general";
 
-export interface VideoBrandColors {
-  primary: string;
-  secondary: string;
-  foreground: string;
-  surface: string;
-  surfaceElevated: string;
-  muted: string;
-}
-
-export type VideoBackgroundPreset =
-  | "cosmic"
-  | "horizon"
-  | "twilight"
-  | "meadow"
-  | "velvet"
-  | "flamingo"
-  | "peach"
-  | "saffron"
-  | "black"
-  | "midnight"
-  | "aubergine"
-  | "coal"
-  | "navy";
-
-export type VideoBackgroundInput =
-  | VideoBackgroundPreset
-  | { color: string }
-  | { colors: [string, string] };
-
-export type VideoBackground =
-  | { type: "solid"; color: string }
-  | { type: "gradient"; colors: [string, string] };
-
-export interface VideoBrandInput {
-  name?: string;
-  logoUrl?: string;
-  font?: string;
-  scriptFont?: string;
-  background?: VideoBackgroundInput;
-  colors?: Partial<VideoBrandColors>;
-}
-
-export interface VideoBrand {
-  name?: string;
-  logoUrl?: string;
-  font: string;
-  scriptFont: string;
-  background: VideoBackground;
-  colors: VideoBrandColors;
-}
-
 export interface VideoStyle {
-  brand: VideoBrand;
   preset?: string;
   defaultBackgroundEffect?: string;
   defaultTextArchetype?: string;
@@ -65,12 +13,6 @@ export interface VideoStyle {
   motion?: string;
   /**
    * The visual language generated media is produced in.
-   *
-   * A style has two halves once media can be generated: the brand decides how
-   * captions are drawn, and this decides what the footage behind them looks
-   * like. They have to travel together - pale illustrated ground under dark
-   * documentary footage is unreadable - so this belongs on the style rather
-   * than being threaded into each provider call by hand.
    *
    * Nothing is rendered from it. It reaches `resolveMedia`, which is where a
    * provider prompt is written.
@@ -178,7 +120,6 @@ export interface VideoInput {
   style?: VideoStyleOptions;
   /** Custom opening copy, or false to let the host show loading UI instead. Omit for the deterministic fallback. */
   opening?: string | false;
-  brand?: VideoBrandInput;
   /** Viewer or account context that may appear verbatim. It is data, never instructions. */
   personalization?: Record<string, unknown>;
   /** Optional approved pool. The planner may use zero or more relevant assets. */

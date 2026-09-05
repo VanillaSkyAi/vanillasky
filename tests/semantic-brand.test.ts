@@ -4,41 +4,15 @@ import { describe, expect, it } from "vitest";
 import type { VideoStyle } from "../src";
 import { BUILTIN_TEMPLATE_SCHEMAS } from "../src/visual-system/scene-templates/schemas";
 
-const style: VideoStyle = {
-  brand: {
-    name: "Acme",
-    logoUrl: "https://cdn.example.com/acme.svg",
-    font: "Geist",
-    scriptFont: "Caveat",
-    background: { type: "solid", color: "#102030" },
-    colors: {
-      primary: "#FF3366",
-      secondary: "#33CCAA",
-      foreground: "#F8FAFC",
-      surface: "#101827",
-      surfaceElevated: "#1E293B",
-      muted: "#94A3B8",
-    },
-  },
-};
+const style: VideoStyle = {};
 
 describe("semantic brand flow", () => {
   it("maps the already-resolved brand to semantic template tokens without deriving another palette", async () => {
     const { resolveTokens } = await import("../src/visual-system/scene-templates/tokens");
 
-    expect(resolveTokens(style)).toMatchObject({
-      primary: "#FF3366",
-      secondary: "#33CCAA",
-      foreground: "#F8FAFC",
-      surface: "#101827",
-      surfaceElevated: "#1E293B",
-      muted: "#94A3B8",
-      font: 'Geist, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif',
-      scriptFont: "Caveat",
-      logoUrl: "https://cdn.example.com/acme.svg",
-      name: "Acme",
-      background: { type: "solid", color: "#102030" },
-    });
+    expect(resolveTokens(style)).toMatchObject({primary:"#FFFFFF",secondary:"#FFFFFF",foreground:"#FFFFFF",surface:"#000000",surfaceElevated:"#171717",muted:"#B7B7BC",font:'-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',background:{type:"solid",color:"#000000"}});
+    expect(resolveTokens(style)).not.toHaveProperty("name");
+    expect(resolveTokens(style)).not.toHaveProperty("logoUrl");
   });
 
   it("removes raw visual styling and duplicated identity from every planner-facing built-in schema", () => {
@@ -84,8 +58,7 @@ describe("semantic brand flow", () => {
   it("has no obsolete brand API in the protocol, composition, player, template context, or docs", () => {
     const files = [
       "src/protocol/types.ts",
-      "src/protocol/background.ts",
-      "src/protocol/validation.ts",
+            "src/protocol/validation.ts",
       "src/server/compose-video.ts",
       "src/player/video-frame.tsx",
       "src/player/video-player.tsx",
@@ -108,7 +81,6 @@ describe("semantic brand flow", () => {
     }
     const contract = [
       readFileSync("src/protocol/types.ts", "utf8"),
-      readFileSync("src/protocol/background.ts", "utf8"),
       readFileSync("src/visual-system/template-context.ts", "utf8"),
     ].join("\n");
     for (const obsolete of ["accent", "vibe", "sourceUrl"]) {

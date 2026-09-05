@@ -10,16 +10,12 @@
       "getSceneDurationBounds",
       "getSpokenDuration",
       "getVideoDuration",
-      "parseVideo",
-      "resolveVideoBrand"
+      "parseVideo"
     ],
     "typeExports": [
       "SceneDurationBounds",
       "Video",
       "VideoAudio",
-      "VideoBackground",
-      "VideoBrand",
-      "VideoBrandInput",
       "VideoOrientation",
       "VideoScene",
       "VideoStatus",

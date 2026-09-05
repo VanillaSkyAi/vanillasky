@@ -12,7 +12,6 @@ describe("public API", () => {
     expect(Object.keys(await import("../src/index"))).toEqual([
       "VideoValidationError",
       "getVideoDuration",
-      "resolveVideoBrand",
       "parseVideo",
       "getSceneDuration",
       "getSceneDurationBounds",
@@ -50,7 +49,7 @@ describe("public API", () => {
   it("exposes the serializable built-in catalog separately from authoring", async () => {
     const api = await import("../src/template-catalog");
     expect(Object.keys(api)).toEqual(["builtinTemplates"]);
-    expect(api.builtinTemplates).toHaveLength(28);
+    expect(api.builtinTemplates).toHaveLength(8);
   });
 
   it("exposes only the deterministic public test kit", async () => {

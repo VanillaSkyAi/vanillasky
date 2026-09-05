@@ -131,7 +131,7 @@ playable scenes on an interrupted plan, emitting non-fatal warnings. Explicit
 `invalidPartBehavior: "fail"` retains strict generation semantics.
 
 - A response accepts `prompt`, `mode`, `orientation`, optional bounded
-  `conversation`, `opening`, `brand`, and `style`. `opening` is an optional
+  `conversation`, `opening`, and `style`. `opening` is an optional
   prewritten hook from a selected suggestion. The response returns protocol
   `0.5` SSE and negotiates `data.video-chat-opening`, which carries the bounded
   6-9 word hook and optional stock-search `keyword` and `fallbackKeyword` before the first scene.
@@ -216,7 +216,7 @@ export function App() {
 ```
 
 Pass the same session configuration through `options`, for example
-`<VideoChat options={{ endpoint, headers, templates, brand }} />`. `className`
+`<VideoChat options={{ endpoint, headers, templates }} />`. `className`
 and `welcomeTitle` are the only shell-level customizations. The stylesheet is
 scoped under `.vanillasky-video-chat` and does not style the host document.
 
@@ -294,10 +294,7 @@ playback is unaffected by either. `onComplete(video)` reports that a streamed
 response finished composing; `onPlaybackEnd(video)` reports that the visible
 playhead actually reached the end for either a stream or saved replay.
 
-`resolveVideoBrand` fills a partial brand with the documented defaults and
-preset backgrounds, producing the fully resolved `VideoBrand` that `parseVideo`
-requires. Use it when authoring a `Video` by hand rather than copying default
-values into application code.
+Graphic scenes use fixed black backgrounds, white/neutral typography, and the system font stack. `VideoInput.brand`, `VideoStyle.brand`, `VideoBrand`, `VideoBrandInput`, `VideoBackground`, and `resolveVideoBrand` are removed. Media retains natural color. Persisted schema `0.2` and event protocol `0.6` reject earlier versions; changing a version field alone is not a migration.
 
 ## Template authoring
 

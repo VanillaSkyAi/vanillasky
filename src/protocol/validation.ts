@@ -13,7 +13,6 @@ import {
   type VideoStyle,
   type VideoTiming,
 } from "./types.js";
-import { validateVideoBrand } from "./background.js";
 import {
   MAX_PUBLIC_DIAGNOSTIC_LENGTH,
   VIDEO_WARNING_CATEGORIES,
@@ -108,7 +107,6 @@ function capabilities(value: unknown, path: string): VideoCapabilities {
 function style(value: unknown, path: string): VideoStyle {
   const result = record(value, path);
   allowedKeys(result, [
-    "brand",
     "preset",
     "defaultBackgroundEffect",
     "defaultTextArchetype",
@@ -117,7 +115,6 @@ function style(value: unknown, path: string): VideoStyle {
     "motion",
     "generatedLook",
   ], path);
-  validateVideoBrand(result.brand, `${path}.brand`);
   if (result.generatedLook != null) string(result.generatedLook, `${path}.generatedLook`);
   return result as unknown as VideoStyle;
 }

@@ -1,23 +1,4 @@
-/**
- * Template-token adapter for an already-resolved semantic video brand.
- *
- * Before this module the default brand was defined in 19+ places with three
- * different answers (17 templates hardcoded "#00e5a0", milestone used
- * "#3b82f6", tweet hashes the author name), the font-stack idiom was
- * copy-pasted in 22 files, and shiftHue(accent, 50) was re-derived in 14.
- * Every fallback now lives here, exactly once.
- *
- * `deriveBrandContext` (src/visual-system/primitives/brand-context.ts) delegates to
- * this resolver, so templates and primitives can never drift.
- *
- * Documented divergences that stay OUTSIDE the canonical fallbacks:
- *  - social-tweet derives a per-author hue when no brand accent is set —
- *    an intentional feature, routed through `accentFallback`.
- *  - Platform-look templates (incoming-call, social-conversation,
- *    social-notification, brand-message) keep their OS/system font stacks;
- *    they imitate iOS/WhatsApp/X chrome, not the brand.
- */
-
+/** Internal monochrome render tokens for cinematic scenes and shared primitives. */
 import type { TemplateStyle } from "../template-context";
 
 // ─── Canonical defaults (the only place these values are defined) ──
@@ -236,7 +217,7 @@ export interface ResolvedTokens {
   /** Secondary brand colour. */
   secondary: string;
   /** Visual background, deliberately separate from semantic foreground colours. */
-  background: TemplateStyle["brand"]["background"];
+  background: { type: "solid"; color: string } | { type: "gradient"; colors: [string, string] };
   /** Deepest background surface. */
   surface: string;
   /** Elevated card / panel surface. */
@@ -269,7 +250,6 @@ export interface ResolvedTokens {
 export function resolveTokens(
   style: TemplateStyle,
 ): ResolvedTokens {
-  const brand = style.brand;
 
   // Compose the two dials into the preset's type treatment here, once. Every
   // template already passes `preset.type` to <TemplateText>, so folding them
@@ -289,17 +269,15 @@ export function resolveTokens(
   };
 
   return {
-    primary: brand.colors.primary,
-    secondary: brand.colors.secondary,
-    background: brand.background,
-    surface: brand.colors.surface,
-    surfaceElevated: brand.colors.surfaceElevated,
-    foreground: brand.colors.foreground,
-    muted: brand.colors.muted,
-    font: fontStack(brand.font),
-    scriptFont: brand.scriptFont,
-    logoUrl: brand.logoUrl,
-    name: brand.name,
+    primary: "#FFFFFF",
+    secondary: "#FFFFFF",
+    background: { type: "solid", color: "#000000" },
+    surface: "#000000",
+    surfaceElevated: "#171717",
+    foreground: "#FFFFFF",
+    muted: "#B7B7BC",
+    font: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
+    scriptFont: "Georgia",
     preset: composedPreset,
     density,
     motion,

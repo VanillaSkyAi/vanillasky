@@ -1,4 +1,4 @@
-import type { VideoBrand, VideoStyle } from "../src/index";
+import type { VideoStyle } from "../src/index";
 
 export const TEST_VIDEO_BRAND = {
   font: "Inter",
@@ -12,8 +12,6 @@ export const TEST_VIDEO_BRAND = {
     surfaceElevated: "#231B42",
     muted: "#A7A6B0",
   },
-} satisfies VideoBrand;
+};
 
-export const TEST_VIDEO_STYLE = {
-  brand: TEST_VIDEO_BRAND,
-} satisfies VideoStyle;
+export const TEST_VIDEO_STYLE = {} satisfies VideoStyle;

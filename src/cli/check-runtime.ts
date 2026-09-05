@@ -5,7 +5,6 @@ import { renderToPipeableStream } from "react-dom/server";
 import type { Video } from "../protocol/types.js";
 import { VideoFrame } from "../player/video-frame.js";
 import type { SceneTemplate } from "../visual-system/catalog/types.js";
-import { resolveVideoBrand } from "../protocol/background.js";
 
 export interface TemplateRenderCheckInput {
   sourceUrl: string;
@@ -51,7 +50,7 @@ export async function renderTemplateChecks(input: TemplateRenderCheckInput): Pro
   for (const orientation of ["portrait", "landscape"] as const) {
     const [width, height] = orientation === "portrait" ? [1080, 1920] : [1920, 1080];
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation,
       scenes: [{
         id: "authoring-check",
@@ -60,10 +59,6 @@ export async function renderTemplateChecks(input: TemplateRenderCheckInput): Pro
         timing: { startTime: 0, endTime: input.duration, fixedDuration: input.duration },
       }],
       style: {
-        brand: resolveVideoBrand({
-          font: "Inter, sans-serif",
-          colors: { primary: "#6D5EF5", secondary: "#17122F", foreground: "#FFFFFF" },
-        }),
       },
     };
     for (const progress of progressPoints) {
