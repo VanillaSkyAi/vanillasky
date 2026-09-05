@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Use equal spacing between Sessions, Settings, and Voice controls on mobile and desktop.
+
 ## 0.8.7
 
 - Show a clear request-limit error when a suggested opening cannot receive an answer, instead of presenting the opening as a completed video. Preserve completed scenes when a response is interrupted.
