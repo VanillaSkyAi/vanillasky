@@ -898,7 +898,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         response = await untilAborted(runAttempt(attempt), controller.signal);
       } catch (cause) {
         if (controller.signal.aborted || timeline || spokenHook
-            || (cause instanceof VideoError && cause.code === "media_not_ready")) throw cause;
+            || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) || received.some((scene) => scene?.narrationGroup)) throw cause;
         attempt += 1;
         ready = [];
         received = [];
@@ -933,7 +933,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return undefined;
       }
       terminal = true;
-      const recovered = cause instanceof VideoError && cause.code === "media_not_ready" ? [] : received.flatMap((scene, index) => scene
+      const recovered = received.some((scene) => scene?.narrationGroup) || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) ? [] : received.flatMap((scene, index) => scene
         ? [ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
         : []);
       if (recovered.length > 0) {
@@ -977,6 +977,15 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     flushRef.current?.();
   }, []);
 
+  const prepareSavedGroups = useCallback(async (video: Video) => {
+    validateNarrationGroups(video.scenes);
+    const groups = new Map(video.scenes.flatMap((scene) => scene.narrationGroup ? [[scene.narrationGroup.id, scene.narrationGroup] as const] : []));
+    for (const group of groups.values()) {
+      const prepared = await withDeadline((signal) => voiceRef.current.prepare(group.text, { signal }), 3000);
+      if (voiceRef.current.supportsOffsets !== true || prepared.supportsOffsets !== true || Math.abs(prepared.seconds - group.totalSeconds) > 0.1) throw new VideoError("Saved narration group requires matching measured audio", { code: "narration_group_invalid" });
+    }
+  }, []);
+
   const replay = useCallback(() => {
     const turn = stateRef.current.turns.find((entry) => entry.id === stateRef.current.shownTurnId);
     if (!turn?.completed || !turn.video) return;
@@ -993,8 +1002,16 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     narrationRef.current.interrupt();
     heldRef.current = false;
     voiceRef.current.resume();
-    dispatch({ type: "replay" });
-  }, [endTiming]);
+    if (turn.video.scenes.some((scene) => scene.narrationGroup)) {
+      const selection = ++runRef.current;
+      dispatch({ type: "pause" });
+      void prepareSavedGroups(turn.video).then(() => {
+        if (mountedRef.current && runRef.current === selection) dispatch({ type: "replay" });
+      }).catch((cause: unknown) => {
+        if (mountedRef.current && runRef.current === selection) dispatch({ type: "error", id: turn.id, error: errorFrom(cause) });
+      });
+    } else dispatch({ type: "replay" });
+  }, [endTiming, prepareSavedGroups]);
 
   const selectTurn = useCallback((id: string) => {
     const turn = stateRef.current.turns.find((entry) => entry.id === id);
@@ -1012,8 +1029,16 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     narrationRef.current.interrupt();
     heldRef.current = false;
     voiceRef.current.resume();
-    dispatch({ type: "select", id });
-  }, [endTiming]);
+    if (turn.video.scenes.some((scene) => scene.narrationGroup)) {
+      const selection = ++runRef.current;
+      dispatch({ type: "pause" });
+      void prepareSavedGroups(turn.video).then(() => {
+        if (mountedRef.current && runRef.current === selection) dispatch({ type: "select", id });
+      }).catch((cause: unknown) => {
+        if (mountedRef.current && runRef.current === selection) dispatch({ type: "error", id, error: errorFrom(cause) });
+      });
+    } else dispatch({ type: "select", id });
+  }, [endTiming, prepareSavedGroups]);
 
   const reset = useCallback(() => {
     cancel("Session reset");

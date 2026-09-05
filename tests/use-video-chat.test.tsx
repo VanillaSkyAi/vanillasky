@@ -1154,3 +1154,28 @@ describe("createVideoChatVoice", () => {
     expect(synthesisSpeak).not.toHaveBeenCalled();
   });
 });
+
+
+it.each([true, false])("publishes a group only with measured offset-capable audio (%s)", async (supported) => {
+  const { useVideoChat } = await import("../src/react");
+  const grouped = ["First thought.", "Second thought."].map((line, index) => ({ ...scene(String(index), "Quiet", line),
+    timing: { fixedDuration: 3 }, narrationGroup: { id: "group", text: "First thought. Second thought.", offsetSeconds: index * 3, durationSeconds: 3, totalSeconds: 6 },
+  }));
+  const base = videoChatFetcher();
+  const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+    ? Promise.resolve(responseStream("group", grouped, { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
+  const voice = { ...fakeVoice(), supportsOffsets: supported, prepare: vi.fn(async () => ({ seconds: 6, supportsOffsets: supported })) };
+  const { result, unmount } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  await act(async () => { await result.current.ask("A short paragraph"); });
+  if (supported) {
+    expect(result.current.currentTurn?.video?.scenes.map((entry) => entry.timing.fixedDuration)).toEqual([3, 3]);
+    expect(voice.prepare).toHaveBeenCalledWith("First thought. Second thought.", expect.anything());
+    voice.prepare.mockClear();
+    await act(async () => { result.current.replay(); await Promise.resolve(); });
+    await waitFor(() => expect(voice.prepare).toHaveBeenCalledWith("First thought. Second thought.", expect.anything()));
+  } else {
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.playerProps).toBeUndefined();
+  }
+  unmount();
+});
