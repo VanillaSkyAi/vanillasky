@@ -128,3 +128,15 @@ test("waits for real first and boundary frames without posters or a second iPhon
   }, null, 2));
   await context.close();
 });
+
+
+test("holds the last actual clip frame while a longer scene continues", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?longHold&clean");
+  await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.ended), { timeout: 8000 }).toBe(true);
+  const before = await page.locator("video").evaluate((video: HTMLVideoElement) => ({ time: video.currentTime, duration: video.duration, loop: video.loop }));
+  expect(before.loop).toBe(false);
+  await page.waitForTimeout(600);
+  expect(await page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime)).toBeCloseTo(before.time, 1);
+  expect(before.time).toBeCloseTo(before.duration, 1);
+  await expect(page.locator('[data-video-frame="ready"]')).toHaveAttribute("data-scene-id", "first-video");
+});

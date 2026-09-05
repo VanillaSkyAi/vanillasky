@@ -3,6 +3,7 @@ export type {
   VideoAudio,
   VideoOrientation,
   VideoScene,
+  VideoNarrationGroup,
   VideoStyle,
   VideoStyleOptions,
 } from "./protocol/types.js";

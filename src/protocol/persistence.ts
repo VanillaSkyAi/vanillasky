@@ -1,3 +1,4 @@
+import { validateNarrationGroup, validateNarrationGroups } from "./narration-group.js";
 import {
   VIDEO_SCHEMA_VERSION,
   type VideoAudio,
@@ -318,6 +319,7 @@ function validateScene(value: unknown, path: string): VideoScene {
     "backgroundEffect",
     "timing",
     "narration",
+    "narrationGroup",
   ], path);
   nonEmptyString(requiredField(result, "id", `${path}.id`), `${path}.id`, 128);
   nonEmptyString(requiredField(result, "templateId", `${path}.templateId`), `${path}.templateId`, 128);
@@ -333,6 +335,7 @@ function validateScene(value: unknown, path: string): VideoScene {
   // this is untrusted input that a voice will be asked to read.
   const narration = ownField(result, "narration", `${path}.narration`);
   if (narration.present) nonEmptyString(narration.value, `${path}.narration`, 4_000);
+  if (result.narrationGroup !== undefined) validateNarrationGroup(result.narrationGroup);
   return result as unknown as VideoScene;
 }
 
@@ -505,6 +508,7 @@ function validateCurrentVideo(value: unknown): Video {
   for (let index = 0; index < sceneItems.length; index += 1) {
     scenes[index] = validateScene(sceneItems[index], `video.scenes[${index}]`);
   }
+  try { validateNarrationGroups(scenes); } catch (error) { fail(error instanceof Error ? error.message : "Invalid narration groups"); }
 
   const ids = new Set<string>();
   let cursor = 0;

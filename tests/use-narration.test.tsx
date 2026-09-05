@@ -186,3 +186,27 @@ describe("useNarration", () => {
     cleanup();
   });
 });
+
+it("keeps a prepared paragraph across cuts, seeks on replay, and aborts interruption", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  const calls: Array<{ signal: AbortSignal; offsetSeconds?: number }> = [];
+  const voice = { supportsOffsets: true, speak: vi.fn((_text: string, options: { signal: AbortSignal; offsetSeconds?: number }) => {
+    calls.push(options);
+    return new Promise<void>((resolve) => options.signal.addEventListener("abort", () => resolve()));
+  }) };
+  const shots = [0, 1, 2].map((index) => ({ ...scene(String(index), ["One.", "Two.", "Three."][index]),
+    timing: { fixedDuration: 2 }, narrationGroup: { id: "paragraph", text: "One. Two. Three.", offsetSeconds: index * 2, durationSeconds: 2, totalSeconds: 6 },
+  }));
+  const { result, unmount } = renderHook(() => useNarration({ voice }));
+  act(() => result.current.onSceneChange(shots[0]!, 0));
+  act(() => result.current.onSceneChange(shots[1]!, 1));
+  act(() => result.current.onSceneChange(shots[2]!, 2));
+  expect(voice.speak).toHaveBeenCalledTimes(1);
+  expect(calls[0]!.signal.aborted).toBe(false);
+  act(() => result.current.onSceneChange(shots[1]!, 1));
+  expect(calls[0]!.signal.aborted).toBe(true);
+  expect(calls[1]!.offsetSeconds).toBe(2);
+  act(() => result.current.interrupt());
+  expect(calls[1]!.signal.aborted).toBe(true);
+  unmount();
+});

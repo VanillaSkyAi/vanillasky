@@ -20,6 +20,8 @@ import sunflowersPoster from "./media-transition/sunflowers.jpg?url";
 // poster extracted from frame zero. New filenames also avoid an iPhone cache
 // hit from the first physical-device test set.
 
+const longHold = new URLSearchParams(location.search).has("longHold");
+
 type ProbeEntry = { at: number; kind: string; [key: string]: unknown };
 type ProbeInput = { kind: string; [key: string]: unknown };
 
@@ -46,7 +48,7 @@ const probeVideo: Video = {
         mediaType: "video",
         mediaPoster: waterfallPoster,
       },
-      timing: { fixedDuration: 4 },
+      timing: { fixedDuration: longHold ? 9 : 4 },
     },
     {
       id: "second-video",

@@ -26,7 +26,9 @@ export interface NarrationVoice {
    * scene is worse than being cut off. Report onStart only when speech actually
    * begins playing; leave it uncalled when onset cannot be observed.
    */
-  speak(text: string, options: { signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void }): void | Promise<void>;
+  /** True only when the provider can start prepared audio at an exact offset. */
+  supportsOffsets?: boolean;
+  speak(text: string, options: { offsetSeconds?: number; signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void }): void | Promise<void>;
 }
 
 export interface NarrationOptions {
@@ -56,6 +58,7 @@ export function useNarration(options: NarrationOptions): Narration {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  const groupRef = useRef<{ id: string; text: string } | undefined>(undefined);
   const currentRef = useRef<AbortController | undefined>(undefined);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.
@@ -64,6 +67,7 @@ export function useNarration(options: NarrationOptions): Narration {
   const stop = useCallback(() => {
     currentRef.current?.abort();
     currentRef.current = undefined;
+    groupRef.current = undefined;
     setSpeaking(false);
   }, []);
 
@@ -80,9 +84,16 @@ export function useNarration(options: NarrationOptions): Narration {
     if (!enabled) return;
     if (spokenIndexRef.current === index) return;
 
+    const group = scene.narrationGroup;
+    if (group && voice.supportsOffsets !== true) { stop(); return; }
+    if (group && currentRef.current && groupRef.current?.id === group.id && groupRef.current.text === group.text && spokenIndexRef.current === index - 1) {
+      spokenIndexRef.current = index;
+      return;
+    }
     stop();
     spokenIndexRef.current = index;
-    const line = scene.narration?.trim();
+    groupRef.current = group;
+    const line = group?.text ?? scene.narration?.trim();
     if (!line) return;
 
     const controller = new AbortController();
@@ -93,9 +104,10 @@ export function useNarration(options: NarrationOptions): Narration {
         let started = false;
         await voice.speak(line, {
           signal: controller.signal,
+          ...(group ? { offsetSeconds: group.offsetSeconds } : {}),
           onStart: (source) => {
             if (started || controller.signal.aborted || currentRef.current !== controller
-              || spokenIndexRef.current !== index || optionsRef.current.enabled === false) return;
+              || (!group && spokenIndexRef.current !== index) || optionsRef.current.enabled === false) return;
             started = true;
             try { void Promise.resolve(optionsRef.current.onSpeechStart?.(source)).catch(() => undefined); }
             catch { /* Observer failures do not affect narration. */ }

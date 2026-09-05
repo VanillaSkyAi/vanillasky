@@ -1,3 +1,5 @@
+import type { VideoNarrationGroup } from "./narration-group.js";
+export type { VideoNarrationGroup } from "./narration-group.js";
 export const VIDEO_PROTOCOL_VERSION = "0.6" as const;
 export const VIDEO_SCHEMA_VERSION = "0.2" as const;
 
@@ -58,6 +60,8 @@ export interface VideoScene {
    * on-screen copy.
    */
   narration?: string;
+  /** Optional host-authored offsets into one prepared paragraph across adjacent scenes. */
+  narrationGroup?: VideoNarrationGroup;
 }
 
 export interface VideoAudio {
