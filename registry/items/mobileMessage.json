@@ -140,13 +140,7 @@
         ],
         "additionalProperties": false,
         "x-vanillasky": {
-          "allowsStockMedia": true,
-          "requiredAnyOf": [
-            [
-              "mediaKeyword",
-              "mediaUrl"
-            ]
-          ]
+          "allowsStockMedia": true
         }
       }
     }

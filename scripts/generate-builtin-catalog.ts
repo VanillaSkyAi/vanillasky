@@ -108,6 +108,8 @@ function renderGeneratedPlayerTemplates(): string {
 import type { PlayerTemplateData } from "./player-kit.js";
 
 export const GENERATED_BUILTIN_PLAYER_TEMPLATES = ${JSON.stringify(templates, null, 2)} as const satisfies readonly PlayerTemplateData[];
+
+export const GENERATED_BUILTIN_VIDEO_BACKDROP_IDS: readonly string[] = ${JSON.stringify(BUILTIN_TEMPLATE_MANIFEST.filter(template => template.schema.properties.mediaUrl?.format === "uri" && template.schema.properties.mediaType?.enum?.includes("video")).map(template => template.id))};
 `;
 }
 

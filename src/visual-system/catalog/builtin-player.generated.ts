@@ -79,3 +79,5 @@ export const GENERATED_BUILTIN_PLAYER_TEMPLATES = [
     "usesGlobalTransition": false
   }
 ] as const satisfies readonly PlayerTemplateData[];
+
+export const GENERATED_BUILTIN_VIDEO_BACKDROP_IDS: readonly string[] = ["cinemaMedia","mobileMessage"];

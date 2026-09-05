@@ -343,13 +343,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
       ],
       "additionalProperties": false,
       "x-vanillasky": {
-        "allowsStockMedia": true,
-        "requiredAnyOf": [
-          [
-            "mediaKeyword",
-            "mediaUrl"
-          ]
-        ]
+        "allowsStockMedia": true
       }
     }
   },

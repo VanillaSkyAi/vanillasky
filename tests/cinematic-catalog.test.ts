@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { BUILTIN_PLAYER_KIT } from '../src/visual-system/catalog/builtin-player';
+import { supportsExternalVideoBackdrop } from '../src/visual-system/catalog/video-backdrop-capability';
 import { BUILTIN_TEMPLATE_MANIFEST } from '../src/visual-system/catalog/builtin-manifest';
 
 describe('cinematic template contract', () => {
+  it('marks only media lazy wrappers before importing any scene',()=>{
+    expect(BUILTIN_PLAYER_KIT.templates.filter(supportsExternalVideoBackdrop).map(t=>t.id)).toEqual(['cinemaMedia','mobileMessage']);
+  });
   it('ships exactly the approved eight, without retired promotional scenes', () => {
     expect(BUILTIN_TEMPLATE_MANIFEST.map(entry => entry.id)).toEqual(['cinemaMedia','chapterTitle','focusCards','editorialTimeline','mobileMessage','comparison','quote','keyFigure']);
   });

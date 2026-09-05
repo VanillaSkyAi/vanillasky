@@ -3,7 +3,7 @@ import { BUILTIN_TEMPLATE_SCHEMAS as schemas } from '../src/visual-system/scene-
 describe('cinematic schemas',()=>{
  it('accepts pending intent or resolved media without permitting gradient mode',()=>{
   for(const id of ['cinemaMedia','mobileMessage'] as const){
-   expect(schemas[id]['x-vanillasky'].requiredAnyOf).toEqual([['mediaKeyword','mediaUrl']]);
+   if(id==='cinemaMedia')expect(schemas[id]['x-vanillasky'].requiredAnyOf).toEqual([['mediaKeyword','mediaUrl']]);
    expect(schemas[id].properties.mediaType.enum).toEqual(['photo','video']);
    expect(schemas[id].properties.mediaKeyword.format).toBe('stock-media-keyword');
    expect(schemas[id].properties.mediaPoster.format).toBe('uri');

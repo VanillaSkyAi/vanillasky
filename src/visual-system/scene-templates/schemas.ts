@@ -202,13 +202,7 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
     ],
     "additionalProperties": false,
     "x-vanillasky": {
-      "allowsStockMedia": true,
-      "requiredAnyOf": [
-        [
-          "mediaKeyword",
-          "mediaUrl"
-        ]
-      ]
+      "allowsStockMedia": true
     }
   },
   "comparison": {
