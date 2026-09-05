@@ -8,7 +8,7 @@ import { TEST_VIDEO_STYLE as style } from "./semantic-brand-fixture";
 describe("React-free video timeline", () => {
   it("resolves explicit, beat-backed, and fallback timing deterministically", () => {
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       style,
       audio: {
         trackId: "track",
@@ -30,6 +30,6 @@ describe("React-free video timeline", () => {
       { start: 8, end: 13 },
     ]);
     expect(getVideoDuration(video)).toBe(13);
-    expect(getVideoDuration({ schemaVersion: "0.1", style, scenes: [] })).toBe(0);
+    expect(getVideoDuration({ schemaVersion: "0.2", style, scenes: [] })).toBe(0);
   });
 });

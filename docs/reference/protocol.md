@@ -1,10 +1,10 @@
-# Video Response Protocol 0.5
+# Video Response Protocol 0.6
 
 ## Transport
 
 The public transport is UTF-8 Server-Sent Events returned from a `POST` request.
 Responses use `Content-Type: text/event-stream`,
-`x-vanillasky-video-stream: 0.5`, `Cache-Control: no-cache, no-transform`, and
+`x-vanillasky-video-stream: 0.6`, `Cache-Control: no-cache, no-transform`, and
 `X-Accel-Buffering: no`. Each block has an SSE `id`, the event name
 `video`, and one JSON envelope in `data`. A final `data: [DONE]`
 closes the transport after a terminal protocol event. Comment heartbeats do not
@@ -14,7 +14,7 @@ change protocol state.
 
 ```ts
 type VideoEvent<T extends string, D> = {
-  protocolVersion: "0.5";
+  protocolVersion: "0.6";
   runId: string;
   sequence: number;
   eventId: string;        // exactly `${runId}:${sequence}`
@@ -42,7 +42,7 @@ finish reason, and a deterministic checksum. The reducer verifies that the
 snapshot equals the state produced by all prior events. The checksum detects
 accidental drift; it is not a cryptographic signature.
 
-The terminal snapshot carries persisted `schemaVersion: "0.1"`. That storage
+The terminal snapshot carries persisted `schemaVersion: "0.2"`. That storage
 version is independent from this streaming protocol version. Load stored
 snapshots through the universal `parseVideo` boundary described in the
 [persistence guide](../persistence.md).

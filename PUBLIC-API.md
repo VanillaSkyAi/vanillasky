@@ -133,7 +133,7 @@ playable scenes on an interrupted plan, emitting non-fatal warnings. Explicit
 - A response accepts `prompt`, `mode`, `orientation`, optional bounded
   `conversation`, `opening`, and `style`. `opening` is an optional
   prewritten hook from a selected suggestion. The response returns protocol
-  `0.5` SSE and negotiates `data.video-chat-opening`, which carries the bounded
+  `0.6` SSE and negotiates `data.video-chat-opening`, which carries the bounded
   6-9 word hook and optional stock-search `keyword` and `fallbackKeyword` before the first scene.
 - The planner produces that opening as the first line of the same model stream
   that produces the scenes. The separate opening-media action resolves its
@@ -391,7 +391,7 @@ from `/server` without crossing a React type boundary.
 
 - A completed `Video` is JSON-serializable and may be stored by the host.
 - Every completed value carries the required storage field
-  `schemaVersion: "0.1"`; it is independent from streaming protocol `0.5`.
+  `schemaVersion: "0.2"`; it is independent from streaming protocol `0.6`.
 - `parseVideo(value: unknown)` is the strict universal storage boundary. It
   validates the full document and returns a detached, deeply frozen `Video`.
 - JSON serialization remains platform-native; the SDK has no redundant public

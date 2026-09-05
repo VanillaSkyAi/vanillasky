@@ -10,7 +10,7 @@ SDK serializer. An interrupted turn can remain visible without qualifying as
 completed conversation history. The default `VideoChat` keeps history in memory;
 use the headless hook when the application needs durable storage.
 
-Every stored video has `schemaVersion: "0.1"`. This storage version is separate
+Every stored video has `schemaVersion: "0.2"`. This storage version is separate
 from streaming protocol `0.5`. The 0.1 policy supports the current storage
 schema only: there are no compatibility aliases or implicit coercions.
 
@@ -39,12 +39,12 @@ The release verifier compiles this exact documented snippet against the packed
 SDK artifact, including its root and React subpath imports.
 
 `parseVideo(value: unknown)` validates the complete shape, known fields,
-resolved brand and style, audio, metadata, unique scenes, timing, and JSON-safe
+style, audio, metadata, unique scenes, timing, and JSON-safe
 template variables. It returns a detached, deeply frozen `Video`, so later
 changes to the loaded object cannot mutate player state.
 
 Invalid data throws `VideoValidationError` with `code: "invalid_video"`.
-Unknown or future storage versions throw the same error class with
+Previous, unknown, or future storage versions throw the same error class with
 `code: "unsupported_video_version"`. `<VideoPlayer video={value} />` repeats
 this boundary validation and rejects the entire value before any renderer
 runs; it never renders a partial future document.

@@ -119,7 +119,7 @@ the selected catalog contains a template with one of those two jobs.
 
 Customer templates hard-cut by default. Opt into renderer-owned fades only
 for scenes that use the standard media-background variables, and only after
-both timing points are visually tested in portrait and landscape. Shared brand
+both timing points are visually tested in portrait and landscape. Shared render
 gradients and unchanged media do not crossfade:
 
 ```tsx
@@ -277,7 +277,7 @@ import { VideoPlayer } from "@vanillaskyai/video/react";
 import { templates } from "../vanillasky";
 
 const savedVideo: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [{
     id: "customer-health-preview",
@@ -288,21 +288,7 @@ const savedVideo: Video = {
     },
     timing: { fixedDuration: 5 },
   }],
-  style: {
-    brand: {
-      font: "Inter",
-      scriptFont: "Caveat",
-      background: { type: "gradient", colors: ["#8711C1", "#2167E3"] },
-      colors: {
-        primary: "#00E5A0",
-        secondary: "#006BE5",
-        foreground: "#FFFFFF",
-        surface: "#0A0A14",
-        surfaceElevated: "#14152A",
-        muted: "#A7A6B0",
-      },
-    },
-  },
+  style: {},
 };
 
 export function TemplatePreview() {

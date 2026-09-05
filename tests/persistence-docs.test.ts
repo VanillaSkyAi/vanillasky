@@ -10,7 +10,7 @@ describe("persistence documentation contract", () => {
     expect(api).toContain("`parseVideo(value: unknown): Video`");
     expect(api).toContain("`VideoValidationError`");
     expect(api).toContain("`VideoValidationErrorCode`");
-    expect(api).toContain('`schemaVersion: "0.1"`');
+    expect(api).toContain('`schemaVersion: "0.2"`');
     expect(guide).toContain("JSON.parse");
     expect(guide).toContain("parseVideo");
     expect(guide).toContain('from "@vanillaskyai/video"');

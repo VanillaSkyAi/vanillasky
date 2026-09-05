@@ -118,11 +118,11 @@ const handler = createVideoChatHandler({
   generateVideo: async () => { generated++; throw new Error("must not spend"); },
   searchMedia: async () => { searched++; return { type: "video", url: "https://media.example/stock.mp4" }; },
   streamText: async function* () {
-    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "stock", templateId: "media", variables: { texts: "Ocean", mediaType: "video", mediaKeyword: "ocean waves" }, timing: { fixedDuration: 4 }, narration: "The waves move across the ocean and arrive upon the shore." } }) + String.fromCharCode(10);
+    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "stock", templateId: "cinemaMedia", variables: { mediaType: "video", mediaKeyword: "ocean waves" }, timing: { fixedDuration: 4 }, narration: "The waves move across the ocean and arrive upon the shore." } }) + String.fromCharCode(10);
     yield JSON.stringify({ type: "plan.complete" }) + String.fromCharCode(10);
   },
 });
-const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "Ocean", mode: "full", opening: "Watch the ocean" }) }));
+const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "Ocean", mode: "cinematic", opening: "Watch the ocean" }) }));
 const events = await response.text();
 const welcome = await (await handler(new Request("https://app.example/api?action=welcome"))).json();
 if (welcome.hero.url !== "https://videos.pexels.com/video-files/11335959/11335959-hd_1920_1080_30fps.mp4" || welcome.hero.type !== "video") throw new Error("Packed default cloud welcome drifted");
@@ -134,22 +134,26 @@ if (generated !== 0 || searched !== 1 || !events.includes("stock.mp4") || !event
   writeFileSync(join(serverConsumer, "root.mjs"), `
 import { VideoValidationError, getVideoDuration, parseVideo } from "@vanillaskyai/video";
 import * as root from "@vanillaskyai/video";
-if (Object.keys(root).join() !== "VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo,resolveVideoBrand") throw new Error("Unexpected React-free root API");
+if (Object.keys(root).join() !== "VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo") throw new Error("Unexpected React-free root API");
 const stored = {
-  schemaVersion: "0.1",
-  scenes: [{ id: "stored", templateId: "notification", variables: { message: "Stored" }, timing: { fixedDuration: 4 } }],
-  style: { brand: { font: "Inter", scriptFont: "Caveat", background: { type: "gradient", colors: ["#8711C1", "#2167E3"] }, colors: { primary: "#00E5A0", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" } } },
+  schemaVersion: "0.2",
+  scenes: [{ id: "stored", templateId: "mobileMessage", variables: { message: "Stored" }, timing: { fixedDuration: 4 } }],
+  style: {},
 };
 const parsed = parseVideo(JSON.parse(JSON.stringify(stored)));
 if (getVideoDuration(parsed) !== 4 || !Object.isFrozen(parsed.scenes)) throw new Error("React-free root persistence contract failed");
-const resolvedBrand = root.resolveVideoBrand({ name: "Acme", background: "midnight" });
-if (!resolvedBrand.font || !resolvedBrand.background || Object.keys(resolvedBrand.colors).length < 6) {
-  throw new Error("Packed resolveVideoBrand did not return a fully resolved brand");
+if ("resolveVideoBrand" in root) throw new Error("Removed brand resolver remains exported");
+try {
+  parseVideo(JSON.parse(process.env.VANILLASKY_PERSISTED_VIDEO_FIXTURE));
+  throw new Error("Old persisted schema was accepted");
+} catch (error) {
+  if (!(error instanceof VideoValidationError) || error.code !== "unsupported_video_version") throw error;
 }
-parseVideo({ ...stored, style: { brand: resolvedBrand } });
-const releaseFixture = parseVideo(JSON.parse(process.env.VANILLASKY_PERSISTED_VIDEO_FIXTURE));
-if (releaseFixture.scenes.length !== 2 || releaseFixture.schemaVersion !== "0.1") {
-  throw new Error("Packed parser rejected the persisted 0.1.0 release fixture");
+try {
+  parseVideo({ ...stored, style: { brand: {} } });
+  throw new Error("Old brand payload was accepted");
+} catch (error) {
+  if (!(error instanceof VideoValidationError) || error.code !== "invalid_video") throw error;
 }
 try {
   parseVideo({ ...stored, schemaVersion: "9.0" });
@@ -173,7 +177,7 @@ const handler = createVideoChatHandler({
   onComplete: (summary) => { completed = summary; },
   streamText: () => ({
     textStream: (async function* () {
-      yield '{"type":"scene.add","scene":{"id":"server-only","templateId":"notification","variables":{"appName":"VanillaSky","message":"Server only"},"timing":{"fixedDuration":4}}}\\n';
+      yield '{"type":"scene.add","scene":{"id":"server-only","templateId":"mobileMessage","variables":{"app":"Messages","message":"Server only"},"timing":{"fixedDuration":4}}}\\n';
       yield '{"type":"plan.complete"}\\n';
     })(),
     finishReason: "stop",
@@ -193,15 +197,15 @@ const complete = body
   .map((line) => JSON.parse(line.slice(6)))
   .find(({ type }) => type === "response.complete");
 if (!/^fnv1a32:[0-9a-f]{8}$/.test(complete?.data.checksum)) throw new Error("Packed response omitted its checksum");
-if (complete.data.snapshot.schemaVersion !== "0.1") throw new Error("Packed terminal snapshot lost its schema version");
+if (complete.data.snapshot.schemaVersion !== "0.2") throw new Error("Packed terminal snapshot lost its schema version");
 if (complete.data.snapshot.scenes[0]?.id !== "server-only") throw new Error("Packed terminal snapshot lost its completed scene");
 
 const videoChat = createVideoChatHandler({
   authorize: "none",
   heartbeatMs: false,
   streamText: async function* () {
-    yield '{"type":"scene.add","scene":{"id":"chat-body","templateId":"notification","variables":{"appName":"VanillaSky","message":"Provider neutral"},"timing":{"fixedDuration":4}}}\\n';
-    yield '{"type":"scene.add","placement":"closer","scene":{"id":"chat-ending","templateId":"media","variables":{"texts":"Ready to continue","mediaType":"gradient"},"timing":{"fixedDuration":4}}}\\n';
+    yield '{"type":"scene.add","scene":{"id":"chat-body","templateId":"mobileMessage","variables":{"app":"Messages","message":"Provider neutral"},"timing":{"fixedDuration":4}}}\\n';
+    yield '{"type":"scene.add","placement":"closer","scene":{"id":"chat-ending","templateId":"chapterTitle","variables":{"title":"Ready to continue"},"timing":{"fixedDuration":4}}}\\n';
     yield '{"type":"plan.complete"}\\n';
   },
   generateText: async () => "Provider-neutral text",
@@ -363,12 +367,12 @@ export const templates = createTemplateRegistry({ definitions: [] });
     "custom-template-preview-tsconfig.json",
   ], { cwd: consumer, stdio: "inherit" });
   rmSync(join(consumer, "vanillasky"), { recursive: true, force: true });
-  execFileSync(process.execPath, [packedCli, "templates", "add", "bigNumber", "--dry-run"], { cwd: consumer, stdio: "ignore" });
-  execFileSync(process.execPath, [packedCli, "templates", "add", "bigNumber", "--diff"], { cwd: consumer, stdio: "ignore" });
+  execFileSync(process.execPath, [packedCli, "templates", "add", "keyFigure", "--dry-run"], { cwd: consumer, stdio: "ignore" });
+  execFileSync(process.execPath, [packedCli, "templates", "add", "keyFigure", "--diff"], { cwd: consumer, stdio: "ignore" });
   if (existsSync(join(consumer, "vanillasky"))) {
     throw new Error("Packed add preview commands changed the consumer");
   }
-  execFileSync(process.execPath, [packedCli, "templates", "add", "bigNumber"], { cwd: consumer, stdio: "inherit" });
+  execFileSync(process.execPath, [packedCli, "templates", "add", "keyFigure"], { cwd: consumer, stdio: "inherit" });
   const copiedCheckOutput = execFileSync(process.execPath, [packedCli, "templates", "check"], { cwd: consumer, encoding: "utf8" });
   if (!copiedCheckOutput.includes("12 deterministic renders")) {
     throw new Error(`Packed copied-template check failed:\n${copiedCheckOutput}`);
@@ -376,7 +380,7 @@ export const templates = createTemplateRegistry({ definitions: [] });
   rmSync(join(consumer, "vanillasky"), { recursive: true, force: true });
   execFileSync(process.execPath, [packedCli, "templates", "add", "--all"], { cwd: consumer, stdio: "inherit" });
   const catalogCheckOutput = execFileSync(process.execPath, [packedCli, "templates", "check"], { cwd: consumer, encoding: "utf8" });
-  const catalogSummary = "Checked 28 templates, 28 examples, and 336 deterministic renders.";
+  const catalogSummary = "Checked 8 templates, 8 examples, and 96 deterministic renders.";
   if (!catalogCheckOutput.includes(catalogSummary)) throw new Error(`Packed built-in catalog check failed:\n${catalogCheckOutput}`);
   rmSync(join(consumer, "vanillasky"), { recursive: true, force: true });
 
@@ -420,7 +424,7 @@ export const templates = createTemplateRegistry({ definitions: [] });
   // Exercise the source-owned copy of SceneBackground against VideoPlayer
   // from the tarball. This is a distinct module boundary from packaged
   // built-ins and must share the Mobile Safari backdrop contract safely.
-  execFileSync(process.execPath, [packedCli, "templates", "add", "media"], { cwd: consumer, stdio: "inherit" });
+  execFileSync(process.execPath, [packedCli, "templates", "add", "cinemaMedia"], { cwd: consumer, stdio: "inherit" });
   const previewImageUrl = JSON.stringify("data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#2167E3"/></svg>'));
   execFileSync(process.execPath, [packedCli, "templates", "sync"], { cwd: consumer, stdio: "inherit" });
   const referenceCheckOutput = execFileSync(process.execPath, [packedCli, "templates", "check"], { cwd: consumer, encoding: "utf8" });
@@ -435,16 +439,16 @@ import * as server from "@vanillaskyai/video/server";
 import * as react from "@vanillaskyai/video/react";
 import * as templates from "@vanillaskyai/video/templates";
 import { builtinTemplates } from "@vanillaskyai/video/templates/catalog";
-if (Object.keys(root).join() !== "VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo,resolveVideoBrand") throw new Error("Unexpected root API");
-const resolvedStyle = { brand: { font: "Inter", scriptFont: "Caveat", background: { type: "gradient", colors: ["#8711C1", "#2167E3"] }, colors: { primary: "#00E5A0", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" } } };
-const rootVideo = root.parseVideo({ schemaVersion: "0.1", scenes: [{ id: "one", templateId: "notification", variables: {}, timing: { fixedDuration: 4 } }], style: resolvedStyle });
+if (Object.keys(root).join() !== "VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo") throw new Error("Unexpected root API");
+const resolvedStyle = {};
+const rootVideo = root.parseVideo({ schemaVersion: "0.2", scenes: [{ id: "one", templateId: "mobileMessage", variables: {}, timing: { fixedDuration: 4 } }], style: resolvedStyle });
 if (root.getVideoDuration(rootVideo) !== 4 || !Object.isFrozen(rootVideo)) {
   throw new Error("Packed duration helper returned an unexpected timeline");
 }
 if (Object.keys(server).sort().join() !== "createServerTemplateRegistry,createVideoChatHandler") throw new Error("Unexpected server API");
 if (Object.keys(react).sort().join() !== "VideoChat,VideoError,VideoPlayer,createVideoChatVoice,useVideoChat") throw new Error("Unexpected React API");
 if (Object.keys(templates).sort().join() !== "createTemplateRegistry,defineTemplate") throw new Error("Unexpected template API");
-if (builtinTemplates.length !== 28) throw new Error("Unexpected built-in template manifest");
+if (builtinTemplates.length !== 8) throw new Error("Unexpected built-in template manifest");
 try {
   templates.defineTemplate({ id: "removedDuration", useWhen: "Never", schema: { type: "object", properties: {} }, duration: 2, component: () => null });
   throw new Error("Packed template API accepted the removed duration alias");
@@ -472,8 +476,8 @@ const pacingHandler = server.createVideoChatHandler({
   onComplete: (summary) => { lifecycleSummary = summary; },
   streamText: () => ({
     textStream: (async function* () {
-      yield JSON.stringify({ type: "scene.add", scene: { id: "body-1", templateId: "bigNumber", variables: { texts: "Revenue", value: 42, label: "million" }, timing: { fixedDuration: 29 } } }) + "\\n";
-      yield JSON.stringify({ type: "scene.add", scene: { id: "close-1", templateId: "ctaLogo", variables: { url: "openai.com/releases", cta: "Read every new OpenAI release note with your team" }, timing: { fixedDuration: 4 } } }) + "\\n";
+      yield JSON.stringify({ type: "scene.add", scene: { id: "body-1", templateId: "keyFigure", variables: { value: "42 million", label: "Revenue" }, timing: { fixedDuration: 29 } } }) + "\\n";
+      yield JSON.stringify({ type: "scene.add", scene: { id: "close-1", templateId: "chapterTitle", variables: { title: "Read every new OpenAI release note with your team" }, timing: { fixedDuration: 4 } } }) + "\\n";
       yield JSON.stringify({ type: "plan.complete" }) + "\\n";
     })(),
     finishReason: Promise.resolve("stop"),
@@ -486,7 +490,7 @@ const pacingHandler = server.createVideoChatHandler({
 const pacingResponse = await pacingHandler(new Request("https://app.example/api/video-chat?action=response", {
   method: "POST",
   body: JSON.stringify({
-    prompt: "Revenue reached 42 million. Acme: Read every new OpenAI release note with your team at openai.com/releases.", opening: "Start here", brand: { name: "Acme", logoUrl: "https://cdn.acme.test/logo.svg", background: "twilight", colors: { primary: "#FF3366" } },
+    prompt: "Revenue reached 42 million. Acme: Read every new OpenAI release note with your team at openai.com/releases.", opening: "Start here",
   }),
 }));
 const pacingEvents = (await pacingResponse.text())
@@ -498,22 +502,7 @@ if (lifecycleSummary?.requestedModelId !== "packed-requested-model" || lifecycle
 if (lifecycleSummary?.acceptedSceneCount !== 2 || lifecycleSummary?.providerMetadata?.openai?.responseId !== "packed-private-response") throw new Error("Packed handler lost the server-only completion summary");
 if (JSON.stringify(pacingEvents).match(/packed-private-response|packed-requested-model|packed-resolved-model|totalTokens/)) throw new Error("Packed handler leaked server lifecycle metadata into SSE");
 const startEvent = pacingEvents.find(({ type }) => type === "response.start");
-if (startEvent.data.style.brand.background.type !== "gradient") throw new Error("Packed handler did not resolve the background preset");
-if (startEvent.data.style.brand.colors.primary !== "#FF3366") throw new Error("Packed handler lost the semantic primary color");
-if (startEvent.data.style.brand.colors.foreground !== "#FFFFFF") throw new Error("Packed handler let the background alter semantic foreground");
-if (startEvent.data.style.brand.name !== "Acme" || startEvent.data.style.brand.logoUrl !== "https://cdn.acme.test/logo.svg") throw new Error("Packed handler lost host-owned identity");
-const customResponse = await pacingHandler(new Request("https://app.example/api/video-chat?action=response", {
-  method: "POST",
-  body: JSON.stringify({
-    prompt: "Revenue reached 42 million. Acme: Read every new OpenAI release note with your team at openai.com/releases.", opening: "Start here", brand: { background: { color: "#F8FAFC" }, colors: { primary: "#FF3366" } },
-  }),
-}));
-const customEvents = (await customResponse.text())
-  .split("\\n")
-  .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
-  .map((line) => JSON.parse(line.slice(6)));
-const customStyle = customEvents.find(({ type }) => type === "response.start").data.style;
-if (customStyle.brand.colors.foreground !== "#000000") throw new Error("Packed handler did not auto-select a safe foreground");
+if ("brand" in startEvent.data.style) throw new Error("Packed handler retained removed brand state");
 const pacedScenes = pacingEvents.filter(({ type }) => type === "scene.add").map(({ data }) => data.scene);
 if (pacedScenes.length !== 2 || pacedScenes[1].id !== "close-1") throw new Error("Packed chat lost its closer");
 if (pacedScenes.some((scene) => root.getSceneDuration(scene) <= 0)) throw new Error("Packed chat emitted unreadable timing");
@@ -541,15 +530,15 @@ const resilientChat = server.createVideoChatHandler({
   },
   streamText: () => (async function* () {
     yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth around the world.", mediaKeyword: "ocean currents" }) + "\\n";
-    yield JSON.stringify({ type: "scene.add", scene: { id: "packed-completed-scene", templateId: "media", variables: { texts: "Warm water travels", mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\\n";
+    yield JSON.stringify({ type: "scene.add", scene: { id: "packed-completed-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\\n";
     yield '{"type":"scene.add", malformed}\\n';
-    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "packed-recovered-scene", templateId: "media", variables: { texts: "Currents connect our oceans", mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Currents connect our oceans.", timing: { fixedDuration: 5 } } }) + "\\n";
+    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "packed-recovered-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Currents connect our oceans.", timing: { fixedDuration: 5 } } }) + "\\n";
     yield '{"type":"plan.complete"}\\n';
   })(),
 });
 const resilientResponse = await resilientChat(new Request("https://app.example/api/video-chat?action=response", {
   method: "POST",
-  body: JSON.stringify({ prompt: "Explain ocean currents", mode: "full" }),
+  body: JSON.stringify({ prompt: "Explain ocean currents", mode: "cinematic" }),
 }));
 if (!resilientResponse.ok) throw new Error("Packed resilient chat request failed");
 const resilientBody = await resilientResponse.text();
@@ -598,7 +587,7 @@ const deadlineChat = server.createVideoChatHandler({
   streamText: () => (async function* () {
     yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth.", mediaKeyword: "ocean currents" }) + "\\n";
     for (const id of ["deadline-completed", "deadline-fallback"]) {
-      yield JSON.stringify({ type: "scene.add", scene: { id, templateId: "media", variables: { texts: "Ocean currents carry warmth", mediaKeyword: "ocean currents", mediaType: "video" }, timing: { fixedDuration: 5 } } }) + "\\n";
+      yield JSON.stringify({ type: "scene.add", scene: { id, templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video" }, timing: { fixedDuration: 5 } } }) + "\\n";
     }
     yield '{"type":"plan.complete"}\\n';
   })(),
@@ -609,7 +598,7 @@ let deadlineBody;
 try {
   deadlineBody = await Promise.race([
     deadlineChat(new Request("https://app.example/api/video-chat?action=response", {
-      method: "POST", body: JSON.stringify({ prompt: "Explain ocean currents", mode: "full" }),
+      method: "POST", body: JSON.stringify({ prompt: "Explain ocean currents", mode: "cinematic" }),
     })).then((response) => response.text()),
     new Promise((_resolve, reject) => {
       deadlineWatchdog = setTimeout(() => reject(new Error("Packed optional provider blocked completion beyond its deadline")), 8_000);
@@ -645,7 +634,7 @@ if (!deadlineEvents.some(({ type, data }) => type === "response.warning" && data
   writeFileSync(join(consumer, "types.ts"), `
 import { createElement } from "react";
 import { VideoValidationError, parseVideo } from "@vanillaskyai/video";
-import type { Video, VideoBackground, VideoBrand, VideoBrandInput, VideoValidationErrorCode } from "@vanillaskyai/video";
+import type { Video, VideoValidationErrorCode } from "@vanillaskyai/video";
 // @ts-expect-error VideoState is internal and must not be exported from the root.
 import type { VideoState } from "@vanillaskyai/video";
 import { createVideoChatVoice, VideoChat, VideoError, VideoPlayer, useVideoChat } from "@vanillaskyai/video/react";
@@ -670,9 +659,12 @@ import type { TemplateTimingMetadata as CatalogTemplateTimingMetadata } from "@v
 // @ts-expect-error Undocumented manifest-entry name is not part of 0.1.
 import type { BuiltinTemplateManifestEntry } from "@vanillaskyai/video/templates/catalog";
 
-const resolvedBackground: VideoBackground = { type: "gradient", colors: ["#112233", "#334455"] };
-const semanticBrand: VideoBrand = { font: "Inter", scriptFont: "Caveat", background: resolvedBackground, colors: { primary: "#FF3366", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" } };
-const brandedInput: VideoBrandInput = { background: "twilight", colors: { primary: "#FF3366" } };
+// @ts-expect-error Brand input was removed from the cinematic contract.
+import type { VideoBrandInput } from "@vanillaskyai/video";
+// @ts-expect-error Configurable resolved brand was removed.
+import type { VideoBrand } from "@vanillaskyai/video";
+// @ts-expect-error Public background presets were removed.
+import type { VideoBackground } from "@vanillaskyai/video";
 const validationCode: VideoValidationErrorCode = "unsupported_video_version";
 const parsedVideo = parseVideo({} as unknown);
 declare const video: Video;
@@ -736,7 +728,7 @@ const PackedChatTypeProbe = () => {
   const chat = useVideoChat({ voice: chatVoice, ...performanceOptions });
   return createElement("output", null, chat.status, chatTurn.completed ? "complete" : "pending");
 };
-const builtinId: BuiltinTemplateId = "bigNumber";
+const builtinId: BuiltinTemplateId = "keyFigure";
 const family: TemplateFamily = "Data & metrics";
 declare const builtinMetadata: BuiltinTemplateMetadata;
 declare const sceneTemplate: SceneTemplate;
@@ -792,7 +784,7 @@ chatHandlerOptions.replay;
 chatHandlerOptions.createRunId;
 // @ts-expect-error Handler behavior selectors are not callback-shaped.
 chatHandlerOptions.onInvalidPart;
-void [brandedInput, resolvedBackground, semanticBrand, video.schemaVersion, parsedVideo, validationCode, validationError.code, chatHook.playerProps, chatWarnings, turnWarnings, createdChatVoice, videoChatProps, packedVideoChat, PackedChatTypeProbe, chatHandlerOptions.invalidPartBehavior, chatHandlerOptions.generateText, chatCapabilities.modes, summary, usage, warning, error.code, error.status, error.requestId, error.runId, savedPlayer, builtinId, builtinMetadata, family, sceneTemplate, sceneMetadata, sceneProps, templateRegistry, timingMetadata, transitionTiming];
+void [video.schemaVersion, parsedVideo, validationCode, validationError.code, chatHook.playerProps, chatWarnings, turnWarnings, createdChatVoice, videoChatProps, packedVideoChat, PackedChatTypeProbe, chatHandlerOptions.invalidPartBehavior, chatHandlerOptions.generateText, chatCapabilities.modes, summary, usage, warning, error.code, error.status, error.requestId, error.runId, savedPlayer, builtinId, builtinMetadata, family, sceneTemplate, sceneMetadata, sceneProps, templateRegistry, timingMetadata, transitionTiming];
 `);
   writeFileSync(join(consumer, "types-tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", skipLibCheck: false }, include: ["types.ts"] }));
   execFileSync(process.execPath, [join(consumer, "node_modules", "typescript", "bin", "tsc"), "-p", "types-tsconfig.json"], { cwd: consumer, stdio: "inherit" });
@@ -810,20 +802,20 @@ import { templates } from "./vanillasky/index.ts";
 const mediaProbe = new URLSearchParams(window.location.search).has("media-probe");
 const chatProbe = new URLSearchParams(window.location.search).has("chat-probe");
 const video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [
     { id: "text", templateId: "minimal-text", variables: { headline: "Customer health", detail: "Activation is up 18%." }, timing: { fixedDuration: 2 } },
     { id: "data", templateId: "structured-data", variables: { label: "Activation", current: 58, previous: 41, unit: "%", explanation: "Guided onboarding helped more users reach value." }, timing: { fixedDuration: 2 } },
-    { id: "builtin", templateId: "bigNumber", variables: { value: "42", label: "retention" }, timing: { fixedDuration: 1 } },
+    { id: "builtin", templateId: "keyFigure", variables: { value: "42", label: "retention" }, timing: { fixedDuration: 1 } },
   ],
-  style: { brand: { font: "Inter", scriptFont: "Caveat", background: { type: "gradient", colors: ["#8711C1", "#2167E3"] }, colors: { primary: "#00E5A0", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" } } },
+  style: {},
 };
 const mediaVideo = {
   ...video,
   scenes: [
-    { id: "packed-media-one", templateId: "media", variables: { texts: "First source", mediaUrl: "/first.mp4", mediaType: "video", mediaPoster: ${previewImageUrl} }, timing: { fixedDuration: 1.5 } },
-    { id: "packed-media-two", templateId: "media", variables: { texts: "Second source", mediaUrl: "/second.mp4", mediaType: "video", mediaPoster: ${previewImageUrl} }, timing: { fixedDuration: 1.5 } },
+    { id: "packed-media-one", templateId: "cinemaMedia", variables: { mediaUrl: "/first.mp4", mediaType: "video", mediaPoster: ${previewImageUrl} }, timing: { fixedDuration: 1.5 } },
+    { id: "packed-media-two", templateId: "cinemaMedia", variables: { mediaUrl: "/second.mp4", mediaType: "video", mediaPoster: ${previewImageUrl} }, timing: { fixedDuration: 1.5 } },
   ],
 };
 const error = new VideoError("Safe browser error", { code: "video_failed", cause: new Error("provider secret") });
@@ -909,7 +901,7 @@ createRoot(document.getElementById("root")).render(mediaProbe
     await page.getByRole("button", { name: "Play video response" }).click();
     await page.waitForSelector('[data-template-id="structured-data"]', { timeout: 5_000 });
     await page.getByText("Guided onboarding helped more users reach value.").waitFor({ timeout: 5_000 });
-    await page.waitForSelector('[data-template-id="bigNumber"]', { timeout: 5_000 });
+    await page.waitForSelector('[data-template-id="keyFigure"]', { timeout: 5_000 });
     await page.getByText("retention").waitFor({ timeout: 5_000 });
     try {
       await page.waitForFunction(() => globalThis.document.documentElement.dataset.playbackEnded === "true", undefined, { timeout: 5_000 });
@@ -1131,14 +1123,8 @@ const definitions = [
   probe("react19-isolated"),
 ];
 const templates = createTemplateRegistry({ definitions });
-const brand = {
-  font: "Inter",
-  scriptFont: "Caveat",
-  background: { type: "gradient", colors: ["#8711C1", "#2167E3"] },
-  colors: { primary: "#00E5A0", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" },
-};
 const video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [
     { id: "react19-opening-scene", templateId: "react19-opening", variables: { mediaUrl: "opening.jpg" }, timing: { fixedDuration: 0.6 } },
@@ -1146,7 +1132,6 @@ const video = {
   ],
   style: {
     defaultTransition: "crossfade",
-    brand,
   },
 };
 const sharedBackgroundVideo = {
@@ -1154,10 +1139,10 @@ const sharedBackgroundVideo = {
   scenes: video.scenes.map((scene) => ({ ...scene, variables: {} })),
 };
 const isolatedVideo = (id, defaultTransition) => ({
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [{ id: id + "-scene", templateId: id, variables: {}, timing: { fixedDuration: 1 } }],
-  style: { brand, ...(defaultTransition === undefined ? {} : { defaultTransition }) },
+  style: { ...(defaultTransition === undefined ? {} : { defaultTransition }) },
 });
 const players = [
   { id: "transition", label: "React 19 transition probe", video },
@@ -1311,7 +1296,7 @@ createRoot(document.getElementById("root")).render(createElement("main", null,
   }
 
   verifyPackedMarkdownDocumentation({ packageRoot, repositoryRoot: root });
-  for (const relative of ["dist/index.js", "dist/server.js", "dist/react.js", "dist/templates.js", "dist/template-catalog.js", "dist/test.js", "dist/check-runtime.js", "styles/video-chat.css", "bin/vanillasky.js", "registry/items/notification.json"]) {
+  for (const relative of ["dist/index.js", "dist/server.js", "dist/react.js", "dist/templates.js", "dist/template-catalog.js", "dist/test.js", "dist/check-runtime.js", "styles/video-chat.css", "bin/vanillasky.js", "registry/items/mobileMessage.json"]) {
     if (!existsSync(join(packageRoot, relative))) throw new Error(`Packed package is missing ${relative}`);
   }
   execFileSync(process.execPath, [join(packageRoot, "bin", "vanillasky.js"), "templates", "list"], { cwd: consumer, stdio: "ignore" });

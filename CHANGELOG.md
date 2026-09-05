@@ -4,6 +4,26 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+### Breaking changes
+
+- Replace the 28 promotional templates with eight cinematic templates: Full-bleed, Chapter, Focus cards, Timeline, Reach out, Comparison, Quote, and Key figure. Graphics use fixed black backgrounds and white/neutral system typography; only Full-bleed and Reach out accept media.
+- Remove configurable `brand` input and persisted `style.brand`, and remove the public `VideoBrand`, `VideoBrandInput`, `VideoBackground`, and `resolveVideoBrand` exports. Persisted schema is now `0.2` and streaming protocol is `0.6`; older payloads are explicitly rejected.
+- Source-owned templates declare authored reveal, hold and exit minimums. Quote and figure examples remain authoring fixtures and never become factual runtime defaults.
+
+Before:
+
+```tsx
+<VideoChat options={{ endpoint: "/api/video-chat", brand: { background: "twilight" } }} />
+```
+
+### Adoption
+
+Remove brand options and regenerate source-owned templates from the new catalog. Re-author or regenerate saved videos from retained source material; do not rename old IDs or change their version field blindly. See [cinematic migration](docs/maintainers/cinematic-migration.md).
+
+```tsx
+<VideoChat options={{ endpoint: "/api/video-chat" }} />
+```
+
 ## 0.8.7
 
 - Show a clear request-limit error when a suggested opening cannot receive an answer, instead of presenting the opening as a completed video. Preserve completed scenes when a response is interrupted.

@@ -41,14 +41,6 @@
           "declare function parseVideo(value: unknown): Video;"
         ]
       },
-      "resolveVideoBrand": {
-        "kinds": [
-          "value"
-        ],
-        "declaration": [
-          "declare function resolveVideoBrand(input?: VideoBrandInput): VideoBrand;"
-        ]
-      },
       "SceneDurationBounds": {
         "kinds": [
           "type"
@@ -71,30 +63,6 @@
         ],
         "declaration": [
           "interface VideoAudio {\n    trackId: string;\n    audioUrl: string;\n    sourceDuration?: number;\n    duration: number;\n    beatDetection: {\n        sensitivity: number;\n        targetBeats?: number;\n        minInterval?: number;\n    };\n    beatMarkers: Array<{\n        time: number;\n        manual?: boolean;\n        energy?: \"high\" | \"medium\" | \"low\";\n    }>;\n    volume?: number;\n    fadeOutMs?: number;\n}"
-        ]
-      },
-      "VideoBackground": {
-        "kinds": [
-          "type"
-        ],
-        "declaration": [
-          "type VideoBackground = {\n    type: \"solid\";\n    color: string;\n} | {\n    type: \"gradient\";\n    colors: [\n        string,\n        string\n    ];\n};"
-        ]
-      },
-      "VideoBrand": {
-        "kinds": [
-          "type"
-        ],
-        "declaration": [
-          "interface VideoBrand {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background: VideoBackground;\n    colors: VideoBrandColors;\n}"
-        ]
-      },
-      "VideoBrandInput": {
-        "kinds": [
-          "type"
-        ],
-        "declaration": [
-          "interface VideoBrandInput {\n    name?: string;\n    logoUrl?: string;\n    font?: string;\n    scriptFont?: string;\n    background?: VideoBackgroundInput;\n    colors?: Partial<VideoBrandColors>;\n}"
         ]
       },
       "VideoOrientation": {
@@ -126,7 +94,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoStyle {\n    brand: VideoBrand;\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}"
+          "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}"
         ]
       },
       "VideoStyleOptions": {
@@ -156,12 +124,9 @@
       }
     },
     "support": [
-      "declare const VIDEO_SCHEMA_VERSION: \"0.1\";",
-      "interface VideoBrandColors {\n    primary: string;\n    secondary: string;\n    foreground: string;\n    surface: string;\n    surfaceElevated: string;\n    muted: string;\n}",
-      "interface VideoTemplatePacing {\n    jobs?: readonly string[];\n    schema?: {\n        readonly properties: Readonly<Record<string, {\n            readonly default?: unknown;\n        }>>;\n    };\n    minDuration?: number;\n    preferredDuration?: number;\n    timing?: {\n        readonly contentFields: readonly string[];\n        readonly contentUnit: \"words\" | \"characters\" | \"items\";\n    };\n}",
-      "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}",
-      "type VideoBackgroundInput = VideoBackgroundPreset | {\n    color: string;\n} | {\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundPreset = \"cosmic\" | \"horizon\" | \"twilight\" | \"meadow\" | \"velvet\" | \"flamingo\" | \"peach\" | \"saffron\" | \"black\" | \"midnight\" | \"aubergine\" | \"coal\" | \"navy\";"
+      "declare const VIDEO_SCHEMA_VERSION: \"0.2\";",
+      "interface VideoTemplatePacing {\n    jobs?: readonly string[];\n    schema?: {\n        readonly properties: Readonly<Record<string, {\n            readonly default?: unknown;\n        }>>;\n    };\n    minDuration?: number;\n    preferredDuration?: number;\n    timing?: {\n        readonly revealSeconds?: number;\n        readonly holdSeconds?: number;\n        readonly exitSeconds?: number;\n        readonly contentFields: readonly string[];\n        readonly contentUnit: \"words\" | \"characters\" | \"items\";\n    };\n}",
+      "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}"
     ]
   },
   "@vanillaskyai/video/server": {
@@ -227,7 +192,7 @@
           "type"
         ],
         "declaration": [
-          "type VideoChatMode = \"templates\" | \"full\";"
+          "type VideoChatMode = \"cinematic\";"
         ]
       },
       "VideoChatWelcomeOptions": {
@@ -288,22 +253,19 @@
       }
     },
     "support": [
-      "declare const VIDEO_PROTOCOL_VERSION: \"0.5\";",
-      "declare const VIDEO_SCHEMA_VERSION: \"0.1\";",
+      "declare const VIDEO_PROTOCOL_VERSION: \"0.6\";",
+      "declare const VIDEO_SCHEMA_VERSION: \"0.2\";",
       "declare function createTemplateSceneValidator(options: {\n    kit: ServerTemplateRegistry;\n    allowMediaUrl?: (url: string, context: VideoSceneValidationContext & {\n        scene: VideoScene;\n        variable: string;\n    }) => boolean;\n}): VideoSceneValidator;",
       "interface MediaResolverContext {\n    input: VideoInput;\n    requestId: string;\n    scene: Readonly<VideoScene>;\n    templateId: string;\n    preferredType: \"image\" | \"video\" | \"any\";\n    generatedLook?: string;\n    signal: AbortSignal;\n}",
       "interface ResolvedMedia {\n    url: string;\n    type: \"image\" | \"video\";\n    posterUrl?: string;\n}",
       "interface TemplateJsonSchema {\n    readonly type: \"object\";\n    readonly properties: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n    readonly \"x-vanillasky\"?: {\n        readonly requiresStat?: boolean;\n        readonly allowsStockMedia?: boolean;\n        readonly requiredAnyOf?: readonly (readonly string[])[];\n    };\n}",
       "interface TemplateJsonSchemaProperty {\n    readonly type?: \"string\" | \"number\" | \"integer\" | \"boolean\" | \"array\" | \"object\";\n    readonly format?: \"uri\" | \"supplied-image\" | \"grounded-quote\" | \"grounded-stat\" | \"stock-media-keyword\" | \"emoji\";\n    readonly enum?: readonly string[];\n    readonly title?: string;\n    readonly description?: string;\n    readonly default?: unknown;\n    readonly examples?: readonly unknown[];\n    readonly minItems?: number;\n    readonly maxItems?: number;\n    readonly minLength?: number;\n    readonly maxLength?: number;\n    readonly minimum?: number;\n    readonly maximum?: number;\n    readonly items?: TemplateJsonSchemaProperty;\n    readonly properties?: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n}",
-      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
+      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly revealSeconds?: number;\n    readonly holdSeconds?: number;\n    readonly exitSeconds?: number;\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
       "interface TemplateTransitionTiming {\n    readonly entryReadyProgress: number;\n    readonly holdProgress: number;\n}",
       "interface TextDeltaVideoPlannerOptions {\n    streamText: (context: VideoGenerationContext) => AsyncIterable<string> | TextDeltaVideoSource;\n    includeRawProviderData?: boolean;\n}",
       "interface TextDeltaVideoSource {\n    textStream: AsyncIterable<string>;\n    finishReason?: Awaitable<ProviderFinishReason | undefined>;\n    rawFinishReason?: Awaitable<string | undefined>;\n    usage?: Awaitable<unknown>;\n    totalUsage?: Awaitable<unknown>;\n    providerMetadata?: Awaitable<unknown>;\n    warnings?: Awaitable<unknown>;\n    response?: Awaitable<unknown>;\n    finalStep?: Awaitable<unknown>;\n    lastStep?: Awaitable<unknown>;\n    steps?: Awaitable<unknown>;\n    requestedModelId?: Awaitable<string | undefined>;\n    resolvedModelId?: Awaitable<string | undefined>;\n    modelId?: Awaitable<string | undefined>;\n}",
       "interface Video {\n    schemaVersion: typeof VIDEO_SCHEMA_VERSION;\n    orientation?: VideoOrientation;\n    audio?: VideoAudio;\n    scenes: VideoScene[];\n    style: VideoStyle;\n    meta?: {\n        name?: string;\n        prompt?: string;\n        source?: string;\n        uploadedMediaUrls?: string[];\n    };\n}",
       "interface VideoAudio {\n    trackId: string;\n    audioUrl: string;\n    sourceDuration?: number;\n    duration: number;\n    beatDetection: {\n        sensitivity: number;\n        targetBeats?: number;\n        minInterval?: number;\n    };\n    beatMarkers: Array<{\n        time: number;\n        manual?: boolean;\n        energy?: \"high\" | \"medium\" | \"low\";\n    }>;\n    volume?: number;\n    fadeOutMs?: number;\n}",
-      "interface VideoBrand {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background: VideoBackground;\n    colors: VideoBrandColors;\n}",
-      "interface VideoBrandColors {\n    primary: string;\n    secondary: string;\n    foreground: string;\n    surface: string;\n    surfaceElevated: string;\n    muted: string;\n}",
-      "interface VideoBrandInput {\n    name?: string;\n    logoUrl?: string;\n    font?: string;\n    scriptFont?: string;\n    background?: VideoBackgroundInput;\n    colors?: Partial<VideoBrandColors>;\n}",
       "interface VideoCapabilities {\n    templates?: string[];\n    extensions?: string[];\n}",
       "interface VideoChatMediaContext {\n    purpose: \"response\" | \"welcome\" | \"suggestion\";\n    orientation: VideoOrientation;\n    generatedLook?: string;\n    signal: AbortSignal;\n    requestId?: string;\n    scene?: Readonly<VideoScene>;\n    templateId?: string;\n    preferredType?: \"image\" | \"video\" | \"any\";\n    fallbackQuery?: string;\n}",
       "interface VideoChatSpeechContext {\n    text: string;\n    signal: AbortSignal;\n}",
@@ -314,17 +276,17 @@
       "interface VideoEventEnvelope<TType extends string, TData> {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n}",
       "interface VideoGenerationContext {\n    request: VideoRequest;\n    systemPrompt: string;\n    userPrompt: string;\n    initialConfig: Video;\n    signal: AbortSignal;\n}",
       "interface VideoHandlerOptions extends Omit<VideoStreamHandlerOptions, \"generate\" | \"systemPrompt\" | \"supportedCapabilities\" | \"validateScene\" | \"getTemplatePacing\"> {\n    templates?: ServerTemplateRegistry;\n    streamText: TextDeltaVideoPlannerOptions[\"streamText\"];\n    includeRawProviderData?: boolean;\n    basePrompt?: string;\n    allowMediaUrl?: Parameters<typeof createTemplateSceneValidator>[0][\"allowMediaUrl\"];\n    resolveMedia?: MediaResolver;\n    mediaConcurrency?: number;\n    maxResolvedMedia?: number;\n    narrate?: boolean;\n}",
-      "interface VideoInput {\n    input: string;\n    knowledgeMode?: VideoKnowledgeMode;\n    instructions?: string;\n    maxDurationSec?: number;\n    orientation?: VideoOrientation;\n    style?: VideoStyleOptions;\n    opening?: string | false;\n    brand?: VideoBrandInput;\n    personalization?: Record<string, unknown>;\n    suppliedMedia?: VideoSuppliedMedia[];\n    audio?: false | {\n        src: string;\n    };\n}",
+      "interface VideoInput {\n    input: string;\n    knowledgeMode?: VideoKnowledgeMode;\n    instructions?: string;\n    maxDurationSec?: number;\n    orientation?: VideoOrientation;\n    style?: VideoStyleOptions;\n    opening?: string | false;\n    personalization?: Record<string, unknown>;\n    suppliedMedia?: VideoSuppliedMedia[];\n    audio?: false | {\n        src: string;\n    };\n}",
       "interface VideoRequest {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    requestId: string;\n    input: VideoInput;\n    capabilities?: VideoCapabilities;\n    resume?: VideoResumeCursor;\n}",
       "interface VideoResumeCursor {\n    runId: string;\n    afterSequence: number;\n}",
       "interface VideoScene {\n    id: string;\n    templateId: string;\n    variables: Record<string, unknown>;\n    textArchetype?: string;\n    backgroundEffect?: string;\n    timing: VideoTiming;\n    narration?: string;\n}",
       "interface VideoSceneValidationContext {\n    input: VideoInput;\n    previousScenes: readonly VideoScene[];\n}",
       "interface VideoSnapshotRetention {\n    source?: boolean;\n    instructions?: boolean;\n    suppliedMediaUrls?: boolean;\n}",
       "interface VideoStreamHandlerOptions {\n    generate: VideoPlanner;\n    systemPrompt?: string | ((context: {\n        request: VideoRequest;\n        capabilities?: VideoCapabilities;\n    }) => string);\n    selectAudio?: (input: VideoInput) => VideoAudio | undefined;\n    createRunId?: (request: VideoRequest) => string;\n    allowedOrigins?: string[];\n    authorize: ((request: Request) => boolean | Promise<boolean>) | \"none\";\n    maxBodyBytes?: number;\n    heartbeatMs?: number | false;\n    onError?: (error: Error) => unknown;\n    onWarning?: (warning: VideoWarning) => unknown;\n    onComplete?: (summary: VideoGenerationSummary) => unknown;\n    invalidPartBehavior?: \"drop\" | \"fail\";\n    requireCloser?: boolean;\n    allowCredentials?: boolean;\n    supportedCapabilities?: VideoCapabilities;\n    validateScene?: VideoSceneValidator;\n    getTemplatePacing?: (templateId: string) => VideoTemplatePacing | undefined;\n    snapshotRetention?: VideoSnapshotRetention;\n    replay?: (cursor: VideoResumeCursor, context: {\n        request: VideoRequest;\n        signal: AbortSignal;\n    }) => AsyncIterable<VideoEvent>;\n}",
-      "interface VideoStyle {\n    brand: VideoBrand;\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
+      "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
       "interface VideoStyleOptions {\n    generatedLook?: string;\n    density?: \"airy\" | \"normal\" | \"packed\";\n    motion?: \"calm\" | \"normal\" | \"punchy\";\n    textArchetype?: \"subtle\" | \"typewriter\" | \"wordStagger\" | \"slam\" | \"cinematic\" | \"heroWord\";\n    backgroundEffect?: \"static\" | \"slow-zoom-in\" | \"slow-zoom-out\" | \"ken-burns\" | \"drift\" | \"pulse\" | \"breathe\" | \"slow-tilt\" | \"camera-shake\";\n}",
       "interface VideoSuppliedMedia {\n    id: string;\n    url: string;\n    type: \"image\" | \"video\";\n    description?: string;\n    mimeType?: string;\n    posterUrl?: string;\n    focalPoint?: \"center\" | \"top\" | \"bottom\" | \"left\" | \"right\";\n    treatment?: \"subtle\" | \"cinematic\" | \"text-safe\";\n    role?: \"product\" | \"proof\" | \"background\" | \"logo\";\n}",
-      "interface VideoTemplatePacing {\n    jobs?: readonly string[];\n    schema?: {\n        readonly properties: Readonly<Record<string, {\n            readonly default?: unknown;\n        }>>;\n    };\n    minDuration?: number;\n    preferredDuration?: number;\n    timing?: {\n        readonly contentFields: readonly string[];\n        readonly contentUnit: \"words\" | \"characters\" | \"items\";\n    };\n}",
+      "interface VideoTemplatePacing {\n    jobs?: readonly string[];\n    schema?: {\n        readonly properties: Readonly<Record<string, {\n            readonly default?: unknown;\n        }>>;\n    };\n    minDuration?: number;\n    preferredDuration?: number;\n    timing?: {\n        readonly revealSeconds?: number;\n        readonly holdSeconds?: number;\n        readonly exitSeconds?: number;\n        readonly contentFields: readonly string[];\n        readonly contentUnit: \"words\" | \"characters\" | \"items\";\n    };\n}",
       "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}",
       "type Awaitable<T> = T | PromiseLike<T>;",
       "type MediaResolver = (query: string, context: MediaResolverContext) => ResolvedMedia | null | Promise<ResolvedMedia | null>;",
@@ -332,9 +294,6 @@
       "type TemplateFamily = \"Media & motion\" | \"Data & metrics\" | \"Product showcase\" | \"Social & messaging\" | \"Explainers\" | \"Calls to action\";",
       "type TemplateJob = \"setup\" | \"claim\" | \"proof\" | \"atmosphere\" | \"payoff\" | \"punctuation\" | \"ask\";",
       "type TemplateRegister = \"motion-led\" | \"typography-led\" | \"device-led\" | \"card-led\" | \"mockup-led\";",
-      "type VideoBackground = {\n    type: \"solid\";\n    color: string;\n} | {\n    type: \"gradient\";\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundInput = VideoBackgroundPreset | {\n    color: string;\n} | {\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundPreset = \"cosmic\" | \"horizon\" | \"twilight\" | \"meadow\" | \"velvet\" | \"flamingo\" | \"peach\" | \"saffron\" | \"black\" | \"midnight\" | \"aubergine\" | \"coal\" | \"navy\";",
       "type VideoChatHandler = (request: Request) => Promise<Response>;",
       "type VideoChatMediaResolver = (query: string, context: VideoChatMediaContext) => ResolvedMedia | null | Promise<ResolvedMedia | null>;",
       "type VideoChatSpeechGenerator = (context: VideoChatSpeechContext) => VideoChatSpeechResult | Promise<VideoChatSpeechResult>;",
@@ -385,7 +344,7 @@
           "type"
         ],
         "declaration": [
-          "interface UseVideoChatOptions {\n    endpoint?: string | URL;\n    templates?: TemplateRegistry;\n    mode?: VideoChatMode;\n    orientation?: VideoOrientation;\n    brand?: VideoBrandInput;\n    style?: VideoStyleOptions;\n    headers?: HeadersInit;\n    credentials?: RequestCredentials;\n    fetcher?: typeof fetch;\n    voice?: VideoChatVoice;\n    initialMuted?: boolean;\n    timeoutMs?: number;\n    createTurnId?: () => string;\n    onFirstFrame?: (metric: VideoChatFirstFrameMetric) => unknown;\n    onPlaybackMetric?: (metric: VideoChatPlaybackMetric) => unknown;\n}"
+          "interface UseVideoChatOptions {\n    endpoint?: string | URL;\n    templates?: TemplateRegistry;\n    mode?: VideoChatMode;\n    orientation?: VideoOrientation;\n    style?: VideoStyleOptions;\n    headers?: HeadersInit;\n    credentials?: RequestCredentials;\n    fetcher?: typeof fetch;\n    voice?: VideoChatVoice;\n    initialMuted?: boolean;\n    timeoutMs?: number;\n    createTurnId?: () => string;\n    onFirstFrame?: (metric: VideoChatFirstFrameMetric) => unknown;\n    onPlaybackMetric?: (metric: VideoChatPlaybackMetric) => unknown;\n}"
         ]
       },
       "UseVideoChatResult": {
@@ -401,7 +360,7 @@
           "value"
         ],
         "declaration": [
-          "declare function VideoChat({ options, className, welcomeTitle, generatedVideoLabel, generatedVideoDescription, showRecoveryNotice }: VideoChatProps): react.JSX.Element;"
+          "declare function VideoChat({ options, className, welcomeTitle, showRecoveryNotice }: VideoChatProps): react.JSX.Element;"
         ]
       },
       "VideoChatAskOptions": {
@@ -441,7 +400,7 @@
           "type"
         ],
         "declaration": [
-          "type VideoChatMode = \"templates\" | \"full\";"
+          "type VideoChatMode = \"cinematic\";"
         ]
       },
       "VideoChatPlaybackMetric": {
@@ -465,7 +424,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatProps {\n    options?: UseVideoChatOptions;\n    className?: string;\n    welcomeTitle?: ReactNode;\n    generatedVideoLabel?: string;\n    generatedVideoDescription?: string;\n    showRecoveryNotice?: boolean;\n}"
+          "interface VideoChatProps {\n    options?: UseVideoChatOptions;\n    className?: string;\n    welcomeTitle?: ReactNode;\n    showRecoveryNotice?: boolean;\n}"
         ]
       },
       "VideoChatStatus": {
@@ -551,8 +510,8 @@
       }
     },
     "support": [
-      "declare const VIDEO_PROTOCOL_VERSION: \"0.5\";",
-      "declare const VIDEO_SCHEMA_VERSION: \"0.1\";",
+      "declare const VIDEO_PROTOCOL_VERSION: \"0.6\";",
+      "declare const VIDEO_SCHEMA_VERSION: \"0.2\";",
       "interface NarrationVoice {\n    speak(text: string, options: {\n        signal: AbortSignal;\n        onStart?: (source?: \"browser\" | \"generated\") => void;\n    }): void | Promise<void>;\n}",
       "interface NativeMediaAudioOptions {\n    volume?: number;\n}",
       "interface SceneTemplate<Variables extends Record<string, unknown> = Record<string, unknown>> extends SceneTemplateMetadata {\n    component: ComponentType<SceneTemplateProps<Variables>>;\n}",
@@ -562,28 +521,22 @@
       "interface TemplateJsonSchemaProperty {\n    readonly type?: \"string\" | \"number\" | \"integer\" | \"boolean\" | \"array\" | \"object\";\n    readonly format?: \"uri\" | \"supplied-image\" | \"grounded-quote\" | \"grounded-stat\" | \"stock-media-keyword\" | \"emoji\";\n    readonly enum?: readonly string[];\n    readonly title?: string;\n    readonly description?: string;\n    readonly default?: unknown;\n    readonly examples?: readonly unknown[];\n    readonly minItems?: number;\n    readonly maxItems?: number;\n    readonly minLength?: number;\n    readonly maxLength?: number;\n    readonly minimum?: number;\n    readonly maximum?: number;\n    readonly items?: TemplateJsonSchemaProperty;\n    readonly properties?: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n}",
       "interface TemplateRegistry {\n    readonly templates: readonly SceneTemplate<any>[];\n    readonly capabilities: VideoCapabilities;\n    getTemplate(id: string): SceneTemplate | undefined;\n    getTemplateMetadata(id: string): SceneTemplateMetadata | undefined;\n    listTemplateMetadata(): SceneTemplateMetadata[];\n}",
       "interface TemplateSafeZone {\n    top: number;\n    right: number;\n    bottom: number;\n    left: number;\n}",
-      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
+      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly revealSeconds?: number;\n    readonly holdSeconds?: number;\n    readonly exitSeconds?: number;\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
       "interface TemplateTransitionTiming {\n    readonly entryReadyProgress: number;\n    readonly holdProgress: number;\n}",
       "interface Video {\n    schemaVersion: typeof VIDEO_SCHEMA_VERSION;\n    orientation?: VideoOrientation;\n    audio?: VideoAudio;\n    scenes: VideoScene[];\n    style: VideoStyle;\n    meta?: {\n        name?: string;\n        prompt?: string;\n        source?: string;\n        uploadedMediaUrls?: string[];\n    };\n}",
       "interface VideoAudio {\n    trackId: string;\n    audioUrl: string;\n    sourceDuration?: number;\n    duration: number;\n    beatDetection: {\n        sensitivity: number;\n        targetBeats?: number;\n        minInterval?: number;\n    };\n    beatMarkers: Array<{\n        time: number;\n        manual?: boolean;\n        energy?: \"high\" | \"medium\" | \"low\";\n    }>;\n    volume?: number;\n    fadeOutMs?: number;\n}",
-      "interface VideoBrand {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background: VideoBackground;\n    colors: VideoBrandColors;\n}",
-      "interface VideoBrandColors {\n    primary: string;\n    secondary: string;\n    foreground: string;\n    surface: string;\n    surfaceElevated: string;\n    muted: string;\n}",
-      "interface VideoBrandInput {\n    name?: string;\n    logoUrl?: string;\n    font?: string;\n    scriptFont?: string;\n    background?: VideoBackgroundInput;\n    colors?: Partial<VideoBrandColors>;\n}",
       "interface VideoCapabilities {\n    templates?: string[];\n    extensions?: string[];\n}",
       "interface VideoEventDataMap {\n    \"response.start\": {\n        requestId: string;\n        format: {\n            orientation: VideoOrientation;\n        };\n        style: VideoStyle;\n        meta?: Video[\"meta\"];\n        capabilities?: VideoCapabilities;\n    };\n    \"audio.set\": {\n        audio: VideoAudio;\n    };\n    \"scene.add\": {\n        scene: VideoScene;\n        position: number;\n    };\n    \"response.warning\": {\n        warning: VideoWarning;\n    };\n    \"response.complete\": {\n        finishReason: VideoFinishReason;\n        snapshot: Video;\n        checksum: string;\n    };\n    \"response.error\": {\n        error: {\n            code: string;\n            message: string;\n            recoverable: boolean;\n        };\n        terminal: boolean;\n        snapshot?: Video;\n    };\n    \"response.abort\": {\n        reason: string;\n        snapshot?: Video;\n    };\n}",
       "interface VideoEventEnvelope<TType extends string, TData> {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n}",
       "interface VideoPlayerSharedProps {\n    playbackMode?: VideoPlaybackMode;\n    autoPlay?: boolean;\n    startMuted?: boolean;\n    nativeMediaAudio?: NativeMediaAudioOptions;\n    width?: number;\n    orientation?: VideoOrientation | \"auto\";\n    responsiveBreakpoint?: number;\n    className?: string;\n    style?: CSSProperties;\n    ariaLabel?: string;\n    controls?: boolean;\n    paused?: boolean;\n    loop?: boolean;\n    onPlaybackEnd?: (video: Video) => void;\n    onComplete?: (video: Video) => void;\n    onError?: (error: Error) => void;\n    onFramePresented?: () => unknown;\n    onStallChange?: (stalled: boolean) => unknown;\n    onSceneChange?: (scene: VideoScene, index: number) => void;\n}",
       "interface VideoScene {\n    id: string;\n    templateId: string;\n    variables: Record<string, unknown>;\n    textArchetype?: string;\n    backgroundEffect?: string;\n    timing: VideoTiming;\n    narration?: string;\n}",
-      "interface VideoStyle {\n    brand: VideoBrand;\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
+      "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
       "interface VideoStyleOptions {\n    generatedLook?: string;\n    density?: \"airy\" | \"normal\" | \"packed\";\n    motion?: \"calm\" | \"normal\" | \"punchy\";\n    textArchetype?: \"subtle\" | \"typewriter\" | \"wordStagger\" | \"slam\" | \"cinematic\" | \"heroWord\";\n    backgroundEffect?: \"static\" | \"slow-zoom-in\" | \"slow-zoom-out\" | \"ken-burns\" | \"drift\" | \"pulse\" | \"breathe\" | \"slow-tilt\" | \"camera-shake\";\n}",
       "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}",
       "interface VideoWarning {\n    code: VideoWarningCode;\n    category: VideoWarningCategory;\n    message: string;\n    sceneId?: string;\n    recoverable: boolean;\n}",
       "type TemplateFamily = \"Media & motion\" | \"Data & metrics\" | \"Product showcase\" | \"Social & messaging\" | \"Explainers\" | \"Calls to action\";",
       "type TemplateJob = \"setup\" | \"claim\" | \"proof\" | \"atmosphere\" | \"payoff\" | \"punctuation\" | \"ask\";",
       "type TemplateRegister = \"motion-led\" | \"typography-led\" | \"device-led\" | \"card-led\" | \"mockup-led\";",
-      "type VideoBackground = {\n    type: \"solid\";\n    color: string;\n} | {\n    type: \"gradient\";\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundInput = VideoBackgroundPreset | {\n    color: string;\n} | {\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundPreset = \"cosmic\" | \"horizon\" | \"twilight\" | \"meadow\" | \"velvet\" | \"flamingo\" | \"peach\" | \"saffron\" | \"black\" | \"midnight\" | \"aubergine\" | \"coal\" | \"navy\";",
       "type VideoCoreEvent = {\n    [TType in VideoCoreEventType]: VideoEventEnvelope<TType, VideoEventDataMap[TType]>;\n}[VideoCoreEventType];",
       "type VideoCoreEventType = keyof VideoEventDataMap;",
       "type VideoEvent = VideoCoreEvent | VideoExtensionEvent;",
@@ -682,7 +635,7 @@
           "type"
         ],
         "declaration": [
-          "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}"
+          "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly revealSeconds?: number;\n    readonly holdSeconds?: number;\n    readonly exitSeconds?: number;\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}"
         ]
       },
       "TemplateTransitionTiming": {
@@ -697,10 +650,8 @@
     "support": [
       "interface TemplateJsonSchemaProperty {\n    readonly type?: \"string\" | \"number\" | \"integer\" | \"boolean\" | \"array\" | \"object\";\n    readonly format?: \"uri\" | \"supplied-image\" | \"grounded-quote\" | \"grounded-stat\" | \"stock-media-keyword\" | \"emoji\";\n    readonly enum?: readonly string[];\n    readonly title?: string;\n    readonly description?: string;\n    readonly default?: unknown;\n    readonly examples?: readonly unknown[];\n    readonly minItems?: number;\n    readonly maxItems?: number;\n    readonly minLength?: number;\n    readonly maxLength?: number;\n    readonly minimum?: number;\n    readonly maximum?: number;\n    readonly items?: TemplateJsonSchemaProperty;\n    readonly properties?: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n}",
       "interface TemplateSafeZone {\n    top: number;\n    right: number;\n    bottom: number;\n    left: number;\n}",
-      "interface VideoBrand {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background: VideoBackground;\n    colors: VideoBrandColors;\n}",
-      "interface VideoBrandColors {\n    primary: string;\n    secondary: string;\n    foreground: string;\n    surface: string;\n    surfaceElevated: string;\n    muted: string;\n}",
       "interface VideoCapabilities {\n    templates?: string[];\n    extensions?: string[];\n}",
-      "interface VideoStyle {\n    brand: VideoBrand;\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
+      "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
       "type InferTemplateJsonSchema<Schema extends TemplateJsonSchema> = {\n    [Key in RequiredJsonSchemaKeys<Schema>]: JsonPropertyValue<Schema[\"properties\"][Key]>;\n} & {\n    [Key in Exclude<keyof Schema[\"properties\"], RequiredJsonSchemaKeys<Schema>>]?: JsonPropertyValue<Schema[\"properties\"][Key]>;\n};",
       "type JsonObjectRequiredKeys<Property> = Property extends {\n    readonly required: readonly (infer Required)[];\n} ? Required : never;",
       "type JsonObjectValue<Property extends {\n    readonly properties: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n}> = {\n    [Key in Extract<JsonObjectRequiredKeys<Property>, keyof Property[\"properties\"]>]: JsonPropertyValue<Property[\"properties\"][Key]>;\n} & {\n    [Key in Exclude<keyof Property[\"properties\"], JsonObjectRequiredKeys<Property>>]?: JsonPropertyValue<Property[\"properties\"][Key]>;\n};",
@@ -709,8 +660,7 @@
       "type RequiredJsonSchemaKeys<Schema extends TemplateJsonSchema> = Schema[\"required\"] extends readonly (infer Key)[] ? Extract<Key, keyof Schema[\"properties\"]> : never;",
       "type TemplateDefinitionMetadata = Omit<SceneTemplateMetadata, \"id\" | \"useWhen\" | \"schema\" | keyof OptionalGlobalDefaults> & OptionalGlobalDefaults;",
       "type TemplateJob = \"setup\" | \"claim\" | \"proof\" | \"atmosphere\" | \"payoff\" | \"punctuation\" | \"ask\";",
-      "type TemplateRegister = \"motion-led\" | \"typography-led\" | \"device-led\" | \"card-led\" | \"mockup-led\";",
-      "type VideoBackground = {\n    type: \"solid\";\n    color: string;\n} | {\n    type: \"gradient\";\n    colors: [\n        string,\n        string\n    ];\n};"
+      "type TemplateRegister = \"motion-led\" | \"typography-led\" | \"device-led\" | \"card-led\" | \"mockup-led\";"
     ]
   },
   "@vanillaskyai/video/templates/catalog": {
@@ -720,7 +670,7 @@
           "type"
         ],
         "declaration": [
-          "type BuiltinTemplateId = \"media\" | \"reaction\" | \"confetti\" | \"emojiBurst\" | \"bigNumber\" | \"barChart\" | \"progressRing\" | \"phoneMockup\" | \"webMockup\" | \"codeEditor\" | \"terminal\" | \"tweet\" | \"notification\" | \"chatMessenger\" | \"chatWhatsapp\" | \"milestone\" | \"reviewStack\" | \"testimonial\" | \"incomingCall\" | \"brandMessage\" | \"promptInput\" | \"beforeAfter\" | \"tripleStats\" | \"problemSolution\" | \"cardList\" | \"steps\" | \"ctaLogo\" | \"ctaMedia\";"
+          "type BuiltinTemplateId = keyof typeof BUILTIN_TEMPLATE_SCHEMAS;"
         ]
       },
       "BuiltinTemplateMetadata": {
@@ -728,7 +678,7 @@
           "type"
         ],
         "declaration": [
-          "interface BuiltinTemplateManifestEntry extends SceneTemplateMetadata {\n    id: BuiltinTemplateId;\n    label: string;\n    description: string;\n    family: TemplateFamily;\n    jobs: TemplateJob[];\n    register: TemplateRegister;\n    useWhen: string;\n    avoidWhen: string;\n    textCanvas: \"tight\" | \"open\";\n    minDuration: number;\n    preferredDuration: number;\n    timing: TemplateTimingMetadata;\n}"
+          "interface BuiltinTemplateManifestEntry extends SceneTemplateMetadata {\n    id: BuiltinTemplateId;\n    timing: TemplateTimingMetadata;\n}"
         ]
       },
       "builtinTemplates": {
@@ -741,10 +691,11 @@
       }
     },
     "support": [
+      "declare const BUILTIN_TEMPLATE_SCHEMAS: {\n    readonly cinemaMedia: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly mediaKeyword: {\n                readonly type: \"string\";\n                readonly format: \"stock-media-keyword\";\n                readonly minLength: 1;\n                readonly maxLength: 80;\n                readonly description: \"2–8 word literal subject/action search intent, max80characters. Host resolves URLs.\";\n                readonly examples: readonly [\n                    \"Ocean waves breaking on a rocky shore\"\n                ];\n            };\n            readonly mediaUrl: {\n                readonly type: \"string\";\n                readonly format: \"uri\";\n                readonly description: \"Host-only approved photo or video URL.\";\n                readonly default: \"\";\n            };\n            readonly mediaType: {\n                readonly type: \"string\";\n                readonly enum: readonly [\n                    \"photo\",\n                    \"video\"\n                ];\n                readonly default: \"video\";\n                readonly description: \"Host-resolved asset kind.\";\n            };\n            readonly mediaPoster: {\n                readonly type: \"string\";\n                readonly format: \"uri\";\n                readonly description: \"Host-only approved poster URL for video decoding.\";\n                readonly default: \"\";\n            };\n            readonly mediaSource: {\n                readonly type: \"string\";\n                readonly enum: readonly [\n                    \"generate\",\n                    \"stock\"\n                ];\n                readonly description: \"Generate distinctive illustrative shots; use approved stock for familiar observable subjects.\";\n            };\n            readonly fallbackText: {\n                readonly type: \"string\";\n                readonly maxLength: 65;\n                readonly description: \"Optional grounded concise chapter text if this shot cannot be resolved; not visible over footage.\";\n            };\n        };\n        readonly required: readonly [\n        ];\n        readonly additionalProperties: false;\n        readonly \"x-vanillasky\": {\n            readonly allowsStockMedia: true;\n            readonly requiredAnyOf: readonly [\n                readonly [\n                    \"mediaKeyword\",\n                    \"mediaUrl\"\n                ]\n            ];\n        };\n    };\n    readonly chapterTitle: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly title: {\n                readonly type: \"string\";\n                readonly maxLength: 65;\n                readonly description: \"Short title. Line breaks optional.\";\n                readonly default: \"A different perspective\";\n            };\n        };\n        readonly required: readonly [\n            \"title\"\n        ];\n        readonly additionalProperties: false;\n    };\n    readonly focusCards: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly items: {\n                readonly type: \"array\";\n                readonly minItems: 2;\n                readonly maxItems: 4;\n                readonly items: {\n                    readonly type: \"string\";\n                    readonly minLength: 1;\n                    readonly maxLength: 55;\n                };\n                readonly default: readonly [\n                    \"Listen closely\",\n                    \"Notice the pattern\",\n                    \"Make room for change\"\n                ];\n                readonly description: \"2–4 parallel phrases, about2–6words each; no heading or numbering.\";\n            };\n        };\n        readonly required: readonly [\n            \"items\"\n        ];\n        readonly additionalProperties: false;\n    };\n    readonly editorialTimeline: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly events: {\n                readonly type: \"array\";\n                readonly minItems: 3;\n                readonly maxItems: 5;\n                readonly items: {\n                    readonly type: \"object\";\n                    readonly properties: {\n                        readonly label: {\n                            readonly type: \"string\";\n                            readonly minLength: 1;\n                            readonly maxLength: 45;\n                        };\n                    };\n                    readonly required: readonly [\n                        \"label\"\n                    ];\n                    readonly additionalProperties: false;\n                };\n                readonly default: readonly [\n                    {\n                        readonly label: \"Observe\";\n                    },\n                    {\n                        readonly label: \"Understand\";\n                    },\n                    {\n                        readonly label: \"Act\";\n                    }\n                ];\n                readonly description: \"3–5 ordered events or actions, each with one shortlabel; no dates.\";\n            };\n        };\n        readonly required: readonly [\n            \"events\"\n        ];\n        readonly additionalProperties: false;\n    };\n    readonly mobileMessage: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly mediaKeyword: {\n                readonly type: \"string\";\n                readonly format: \"stock-media-keyword\";\n                readonly minLength: 1;\n                readonly maxLength: 80;\n                readonly description: \"2–8 word literal subject/action search intent, max80characters. Host resolves URLs.\";\n                readonly examples: readonly [\n                    \"Ocean waves breaking on a rocky shore\"\n                ];\n            };\n            readonly mediaUrl: {\n                readonly type: \"string\";\n                readonly format: \"uri\";\n                readonly description: \"Host-only approved photo or video URL.\";\n                readonly default: \"\";\n            };\n            readonly mediaType: {\n                readonly type: \"string\";\n                readonly enum: readonly [\n                    \"photo\",\n                    \"video\"\n                ];\n                readonly default: \"video\";\n                readonly description: \"Host-resolved asset kind.\";\n            };\n            readonly mediaPoster: {\n                readonly type: \"string\";\n                readonly format: \"uri\";\n                readonly description: \"Host-only approved poster URL for video decoding.\";\n                readonly default: \"\";\n            };\n            readonly message: {\n                readonly type: \"string\";\n                readonly maxLength: 120;\n                readonly default: \"Can we talk?\";\n                readonly description: \"Exact supplied or explicitly illustrative message, preferably6–16words.\";\n            };\n            readonly app: {\n                readonly type: \"string\";\n                readonly maxLength: 24;\n                readonly default: \"Messages\";\n                readonly description: \"Optional app label; Messages is the visualdefault.\";\n            };\n            readonly mediaSource: {\n                readonly type: \"string\";\n                readonly enum: readonly [\n                    \"generate\",\n                    \"stock\"\n                ];\n                readonly description: \"Generate distinctive illustrative shots; use approved stock for familiar observable subjects.\";\n            };\n        };\n        readonly required: readonly [\n            \"message\"\n        ];\n        readonly additionalProperties: false;\n        readonly \"x-vanillasky\": {\n            readonly allowsStockMedia: true;\n        };\n    };\n    readonly comparison: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly leftLabel: {\n                readonly type: \"string\";\n                readonly maxLength: 20;\n                readonly description: \"Optional shortidentifier for the first alternative.\";\n            };\n            readonly rightLabel: {\n                readonly type: \"string\";\n                readonly maxLength: 20;\n                readonly description: \"Optional shortidentifier for the second alternative.\";\n            };\n            readonly leftText: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 60;\n                readonly default: \"More distractions\";\n                readonly description: \"First real alternative in one shortphrase.\";\n            };\n            readonly rightText: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 60;\n                readonly default: \"More room to think\";\n                readonly description: \"Second real alternative, parallel to the first.\";\n            };\n        };\n        readonly required: readonly [\n            \"leftText\",\n            \"rightText\"\n        ];\n        readonly additionalProperties: false;\n    };\n    readonly quote: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly quote: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 140;\n                readonly format: \"grounded-quote\";\n                readonly examples: readonly [\n                    \"Look closely. There is always more to see.\"\n                ];\n                readonly description: \"Exact supplied quotation; do not paraphrase or invent.\";\n            };\n            readonly attribution: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 60;\n                readonly examples: readonly [\n                    \"Illustrative example\"\n                ];\n                readonly description: \"Grounded attribution belonging to these exact quotedwords.\";\n            };\n        };\n        readonly required: readonly [\n            \"quote\",\n            \"attribution\"\n        ];\n        readonly additionalProperties: false;\n    };\n    readonly keyFigure: {\n        readonly type: \"object\";\n        readonly properties: {\n            readonly value: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 14;\n                readonly format: \"grounded-stat\";\n                readonly examples: readonly [\n                    \"42%\"\n                ];\n                readonly description: \"One supplied supported quantity, preserving its unit.\";\n            };\n            readonly label: {\n                readonly type: \"string\";\n                readonly minLength: 1;\n                readonly maxLength: 50;\n                readonly examples: readonly [\n                    \"Illustrative example\"\n                ];\n                readonly description: \"Exactly one shortlabel identifying the quantity and its context.\";\n            };\n        };\n        readonly required: readonly [\n            \"value\",\n            \"label\"\n        ];\n        readonly additionalProperties: false;\n        readonly \"x-vanillasky\": {\n            readonly requiresStat: true;\n        };\n    };\n};",
       "interface SceneTemplateMetadata {\n    id: string;\n    label?: string;\n    description?: string;\n    category?: string | null;\n    family?: TemplateFamily;\n    jobs?: TemplateJob[];\n    register?: TemplateRegister;\n    useWhen?: string;\n    avoidWhen?: string;\n    usesGlobalTextEffect: boolean;\n    usesGlobalTransition: boolean;\n    transitionTiming?: TemplateTransitionTiming;\n    usesGlobalBackgroundEffect: boolean;\n    textCanvas?: \"tight\" | \"open\";\n    schema: TemplateJsonSchema;\n    minDuration?: number;\n    preferredDuration?: number;\n    timing?: TemplateTimingMetadata;\n}",
       "interface TemplateJsonSchema {\n    readonly type: \"object\";\n    readonly properties: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n    readonly \"x-vanillasky\"?: {\n        readonly requiresStat?: boolean;\n        readonly allowsStockMedia?: boolean;\n        readonly requiredAnyOf?: readonly (readonly string[])[];\n    };\n}",
       "interface TemplateJsonSchemaProperty {\n    readonly type?: \"string\" | \"number\" | \"integer\" | \"boolean\" | \"array\" | \"object\";\n    readonly format?: \"uri\" | \"supplied-image\" | \"grounded-quote\" | \"grounded-stat\" | \"stock-media-keyword\" | \"emoji\";\n    readonly enum?: readonly string[];\n    readonly title?: string;\n    readonly description?: string;\n    readonly default?: unknown;\n    readonly examples?: readonly unknown[];\n    readonly minItems?: number;\n    readonly maxItems?: number;\n    readonly minLength?: number;\n    readonly maxLength?: number;\n    readonly minimum?: number;\n    readonly maximum?: number;\n    readonly items?: TemplateJsonSchemaProperty;\n    readonly properties?: Readonly<Record<string, TemplateJsonSchemaProperty>>;\n    readonly required?: readonly string[];\n    readonly additionalProperties?: boolean;\n}",
-      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
+      "interface TemplateTimingMetadata {\n    readonly contentFields: readonly string[];\n    readonly revealSeconds?: number;\n    readonly holdSeconds?: number;\n    readonly exitSeconds?: number;\n    readonly contentUnit: \"words\" | \"characters\" | \"items\";\n}",
       "interface TemplateTransitionTiming {\n    readonly entryReadyProgress: number;\n    readonly holdProgress: number;\n}",
       "type TemplateFamily = \"Media & motion\" | \"Data & metrics\" | \"Product showcase\" | \"Social & messaging\" | \"Explainers\" | \"Calls to action\";",
       "type TemplateJob = \"setup\" | \"claim\" | \"proof\" | \"atmosphere\" | \"payoff\" | \"punctuation\" | \"ask\";",
@@ -795,28 +746,23 @@
       }
     },
     "support": [
-      "declare const VIDEO_SCHEMA_VERSION: \"0.1\";",
+      "declare const VIDEO_PROTOCOL_VERSION: \"0.6\";",
+      "declare const VIDEO_SCHEMA_VERSION: \"0.2\";",
       "interface MockProviderTextStream {\n    textStream: AsyncIterable<string>;\n    finishReason: Promise<\"stop\" | \"length\" | \"content-filter\">;\n}",
       "interface MockVideoPlannerContext {\n    request: {\n        requestId: string;\n    };\n    signal: AbortSignal;\n}",
       "interface Video {\n    schemaVersion: typeof VIDEO_SCHEMA_VERSION;\n    orientation?: VideoOrientation;\n    audio?: VideoAudio;\n    scenes: VideoScene[];\n    style: VideoStyle;\n    meta?: {\n        name?: string;\n        prompt?: string;\n        source?: string;\n        uploadedMediaUrls?: string[];\n    };\n}",
       "interface VideoAudio {\n    trackId: string;\n    audioUrl: string;\n    sourceDuration?: number;\n    duration: number;\n    beatDetection: {\n        sensitivity: number;\n        targetBeats?: number;\n        minInterval?: number;\n    };\n    beatMarkers: Array<{\n        time: number;\n        manual?: boolean;\n        energy?: \"high\" | \"medium\" | \"low\";\n    }>;\n    volume?: number;\n    fadeOutMs?: number;\n}",
-      "interface VideoBrand {\n    name?: string;\n    logoUrl?: string;\n    font: string;\n    scriptFont: string;\n    background: VideoBackground;\n    colors: VideoBrandColors;\n}",
-      "interface VideoBrandColors {\n    primary: string;\n    secondary: string;\n    foreground: string;\n    surface: string;\n    surfaceElevated: string;\n    muted: string;\n}",
-      "interface VideoBrandInput {\n    name?: string;\n    logoUrl?: string;\n    font?: string;\n    scriptFont?: string;\n    background?: VideoBackgroundInput;\n    colors?: Partial<VideoBrandColors>;\n}",
       "interface VideoGenerationFixture {\n    input: VideoInput;\n    parts: readonly MockVideoStreamPart[];\n}",
-      "interface VideoInput {\n    input: string;\n    knowledgeMode?: VideoKnowledgeMode;\n    instructions?: string;\n    maxDurationSec?: number;\n    orientation?: VideoOrientation;\n    style?: VideoStyleOptions;\n    opening?: string | false;\n    brand?: VideoBrandInput;\n    personalization?: Record<string, unknown>;\n    suppliedMedia?: VideoSuppliedMedia[];\n    audio?: false | {\n        src: string;\n    };\n}",
+      "interface VideoInput {\n    input: string;\n    knowledgeMode?: VideoKnowledgeMode;\n    instructions?: string;\n    maxDurationSec?: number;\n    orientation?: VideoOrientation;\n    style?: VideoStyleOptions;\n    opening?: string | false;\n    personalization?: Record<string, unknown>;\n    suppliedMedia?: VideoSuppliedMedia[];\n    audio?: false | {\n        src: string;\n    };\n}",
       "interface VideoScene {\n    id: string;\n    templateId: string;\n    variables: Record<string, unknown>;\n    textArchetype?: string;\n    backgroundEffect?: string;\n    timing: VideoTiming;\n    narration?: string;\n}",
-      "interface VideoStyle {\n    brand: VideoBrand;\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
+      "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
       "interface VideoStyleOptions {\n    generatedLook?: string;\n    density?: \"airy\" | \"normal\" | \"packed\";\n    motion?: \"calm\" | \"normal\" | \"punchy\";\n    textArchetype?: \"subtle\" | \"typewriter\" | \"wordStagger\" | \"slam\" | \"cinematic\" | \"heroWord\";\n    backgroundEffect?: \"static\" | \"slow-zoom-in\" | \"slow-zoom-out\" | \"ken-burns\" | \"drift\" | \"pulse\" | \"breathe\" | \"slow-tilt\" | \"camera-shake\";\n}",
       "interface VideoSuppliedMedia {\n    id: string;\n    url: string;\n    type: \"image\" | \"video\";\n    description?: string;\n    mimeType?: string;\n    posterUrl?: string;\n    focalPoint?: \"center\" | \"top\" | \"bottom\" | \"left\" | \"right\";\n    treatment?: \"subtle\" | \"cinematic\" | \"text-safe\";\n    role?: \"product\" | \"proof\" | \"background\" | \"logo\";\n}",
       "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}",
       "interface VideoWarning {\n    code: VideoWarningCode;\n    category: VideoWarningCategory;\n    message: string;\n    sceneId?: string;\n    recoverable: boolean;\n}",
       "type MockVideoStreamPart = {\n    type: \"scene.add\";\n    placement?: \"closer\";\n    scene: VideoScene;\n} | {\n    type: \"plan.complete\";\n    finishReason?: \"stop\" | \"length\" | \"content-filter\" | \"other\";\n} | {\n    type: \"mock.delay\";\n    durationMs: number;\n} | {\n    type: \"mock.raw\";\n    text: string;\n} | {\n    type: \"mock.error\";\n    message: string;\n} | {\n    type: \"mock.wait-for-abort\";\n};",
-      "type SimulatedEventEnvelope<TType extends string, TData> = {\n    protocolVersion: \"0.5\";\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n};",
+      "type SimulatedEventEnvelope<TType extends string, TData> = {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n};",
       "type SimulatedVideoEvent = SimulatedEventEnvelope<\"response.start\", {\n    requestId: string;\n    format: {\n        orientation: VideoOrientation;\n    };\n    style: VideoStyle;\n    meta?: Video[\"meta\"];\n    capabilities?: {\n        templates?: string[];\n        extensions?: string[];\n    };\n}> | SimulatedEventEnvelope<\"audio.set\", {\n    audio: VideoAudio;\n}> | SimulatedEventEnvelope<\"scene.add\", {\n    scene: VideoScene;\n    position: number;\n}> | SimulatedEventEnvelope<\"response.warning\", {\n    warning: VideoWarning;\n}> | SimulatedEventEnvelope<\"response.complete\", {\n    finishReason: VideoFinishReason;\n    snapshot: Video;\n    checksum: string;\n}> | SimulatedEventEnvelope<\"response.error\", {\n    error: {\n        code: string;\n        message: string;\n        recoverable: boolean;\n    };\n    terminal: boolean;\n    snapshot?: Video;\n}> | SimulatedEventEnvelope<\"response.abort\", {\n    reason: string;\n    snapshot?: Video;\n}> | SimulatedEventEnvelope<`data.${string}`, unknown>;",
-      "type VideoBackground = {\n    type: \"solid\";\n    color: string;\n} | {\n    type: \"gradient\";\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundInput = VideoBackgroundPreset | {\n    color: string;\n} | {\n    colors: [\n        string,\n        string\n    ];\n};",
-      "type VideoBackgroundPreset = \"cosmic\" | \"horizon\" | \"twilight\" | \"meadow\" | \"velvet\" | \"flamingo\" | \"peach\" | \"saffron\" | \"black\" | \"midnight\" | \"aubergine\" | \"coal\" | \"navy\";",
       "type VideoFinishReason = \"stop\" | \"length\" | \"content-filter\" | \"error\" | \"other\";",
       "type VideoKnowledgeMode = \"input-only\" | \"general\";",
       "type VideoOrientation = \"portrait\" | \"landscape\";",
