@@ -131,11 +131,14 @@ test("waits for real first and boundary frames without posters or a second iPhon
 
 
 test("holds the last actual clip frame while a longer scene continues", async ({ page }) => {
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?longHold&clean");
+  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?longHold&diagnostics=off");
   // Start the clip-duration deadline after actual playback starts; browser startup
   // under parallel CI load is not part of the five-second asset duration.
   await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime), { timeout: 8000 }).toBeGreaterThan(0);
-  await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.ended), { timeout: 8000 }).toBe(true);
+  await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => ({
+    ended: video.ended, time: video.currentTime, duration: video.duration,
+    paused: video.paused, readyState: video.readyState, src: video.currentSrc,
+  })), { timeout: 8000 }).toMatchObject({ ended: true });
   const before = await page.locator("video").evaluate((video: HTMLVideoElement) => ({ time: video.currentTime, duration: video.duration, loop: video.loop }));
   expect(before.loop).toBe(false);
   await page.waitForTimeout(600);
