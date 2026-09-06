@@ -33,3 +33,32 @@ it("recovers a native decode error without changing the narration or scene durat
   await waitFor(() => expect(view.container.querySelector('[data-template="title"]')?.textContent).toBe("Wind transfers energy"));
   expect(recoverSceneMedia(scene)).toMatchObject({ id: scene.id, narration: scene.narration, timing: scene.timing, templateId: "chapterTitle", variables: {title: "Wind transfers energy"} });
 });
+
+it.each(['authored chapter', 'missing video', 'decode failure'] as const)('keeps the final %s readable through completion', async (kind) => {
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  const last = kind === 'authored chapter'
+    ? {...scene,templateId:'chapterTitle',variables:{title:'Wind transfers energy'}}
+    : {...scene,variables:{...scene.variables,mediaUrl:kind==='missing video'?'':'/wave.mp4'}};
+  const config: Video = {schemaVersion:'0.2',orientation:'portrait',style:{},scenes:[last]};
+  const view = render(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={11} playing />);
+  if (kind === 'decode failure') fireEvent.error(view.container.querySelector('video')!);
+  const title = () => view.container.querySelector<HTMLElement>('[data-title-composition]');
+  await waitFor(() => expect(title()?.textContent).toBe('Wind transfers energy'));
+  expect(Number(title()!.style.opacity)).toBe(1);
+  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={12} playing={false} />);
+  expect(Number(title()!.style.opacity)).toBe(1);
+});
+
+it('keeps a developing chapter entrance and exit while another scene follows', () => {
+  const chapter = {...scene,templateId:'chapterTitle',variables:{title:'Wind transfers energy'}};
+  const config: Video = {schemaVersion:'0.2',orientation:'portrait',style:{},scenes:[chapter,{...chapter,id:'ending'}]};
+  const view = render(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={0} playing />);
+  const opacity = () => Number(view.container.querySelector<HTMLElement>('[data-title-composition]')!.style.opacity);
+  expect(opacity()).toBe(0);
+  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={3} playing />);
+  expect(opacity()).toBe(1);
+  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={11} playing />);
+  expect(opacity()).toBeLessThan(.3);
+});
