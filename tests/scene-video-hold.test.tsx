@@ -75,9 +75,11 @@ it("replaces a decoded video whose play request is rejected", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("Playback denied"));
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
-  const view = render(<SceneVideoBackdrop mediaUrl="/shot.mp4" progress={0} isPlaying />);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/shot.mp4" progress={0} isPlaying onError={onError} />);
   await import("@testing-library/react").then(({ waitFor }) => waitFor(() => expect(view.getByRole("status").textContent).toBe("Visual unavailable")));
   expect(view.container.querySelector("video")!.style.visibility).toBe("hidden");
+  expect(onError).toHaveBeenCalledOnce();
   view.unmount(); vi.restoreAllMocks();
 });
 it("refits a changed speech duration without resetting or replaying current footage", () => {

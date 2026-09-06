@@ -67,7 +67,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying });
   presentationRef.current = { key: videoPresentationKey, playing: isPlaying };
   const unavailable = () => {
-    if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) setExhaustedKey(videoPresentationKey);
+    if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) {
+      setExhaustedKey(videoPresentationKey);
+      onError?.();
+    }
   };
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     // Allow a small decode-to-speech onset margin without changing narration.
