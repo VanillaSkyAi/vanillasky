@@ -220,6 +220,7 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
+        shard: [1, 2]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     container:
@@ -249,8 +250,8 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            npx playwright test --project=${{ matrix.browser }} --workers=1
-            if [[ "${{ matrix.browser }}" == "chromium" ]]; then
+            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2 --workers=1
+            if [[ "${{ matrix.browser }}" == "chromium" && "${{ matrix.shard }}" == "1" ]]; then
               npx playwright test --config dev/chat/playwright.config.ts
             fi
           '
@@ -258,11 +259,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: browser-playback-evidence-${{ matrix.browser }}
+          name: browser-playback-evidence-${{ matrix.browser }}-${{ matrix.shard }}
           path: test-results/
           retention-days: 3
 
-  # Keep branch protection stable while each browser has its own decoder and audio sink.
+  # Keep branch protection stable while each browser shard has its own decoder and audio sink.
   browser-compatibility:
     if: always() && github.event_name == 'pull_request'
     needs: browser-gate
