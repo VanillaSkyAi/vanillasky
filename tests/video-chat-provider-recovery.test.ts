@@ -1,3 +1,4 @@
+import { chatShot, streamChatShots } from "./helpers/chat-shot-fixture";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
@@ -9,13 +10,7 @@ const request = () => new Request("https://app.example/api/video-chat?action=res
   body: JSON.stringify({ prompt: "Explain ocean currents", mode: "cinematic" }),
 });
 function streamText() {
-  return (async function* () {
-    yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth around the world.", mediaKeyword: "ocean currents" }) + "\n";
-    for (const [id, placement] of [["first", undefined], ["last", "closer"]] as const) {
-      yield JSON.stringify({ type: "scene.add", placement, scene: { id, templateId: "cinemaMedia", variables: { fallbackText: "Warm water travels", mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\n";
-    }
-    yield '{"type":"plan.complete"}\n';
-  })();
+  return streamChatShots([chatShot("ocean currents", "Warm currents move heat across the ocean."), chatShot("ocean currents", "That transport changes the climate along distant coasts.")]);
 }
 
 describe("video chat optional provider recovery", () => {
@@ -43,7 +38,7 @@ describe("video chat optional provider recovery", () => {
     expect(JSON.stringify(events)).not.toContain("private-provider-detail");
   });
 
-  it("continues on safe templates when both media providers fail", async () => {
+  it("preserves narration with unavailable visuals when both media providers fail", async () => {
     const handler = createVideoChatHandler({
       authorize: "none", heartbeatMs: false, streamText,
       generateText: async () => "unused",
@@ -53,7 +48,7 @@ describe("video chat optional provider recovery", () => {
     const response = await handler(request());
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["chapterTitle", "chapterTitle"]);
+    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["cinemaMedia", "cinemaMedia"]);
     expect(events.at(-1)?.type).toBe("response.complete");
     expect(events.some((event) => event.type === "response.warning")).toBe(true);
     expect(JSON.stringify(events)).not.toMatch(/private-ai-detail|private-stock-detail/);
@@ -129,7 +124,7 @@ describe("video chat provider deadlines", () => {
     const result = handler(request()).then((response) => response.text()).then((text) => { completed = true; return text; });
     await vi.advanceTimersByTimeAsync(3_000);
     expect(completed).toBe(true);
-    expect(await result).toContain('"templateId":"chapterTitle"');
+    expect(await result).toContain('"templateId":"cinemaMedia"');
   });
 
   it.each(["welcome", "opening-media", "suggestions"])("bounds ignored media cancellation for %s", async (action) => {
