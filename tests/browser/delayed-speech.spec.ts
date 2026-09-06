@@ -12,7 +12,9 @@ for (const profile of ['mobile-default', 'iPhone 13']) test(`generated body narr
   try {
     await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/delayed-speech.html');
     await page.getByRole('button', { name: 'Play delayed narration' }).click();
-    await expect.poll(async () => (await read()).filter(event => event.kind === 'complete').length, { timeout: 30000 }).toBe(1);
+    // Protocol evaluate/poll calls can renew user activation and mask Safari's
+    // restriction. Wait inside the page without further gesture-bearing calls.
+    await page.waitForFunction(() => (window as unknown as { speechProbe: Probe[] }).speechProbe.some(event => event.kind === 'complete'), null, { timeout: 30000 });
     const events = await read();
     expect(events.filter(event => event.kind === 'rejected' || event.kind === 'error' || event.kind === 'fallback')).toEqual([]);
     expect(events.filter(event => event.kind === 'ended')).toHaveLength(2);

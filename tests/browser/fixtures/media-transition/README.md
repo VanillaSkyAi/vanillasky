@@ -19,3 +19,5 @@ five-second playback and stable final-frame assertions deterministic without
 claiming continuous H264 playback is verified on Linux WebKit.
 
 `paragraph.mp3` is a local MP3 transcode of the same offline `paragraph.wav` fixture (24 kHz, 128 kbps), used to exercise Safari generated-speech handoff. No production-generated audio or provider call is included.
+
+The delayed-speech regression waits inside the page with `waitForFunction`. Do not poll through repeated `page.evaluate` calls while waiting for gesture expiry: those protocol calls renewed activation in WebKit and masked the original `NotAllowedError`. Read telemetry only after the in-page completion signal.
