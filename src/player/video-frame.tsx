@@ -97,6 +97,8 @@ const SceneVideoBackdrop = lazy(() => import(
  * fresh one.
  */
 const MEDIA_PREROLL_SECONDS = 1.2;
+// Isolated experiment only: physical iPhone/iPad decoder safety is unverified.
+const BOUNDED_MOBILE_PREPARATION = true;
 const CONTIGUITY_ULP_FACTOR = 4;
 
 // Device identity cannot change during a page session. useSyncExternalStore
@@ -406,9 +408,13 @@ export function VideoFrame({
   const prerollStart = active.end - prerollDuration;
   // Mobile WebKit can terminate the renderer when two scene-sized video
   // decoders overlap, so never preroll a second video element there.
+  // Experimental bounded preparation: retain keyed local scene elements so
+  // the next decoded resource itself becomes active. Detached warming stays
+  // disabled on these devices; only the immediate next scene is mounted.
+  const boundedPreparation = BOUNDED_MOBILE_PREPARATION && decoderConstrainedDevice && registrySupportsExternalVideoBackdrop(kit);
   const decoderConstrainedTransition = Boolean(
     contiguousNext &&
-      decoderConstrainedDevice &&
+      decoderConstrainedDevice && !boundedPreparation &&
       sceneHasVideoBackdrop(active) &&
       sceneHasVideoBackdrop(contiguousNext),
   );
@@ -419,7 +425,7 @@ export function VideoFrame({
   // render. One stale or custom video-capable template disables the contract
   // for the whole stable registry, preserving the previous one-local-decoder
   // behavior instead of guessing whether it consumes the shared backdrop.
-  const persistentVideoEnabled = decoderConstrainedDevice &&
+  const persistentVideoEnabled = decoderConstrainedDevice && !boundedPreparation &&
     registrySupportsExternalVideoBackdrop(kit);
   const activeUsesPersistentVideo = persistentVideoEnabled && sceneHasVideoBackdrop(active);
   const incomingUsesPersistentVideo = Boolean(
@@ -467,7 +473,7 @@ export function VideoFrame({
     : persistentVideoReady ? "ready" as const : "pending" as const;
   const mountingNext = Boolean(
     contiguousNext && !decoderConstrainedTransition &&
-      time >= prerollStart && time < blendEnd &&
+      (boundedPreparation || time >= prerollStart) && time < blendEnd &&
       (eligibleNextTransition || prerollsNext),
   );
   const previewingNext = Boolean(
