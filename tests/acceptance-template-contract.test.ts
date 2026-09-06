@@ -43,12 +43,14 @@ describe("acceptance fixture template contract", () => {
     }
   });
 
-  it("validates nonempty runtime scenes against the bundled footage template", async () => {
+  it("validates nonempty runtime scenes against the selected footage or chapter template", async () => {
     for (const fixture of await runChatAcceptance()) {
       const scenes = fixture.events.flatMap(({ event }) => event.type === "scene.add" ? [event.data] : []);
       expect(scenes.length, fixture.id).toBeGreaterThan(0);
       for (const part of scenes) {
-        expect(part.scene.templateId).toBe("cinemaMedia");
+        expect(part.scene.templateId).toBe(fixture.recovery ? "chapterTitle" : "cinemaMedia");
+        expect(part.scene.narration?.trim().length).toBeGreaterThan(0);
+        if (!fixture.recovery) expect(part.scene.variables.mediaUrl).toMatch(/^https:\/\/media\.example\/(?:generated|stock)\.mp4$/);
 
         const template = getTemplate(part.scene.templateId);
         expect(template, `${fixture.id}: unknown template ${part.scene.templateId}`).toBeDefined();

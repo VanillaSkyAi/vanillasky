@@ -8,6 +8,7 @@ export async function runChatAcceptance() {
   const results = [];
   for (const fixture of ACCEPTANCE_FIXTURES) {
     let plannerInput = "";
+    let generatedCalls = 0, stockCalls = 0;
     const handler = createVideoChatHandler({
       authorize: "none", heartbeatMs: false,
       streamText: (context) => {
@@ -17,19 +18,23 @@ export async function runChatAcceptance() {
         })();
       },
       generateText: async () => { throw new Error("Unexpected non-streaming text call"); },
-      ...(fixture.provider ? {
-        generateVideo: async () => { throw new Error("private-provider-detail"); },
-        generateSpeech: async () => { throw new Error("private-provider-detail"); },
-        searchMedia: async () => {
-          if (fixture.provider === "failed") throw new Error("private-provider-detail");
-          return { url: "https://media.example/stock.mp4", type: "video" as const };
-        },
-      } : {}),
+      maxGeneratedVideos: fixture.recovery === "allowance" ? 0 : 5,
+      generateVideo: async () => {
+        generatedCalls += 1;
+        if (fixture.recovery) throw new Error("private-provider-detail");
+        return { url: "https://media.example/generated.mp4", type: "video" as const };
+      },
+      generateSpeech: fixture.recovery ? async () => { throw new Error("private-provider-detail"); } : undefined,
+      searchMedia: async () => {
+        stockCalls += 1;
+        if (fixture.recovery) throw new Error("private-provider-detail");
+        return { url: "https://media.example/stock.mp4", type: "video" as const };
+      },
     });
     const started = performance.now();
     const response = await handler(new Request("https://app.example/api/video-chat?action=response", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: fixture.prompt, mode: "cinematic", ...(fixture.id === "follow-up" ? {
+      body: JSON.stringify({ prompt: fixture.prompt, mode: fixture.mode ?? "cinematic", ...(fixture.id === "follow-up" ? {
         conversation: [{ prompt: results[0].prompt, response: ACCEPTANCE_FIXTURES[0].lines.join(" ") }],
       } : {}) }),
     }));
@@ -42,16 +47,19 @@ export async function runChatAcceptance() {
     }));
     const speechBody = await speech.text();
     const report = evaluateChatAcceptance(fixture, events);
-    report.checks.push({ id: "speech-fallback-contract", passed: fixture.provider
+    report.checks.push({ id: "speech-fallback-contract", passed: fixture.recovery
       ? speech.status === 502 && speechBody.includes("speech_failed") && !speechBody.includes("private-provider-detail")
       : speech.status === 204 });
     report.checks.push({ id: "conversation-context", passed: fixture.id !== "follow-up" || (
       plannerInput.includes(results[0].prompt) && plannerInput.includes(ACCEPTANCE_FIXTURES[0].lines[0])
     ) });
+    report.checks.push({ id: "selected-provider-only", passed: fixture.mode === "pexels"
+      ? generatedCalls === 0 && stockCalls === fixture.lines.length
+      : stockCalls === 0 && generatedCalls === (fixture.recovery === "allowance" ? 0 : fixture.lines.length) });
     report.passed = report.checks.every(({ passed }) => passed);
     results.push({ id: fixture.id, prompt: fixture.prompt, plannerInput, events,
       warnings: events.flatMap(({ event }) => event.type === "response.warning" ? [event.data.warning] : []),
-      report,
+      report, mode: fixture.mode ?? "cinematic", recovery: fixture.recovery, generatedCalls, stockCalls,
     });
   }
   return results;
