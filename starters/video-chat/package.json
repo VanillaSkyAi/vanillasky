@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vanillaskyai/video": "0.10.7",
+    "@vanillaskyai/video": "0.10.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "@ai-sdk/anthropic": "^3.0.0",
