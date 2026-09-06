@@ -1077,7 +1077,7 @@ createRoot(document.getElementById("root")).render(mediaProbe
       let nextId = 0;
       const observed = new WeakSet();
       const sample = () => {
-        const videos = [...document.querySelectorAll("video")];
+        const videos = [...globalThis.document.querySelectorAll("video")];
         const proof = globalThis.__packedMediaProof;
         proof.maxCount = Math.max(proof.maxCount, videos.length);
         const scenes = videos.map(video => video.closest('[data-layer-scene-id]')?.getAttribute('data-layer-scene-id'));
@@ -1095,7 +1095,7 @@ createRoot(document.getElementById("root")).render(mediaProbe
           video.requestVideoFrameCallback(frame);
         }
       };
-      new MutationObserver(sample).observe(document, { childList: true, subtree: true });
+      new globalThis.MutationObserver(sample).observe(globalThis.document, { childList: true, subtree: true });
       sample();
     });
     await iphonePage.goto("http://127.0.0.1:4387/?media-probe=1");
