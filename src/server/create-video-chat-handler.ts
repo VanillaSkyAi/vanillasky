@@ -133,6 +133,16 @@ export interface VideoChatHandlerOptions extends Pick<
   generateVideoTimeoutMs?: number;
   /** Provider-supported clip duration in seconds, 2–20. Defaults to 5; does not change provider billing configuration. */
   generatedClipDurationSec?: number;
+  /** Safe host-only phase timings; never includes prompts, narration, media URLs or provider error text. */
+  onDiagnostic?: (event: {
+    requestId: string;
+    mode: VideoChatMode;
+    phase: "request-accepted" | "opening-authored" | "shot-authored" | "media-start" | "media-end" | "media-skipped";
+    elapsedMs: number;
+    sceneId?: string;
+    durationMs?: number;
+    reason?: "ready" | "empty" | "provider-error" | "timeout" | "cancelled" | "allowance" | "deadline" | "not-configured";
+  }) => unknown;
   /** Trusted application guidance appended to the general-purpose response brief. */
   instructions?: string;
   /** Application-owned prompts and visual searches shown before the first turn. */
@@ -550,6 +560,13 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     mode: VideoChatMode,
     preparations: PreparationChannel,
   ) => {
+    const startedAt = Date.now();
+    type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
+    const diagnose = (event: Omit<Diagnostic, "requestId" | "mode" | "elapsedMs">) => {
+      try { void Promise.resolve(options.onDiagnostic?.({ requestId, mode, elapsedMs: Math.max(0, Date.now() - startedAt), ...event })).catch(() => undefined); }
+      catch { /* Diagnostics cannot change response delivery. */ }
+    };
+    diagnose({ phase: "request-accepted" });
     const generatedVideoAvailable = mode === "cinematic" && generateVideo != null && maxGeneratedVideos > 0;
     let lifecycle: VideoGenerationLifecycleSink | undefined;
     let generatedAttempts = 0;
@@ -563,7 +580,15 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           const remainingMs = mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now();
           // A delayed authored shot cannot meet a deadline that already passed.
           // Settle its chapter without starting billable work or using allowance.
-          if (remainingMs <= 0) return null;
+          if (remainingMs <= 0) { diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: "deadline" }); return null; }
+          if (mode === "cinematic" && (!generateVideo || generatedAttempts >= maxGeneratedVideos)) {
+            diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: !generateVideo ? "not-configured" : "allowance" });
+            return null;
+          }
+          if (mode === "pexels" && !searchMedia) {
+            diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: "not-configured" });
+            return null;
+          }
           const mediaContext: VideoChatMediaContext = {
             purpose: "response",
             orientation: context.input.orientation ?? "landscape",
@@ -577,13 +602,19 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           const attempt = async (resolver: VideoChatMediaResolver | undefined, timeoutMs: number) => {
             context.signal.throwIfAborted();
             if (!resolver) return null;
+            const mediaStart = Date.now();
+            diagnose({ phase: "media-start", sceneId: context.scene.id });
             try {
               const result = sanitizeVideoChatMedia(await withDeadline(
                 (signal) => resolver(query, { ...mediaContext, signal }), timeoutMs, context.signal,
               ));
               context.signal.throwIfAborted();
+              diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
+                reason: result && (result.type === "video" || (options.templates && resolver === searchMedia)) ? "ready" : "empty" });
               return result;
             } catch (cause) {
+              diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
+                reason: context.signal.aborted ? "cancelled" : cause instanceof DOMException && cause.name === "TimeoutError" ? "timeout" : "provider-error" });
               // A provider deadline is local to this shot. Only cancellation of
               // the response itself stops the remaining scenes and providers.
               context.signal.throwIfAborted();
@@ -632,8 +663,15 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         },
         includeRawProviderData: videoOptions.includeRawProviderData,
         openingLine,
-        publishOpening: openingChannel.publish,
-        prepareScene: preparations.publish,
+        publishOpening: opening => {
+          if (opening) diagnose({ phase: "opening-authored" });
+          openingChannel.publish(opening);
+        },
+        prepareScene: scene => {
+          diagnose({ phase: "shot-authored", sceneId: scene.sceneId });
+          if (!resolveSelected) diagnose({ phase: "media-skipped", sceneId: scene.sceneId, reason: "not-configured" });
+          preparations.publish(scene);
+        },
         generatedClipDurationSec,
         resolveMedia: resolveSelected,
         mediaConcurrency,
