@@ -1,3 +1,5 @@
+import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
+import { recoverSceneMedia } from "../player/recover-scene-media.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useReducer, useRef } from "react";
@@ -821,8 +823,22 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           received[position] = plannedScene;
           const rendererReady = currentOptions.templates?.getTemplate(plannedScene.templateId)
             ? Promise.resolve() : Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
-          const visualPreparation = Promise.all([rendererReady, prepareSceneMedia(plannedScene.variables, controller.signal)])
-            .then(() => undefined, () => { throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" }); });
+          const visualPreparation = rendererReady.then(async () => {
+            try {
+              await prepareSceneMedia(plannedScene.variables, controller.signal);
+              return plannedScene;
+            } catch (cause) {
+              if (controller.signal.aborted) throw cause;
+              // An unavailable optional photo must not discard the spoken answer.
+              // The fallback remains valid persisted template data, with no invented copy.
+              const override = currentOptions.templates?.getTemplate(plannedScene.templateId);
+              const fallback = !override || supportsExternalVideoBackdrop(override)
+                ? recoverSceneMedia(plannedScene) : undefined;
+              if (!fallback) throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" });
+              warn(MEDIA_RECOVERY_NOTICE);
+              return fallback;
+            }
+          });
           // Attach a handler immediately while speech preparation runs in parallel.
           void visualPreparation.catch(() => undefined);
           warmSceneMedia(plannedScene.variables);
@@ -852,8 +868,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           narrating = narrated.catch(() => "");
           pending.push(narrated.then(async (line) => {
             if (!isCurrent() || currentAttempt !== attempt) return;
-            const visual = plannedScene;
-            const withNarration = line ? { ...visual, narration: line } : visual;
             const spoken = line
               ? await prepareSpeech(plannedScene.narrationGroup?.text ?? line, controller.signal).catch((cause: unknown) => {
                 if (controller.signal.aborted) throw cause;
@@ -862,7 +876,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               })
               : undefined;
             if (!isCurrent() || currentAttempt !== attempt) return;
-            await visualPreparation;
+            const visual = await visualPreparation;
+            const withNarration = line ? { ...visual, narration: line } : visual;
             const group = plannedScene.narrationGroup;
             if (group && (spoken?.supportsOffsets !== true || voiceRef.current.supportsOffsets !== true || Math.abs(spoken.seconds - group.totalSeconds) > 0.1)) throw new VideoError("Narration group requires matching measured audio with offset support", { code: "narration_group_invalid" });
             ready[position] = group ? withNarration : pacedScene(withNarration, spoken?.seconds, currentOptions.templates);

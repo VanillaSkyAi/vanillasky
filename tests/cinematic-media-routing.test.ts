@@ -22,7 +22,7 @@ async function run(source:'stock'|'generate', success: boolean | 'reject' | 'abo
 describe('cinematic media routing',()=>{
  it('respects stock intent without spending on generation',async()=>{
   const result=await run('stock');expect(result.generateVideo).not.toHaveBeenCalled();expect(result.searchMedia).toHaveBeenCalledOnce();
-  expect(result.scenes[0]?.templateId).toBe('cinemaMedia');expect(result.scenes[0]?.variables.mediaSource).toBeUndefined();
+  expect(result.scenes[0]?.templateId).toBe('cinemaMedia');expect(result.scenes[0]?.variables.fallbackText).toBe('The ocean keeps moving');expect(result.scenes[0]?.variables.mediaSource).toBeUndefined();
  });
  it('dispatches generated intent through the configured provider',async()=>{
   const result=await run('generate');expect(result.generateVideo).toHaveBeenCalledOnce();expect(result.searchMedia).not.toHaveBeenCalled();

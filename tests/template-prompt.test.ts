@@ -2,6 +2,28 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 
 describe("template-aware open prompt", () => {
+  it("does not impose explanation pacing or template churn on a narrated chat", async () => {
+    const { createTemplateSystemPrompt } = await import("../src/visual-system/catalog/prompt");
+    const { createVideoChatResponseInstructions, VIDEO_CHAT_SUGGESTIONS_PROMPT } = await import("../src/server/video-chat-prompts");
+    const { buildVideoUserPrompt } = await import("../src/server/prompts/user-prompt");
+    const { loadAcceptanceKit } = await import("../scripts/acceptance/catalog");
+    const system = createTemplateSystemPrompt({ kit: loadAcceptanceKit(), knowledgeMode: "general", narrate: true,
+      mediaResolverAvailable: true, mediaOnFirstScene: true, basePrompt: createVideoChatResponseInstructions(true, true, 2) });
+    const user = buildVideoUserPrompt({ input: "Tell a two-line joke about a penguin", opening: false, knowledgeMode: "general" });
+    const assembled = system + user;
+    expect(assembled).not.toContain("hook, framing, comprehension, proof or transformation");
+    expect(assembled).not.toContain("One sentence, 10-16 words");
+    expect(assembled).not.toContain("one continuous explanation");
+    expect(assembled).not.toContain("Use a different suitable template for each body scene");
+    expect(assembled).not.toContain("form at least three distinct beats");
+    expect(assembled).toContain("comedy");
+    expect(assembled).toContain("practical");
+    expect(assembled).toContain("paraphrase");
+    expect(assembled).toContain("At most 2 generated-video attempts");
+    expect(VIDEO_CHAT_SUGGESTIONS_PROMPT).toContain("already answered");
+    expect(VIDEO_CHAT_SUGGESTIONS_PROMPT).toContain("paraphrase");
+  });
+
   it("describes exactly the customer-owned kit without exposing renderer source", async () => {
     const api = await import("../src/visual-system/catalog/internal");
     expect(api.createTemplateSystemPrompt).toBeTypeOf("function");
