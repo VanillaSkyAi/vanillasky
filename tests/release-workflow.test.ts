@@ -221,7 +221,7 @@ describe("release workflow", () => {
   it("pins every CI action to the reviewed v7 commit", () => {
     const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
     const actions = [...workflow.matchAll(/uses:\s+(actions\/(?:checkout|setup-node))@([^\s]+)/g)];
-    expect(actions).toHaveLength(12);
+    expect(actions).toHaveLength(14);
     for (const [, action, revision] of actions) {
       expect(revision, action).toMatch(/^[a-f0-9]{40}$/);
     }
@@ -248,7 +248,7 @@ describe("release workflow", () => {
     const example = JSON.parse(readFileSync("starters/video-chat/package.json", "utf8"));
     const reactCompatibility = workflow
       .split("  react-compatibility:")[1]
-      .split("  browser-compatibility:")[0];
+      .split("  browser-gate:")[0];
 
     expect(manifest.devDependencies.react).toMatch(/^\^19\./);
     expect(manifest.devDependencies["react-dom"]).toMatch(/^\^19\./);
@@ -277,13 +277,21 @@ describe("release workflow", () => {
     const consumerAggregate = workflow.split("  consumer-compatibility:")[1].split("  provider-gate:")[0];
     const providerGate = workflow.split("  provider-gate:")[1].split("  provider-compatibility:")[0];
     const providerAggregate = workflow.split("  provider-compatibility:")[1].split("  node-compatibility:")[0];
-    const browserJob = workflow.split("  browser-compatibility:")[1];
+    const browserJob = workflow.split("  browser-gate:")[1]?.split("  browser-compatibility:")[0] ?? "";
+    const browserAggregate = workflow.split("  browser-compatibility:")[1];
 
     expect(consumerGate).toContain("gate: [public-api, packed-package, onboarding]");
+    for (const gate of [consumerGate, providerGate]) {
+      expect(gate).toContain("needs: candidate");
+      expect(gate).toContain("VANILLASKY_PACKED_TARBALL:");
+      expect(gate).toContain("VANILLASKY_EXPECTED_INTEGRITY:");
+      expect(gate).toContain("name: sdk-candidate");
+    }
+    expect(workflow).toContain("cancel-in-progress: true");
     expect(consumerGate).not.toContain("documented-examples");
     expect(consumerGate).not.toContain("npm run examples:verify-documented");
-    expect(consumerGate).toContain("npm run verify:api");
-    expect(consumerGate).toContain("npm run verify:package");
+    expect(consumerGate).toContain("node scripts/verify-public-api-surface.mjs");
+    expect(consumerGate).toContain("node scripts/verify-packed-package.mjs");
     expect(consumerGate).toContain("npm run verify:onboarding");
     expect(consumerGate).not.toContain("npm run examples:install-current");
     expect(consumerGate).not.toContain("npm run example:build");
@@ -297,7 +305,7 @@ describe("release workflow", () => {
     expect(providerAggregate).toContain("needs: provider-gate");
     expect(providerAggregate).toContain("needs.provider-gate.result");
 
-    for (const job of [consumerGate, providerGate, workflow.split("  node-compatibility:")[1].split("  react-compatibility:")[0], workflow.split("  react-compatibility:")[1].split("  browser-compatibility:")[0], browserJob]) {
+    for (const job of [consumerGate, providerGate, workflow.split("  node-compatibility:")[1].split("  react-compatibility:")[0], workflow.split("  react-compatibility:")[1].split("  browser-gate:")[0], browserJob]) {
       expect(job).toContain("if: github.event_name == 'pull_request'");
     }
     expect(workflow).toContain(
@@ -309,9 +317,19 @@ describe("release workflow", () => {
     expect(browserJob).toContain('trap "pulseaudio --kill" EXIT');
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
-    expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(1);
-    expect(workflow).not.toContain("matrix.browser");
-    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(8);
+    expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(2);
+    expect(browserJob).toContain("browser: [chromium, firefox, webkit]");
+    expect(browserJob).toContain("fail-fast: false");
+    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --workers=1");
+    expect(browserJob).toContain('if [[ "${{ matrix.browser }}" == "chromium" ]]; then');
+    expect(browserJob).toContain("name: browser-playback-evidence-${{ matrix.browser }}");
+    expect(browserJob).toContain("if: always()");
+    expect(browserAggregate).toContain("if: always() && github.event_name == 'pull_request'");
+    expect(browserAggregate).toContain("needs: browser-gate");
+    expect(browserAggregate).toContain("RESULT: ${{ needs.browser-gate.result }}");
+    expect(browserAggregate).toContain('if [[ "$RESULT" != "success" ]]; then');
+    expect(browserAggregate).toContain("exit 1");
+    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(10);
   });
 
   it("enforces the live npm-latest public API comparison in pull-request CI", () => {
@@ -320,8 +338,8 @@ describe("release workflow", () => {
     const consumerJob = workflow.split("  consumer-gate:")[1].split("  consumer-compatibility:")[0];
 
     expect(workflow).toContain("pull_request:");
-    expect(consumerJob).toContain("- run: npm run verify:api");
-    expect(consumerJob.indexOf("npm ci")).toBeLessThan(consumerJob.indexOf("npm run verify:api"));
+    expect(consumerJob).toContain("- run: node scripts/verify-public-api-surface.mjs");
+    expect(consumerJob.indexOf("npm ci")).toBeLessThan(consumerJob.indexOf("node scripts/verify-public-api-surface.mjs"));
   });
 
   it("keeps the Vitest worker pool within the two-core hosted-runner budget", () => {

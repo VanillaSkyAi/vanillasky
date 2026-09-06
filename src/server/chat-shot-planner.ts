@@ -2,10 +2,12 @@ import type { VideoGenerationContext, VideoPlanPart, VideoPlanner, VideoScene } 
 import { createTextDeltaVideoPlanner, type TextDeltaVideoPlannerOptions, type TextDeltaVideoSource } from "./model/text-stream.js";
 import { attachGenerationLifecycleSink, getGenerationLifecycleSink } from "./lifecycle.js";
 import { continueAfterOpening } from "./opening-continuity.js";
+import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver } from "./media-resolver.js";
 
 interface Shot {
   narration: string;
+  title: string;
   subject: string;
   action: string;
   durationSec: number;
@@ -23,15 +25,16 @@ function text(value: unknown, maximum: number): string {
   // Never truncate spoken content or turn a partial scientific claim into a fact.
   return typeof value === "string" && value.trim().length <= maximum ? value.trim() : "";
 }
-function readShot(value: unknown): Shot {
+function readShot(value: unknown, clipDurationSec: number): Shot {
   const item = object(value);
   const narration = text(item?.narration, 2_000);
   if (!narration) throw new Error("Chat shot requires bounded authored narration");
   return {
     narration,
+    title: text(item?.title, 65) || text(item?.subject, 65) || "The next step",
     subject: text(item?.subject, 80),
     action: text(item?.action, 600),
-    durationSec: typeof item?.durationSec === "number" && Number.isFinite(item.durationSec) ? Math.min(5, Math.max(2, item.durationSec)) : 5,
+    durationSec: typeof item?.durationSec === "number" && Number.isFinite(item.durationSec) ? Math.min(clipDurationSec, Math.max(2, item.durationSec)) : clipDurationSec,
     continuity: item?.continuity === "continue" ? "continue" : "cut",
   };
 }
@@ -48,13 +51,16 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
   publishOpening: (opening: { line: string; keyword: string } | undefined) => void;
   resolveMedia?: MediaResolver;
   mediaConcurrency: number;
+  generatedClipDurationSec?: number;
+  prepareScene?: (scene: { sceneId: string; narration: string }) => void;
 }): VideoPlanner {
+  const clipDurationSec = options.generatedClipDurationSec ?? 5;
   const incomplete = new WeakSet<VideoGenerationContext>();
   const planner = createTextDeltaVideoPlanner({
     includeRawProviderData: options.includeRawProviderData,
     streamText(context) {
       const providerContext = { ...context, userPrompt: [
-        `Create a complete answer within ${context.request.input.maxDurationSec ?? 40} seconds. Each generated clip has at most five seconds; give each spoken beat room to finish.`,
+        `Create a complete answer within ${context.request.input.maxDurationSec ?? 40} seconds. Each generated clip has at most ${clipDurationSec} seconds; give each spoken beat room to finish.`,
         `Orientation: ${context.request.input.orientation ?? "landscape"}.`,
         "USER REQUEST AND CONVERSATION", context.request.input.input,
       ].join("\n") };
@@ -78,7 +84,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           lastNarration = narration;
           return { type: "scene.add", ...(closer ? { placement: "closer" as const } : {}), scene: {
             id: `${context.request.requestId}-shot-${++index}`, templateId: "cinemaMedia",
-            variables: { mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
+            variables: { fallbackText: shot.title, mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
               brief?.visualDirection,
               shot.action,
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",
@@ -94,16 +100,16 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
             brief = { opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
-            if (part.ending) { try { brief.ending = readShot(part.ending); } catch (cause) { reject(cause); } }
+            if (part.ending) { try { brief.ending = readShot(part.ending, clipDurationSec); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
             return;
           }
           if (part?.type !== "shot") throw new Error("Chat plan requires an answer brief followed by shots");
           if (!brief) throw new Error("Chat shot arrived before its answer brief");
-          const shot = readShot(part);
+          const shot = readShot(part, clipDurationSec);
           if (shot.narration === brief.ending?.narration) return;
           if (firstBody && !continueAfterOpening(shot.narration, [options.openingLine ?? brief.opening])) return;
-          const budget = (context.request.input.maxDurationSec ?? 40) - (brief.ending?.durationSec ?? 5);
+          const budget = (context.request.input.maxDurationSec ?? 40) - (brief.ending?.durationSec ?? clipDurationSec);
           if (bodyDuration + shot.durationSec > budget) throw new Error("Chat shot exceeds the answer duration budget");
           bodyDuration += shot.durationSec;
           return scenePart(shot);
@@ -149,7 +155,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
 }
 
 /** Resolve ahead with bounded work, but emit in narrative order. */
-async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: { resolveMedia?: MediaResolver; mediaConcurrency: number }): AsyncGenerator<VideoPlanPart> {
+async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: { resolveMedia?: MediaResolver; mediaConcurrency: number; prepareScene?: (scene: { sceneId: string; narration: string }) => void }): AsyncGenerator<VideoPlanPart> {
   type Result = { part: VideoPlanPart } | { error: unknown };
   const queue: Promise<Result>[] = [];
   const iterator = parts[Symbol.asyncIterator]();
@@ -158,14 +164,18 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
   let notify: (() => void) | undefined, space: (() => void) | undefined;
   const resolve = async (part: VideoPlanPart): Promise<VideoPlanPart> => {
     if (part.type !== "scene.add") return part;
+    options.prepareScene?.({ sceneId: part.scene.id, narration: part.scene.narration ?? "" });
     const { mediaKeyword } = part.scene.variables;
     let media;
     if (typeof mediaKeyword === "string" && mediaKeyword && options.resolveMedia) media = await options.resolveMedia(mediaKeyword, {
       input: context.request.input, requestId: context.request.requestId, scene: part.scene, templateId: "cinemaMedia", preferredType: "video", generatedLook: context.request.input.style?.generatedLook, signal: context.signal,
     });
     context.signal.throwIfAborted();
-    if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: "Some visuals are unavailable; narration continues.", recoverable: true });
-    const scene: VideoScene = { ...part.scene, variables: { mediaType: media?.type === "image" ? "photo" : "video", mediaUrl: media?.url ?? "", ...(media?.posterUrl ? { mediaPoster: media.posterUrl } : {}) } };
+    if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });
+    const title = part.scene.variables.fallbackText;
+    const scene: VideoScene = media
+      ? { ...part.scene, variables: { fallbackText: title, mediaType: media.type === "image" ? "photo" : "video", mediaUrl: media.url, ...(media.posterUrl ? { mediaPoster: media.posterUrl } : {}) } }
+      : { ...part.scene, templateId: "chapterTitle", variables: { title } };
     return { ...part, scene };
   };
   const producer = (async () => {

@@ -31,9 +31,9 @@ describe("AI-first chat answer plan", () => {
  it.each([0, 5])("preserves every narrated beat when both media providers miss, allowance %i", async allowance => {
   const result = await run({ allowance, miss: true });
   expect(result.scenes.map(s => s.narration)).toEqual([shot.narration, ending.narration]);
-  expect(result.scenes.every(s => s.templateId === "cinemaMedia" && !s.variables.mediaUrl && !s.variables.fallbackText)).toBe(true);
+  expect(result.scenes.every(s => s.templateId === "chapterTitle" && typeof s.variables.title === "string")).toBe(true);
   expect(result.calls.filter(c => c.startsWith("ai:"))).toHaveLength(allowance ? 2 : 0);
-  expect(result.calls.filter(c => c.startsWith("stock:"))).toHaveLength(2);
+  expect(result.calls.filter(c => c.startsWith("stock:"))).toHaveLength(0);
  });
  it("keeps narration with malformed visual direction instead of losing the answer", async () => {
   const result = await run({ parts: [brief, { ...shot, subject: undefined, action: undefined }] });
@@ -130,5 +130,5 @@ it("treats still images as unavailable body footage without losing speech", asyn
  const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "A robot story" }) }));
  const scenes = []; for await (const e of decodeVideoSse(response.body!)) if (e.type === "scene.add") scenes.push(e.data.scene);
  expect(scenes.map(s => s.narration)).toEqual([shot.narration, ending.narration]);
- expect(scenes.every(s => s.variables.mediaType === "video" && s.variables.mediaUrl === "")).toBe(true);
+ expect(scenes.every(s => s.templateId === "chapterTitle" && typeof s.variables.title === "string")).toBe(true);
 });

@@ -1,29 +1,24 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
-import {findStockFootage,type ApprovedStock} from '../starters/video-chat/stock';
-const index:ApprovedStock[]=[{queries:['breaking ocean wave'],orientations:['landscape'],description:'A wave breaking into foam, no named location',reviewedAt:'2026-09-06',media:{url:'https://media.example.test/wave.mp4',type:'video',posterUrl:'https://media.example.test/wave.jpg'}}];
-afterEach(()=>vi.unstubAllGlobals());
-describe('reviewed starter stock',()=>{
- it('returns a reviewed literal subject without a network round trip',async()=>{
-  const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);
-  expect(await findStockFootage('Breaking  ocean wave','landscape',new AbortController().signal,undefined,index)).toEqual(index[0].media);
-  expect(fetcher).not.toHaveBeenCalled();
+import {findStockFootage} from '../starters/video-chat/stock';
+afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
+const video=(id:number,slug:string,width=1280,height=720)=>({id,url:`https://www.pexels.com/video/${slug}-${id}/`,image:'https://images.pexels.com/poster.jpg',video_files:[{link:`https://videos.pexels.com/${id}.mp4`,width,height,file_type:'video/mp4'}]});
+describe('Pexels starter search',()=>{
+ it('searches beyond a curated index and caches only relevant usable footage',async()=>{
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');
+  const fetcher=vi.fn(async(_input: unknown)=>new Response(JSON.stringify({videos:[video(1,'a-cat'),video(2,'golf-grip')]})));vi.stubGlobal('fetch',fetcher);
+  const signal=new AbortController().signal;
+  expect(await findStockFootage('golf grip','landscape',signal)).toMatchObject({url:'https://videos.pexels.com/2.mp4',type:'video'});
+  expect(await findStockFootage('golf grip','landscape',signal)).toMatchObject({url:'https://videos.pexels.com/2.mp4'});
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(String(fetcher.mock.calls[0]?.[0])).toContain('per_page=12');
  });
- it('does not substitute atmosphere for an exact action or identity',async()=>{
-  expect(await findStockFootage('tsunami destroying village','landscape',new AbortController().signal,'breaking ocean wave',index)).toBeNull();
+ it('declines unrelated subjects and unusable orientation instead of guessing',async()=>{
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>new Response(JSON.stringify({videos:[video(3,'robot-garden',1280,720),video(4,'cat',720,1280)]})));
+  expect(await findStockFootage('robot garden','portrait',new AbortController().signal)).toBeNull();
  });
- it('declines an unreviewed crop',async()=>{
-  expect(await findStockFootage('breaking ocean wave','portrait',new AbortController().signal,undefined,index)).toBeNull();
- });
- it('accepts an independently reviewed photo',async()=>{
-  const photo={...index[0],media:{url:'https://media.example.test/wave.jpg',type:'image' as const}};
-  expect(await findStockFootage('breaking ocean wave','landscape',new AbortController().signal,undefined,[photo])).toEqual(photo.media);
- });
- it('rejects invalid URLs and unreviewed entries',async()=>{
-  for(const entry of [{...index[0],reviewedAt:''},{...index[0],media:{url:'javascript:alert(1)',type:'image' as const}}]){
-   expect(await findStockFootage('breaking ocean wave','landscape',new AbortController().signal,undefined,[entry])).toBeNull();
-  }
- });
- it('honors cancellation before selecting an asset',async()=>{
-  await expect(findStockFootage('breaking ocean wave','landscape',AbortSignal.abort(),undefined,index)).rejects.toThrow();
+ it('honors cancellation and missing credentials',async()=>{
+  await expect(findStockFootage('ocean wave','landscape',AbortSignal.abort())).rejects.toThrow();
+  vi.stubEnv('PEXELS_API_KEY','');const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);
+  expect(await findStockFootage('ocean wave','landscape',new AbortController().signal)).toBeNull();expect(fetcher).not.toHaveBeenCalled();
  });
 });

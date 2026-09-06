@@ -12,8 +12,15 @@ export function evaluateChatAcceptance(fixture: ChatFixture, events: TimedVideoE
     { id: "completed-scenes-preserved", passed: scenes.length === fixture.lines.length && completion?.event.type === "response.complete" && completion.event.data.snapshot.scenes.length === scenes.length },
     { id: "response-complete", passed: !!completion && completion.elapsedMs <= 3_000 && !events.some(({ event }) => event.type === "response.error" || event.type === "response.abort") },
     { id: "grounded-readable-copy", passed: scenes.length > 0 && scenes.every(({ scene }, index) => scene.narration === fixture.lines[index] && fixture.lines[index].split(/\s+/).length <= 15 && (scene.timing?.fixedDuration ?? 0) >= 4) },
-    { id: "media-ready", passed: scenes.length > 0 && scenes.every(({ scene }) => fixture.provider === "stock" ? scene.variables.mediaUrl === "https://media.example/stock.mp4" : scene.templateId === "cinemaMedia" && scene.variables.mediaUrl === "") },
-    { id: "safe-recovery-warning", passed: (fixture.provider !== "failed" || events.some(({ event }) => event.type === "response.warning")) && !JSON.stringify(events).includes("private-provider-detail") },
+    { id: "media-ready", passed: scenes.length > 0 && scenes.every(({ scene }, index) => fixture.recovery
+      ? scene.templateId === "chapterTitle" && scene.variables.title === fixture.titles[index] && fixture.titles[index].length > 0 && fixture.titles[index].length <= 65
+      : scene.templateId === "cinemaMedia" && scene.variables.mediaType === "video" && scene.variables.fallbackText === fixture.titles[index]
+        && scene.variables.mediaUrl === (fixture.mode === "pexels" ? "https://media.example/stock.mp4" : "https://media.example/generated.mp4")) },
+    { id: "speech-prepares-before-media", passed: scenes.length > 0 && scenes.every(({ scene }) => {
+      const preparationIndex = events.findIndex(({ event }) => event.type === "data.video-chat-preparation" && event.data != null && typeof event.data === "object" && "sceneId" in event.data && "narration" in event.data && event.data.sceneId === scene.id && event.data.narration === scene.narration);
+      return preparationIndex >= 0 && preparationIndex < events.findIndex(({ event }) => event.type === "scene.add" && event.data.scene.id === scene.id);
+    }) },
+    { id: "safe-recovery-warning", passed: (!fixture.recovery || events.some(({ event }) => event.type === "response.warning")) && !JSON.stringify(events).includes("private-provider-detail") },
   ];
   return { passed: checks.every(({ passed }) => passed), checks, metrics: { openingMs: opening?.elapsedMs, firstSceneMs: scenes[0]?.elapsedMs, completionMs: completion?.elapsedMs } };
 }

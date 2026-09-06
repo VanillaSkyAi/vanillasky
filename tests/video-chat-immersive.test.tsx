@@ -172,21 +172,21 @@ it("shows the spoken opening as a held chapter when opening media is absent", ()
   expect(container.querySelector('[data-opening-chapter]')).toBeNull();
 });
 
-it.each(["video", "image"] as const)("returns broken opening %s media to the exact chapter hook", (type) => {
+it.each(["video", "image"] as const)("keeps the chapter instead of mounting supplied opening %s media", (type) => {
   const turn = { ...session.current.shownTurn!, openingMedia: {type, url:"https://media.example.test/broken"} };
   session.current = { ...session.current, shownTurn:turn, currentTurn:turn, turns:[turn] };
   const { container } = render(<VideoChat />);
-  fireEvent.error(container.querySelector(type === "video" ? '.stage > video' : '.stage > img')!);
+  expect(container.querySelector(type === "video" ? '.stage > video' : '.stage > img')).toBeNull();
   expect(container.querySelector('[data-opening-chapter]')?.textContent).toBe(turn.opening);
   expect(container.querySelector('.stage > .frame-media')).toBeNull();
 });
 
-it("holds the chapter until late relevant media can actually paint", () => {
+it("does not replace an opening chapter with late stock footage", () => {
   const { container, rerender } = render(<VideoChat />);
   const turn = { ...session.current.shownTurn!, openingMedia: {type:"video" as const, url:"https://media.example.test/ocean.mp4"} };
   session.current = { ...session.current, shownTurn:turn, currentTurn:turn, turns:[turn] };
   rerender(<VideoChat />);
   expect(container.querySelector('[data-opening-chapter]')).not.toBeNull();
-  fireEvent.playing(container.querySelector('.stage > video')!);
-  expect(container.querySelector('[data-opening-chapter]')).toBeNull();
+  expect(container.querySelector('.stage > video')).toBeNull();
+  expect(container.querySelector('[data-opening-chapter]')).not.toBeNull();
 });

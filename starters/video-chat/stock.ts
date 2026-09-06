@@ -1,38 +1,66 @@
 import type { VideoOrientation } from "@vanillaskyai/video";
 
-export interface ApprovedStock {
-  /** Literal phrases the inspected clip actually depicts; no broad topic aliases. */
-  queries: readonly string[];
-  orientations: readonly VideoOrientation[];
-  description: string;
-  reviewedAt: string;
-  media: { url: string; type: "video" | "image"; posterUrl?: string };
+interface StockVideo {
+  url: string;
+  type: "video";
+  posterUrl?: string;
+}
+interface PexelsVideo {
+  url?: string;
+  image?: string;
+  video_files?: { link?: string; width?: number; height?: number; file_type?: string }[];
+}
+const cache = new Map<string, { expires: number; media: StockVideo | null }>();
+const words = (value: string): string[] => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+function pexelsUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port
+      && (url.hostname === "pexels.com" || url.hostname.endsWith(".pexels.com"));
+  } catch { return false; }
 }
 
-/** Add assets only after watching the clip and checking its crop and poster.
- * An empty collection deliberately declines stock instead of guessing from
- * search rank. The host can maintain this reviewed index independently of the SDK.
+/** Full catalog search. Metadata establishes subject relevance, not factual proof.
+ * Applications using this adapter must display a prominent link to Pexels.
+ * https://www.pexels.com/api/documentation/#guidelines
  */
-export const approvedStock: readonly ApprovedStock[] = [];
-
-const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-function approvedUrl(value: string): boolean {
-  try { const url=new URL(value);return url.protocol==='https:' && !url.username && !url.password && !url.port; }
-  catch { return false; }
-}
-
-export async function findStockFootage(
-  query: string,
-  orientation: VideoOrientation,
-  signal: AbortSignal,
-  _fallbackQuery?: string,
-  index: readonly ApprovedStock[] = approvedStock,
-) {
+export async function findStockFootage(query: string, orientation: VideoOrientation, signal: AbortSignal) {
   signal.throwIfAborted();
-  const intent=normalize(query);
-  if(!intent || intent.length>80 || intent.split(' ').length>8)return null;
-  const entry=index.find(asset=>asset.reviewedAt && asset.description && asset.orientations.includes(orientation)
-    && asset.queries.some(candidate=>normalize(candidate)===intent)
-    && approvedUrl(asset.media.url) && (!asset.media.posterUrl || approvedUrl(asset.media.posterUrl)));
-  return entry ? {...entry.media} : null;
+  const normalized = query.trim().toLowerCase().replace(/\s+/g, " ");
+  const tokens = words(normalized);
+  const key = `${orientation}:${normalized}`;
+  const apiKey = process.env.PEXELS_API_KEY;
+  if (!apiKey || !tokens.length || normalized.length > 80 || tokens.length > 8) return null;
+  const existing = cache.get(key);
+  if (existing && existing.expires > Date.now()) return existing.media;
+  const url = new URL("https://api.pexels.com/v1/videos/search");
+  url.search = new URLSearchParams({ query: normalized, orientation, per_page: "12", size: "medium" }).toString();
+  const response = await fetch(url, { headers: { Authorization: apiKey }, signal });
+  signal.throwIfAborted();
+  if (!response.ok) return null;
+  const result = await response.json() as { videos?: PexelsVideo[] };
+  signal.throwIfAborted();
+  let selected: StockVideo | null = null, bestScore = 0;
+  for (const video of (Array.isArray(result.videos) ? result.videos : []).slice(0, 12)) {
+    if (!pexelsUrl(video.url)) continue;
+    const subject = words(new URL(video.url).pathname);
+    const matches = tokens.filter(token => subject.includes(token)).length;
+    // Require a majority of the literal query, never accept search rank alone.
+    if (matches < Math.ceil(tokens.length * 0.6)) continue;
+    const files = (Array.isArray(video.video_files) ? video.video_files : []).filter(file =>
+      file.file_type === "video/mp4" && pexelsUrl(file.link)
+      && Number.isFinite(file.width) && Number.isFinite(file.height)
+      && Math.min(file.width!, file.height!) >= 360
+      && (orientation === "portrait" ? file.height! > file.width! : file.width! >= file.height!),
+    ).sort((a, b) => Math.abs(Math.max(a.width!, a.height!) - 1280) - Math.abs(Math.max(b.width!, b.height!) - 1280));
+    const file = files[0];
+    if (!file || matches <= bestScore) continue;
+    bestScore = matches;
+    selected = { url: file.link!, type: "video", ...(pexelsUrl(video.image) ? { posterUrl: video.image } : {}) };
+  }
+  // Bounded process-local cache; no request signal or credentials are retained.
+  if (cache.size >= 128) cache.delete(cache.keys().next().value!);
+  cache.set(key, { expires: Date.now() + (selected ? 24 * 60 * 60_000 : 60_000), media: selected });
+  return selected;
 }

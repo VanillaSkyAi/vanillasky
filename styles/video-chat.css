@@ -193,59 +193,6 @@
 
 .vanillasky-video-chat .stage :where(video, canvas, img) { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-.vanillasky-video-chat .ground {
-  position: absolute;
-  inset: -30%;
-  background: radial-gradient(closest-side, oklch(1 0 0 / 28%), transparent 70%);
-  animation: vanillasky-video-chat-drift 9s ease-in-out infinite alternate;
-}
-
-@keyframes vanillasky-video-chat-drift {
-  from { transform: translate3d(-12%, -8%, 0) scale(1); }
-  to { transform: translate3d(14%, 10%, 0) scale(1.25); }
-}
-
-.vanillasky-video-chat .asked {
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  display: grid;
-  gap: 1.1rem;
-  justify-items: center;
-  align-content: center;
-  text-align: center;
-  color: var(--vs-on-media);
-}
-
-.vanillasky-video-chat .asked-prompt {
-  margin: 0;
-  max-width: 26ch;
-  font-size: var(--vs-text-display);
-  line-height: var(--vs-lead-display);
-  letter-spacing: var(--vs-track-display);
-  font-weight: 700;
-  text-wrap: balance;
-  animation: vanillasky-video-chat-step-in 620ms ease both;
-}
-
-.vanillasky-video-chat .asked-step {
-  margin: 0;
-  font-size: var(--vs-text-subhead);
-  line-height: var(--vs-lead-subhead);
-  letter-spacing: var(--vs-track-subhead);
-  font-weight: 500;
-  background: linear-gradient(100deg, oklch(1 0 0 / 45%) 20%, oklch(1 0 0) 42%, oklch(1 0 0 / 45%) 64%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: vanillasky-video-chat-sweep 2.4s linear infinite, vanillasky-video-chat-step-in 520ms ease both;
-}
-
-@keyframes vanillasky-video-chat-step-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
-}
-
 .vanillasky-video-chat .welcome { position: absolute; inset: 0; overflow: hidden; }
 
 .vanillasky-video-chat .frame-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -463,7 +410,6 @@
   animation: vanillasky-video-chat-fade-in 320ms ease both;
 }
 
-@keyframes vanillasky-video-chat-sweep { from { background-position: 140% 0; } to { background-position: -40% 0; } }
 
 @keyframes vanillasky-video-chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -573,7 +519,6 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .vanillasky-video-chat .asked-step { color: var(--vs-on-media); -webkit-text-fill-color: currentColor; }
 }
 
 .vanillasky-video-chat {
@@ -1053,12 +998,7 @@
 @media (max-width: 700px) {
   .vanillasky-video-chat .sheet-popover { max-height: calc(100% - 102px); }
 }
-.vanillasky-video-chat .opening-wash {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgb(8 11 22 / 12%), rgb(8 11 22 / 42%));
-  pointer-events: none;
-}
+
 .vanillasky-video-chat .ending { pointer-events: none; }
 .vanillasky-video-chat .ending .cards { pointer-events: auto; }
 
@@ -1138,3 +1078,8 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+.vanillasky-video-chat .opening-chapter { animation: vanillasky-chapter-enter 450ms ease-out both; }
+.vanillasky-video-chat .media-credit { color: var(--vs-fg); font-size: 11px; margin-left: 12px; text-underline-offset: 3px; }
+@keyframes vanillasky-chapter-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vanillasky-video-chat .opening-chapter { animation: none; } }

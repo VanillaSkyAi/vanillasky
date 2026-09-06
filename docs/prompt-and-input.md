@@ -96,9 +96,9 @@ Every `scene.add` is validated before the browser receives it. The model never
 returns React, HTML, CSS, or executable JavaScript. Invalid planning content
 produces safe diagnostics. A media failure does not delete valid narration.
 
-Generated footage is preferred within the host's allowance. Relevant stock is
-fallback. If neither is available, retain narration and subtitles and report
-unavailable visuals. Handlers configured with an explicit custom `templates` registry continue to
+AI mode generates footage within the host allowance. Pexels mode searches
+stock without calling the video generator. Each authored beat includes a short
+chapter title; missing footage becomes that chapter with its complete narration. Handlers configured with an explicit custom `templates` registry continue to
 support the trusted catalog and its existing structured planner contract.
 
 ## Grounding

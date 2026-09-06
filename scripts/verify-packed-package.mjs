@@ -14,7 +14,7 @@ import { chromium } from "playwright";
 
 // Authored chat input; public wire events remain runtime-owned.
 function chatPlan(opening, lines, subject = "ocean currents") {
-  const shots = lines.map((narration) => ({ narration, subject,
+  const shots = lines.map((narration, index) => ({ narration, subject, title: `${subject} ${index === lines.length - 1 ? "conclusion" : "in motion"}`,
     action: `Show ${subject} moving clearly through the frame.`, durationSec: 5, continuity: "cut" }));
   return [
     { type: "answer", intent: "informational", opening, subject,
@@ -90,10 +90,10 @@ declare const chatOptions: VideoChatHandlerOptions;
 const generationBudget: number | undefined = chatOptions.maxGeneratedVideos;
 const previewOptions: VideoChatHandlerOptions = { ...chatOptions, generateVideoTimeoutMs: 120000 };
 void previewOptions;
-const stockOnlyOptions: VideoChatHandlerOptions = { ...chatOptions, maxGeneratedVideos: 0 };
+const noGeneratedAllowanceOptions: VideoChatHandlerOptions = { ...chatOptions, maxGeneratedVideos: 0 };
 // @ts-expect-error The application budget is numeric, never a browser-supplied string.
 const invalidBudget: VideoChatHandlerOptions = { ...chatOptions, maxGeneratedVideos: "5" };
-void [generationBudget, stockOnlyOptions, invalidBudget];
+void [generationBudget, noGeneratedAllowanceOptions, invalidBudget];
 const stockSearch: NonNullable<VideoChatHandlerOptions["searchMedia"]> = (_query, { fallbackQuery }) => {
   const broaderSubject: string | undefined = fallbackQuery;
   void broaderSubject;
@@ -124,22 +124,41 @@ void [createVideoChatHandler, createServerTemplateRegistry, chatCapabilities, ch
 import { createVideoChatHandler } from "@vanillaskyai/video/server";
 let generated = 0;
 let searched = 0;
+let missStock = false;
 const handler = createVideoChatHandler({
   authorize: "none", heartbeatMs: false, maxGeneratedVideos: 0,
   generateText: async () => "unused",
   generateVideo: async () => { generated++; throw new Error("must not spend"); },
-  searchMedia: async () => { searched++; return { type: "video", url: "https://media.example/stock.mp4" }; },
+  searchMedia: async () => { searched++; return missStock ? null : { type: "video", url: "https://media.example/stock.mp4" }; },
   streamText: async function* () {
     yield ${JSON.stringify(chatPlan("Watch the ocean", ["The waves move across the ocean toward the shore."], "ocean waves"))};
   },
 });
 const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "Ocean", mode: "cinematic", opening: "Watch the ocean" }) }));
-const events = await response.text();
+const parseEvents = (body) => body.split("\\n").filter(line => line.startsWith("data: ") && line !== "data: [DONE]").map(line => JSON.parse(line.slice(6)));
+const events = parseEvents(await response.text());
+const scenes = events.filter(event => event.type === "scene.add").map(event => event.data.scene);
+if (generated !== 0 || searched !== 0 || events.at(-1)?.type !== "response.complete"
+  || scenes.length !== 1 || scenes[0].templateId !== "chapterTitle" || scenes[0].variables.title !== "ocean waves conclusion"
+  || scenes[0].narration !== "The waves move across the ocean toward the shore.") throw new Error("Packed AI allowance recovery did not preserve its authored chapter without stock calls");
+const stockResponse = await handler(new Request("https://app.example/api?action=response", {method: "POST", body: JSON.stringify({prompt: "Ocean", mode: "pexels"})}));
+const stockEvents = parseEvents(await stockResponse.text());
+const stockScenes = stockEvents.filter(event => event.type === "scene.add").map(event => event.data.scene);
+if (generated !== 0 || searched !== 1 || stockEvents.at(-1)?.type !== "response.complete"
+  || stockScenes.length !== 1 || stockScenes[0].templateId !== "cinemaMedia" || stockScenes[0].variables.mediaUrl !== "https://media.example/stock.mp4"
+  || stockScenes[0].variables.fallbackText !== "ocean waves conclusion" || stockScenes[0].narration !== "The waves move across the ocean toward the shore.") throw new Error("Packed Pexels mode did not select stock independently of AI allowance");
+missStock = true;
+const missedStock = parseEvents(await (await handler(new Request("https://app.example/api?action=response", {method: "POST", body: JSON.stringify({prompt: "Ocean", mode: "pexels"})}))).text());
+const missedScenes = missedStock.filter(event => event.type === "scene.add").map(event => event.data.scene);
+if (generated !== 0 || searched !== 2 || missedStock.at(-1)?.type !== "response.complete"
+  || missedScenes.length !== 1 || missedScenes[0].templateId !== "chapterTitle" || missedScenes[0].variables.title !== "ocean waves conclusion"
+  || missedScenes[0].narration !== "The waves move across the ocean toward the shore.") throw new Error("Packed Pexels miss lost its authored chapter or invoked generation");
+missStock = false;
+const beforeWelcome = searched;
 const welcome = await (await handler(new Request("https://app.example/api?action=welcome"))).json();
 if (welcome.hero.url !== "https://videos.pexels.com/video-files/11335959/11335959-hd_1920_1080_30fps.mp4" || welcome.hero.type !== "video") throw new Error("Packed default cloud welcome drifted");
 // Welcome still resolves four suggestion cards, but not its curated hero.
-searched -= 4;
-if (generated !== 0 || searched !== 1 || !events.includes("stock.mp4") || !events.includes("response.complete")) throw new Error("Packed generated-video budget did not preserve stock playback");
+if (searched - beforeWelcome !== 4 || generated !== 0) throw new Error("Packed welcome changed response provider accounting");
 `);
   execFileSync(process.execPath, [join(serverConsumer, "budget.mjs")], { cwd: serverConsumer, stdio: "inherit" });
   writeFileSync(join(serverConsumer, "root.mjs"), `
@@ -550,7 +569,7 @@ const resilientBody = await resilientResponse.text();
 const resilientEvents = resilientBody.split("\\n")
   .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
   .map((line) => JSON.parse(line.slice(6)));
-if (generatedCalls !== 2 || stockCalls !== 1) throw new Error("Packed chat did not isolate the failed generated provider");
+if (generatedCalls !== 2 || stockCalls !== 0) throw new Error("Packed chat did not isolate the failed generated provider");
 const openingIndex = resilientEvents.findIndex(({ type }) => type === "data.video-chat-opening");
 const firstSceneIndex = resilientEvents.findIndex(({ type }) => type === "scene.add");
 if (openingIndex < 0 || openingIndex >= firstSceneIndex
@@ -558,11 +577,16 @@ if (openingIndex < 0 || openingIndex >= firstSceneIndex
   throw new Error("Packed chat did not preserve its opening before recovered scenes");
 }
 const resilientScenes = resilientEvents.filter(({ type }) => type === "scene.add").map(({ data }) => data.scene);
-if (JSON.stringify(resilientScenes.map(({ narration, variables }) => [narration, variables.mediaUrl])) !== JSON.stringify([
-  ["Warm water travels around the world.", completedClip], ["Currents connect our oceans.", replacementClip],
+if (JSON.stringify(resilientScenes.map(({ templateId, narration, variables }) => [templateId, narration, variables.mediaUrl ?? variables.title])) !== JSON.stringify([
+  ["cinemaMedia", "Warm water travels around the world.", completedClip], ["chapterTitle", "Currents connect our oceans.", "ocean currents conclusion"],
 ])) throw new Error("Packed chat lost completed or later scenes during recovery");
 if (resilientEvents.some(({ type, data }) => type === "response.error" && data.terminal)
   || resilientEvents.at(-1)?.type !== "response.complete") throw new Error("Packed recovered chat ended fatally");
+for (const scene of resilientScenes) {
+  const preparation = resilientEvents.findIndex(event => event.type === "data.video-chat-preparation" && event.data.sceneId === scene.id && event.data.narration === scene.narration);
+  const emitted = resilientEvents.findIndex(event => event.type === "scene.add" && event.data.scene.id === scene.id);
+  if (preparation < 0 || preparation >= emitted) throw new Error("Packed speech preparation did not precede its resolved scene");
+}
 const recoveredSnapshot = root.parseVideo(resilientEvents.at(-1).data.snapshot);
 if (recoveredSnapshot.scenes.length !== 2) throw new Error("Packed recovered snapshot is not replayable");
 if (!resilientEvents.some(({ type, data }) => type === "response.warning" && data.warning.recoverable)) {
@@ -576,19 +600,19 @@ if (resilientBody.includes(privateCanary) || resilientBody.includes("TimeoutErro
 // Verify the packaged deadline preserves the first scene and produces a safe
 // replayable completion without waiting for application-owned cancellation.
 let deadlineGeneratedCalls = 0;
-let stalledStockSignal;
+let stalledGenerationSignal;
+let deadlineStockCalls = 0;
 const deadlineChat = server.createVideoChatHandler({
   authorize: "none",
   heartbeatMs: false,
+  generateVideoTimeoutMs: 50, generatedClipDurationSec: 2,
   generateText: async () => "Ocean currents move warmth around the world.",
-  generateVideo: async () => {
+  generateVideo: async (_query, context) => {
     if (++deadlineGeneratedCalls === 1) return { type: "video", url: completedClip };
-    throw new Error(privateCanary);
-  },
-  searchMedia: (_query, context) => {
-    stalledStockSignal = context.signal;
+    stalledGenerationSignal = context.signal;
     return new Promise(() => {});
   },
+  searchMedia: () => {deadlineStockCalls++; return {type: "video", url: replacementClip};},
   streamText: () => (async function* () {
     yield ${JSON.stringify(chatPlan("Ocean currents carry warmth.", ["Warm water moves through the ocean.", "Currents connect distant shores."]))};
   })(),
@@ -608,8 +632,8 @@ try {
 } finally {
   clearTimeout(deadlineWatchdog);
 }
-if (performance.now() - deadlineStarted >= 8_000 || !stalledStockSignal?.aborted) {
-  throw new Error("Packed chat did not cancel slow optional stock work within its budget");
+if (performance.now() - deadlineStarted >= 8_000 || !stalledGenerationSignal?.aborted || deadlineStockCalls !== 0 || deadlineGeneratedCalls !== 2) {
+  throw new Error("Packed chat did not cancel slow generated work without crossing media modes");
 }
 const deadlineEvents = deadlineBody.split("\\n")
   .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
@@ -622,8 +646,9 @@ const deadlineVideo = root.parseVideo(deadlineEvents.at(-1).data.snapshot);
 if (deadlineVideo.scenes.length !== 2 || deadlineVideo.scenes[0].narration !== "Warm water moves through the ocean."
   || deadlineVideo.scenes[0].variables.mediaUrl !== completedClip
   || deadlineVideo.scenes[1].narration !== "Currents connect distant shores."
-  || deadlineVideo.scenes[1].variables.mediaUrl !== "") {
-  throw new Error("Packed provider deadline lost completed scenes or unavailable-visual narration");
+  || deadlineVideo.scenes[1].templateId !== "chapterTitle"
+  || deadlineVideo.scenes[1].variables.title !== "ocean currents conclusion") {
+  throw new Error("Packed provider deadline lost completed scenes or its authored chapter narration");
 }
 if (!deadlineEvents.some(({ type, data }) => type === "response.warning" && data.warning.recoverable)
   || /packed-private-provider-canary|TimeoutError|Optional work exceeded/.test(deadlineBody)) {
@@ -822,7 +847,7 @@ const mediaVideo = {
 const error = new VideoError("Safe browser error", { code: "video_failed", cause: new Error("provider secret") });
 const videoChatFetcher = async (input) => {
   const action = new URL(String(input), globalThis.location.href).searchParams.get("action");
-  if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: false, stockMedia: false, transcription: false, modes: ["cinematic"] });
+  if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: false, stockMedia: true, transcription: false, modes: ["cinematic", "pexels"] });
   if (action === "welcome") return Response.json({ hero: null, cards: [{ prompt: "Invent a tiny packed story", media: { type: "video", url: new URL("/first.mp4", globalThis.location.href).href, posterUrl: new URL("/card-poster.svg", globalThis.location.href).href } }] });
   return new Response("missing", { status: 404 });
 };
@@ -883,7 +908,7 @@ createRoot(document.getElementById("root")).render(mediaProbe
     }
     if (!opened) throw new Error("Packed consumer preview did not start");
     await page.waitForTimeout(500);
-    await page.waitForFunction(() => globalThis.document.querySelector("#video-chat-hook")?.getAttribute("data-modes") === "cinematic");
+    await page.waitForFunction(() => globalThis.document.querySelector("#video-chat-hook")?.getAttribute("data-modes") === "cinematic,pexels");
     if (await page.locator("#video-chat-hook").getAttribute("data-status") !== "idle") {
       throw new Error("Packed video-chat hook did not initialize");
     }
@@ -1011,13 +1036,18 @@ createRoot(document.getElementById("root")).render(mediaProbe
         return {
           headings: Array.from(element.querySelectorAll("fieldset legend"), (item) => item.textContent),
           switches: element.querySelectorAll('[role="switch"]').length,
+          sources: Array.from(element.querySelectorAll('input[type="radio"]'), input => input.value),
           obsoleteChoices: element.querySelectorAll(".visual-options, .style-options").length,
           fits: box.left >= 0 && box.right <= globalThis.innerWidth && box.top >= 0 && box.bottom <= globalThis.innerHeight,
         };
       });
-      if (settingsState.headings.join() !== "Watching" || settingsState.switches !== 2 || settingsState.obsoleteChoices || !settingsState.fits) {
-        throw new Error("Packed cinematic Settings lost watching controls or reintroduced removed choices: " + JSON.stringify(settingsState));
+      if (settingsState.headings.join() !== "Video source,Watching" || settingsState.sources.join() !== "cinematic,pexels" || settingsState.switches !== 2 || settingsState.obsoleteChoices || !settingsState.fits) {
+        throw new Error("Packed Settings lost media choices, watching controls, or introduced removed choices: " + JSON.stringify(settingsState));
       }
+      await settings.locator('input[value="pexels"]').check();
+      if (!await settings.locator('input[value="pexels"]').isChecked()) throw new Error("Packed Settings cannot select Pexels");
+      await settings.locator('input[value="cinematic"]').check();
+      if (!await settings.locator('input[value="cinematic"]').isChecked()) throw new Error("Packed Settings cannot restore AI mode");
       if (process.env.VANILLASKY_PACKED_SCREENSHOT_DIR) {
         await page.screenshot({ animations: "disabled", path: join(process.env.VANILLASKY_PACKED_SCREENSHOT_DIR, viewport.width < 600 ? "settings-spacing-mobile.png" : "settings-spacing-desktop.png") });
       }

@@ -1,11 +1,13 @@
-/** The director combines footage and graphics per scene. */
+import type { VideoChatMode } from "./types";
+
 export interface VisualMode {
-  id: "cinematic";
+  id: VideoChatMode;
   label: string;
   note: string;
 }
 export const visualModes: VisualMode[] = [
-  { id: "cinematic", label: "Cinematic", note: "A coherent mix of footage and editorial graphics" },
+  { id: "cinematic", label: "AI video", note: "Generated footage shaped by your prompt" },
+  { id: "pexels", label: "Pexels", note: "Stock footage with lower generation costs" },
 ];
-export const defaultMode = visualModes[0];
-export const modeById = (_id: string): VisualMode => defaultMode;
+export const defaultMode = visualModes[0]!;
+export const modeById = (id: string): VisualMode => visualModes.find((mode) => mode.id === id) ?? defaultMode;

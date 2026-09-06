@@ -5,11 +5,45 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      integrity: ${{ steps.pack.outputs.integrity }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install the locked npm CLI
+        run: npm install --global npm@11.17.0
+      - run: npm ci --no-audit
+      - id: pack
+        run: node scripts/chat-candidate.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-candidate
+          path: |
+            artifacts/chat-candidate/package.tgz
+            artifacts/chat-candidate/candidate.json
+          retention-days: 3
+
   verify:
+    needs: candidate
+    env:
+      VANILLASKY_PACKED_TARBALL: ${{ github.workspace }}/artifacts/chat-candidate/package.tgz
+      VANILLASKY_EXPECTED_INTEGRITY: ${{ needs.candidate.outputs.integrity }}
+      VANILLASKY_EXPECTED_SHA256: ${{ needs.candidate.outputs.sha256 }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -25,17 +59,25 @@ jobs:
       - name: Install the locked npm CLI
         run: npm install --global npm@11.17.0
       - run: npm ci --no-audit
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdk-candidate
+          path: artifacts/chat-candidate
       - run: npm run registry:check
       - run: npm run lint
       - run: npm run typecheck
+      - run: npx tsc --noEmit --project dev/chat/tsconfig.json
       - run: npm test
       - run: npm run acceptance:chat
-      - run: npm run build
       - run: npm run verify:package-size
       - run: npm audit --audit-level=low --omit=dev
-      - run: npm pack --dry-run
 
   consumer-gate:
+    needs: candidate
+    env:
+      VANILLASKY_PACKED_TARBALL: ${{ github.workspace }}/artifacts/chat-candidate/package.tgz
+      VANILLASKY_EXPECTED_INTEGRITY: ${{ needs.candidate.outputs.integrity }}
+      VANILLASKY_EXPECTED_SHA256: ${{ needs.candidate.outputs.sha256 }}
     if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
@@ -54,12 +96,16 @@ jobs:
       - name: Install the locked npm CLI
         run: npm install --global npm@11.17.0
       - run: npm ci --no-audit
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdk-candidate
+          path: artifacts/chat-candidate
       # The API surface check is React-free; the other clean-room gates exercise a browser.
       - run: npx playwright install chromium
         if: matrix.gate != 'public-api'
-      - run: npm run verify:api
+      - run: node scripts/verify-public-api-surface.mjs
         if: matrix.gate == 'public-api'
-      - run: npm run verify:package
+      - run: node scripts/verify-packed-package.mjs
         if: matrix.gate == 'packed-package'
       - run: npm run verify:onboarding
         if: matrix.gate == 'onboarding'
@@ -81,6 +127,11 @@ jobs:
           fi
 
   provider-gate:
+    needs: candidate
+    env:
+      VANILLASKY_PACKED_TARBALL: ${{ github.workspace }}/artifacts/chat-candidate/package.tgz
+      VANILLASKY_EXPECTED_INTEGRITY: ${{ needs.candidate.outputs.integrity }}
+      VANILLASKY_EXPECTED_SHA256: ${{ needs.candidate.outputs.sha256 }}
     if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
@@ -97,6 +148,10 @@ jobs:
       - name: Install the locked npm CLI
         run: npm install --global npm@11.17.0
       - run: npm ci --no-audit
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdk-candidate
+          path: artifacts/chat-candidate
       - run: npx playwright install chromium
       - run: npm run verify:nextjs
         env:
@@ -160,7 +215,11 @@ jobs:
       - run: npm test -- tests/react.test.tsx tests/use-video-chat.test.tsx tests/video-chat-component.test.tsx tests/video-chat-voice-cancellation.test.tsx tests/player.test.tsx tests/template-kit.test.tsx tests/templates.test.tsx
       - run: npm run build
 
-  browser-compatibility:
+  browser-gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     container:
@@ -190,12 +249,31 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            npx playwright test
+            npx playwright test --project=${{ matrix.browser }} --workers=1
+            if [[ "${{ matrix.browser }}" == "chromium" ]]; then
+              npx playwright test --config dev/chat/playwright.config.ts
+            fi
           '
       - name: Preserve browser playback evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: browser-playback-evidence
+          name: browser-playback-evidence-${{ matrix.browser }}
           path: test-results/
           retention-days: 3
+
+  # Keep branch protection stable while each browser has its own decoder and audio sink.
+  browser-compatibility:
+    if: always() && github.event_name == 'pull_request'
+    needs: browser-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every browser gate
+        env:
+          RESULT: ${{ needs.browser-gate.result }}
+        run: |
+          if [[ "$RESULT" != "success" ]]; then
+            echo "Browser compatibility failed: $RESULT" >&2
+            exit 1
+          fi

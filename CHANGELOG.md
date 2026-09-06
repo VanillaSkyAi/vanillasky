@@ -4,6 +4,15 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.4
+
+- Show the canonical chapter immediately after submitting a prompt; remove the separate gradient loading placeholder and opening stock requests.
+- Separate AI video and Pexels in Settings. AI mode uses generated footage only; Pexels performs full bounded video search without AI-video calls. Missing or late footage becomes an authored chapter with complete narration.
+- Prepare speech while footage generates, reuse prepared lines, and limit concurrent speech requests so an answer does not flood host admission. Describe HTTP throttling as a retryable request limit.
+- Keep silent footage looping for the finite narrated scene, and recover missing URLs or rejected playback to a chapter rather than an unavailable screen. Preserve user pause, cancellation and replay.
+- Allow hosts to configure the actual generated clip duration (default five seconds) and apply scene-position deadlines to media preparation.
+- Add optional host-only phase diagnostics with bounded timing and fixed recovery reasons, without retaining prompt or provider content.
+
 ## 0.10.3
 
 - Remove the implicit documentary visual style from the chat interface; preserve explicitly supplied application styles and let the answer direct its own look.

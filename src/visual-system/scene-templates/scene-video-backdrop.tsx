@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getBackgroundTransform } from "../backgrounds";
-import { useMediaAudio, useNarrationPreroll } from "./external-video-backdrop";
+import { useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 
 export interface SceneVideoBackdropProps {
@@ -54,6 +54,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   onError,
 }) => {
   const inheritedAudio = useMediaAudio();
+  const reportMediaFailure = useMediaFailure();
   const inheritedPreroll = useNarrationPreroll();
   const rewindPreroll = preparingNarration || inheritedPreroll;
   const resolvedMuted = muted ?? inheritedAudio.muted;
@@ -63,7 +64,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>();
   const [waitingKey, setWaitingKey] = useState<string>();
   const [exhaustedKey, setExhaustedKey] = useState<string>();
-  const continuityReplay = useRef<string | undefined>(undefined);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const startedVideoUrl = useRef<string | undefined>(undefined);
   const startedPlaybackId = useRef<string | undefined>(undefined);
@@ -75,6 +76,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) {
       setExhaustedKey(videoPresentationKey);
       onError?.();
+      reportMediaFailure?.();
     }
   };
   const fitDuration = useCallback((video: HTMLVideoElement) => {
@@ -87,13 +89,12 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   }, [fitDuration]);
   const continueMotion = (video: HTMLVideoElement) => {
     if (!isPlaying) return;
-    // The planner supplies short shots as the normal coverage. A single replay
-    // bridges exceptional speech overrun/late delivery; never loop indefinitely.
-    if (!resolvedMuted || continuityReplay.current === videoPresentationKey) {
-      setExhaustedKey(videoPresentationKey);
+    // The finite scene clock bounds silent coverage. Speech may outlast a
+    // short clip; repeat motion until the scene ends, never audible dialogue.
+    if (!resolvedMuted) {
+      unavailable();
       return;
     }
-    continuityReplay.current = videoPresentationKey;
     video.currentTime = 0;
     void video.play().catch(unavailable);
   };

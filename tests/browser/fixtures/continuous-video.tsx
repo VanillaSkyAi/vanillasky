@@ -42,13 +42,13 @@ function App() {
     await voice.speak("Opening cue", { signal: new AbortController().signal });
     const prepared = await voice.prepare(text);
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [{
-      id: "one", templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video" },
+      id: "one", templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
       timing: { fixedDuration: prepared.seconds }, narration: text,
     }] });
     const sample = () => {
       const clip = document.querySelector("video");
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
       } else requestAnimationFrame(sample);

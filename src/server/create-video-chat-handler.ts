@@ -131,6 +131,18 @@ export interface VideoChatHandlerOptions extends Pick<
   maxGeneratedVideos?: number;
   /** Generated media deadline in milliseconds, 1–120000. Defaults to 15000. Host providers must honor cancellation. */
   generateVideoTimeoutMs?: number;
+  /** Provider-supported clip duration in seconds, 2–20. Defaults to 5; does not change provider billing configuration. */
+  generatedClipDurationSec?: number;
+  /** Safe host-only phase timings; never includes prompts, narration, media URLs or provider error text. */
+  onDiagnostic?: (event: {
+    requestId: string;
+    mode: VideoChatMode;
+    phase: "request-accepted" | "opening-authored" | "shot-authored" | "media-start" | "media-end" | "media-skipped";
+    elapsedMs: number;
+    sceneId?: string;
+    durationMs?: number;
+    reason?: "ready" | "empty" | "provider-error" | "timeout" | "cancelled" | "allowance" | "deadline" | "not-configured";
+  }) => unknown;
   /** Trusted application guidance appended to the general-purpose response brief. */
   instructions?: string;
   /** Application-owned prompts and visual searches shown before the first turn. */
@@ -214,8 +226,8 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
   const body = record(value, "request");
   allowedKeys(body, ["prompt", "opening", "mode", "orientation", "conversation", "style"], "request");
   const mode = body.mode ?? "cinematic";
-  if (mode !== "cinematic") {
-    throw new Error("request.mode must be cinematic");
+  if (mode !== "cinematic" && mode !== "pexels") {
+    throw new Error("request.mode must be cinematic or pexels");
   }
   const orientation = body.orientation ?? "landscape";
   if (orientation !== "portrait" && orientation !== "landscape") {
@@ -317,9 +329,31 @@ function resequenceEvent(event: VideoEvent, sequence: number): VideoEvent {
   } as VideoEvent;
 }
 
+const VIDEO_CHAT_PREPARATION_EVENT_TYPE = "data.video-chat-preparation" as const;
+type Preparation = { sceneId: string; narration: string };
+interface PreparationChannel {
+  queue: Preparation[];
+  changed: Promise<void>;
+  publish: (value: Preparation) => void;
+}
+function createPreparationChannel(): PreparationChannel {
+  let wake!: () => void;
+  const channel: PreparationChannel = {
+    queue: [], changed: new Promise<void>(resolve => { wake = resolve; }),
+    publish(value) {
+      channel.queue.push(value);
+      wake();
+      channel.changed = new Promise<void>(resolve => { wake = resolve; });
+    },
+  };
+  return channel;
+}
+
 function streamVideoChatOpening(
   response: Response,
   openingReady: Promise<OpeningSubject | undefined>,
+  preparations: PreparationChannel,
+  cancel: () => void,
 ): Response {
   if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) return response;
   const events = decodeVideoSse(response.body)[Symbol.asyncIterator]();
@@ -338,6 +372,7 @@ function streamVideoChatOpening(
                 extensions: Array.from(new Set([
                   ...(first.value.data.capabilities?.extensions ?? []),
                   VIDEO_CHAT_OPENING_EVENT_TYPE,
+                  VIDEO_CHAT_PREPARATION_EVENT_TYPE,
                 ])),
               },
             },
@@ -363,10 +398,23 @@ function streamVideoChatOpening(
         sequence += 1;
       }
 
-      let next = await nextEvent;
-      while (!next.done) {
-        yield encodeVideoSseEvent(resequenceEvent(next.value, sequence++));
-        next = await events.next();
+      let pending = nextEvent;
+      while (true) {
+        while (preparations.queue.length) {
+          const data = preparations.queue.shift()!;
+          yield encodeVideoSseEvent({ protocolVersion: first.value.protocolVersion,
+            runId: first.value.runId, sequence, eventId: `${first.value.runId}:${sequence}`,
+            type: VIDEO_CHAT_PREPARATION_EVENT_TYPE, data });
+          sequence += 1;
+        }
+        const next = await Promise.race([
+          pending.then(value => ({ value })),
+          preparations.changed.then(() => undefined),
+        ]);
+        if (!next || preparations.queue.length) continue;
+        if (next.value.done) break;
+        yield encodeVideoSseEvent(resequenceEvent(next.value.value, sequence++));
+        pending = events.next();
       }
     } finally {
       await events.return?.(undefined);
@@ -392,6 +440,7 @@ function streamVideoChatOpening(
       }
     },
     async cancel() {
+      cancel();
       completed = true;
       await iterator.return?.();
     },
@@ -469,6 +518,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     mediaConcurrency = 5,
     maxGeneratedVideos = 5,
     generateVideoTimeoutMs = 15_000,
+    generatedClipDurationSec = 5,
   } = options;
   // Forward only the chat contract, including for untyped JavaScript callers.
   const videoOptions = {
@@ -486,6 +536,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
   if (!Number.isFinite(maxBodyBytes) || maxBodyBytes <= 0) throw new Error("maxBodyBytes must be positive");
 
   if (!Number.isSafeInteger(generateVideoTimeoutMs) || generateVideoTimeoutMs < 1 || generateVideoTimeoutMs > 120_000) throw new Error("generateVideoTimeoutMs must be an integer from 1 to 120000");
+  if (!Number.isFinite(generatedClipDurationSec) || generatedClipDurationSec < 2 || generatedClipDurationSec > 20) throw new Error("generatedClipDurationSec must be from 2 to 20");
   if (!Number.isSafeInteger(maxGeneratedVideos) || maxGeneratedVideos < 0) throw new Error("maxGeneratedVideos must be a nonnegative safe integer");
 
   const capabilities: VideoChatCapabilities = {
@@ -494,7 +545,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     generatedVideo: generateVideo != null,
     stockMedia: searchMedia != null,
     transcription: transcribe != null,
-    modes: ["cinematic"],
+    modes: searchMedia ? ["cinematic", "pexels"] : ["cinematic"],
   };
   const welcomePrompts = (welcomeOptions?.prompts ?? DEFAULT_WELCOME_PROMPTS).slice(0, 4);
   const heroQuery = welcomeOptions?.heroQuery;
@@ -505,13 +556,39 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     requestId: string,
     openingProvided: boolean,
     openingChannel: OpeningChannel,
-    openingLine?: string,
+    openingLine: string | undefined,
+    mode: VideoChatMode,
+    preparations: PreparationChannel,
   ) => {
-    const generatedVideoAvailable = generateVideo != null && maxGeneratedVideos > 0;
+    const startedAt = Date.now();
+    type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
+    const diagnose = (event: Omit<Diagnostic, "requestId" | "mode" | "elapsedMs">) => {
+      try { void Promise.resolve(options.onDiagnostic?.({ requestId, mode, elapsedMs: Math.max(0, Date.now() - startedAt), ...event })).catch(() => undefined); }
+      catch { /* Diagnostics cannot change response delivery. */ }
+    };
+    diagnose({ phase: "request-accepted" });
+    const generatedVideoAvailable = mode === "cinematic" && generateVideo != null && maxGeneratedVideos > 0;
     let lifecycle: VideoGenerationLifecycleSink | undefined;
     let generatedAttempts = 0;
+    // The first media request starts the response visual clock. Later queued
+    // shots get their narrative offset, rather than a fresh full startup wait.
+    let mediaStartedAt: number | undefined;
+    let mediaIndex = 0;
     const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
       ? async (query, context) => {
+          mediaStartedAt ??= Date.now();
+          const remainingMs = mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now();
+          // A delayed authored shot cannot meet a deadline that already passed.
+          // Settle its chapter without starting billable work or using allowance.
+          if (remainingMs <= 0) { diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: "deadline" }); return null; }
+          if (mode === "cinematic" && (!generateVideo || generatedAttempts >= maxGeneratedVideos)) {
+            diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: !generateVideo ? "not-configured" : "allowance" });
+            return null;
+          }
+          if (mode === "pexels" && !searchMedia) {
+            diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: "not-configured" });
+            return null;
+          }
           const mediaContext: VideoChatMediaContext = {
             purpose: "response",
             orientation: context.input.orientation ?? "landscape",
@@ -525,13 +602,19 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           const attempt = async (resolver: VideoChatMediaResolver | undefined, timeoutMs: number) => {
             context.signal.throwIfAborted();
             if (!resolver) return null;
+            const mediaStart = Date.now();
+            diagnose({ phase: "media-start", sceneId: context.scene.id });
             try {
               const result = sanitizeVideoChatMedia(await withDeadline(
                 (signal) => resolver(query, { ...mediaContext, signal }), timeoutMs, context.signal,
               ));
               context.signal.throwIfAborted();
+              diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
+                reason: result && (result.type === "video" || (options.templates && resolver === searchMedia)) ? "ready" : "empty" });
               return result;
             } catch (cause) {
+              diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
+                reason: context.signal.aborted ? "cancelled" : cause instanceof DOMException && cause.name === "TimeoutError" ? "timeout" : "provider-error" });
               // A provider deadline is local to this shot. Only cancellation of
               // the response itself stops the remaining scenes and providers.
               context.signal.throwIfAborted();
@@ -541,7 +624,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           };
           if (generatedVideoAvailable && (!options.templates || context.scene.variables.mediaSource === "generate")) {
             const generated = generatedAttempts < maxGeneratedVideos
-              ? (generatedAttempts++, await attempt(generateVideo, generateVideoTimeoutMs))
+              ? (generatedAttempts++, await attempt(generateVideo, remainingMs))
               : null;
             if (generated?.type === "video") return generated;
             lifecycle?.reportWarning?.({
@@ -551,7 +634,8 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
               recoverable: true,
             });
           }
-          const stock = await attempt(searchMedia, 3_000);
+          if (mode !== "pexels") return null;
+          const stock = await attempt(searchMedia, Math.min(3_000, remainingMs));
           if (stock && (options.templates || stock.type === "video")) return stock;
           return null;
         }
@@ -579,12 +663,21 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         },
         includeRawProviderData: videoOptions.includeRawProviderData,
         openingLine,
-        publishOpening: openingChannel.publish,
+        publishOpening: opening => {
+          if (opening) diagnose({ phase: "opening-authored" });
+          openingChannel.publish(opening);
+        },
+        prepareScene: scene => {
+          diagnose({ phase: "shot-authored", sceneId: scene.sceneId });
+          if (!resolveSelected) diagnose({ phase: "media-skipped", sceneId: scene.sceneId, reason: "not-configured" });
+          preparations.publish(scene);
+        },
+        generatedClipDurationSec,
         resolveMedia: resolveSelected,
         mediaConcurrency,
       }),
       authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
-      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos), instructions?.trim()]
+      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode), instructions?.trim()]
         .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
     return handler;
@@ -722,12 +815,14 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       const openingChannel = createOpeningChannel(input.opening
         ? { line: input.opening, keyword: "" }
         : undefined);
+      const preparations = createPreparationChannel();
+      const cancellation = new AbortController();
       const forwardedHeaders = new Headers(request.headers);
       forwardedHeaders.delete("content-length");
       const videoRequest = new Request(request.url, {
         method: "POST",
         headers: forwardedHeaders,
-        signal: request.signal,
+        signal: AbortSignal.any([request.signal, cancellation.signal]),
         body: JSON.stringify({
           protocolVersion: VIDEO_PROTOCOL_VERSION,
           requestId,
@@ -751,8 +846,10 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         input.opening != null,
         openingChannel,
         input.opening,
+        input.mode,
+        preparations,
       )(videoRequest);
-      return streamVideoChatOpening(response, openingChannel.ready);
+      return streamVideoChatOpening(response, openingChannel.ready, preparations, () => cancellation.abort());
     }
 
     try {

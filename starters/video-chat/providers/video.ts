@@ -1,6 +1,8 @@
 import { fal } from "@fal-ai/client";
 import type { VideoChatHandlerOptions } from "@vanillaskyai/video/server";
 
+// Change only to a duration supported by the selected model and your allowance.
+const CLIP_DURATION_SEC = 5;
 const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? "minimax/h3-max-turbo/text-to-video";
 
 async function filmScene(
@@ -23,7 +25,7 @@ async function filmScene(
           "Natural scene sound only when appropriate. No speech, dialogue, singing, music or voiceover; narration is added separately.",
           generatedLook,
         ].filter(Boolean).join("\n\n"),
-        duration: 5,
+        duration: CLIP_DURATION_SEC,
         resolution: "480P",
         aspect_ratio: orientation === "portrait" ? "9:16" : "16:9",
         prompt_expansion_mode: "balanced",
@@ -44,7 +46,8 @@ async function filmScene(
 }
 
 /** Optional generated video and transcription; credentials remain server-only. */
-export const videoProvider: Pick<VideoChatHandlerOptions, "generateVideo" | "transcribe"> = {
+export const videoProvider: Pick<VideoChatHandlerOptions, "generateVideo" | "transcribe" | "generatedClipDurationSec"> = {
+  generatedClipDurationSec: CLIP_DURATION_SEC,
   generateVideo: process.env.FAL_KEY
     ? async (query, { generatedLook, orientation, signal, scene }) => ({
         url: await filmScene(query, generatedLook, orientation, signal, typeof scene?.variables.shotDirection === "string" ? scene.variables.shotDirection : undefined),

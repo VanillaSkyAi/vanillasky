@@ -58,14 +58,12 @@ browser speech. Supplying `generateSpeech`, `transcribe`, `searchMedia`, or
 structural and provider-neutral; their SDKs and credentials remain application
 dependencies and never enter the browser bundle.
 
-The planner emits a 6-9 word hook first, then continues into the scenes in the
-same stream. The stock lookup is a separate cancellable request, so it cannot
-delay speech or planning. A welcome card can carry a prewritten `opening`, which
-starts immediately with its already-loaded media. When generated shots are available, the
-same first streamed object reserves the exact first body scene. Its clip starts
-generating while the planner continues the story. Playback begins after its
-contiguous preparation cushion, without requiring the entire plan, and normal narration is written in that same planner call rather than
-through a second model round trip.
+The planner emits a short spoken opening, then continues the answer in the same
+stream. The default UI shows a chapter immediately. A welcome card can carry a
+prewritten `opening`, whose narration starts without waiting for the model.
+Each authored body beat prepares speech and selected footage together. Playback
+starts after its contiguous preparation cushion, without requiring the entire
+plan or a second model call for narration.
 
 The matching complete React interface is one component and one scoped style
 import:
@@ -84,9 +82,9 @@ export function App() {
 For a custom interface, use `useVideoChat` and render its `turns`, `welcome`,
 `suggestions`, `caption`, and `status`; the hook owns their network and playback
 lifecycle. Pass a selected card through
-`chat.ask(card.prompt, { opening: card.opening, openingMedia: card.media })` to
-start its hook and reuse its footage immediately. For typed prompts, the hook
-and media keyword arrive through the response stream automatically.
+`chat.ask(card.prompt, { opening: card.opening })` to start its hook immediately.
+Custom interfaces can still pass and render `openingMedia`; the default UI uses
+the chapter. Typed prompts receive their authored opening through the stream.
 
 Any AI SDK `LanguageModel` works in both `streamText` and `generateText`. Keep
 selection in one server-only module when an application supports several text

@@ -4,9 +4,9 @@
 
 The fastest VanillaSky integration is the complete, general-purpose video chat.
 It starts with a template introduction and browser voice. Add the video adapter
-and its server key for generated footage, plus reviewed stock for fallback.
+and its server key for generated footage, or choose Pexels for stock footage.
 Without a media provider, the answer retains narration and subtitles with an
-unavailable-visual state. Generated speech is optional.
+chapter template. Generated speech is optional.
 
 ## Create the app
 
