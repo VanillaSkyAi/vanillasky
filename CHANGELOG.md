@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.0
+
 ### Breaking
 
 - Remove `focusCards` from the built-in catalog and generated source templates, as requested. Existing callers must replace it with narration over `cinemaMedia`, or an appropriate comparison/timeline when supported by their content. Persisted videos using that ID must be regenerated before playback with the new catalog.
