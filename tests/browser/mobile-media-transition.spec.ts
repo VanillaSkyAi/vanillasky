@@ -122,16 +122,19 @@ test("waits for real first and boundary frames without posters or a second iPhon
   const context = await browser.newContext({viewport: {width:390,height:844}, isMobile:true, hasTouch:true, userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1"});
   const page = await context.newPage();
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
-  await page.route("**/waterfall.mp4*", async route => { await new Promise(resolve => setTimeout(resolve, 500)); await route.continue(); });
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?noPoster");
+  const codec = process.platform === "linux" ? "VP8" : "H264";
+  const firstFile = codec === "VP8" ? "waterfall-hold.webm" : "waterfall.mp4";
+  const secondFile = codec === "VP8" ? "tram.webm" : "tram.mp4";
+  await page.route(`**/${firstFile}*`, async route => { await new Promise(resolve => setTimeout(resolve, 500)); await route.continue(); });
+  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?noPoster${codec === "VP8" ? "&webm" : ""}`);
   await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.filter(entry => entry.kind === "scene-narration-cue").length ?? 0)).toBeGreaterThanOrEqual(1);
   await expect(page.locator("video")).toHaveCount(1);
   const firstId = await page.locator("video").getAttribute("data-probe-video-id");
   await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.some(entry => entry.kind === "scene-narration-cue" && entry.sceneId === "second-video") ?? false), {timeout:10000}).toBe(true);
   const cues = await page.evaluate(() => window.__mobileMediaTransitionProbe?.filter(entry => entry.kind === "scene-narration-cue") ?? []);
   expect(cues.every(entry => Number(entry.readyState) >= 2)).toBe(true);
-  expect(String(cues[0].currentSrc)).toContain("waterfall.mp4");
-  expect(String(cues[1].currentSrc)).toContain("tram.mp4");
+  expect(String(cues[0].currentSrc)).toContain(firstFile);
+  expect(String(cues[1].currentSrc)).toContain(secondFile);
   expect(await page.locator("video").getAttribute("data-probe-video-id")).toBe(firstId);
   expect(errors).toEqual([]);
   await page.screenshot({path: test.info().outputPath("cinematic-no-poster.png"), fullPage: true});
@@ -139,6 +142,7 @@ test("waits for real first and boundary frames without posters or a second iPhon
     sourceCommit: process.env.TEST_SOURCE_COMMIT ?? "unrecorded",
     browser: browserName, browserVersion: browser.version(),
     profile: "Playwright WebKit with iPhone viewport and user agent; not a physical device",
+    codec, platform: process.platform, networkDelayMs: 500,
     videoElementIdentityPreserved: true, pageErrors: errors, narrationCues: cues,
   }, null, 2));
   await context.close();

@@ -11,7 +11,7 @@ ffmpeg -i waterfall.mp4 -an -c:v libvpx -b:v 2M -crf 10 -pix_fmt yuv420p waterfa
 ```
 
 The continuous-narration and sustained decoder-identity proofs select VP8
-derivatives on Linux WebKit. First-frame tests retain their original MP4 assets. Linux WebKit
+derivatives on Linux WebKit, including the no-poster boundary test. Linux WebKit
 26.5 in Playwright 1.62 can stop advancing fully buffered native H264 MP4 video
 around 0.27 seconds, including a bare video without the SDK. A baseline H264
 re-encode also reproduced that failure. The VP8 fixture keeps the complete
@@ -52,3 +52,11 @@ reported waiting at 0.267 seconds in the third clip; its retry at 0.269 seconds
 in the second clip. Both had complete local 200 media responses. The bounded
 stall recovery correctly removed that failed decoder, so its successor could
 not satisfy an assertion intended for healthy, continuously decoding footage.
+
+The no-poster boundary test uses the same Linux codec selection and still delays
+its selected first clip by 500 ms. It preserves exact source, readiness and
+one-decoder assertions; its evidence records codec, platform and delay. In run
+`34061674490`, the first H264 attempt emitted waiting at 0.235 seconds after
+initial readiness, then the next scene correctly received a replacement decoder.
+The retry passed, confirming why that native codec cannot establish deterministic
+healthy-decoder identity. macOS continues exercising H264 for this boundary test.
