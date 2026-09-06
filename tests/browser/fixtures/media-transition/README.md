@@ -10,8 +10,8 @@ Reproduce it from the retained MP4:
 ffmpeg -i waterfall.mp4 -an -c:v libvpx -b:v 2M -crf 10 -pix_fmt yuv420p waterfall-hold.webm
 ```
 
-The continuous-narration proof selects this derivative on Linux WebKit. Existing
-MP4 transition and first-frame tests retain their original assets. Linux WebKit
+The continuous-narration and sustained decoder-identity proofs select VP8
+derivatives on Linux WebKit. First-frame tests retain their original MP4 assets. Linux WebKit
 26.5 in Playwright 1.62 can stop advancing fully buffered native H264 MP4 video
 around 0.27 seconds, including a bare video without the SDK. A baseline H264
 re-encode also reproduced that failure. The VP8 fixture keeps the complete
@@ -36,3 +36,18 @@ and the complete original paragraph to reach their real `ended` events.
 These are playback mechanics fixtures, not examples of model-generated creative
 quality. Browser recordings are silent; the exact paragraph remains separately
 available in `paragraph.wav`. No provider calls or generated media are involved.
+
+The decoder-identity test uses `waterfall-hold.webm`, `tram.webm`, and
+`sunflowers.webm` on Linux WebKit only. The latter two are produced with the same
+command above, substituting the corresponding MP4 filename. The test still
+requires the same video element through every cut and a full loop, and now
+requires over one second of presented motion in each scene. Retained proof JSON
+records the codec and platform. macOS WebKit continues using all original H264
+files; the MP4 sources are retained. A separate native fault-injection test stops
+frame delivery and verifies bounded chapter recovery without stopping the player.
+
+PR93 run `34060349041` retained the native H264 limitation: the original run
+reported waiting at 0.267 seconds in the third clip; its retry at 0.269 seconds
+in the second clip. Both had complete local 200 media responses. The bounded
+stall recovery correctly removed that failed decoder, so its successor could
+not satisfy an assertion intended for healthy, continuously decoding footage.

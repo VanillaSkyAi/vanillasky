@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
-test("keeps the real media element across an iPhone video-to-video cut", async ({ browser, browserName }) => {
+test("keeps the real media element across an iPhone video-to-video cut", async ({ browser, browserName }, info) => {
   test.skip(browserName !== "webkit", "The persistent plane is specific to decoder-constrained WebKit.");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -12,7 +12,9 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
   });
   const page = await context.newPage();
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html");
+  const codec = process.platform === "linux" ? "VP8" : "H264";
+  const extension = codec === "VP8" ? "webm" : "mp4";
+  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html${codec === "VP8" ? "?webm" : ""}`);
 
   const player = page.getByTestId("video-player");
   await expect(player).toHaveAttribute("data-playing", "true");
@@ -22,6 +24,9 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
   await expect(firstVideo).toHaveCount(1);
   await expect.poll(() => firstVideo.evaluate((video: HTMLVideoElement) => video.readyState)).toBeGreaterThanOrEqual(2);
   const videoIdBeforeCut = await firstVideo.getAttribute("data-probe-video-id");
+  await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.some(entry =>
+    entry.kind === "presented-frame" && entry.sceneId === "first-video" && Number(entry.mediaTime) > 1,
+  ) ?? false)).toBe(true);
   const secondPoster = page.locator('img[src*="tram.jpg"]');
   await expect(secondPoster).toHaveCount(1);
   await expect(secondPoster).toHaveAttribute("data-video-poster-plane", "prepared");
@@ -40,11 +45,11 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
   await expect(videoAfterCut).toHaveCount(1);
 
   expect(await videoAfterCut.getAttribute("data-probe-video-id")).toBe(videoIdBeforeCut);
-  await expect(videoAfterCut).toHaveAttribute("src", /tram\.mp4/);
+  await expect(videoAfterCut).toHaveAttribute("src", new RegExp(`tram\\.${extension}`));
 
   await expect.poll(() => page.evaluate(() =>
     window.__mobileMediaTransitionProbe?.some((entry) =>
-      entry.kind === "presented-frame" && String(entry.currentSrc).includes("tram.mp4"),
+      entry.kind === "presented-frame" && entry.sceneId === "second-video" && Number(entry.mediaTime) > 1,
     ) ?? false,
   )).toBe(true);
 
@@ -56,10 +61,10 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
     image.complete && image.naturalWidth > 0,
   )).toBe(true);
   expect(await page.locator("video").getAttribute("data-probe-video-id")).toBe(videoIdBeforeCut);
-  await expect(page.locator("video")).toHaveAttribute("src", /sunflowers\.mp4/);
+  await expect(page.locator("video")).toHaveAttribute("src", new RegExp(`sunflowers\\.${extension}`));
   await expect.poll(() => page.evaluate(() =>
     window.__mobileMediaTransitionProbe?.some((entry) =>
-      entry.kind === "presented-frame" && entry.sceneId === "third-video",
+      entry.kind === "presented-frame" && entry.sceneId === "third-video" && Number(entry.mediaTime) > 1,
     ) ?? false,
   )).toBe(true);
   const firstSceneFramesBeforeLoop = await page.evaluate(() =>
@@ -77,6 +82,11 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
       entry.kind === "presented-frame" && entry.sceneId === "first-video",
     ).length ?? 0,
   )).toBeGreaterThan(firstSceneFramesBeforeLoop);
+  await writeFile(info.outputPath("decoder-identity-proof.json"), JSON.stringify({
+    codec, platform: process.platform, browser: browserName, browserVersion: browser.version(),
+    physicalDevice: false, videoId: videoIdBeforeCut,
+    events: await page.evaluate(() => window.__mobileMediaTransitionProbe),
+  }));
   await context.close();
 });
 
@@ -127,4 +137,21 @@ test("waits for real first and boundary frames without posters or a second iPhon
     videoElementIdentityPreserved: true, pageErrors: errors, narrationCues: cues,
   }, null, 2));
   await context.close();
+});
+
+
+test("recovers a stalled native decoder independently of healthy source identity", async ({ browser, browserName }) => {
+  test.skip(browserName !== "webkit", "Checks native WebKit recovery.");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1" });
+  try {
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html${process.platform === "linux" ? "?webm" : ""}`);
+    await page.waitForFunction(() => (document.querySelector("video")?.currentTime ?? 0) > .5);
+    // Fault injection stops actual native frame delivery, not the player's clock.
+    await page.evaluate(() => { const video = document.querySelector("video")!; video.pause(); video.dispatchEvent(new Event("waiting")); });
+    await expect(page.locator('[data-scene-fallback="true"]')).toContainText("Water keeps moving", { timeout: 1800 });
+    await expect(page.locator("video")).toHaveCount(0);
+    await expect(page.getByTestId("video-player")).toHaveAttribute("data-playing", "true");
+  } finally { await context.close(); }
 });

@@ -6,6 +6,9 @@ import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 import waterfallVideo from "./media-transition/waterfall.mp4?url";
 import tramVideo from "./media-transition/tram.mp4?url";
 import sunflowersVideo from "./media-transition/sunflowers.mp4?url";
+import waterfallWebm from "./media-transition/waterfall-hold.webm?url";
+import tramWebm from "./media-transition/tram.webm?url";
+import sunflowersWebm from "./media-transition/sunflowers.webm?url";
 import waterfallPoster from "./media-transition/waterfall.jpg?url";
 import tramPoster from "./media-transition/tram.jpg?url";
 import sunflowersPoster from "./media-transition/sunflowers.jpg?url";
@@ -29,6 +32,8 @@ declare global {
   }
 }
 
+const webm = new URLSearchParams(location.search).has("webm");
+document.body.dataset.fixtureCodec = webm ? "VP8" : "H264";
 const probeVideo: Video = {
   schemaVersion: "0.2",
   orientation: "portrait",
@@ -42,7 +47,8 @@ const probeVideo: Video = {
       id: "first-video",
       templateId: "cinemaMedia",
       variables: {
-        mediaUrl: waterfallVideo,
+        mediaUrl: webm ? waterfallWebm : waterfallVideo,
+        fallbackText: "Water keeps moving",
         mediaType: "video",
         mediaPoster: waterfallPoster,
       },
@@ -52,7 +58,8 @@ const probeVideo: Video = {
       id: "second-video",
       templateId: "cinemaMedia",
       variables: {
-        mediaUrl: tramVideo,
+        mediaUrl: webm ? tramWebm : tramVideo,
+        fallbackText: "The tram crosses the city",
         mediaType: "video",
         mediaPoster: tramPoster,
       },
@@ -62,7 +69,8 @@ const probeVideo: Video = {
       id: "third-video",
       templateId: "cinemaMedia",
       variables: {
-        mediaUrl: sunflowersVideo,
+        mediaUrl: webm ? sunflowersWebm : sunflowersVideo,
+        fallbackText: "Flowers turn toward the light",
         mediaType: "video",
         mediaPoster: sunflowersPoster,
       },
