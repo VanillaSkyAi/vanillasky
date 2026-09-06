@@ -26,7 +26,7 @@ for(const orientation of ['landscape','portrait']) for(const id of ['editorialTi
   await expect(frame).toBeVisible();
   const surface=frame.locator('[data-template]').first();
   await expect(surface).not.toHaveCSS('text-shadow','none');
-  if(background==='photo') await expect.poll(()=>frame.locator('*').evaluateAll(elements=>elements.some(element=>getComputedStyle(element).backgroundImage.includes('waterfall.jpg')))).toBe(true);
+  if(background==='photo') await expect.poll(()=>frame.locator('img').evaluateAll(images=>images.some(image=>image instanceof HTMLImageElement && image.currentSrc.includes('waterfall.jpg') && image.complete && image.naturalWidth>0 && getComputedStyle(image).objectFit==='cover'))).toBe(true);
   else await expect.poll(()=>frame.locator('video').evaluateAll(videos=>videos.some(video=>(video as HTMLVideoElement).readyState>=2))).toBe(true);
   await frame.screenshot({path:info.outputPath(`${orientation}-${id}-${background}.png`)});
  });
