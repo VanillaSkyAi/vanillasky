@@ -47,25 +47,25 @@ describe("chat generation budget", () => {
     expect(signal!.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(4000);
     expect(signal!.aborted).toBe(true);
-    expect(await result).toContain(succeeds ? "slow.mp4" : "stock.mp4");
+    expect(await result).toContain(succeeds ? "slow.mp4" : "chapterTitle");
   });
-  it("defaults to five attempts across uniform shots while stock continues", async () => {
+  it("defaults to five attempts across uniform shots while chapters continue", async () => {
     const result = await run(undefined);
     expect(result.generated).toBe(5);
-    expect(result.stock).toBe(2);
-    expect(JSON.stringify(result.events)).not.toContain('"templateId":"chapterTitle"');
+    expect(result.stock).toBe(0);
+    expect(JSON.stringify(result.events)).toContain('"templateId":"chapterTitle"');
   });
   it("enforces a configured attempt limit even when attempts fail", async () => {
     const result = await run(2, true);
     expect(result.generated).toBe(2);
-    expect(result.stock).toBe(7);
+    expect(result.stock).toBe(0);
     expect(JSON.stringify(result.events)).not.toContain("private provider detail");
     expect(result.brief).not.toContain("mediaSource");
   });
   it("supports zero paid attempts", async () => {
     const result = await run(0);
     expect(result.generated).toBe(0);
-    expect(result.stock).toBe(7);
+    expect(result.stock).toBe(0);
   });
   it("does not replay an earlier clip when stock fails", async () => {
     const result = await run(1, false, ["ocean waves", "ocean waves", "ocean waves", "desert dunes"], true, 1);
@@ -73,7 +73,7 @@ describe("chat generation budget", () => {
     // Only the original shot uses its clip; other narration survives without invented footage.
     const scenes = result.events.filter((event) => event.type === "scene.add");
     expect(scenes.filter((event) => JSON.stringify(event).includes("generated.mp4"))).toHaveLength(1);
-    expect(text).not.toContain('"templateId":"chapterTitle"');
+    expect(text).toContain('"templateId":"chapterTitle"');
   });
   it.each([-1, 1.5, Infinity, NaN])("rejects invalid limit %s", (maxGeneratedVideos) => {
     expect(() => createVideoChatHandler({ authorize: "none", streamText: async function* () {}, generateText: async () => "", ...({ maxGeneratedVideos }) })).toThrow("maxGeneratedVideos");

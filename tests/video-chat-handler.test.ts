@@ -168,12 +168,14 @@ describe("createVideoChatHandler", () => {
     expect(events.filter(({type}) => type !== "response.warning").map(({ type }) => type)).toEqual([
       "response.start",
       "data.video-chat-opening",
+      "data.video-chat-preparation",
+      "data.video-chat-preparation",
       "scene.add",
       "scene.add",
       "response.complete",
     ]);
     expect(events[0]).toMatchObject({
-      data: { capabilities: { extensions: ["data.video-chat-opening"] } },
+      data: { capabilities: { extensions: ["data.video-chat-opening", "data.video-chat-preparation"] } },
     });
     expect(events[1]).toMatchObject({
       data: {
@@ -214,7 +216,7 @@ describe("createVideoChatHandler", () => {
       generatedVideo: false,
       stockMedia: false,
       transcription: false,
-      modes: ["cinematic"],
+      modes: ["cinematic", "pexels"],
     });
 
     const speech = await handler(new Request("https://app.example/api/video-chat?action=speech", {
@@ -398,7 +400,7 @@ describe("createVideoChatHandler", () => {
       generatedVideo: true,
       stockMedia: true,
       transcription: true,
-      modes: ["cinematic"],
+      modes: ["cinematic", "pexels"],
     });
 
     const suggestions = await handler(new Request("https://app.example/api/video-chat?action=suggestions", {

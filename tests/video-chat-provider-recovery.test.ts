@@ -14,7 +14,7 @@ function streamText() {
 }
 
 describe("video chat optional provider recovery", () => {
-  it.each(["rejection", "abort", "timeout", "empty", "invalid"])("uses stock and preserves scenes after generated video %s", async (failure) => {
+  it.each(["rejection", "abort", "timeout", "empty", "invalid"])("uses chapters and preserves scenes after generated video %s", async (failure) => {
     const searchMedia = vi.fn(async () => media);
     const handler = createVideoChatHandler({
       authorize: "none", heartbeatMs: false, streamText,
@@ -31,8 +31,8 @@ describe("video chat optional provider recovery", () => {
     const response = await handler(request());
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    expect(searchMedia).toHaveBeenCalledTimes(2);
-    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.variables.mediaUrl)).toEqual([media.url, media.url]);
+    expect(searchMedia).not.toHaveBeenCalled();
+    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["chapterTitle", "chapterTitle"]);
     expect(events.at(-1)?.type).toBe("response.complete");
     expect(events.some((event) => event.type === "response.warning")).toBe(true);
     expect(JSON.stringify(events)).not.toContain("private-provider-detail");
@@ -48,7 +48,7 @@ describe("video chat optional provider recovery", () => {
     const response = await handler(request());
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["cinemaMedia", "cinemaMedia"]);
+    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["chapterTitle", "chapterTitle"]);
     expect(events.at(-1)?.type).toBe("response.complete");
     expect(events.some((event) => event.type === "response.warning")).toBe(true);
     expect(JSON.stringify(events)).not.toMatch(/private-ai-detail|private-stock-detail/);
@@ -85,7 +85,7 @@ describe("video chat optional provider recovery", () => {
 describe("video chat provider deadlines", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("finishes with stock when generated footage ignores cancellation, and ignores late footage", async () => {
+  it("finishes with chapters when generated footage ignores cancellation, and ignores late footage", async () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];
     const late: Array<(value: ResolvedMedia) => void> = [];
@@ -100,20 +100,20 @@ describe("video chat provider deadlines", () => {
     });
     let completed = false;
     const result = handler(request()).then((response) => response.text()).then((text) => { completed = true; return text; });
-    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.advanceTimersByTimeAsync(20_000);
     expect(completed).toBe(true);
     const text = await result;
     expect(signals).toHaveLength(2);
     expect(signals.every((signal) => signal.aborted)).toBe(true);
-    expect(searchMedia).toHaveBeenCalledTimes(2);
+    expect(searchMedia).not.toHaveBeenCalled();
     expect(text).toContain("response.complete");
-    expect(text).toContain(media.url);
+    expect(text).toContain("chapterTitle");
     for (const resolve of late) resolve({ url: "https://media.example/late.mp4", type: "video" });
     await vi.advanceTimersByTimeAsync(0);
     expect(text).not.toContain("late.mp4");
   });
 
-  it("finishes safe scenes when stock also ignores its signal", async () => {
+  it("finishes safe chapters without invoking stock", async () => {
     vi.useFakeTimers();
     const handler = createVideoChatHandler({
       authorize: "none", heartbeatMs: false, streamText,
@@ -124,7 +124,7 @@ describe("video chat provider deadlines", () => {
     const result = handler(request()).then((response) => response.text()).then((text) => { completed = true; return text; });
     await vi.advanceTimersByTimeAsync(3_000);
     expect(completed).toBe(true);
-    expect(await result).toContain('"templateId":"cinemaMedia"');
+    expect(await result).toContain('"templateId":"chapterTitle"');
   });
 
   it.each(["welcome", "opening-media", "suggestions"])("bounds ignored media cancellation for %s", async (action) => {

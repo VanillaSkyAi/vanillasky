@@ -49,6 +49,8 @@ describe("video chat starter", () => {
     expect(speech).toContain("export const speechProvider");
     expect(speech).toContain("abortSignal: signal");
     expect(video).toContain("export const videoProvider");
+    expect(video).toContain("generatedClipDurationSec: CLIP_DURATION_SEC");
+    expect(video).toContain("duration: CLIP_DURATION_SEC");
     expect(video).toContain("Uint8Array.from(audio)");
     expect(video).toContain("signal.throwIfAborted()");
     const packaged = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).files;
