@@ -140,6 +140,29 @@ describe("useVideoChat", () => {
     expect(result.current.currentTurn?.completed).toBe(true);
   });
 
+  it("does not rewrite a customer comparison override when its required photo fails", async () => {
+    const { useVideoChat } = await import("../src/react");
+    vi.stubGlobal("Image", class {
+      onload = null; onerror: (() => void) | null = null; complete = false; naturalWidth = 0;
+      set src(_value: string) { queueMicrotask(() => this.onerror?.()); }
+    });
+    const custom = createRenderTemplateRegistry({ templates: [defineTemplate({
+      id: "comparison", schema: { type: "object", properties: { mediaUrl: { type: "string" }, mediaType: { type: "string" } }, required: ["mediaUrl", "mediaType"] }, component: () => null,
+    })] });
+    const shot: VideoScene = { id: "custom", templateId: "comparison", variables: {
+      mediaUrl: "https://media.example/required.jpg", mediaType: "photo",
+    }, narration: "This custom comparison requires its source photo.", timing: { fixedDuration: 5 } };
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+      ? Promise.resolve(responseStream("custom-failure", [shot])) : base(input, init);
+    const { result } = renderHook(() => useVideoChat({ templates: custom, fetcher, voice: fakeVoice() }));
+    let answer: Video | undefined;
+    await act(async () => { answer = await result.current.ask("Compare these photos"); });
+    expect(answer).toBeUndefined();
+    expect(result.current.currentTurn?.completed).not.toBe(true);
+    expect(result.current.error).toBeDefined();
+  });
+
   it("completes before suggestions and retains context while late suggestions are discarded", async () => {
     const { useVideoChat } = await import("../src/react");
     const requests: Array<{ action: string | null; body?: unknown }> = [];

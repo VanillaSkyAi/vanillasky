@@ -6,6 +6,7 @@ import {
   lazy,
   Suspense,
   useState,
+  useCallback,
   useEffect,
   useSyncExternalStore,
   type CSSProperties,
@@ -302,7 +303,18 @@ export function VideoFrame({
   className,
   style,
 }: VideoFrameProps): ReactElement {
-  const [failedMedia, setFailedMedia] = useState<string>();
+  const [failedMedia, setFailedMedia] = useState<ReadonlySet<string>>(() => new Set());
+  const markMediaFailed = useCallback((key: string | undefined) => {
+    if (!key || !config.scenes.some(scene => sceneReadinessKey(scene) === key)) return;
+    setFailedMedia(previous => previous.has(key) ? previous : new Set([...previous, key]));
+  }, [config.scenes]);
+  useEffect(() => {
+    const currentKeys = new Set(config.scenes.map(sceneReadinessKey));
+    setFailedMedia(previous => {
+      const retained = new Set([...previous].filter(key => currentKeys.has(key)));
+      return retained.size === previous.size ? previous : retained;
+    });
+  }, [config.scenes]);
   const [readyPersistentVideo, setReadyPersistentVideo] = useState<string>();
   const decoderConstrainedDevice = useDecoderConstraint();
   const timeline = resolveVideoTimeline(config);
@@ -431,9 +443,9 @@ export function VideoFrame({
       mediaPosition: String(posterPreparationRange.scene.variables.mediaPosition || "center"),
       backgroundEffect: posterPreparationRange.scene.backgroundEffect ?? config.style.defaultBackgroundEffect,
     } : undefined;
-  const activeMediaFailed = failedMedia === sceneReadinessKey(active.scene);
+  const activeMediaFailed = failedMedia.has(sceneReadinessKey(active.scene));
   const persistentVideoFailed = persistentVideoKey !== undefined &&
-    failedMedia === persistentVideoKey;
+    failedMedia.has(persistentVideoKey);
   const persistentVideoReady = persistentVideoRange !== undefined && (
     String(persistentVideoRange.scene.variables.mediaPoster || "") !== "" ||
     readyPersistentVideo === persistentVideoKey
@@ -476,7 +488,7 @@ export function VideoFrame({
           && target.getAttribute("src") === active.scene.variables.mediaUrl && supportsExternalVideoBackdrop(activeTemplate)
           && (target.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id") === active.scene.id
             || target.closest("[data-persistent-video-scene-id]")?.getAttribute("data-persistent-video-scene-id") === active.scene.id)) {
-          setFailedMedia(sceneReadinessKey(active.scene));
+          markMediaFailed(sceneReadinessKey(active.scene));
         }
       }}
       data-video-frame="ready"
@@ -495,7 +507,7 @@ export function VideoFrame({
       <MountedSceneReadiness scene={active.scene} playing={playing}
         fallback={activeMediaFailed}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
-          ? () => setFailedMedia(sceneReadinessKey(active.scene)) : undefined} />
+          ? () => markMediaFailed(sceneReadinessKey(active.scene)) : undefined} />
       {preparedReadinessRange && <PreparedSceneReadiness scene={preparedReadinessRange.scene} />}
       <div
         data-video-canvas="true"
@@ -563,7 +575,7 @@ export function VideoFrame({
                   opacity: decoderConstrainedTransition ? blendProgress : 0,
                 } : undefined}
                 onReady={() => setReadyPersistentVideo(persistentVideoKey)}
-                onError={() => setFailedMedia(persistentVideoKey)}
+                onError={() => markMediaFailed(persistentVideoKey)}
               />
             </Suspense>
           </div>

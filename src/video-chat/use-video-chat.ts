@@ -1,3 +1,4 @@
+import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 import { recoverSceneMedia } from "../player/recover-scene-media.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
@@ -830,7 +831,9 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               if (controller.signal.aborted) throw cause;
               // An unavailable optional photo must not discard the spoken answer.
               // The fallback remains valid persisted template data, with no invented copy.
-              const fallback = recoverSceneMedia(plannedScene);
+              const override = currentOptions.templates?.getTemplate(plannedScene.templateId);
+              const fallback = !override || supportsExternalVideoBackdrop(override)
+                ? recoverSceneMedia(plannedScene) : undefined;
               if (!fallback) throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" });
               warn(MEDIA_RECOVERY_NOTICE);
               return fallback;
