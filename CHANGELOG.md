@@ -4,6 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- In drop mode, a media miss without usable authored fallback skips only that scene and preserves later valid scenes and the ending. Strict mode still fails. The skipped beat is reported; its content cannot be reconstructed without a usable asset or fallback.
+- Keep first-shot narration within its five-second footage budget and develop the answer in later scenes, without imposing a fixed sentence length on the rest of the video.
+
 ## 0.10.1
 
 - Continue narration through failed built-in media using the authored fallback or the existing graphic on black. Keep the recovery anchor after URL resolution, and observe actual mounted images for photo readiness.
