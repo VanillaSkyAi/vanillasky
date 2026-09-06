@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.9.0
+
+- Continue video playback with subtitles when native browser speech cannot start, without weakening generated-audio readiness or counting paused time toward the fallback.
+
 - Show the spoken opening as a quiet chapter on black when opening media is absent or cannot load. Keep it readable until media or the film is ready, without another generation call.
 
 - Package licensed, self-hosted Roboto fallback fonts for the fixed cinematic typography; remove unused promotional template primitives.
