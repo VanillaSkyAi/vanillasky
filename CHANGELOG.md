@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Accept valid Pexels search results without descriptive URL slugs. Rank available matching metadata above unknown relevance, without requiring most query words to appear in the slug.
+
 ## 0.10.5
 
 - Keep footage visible when native playback reports waiting without another playing event. Observe resumed motion directly and recover to the authored chapter after one second without progress, preserving narration.
