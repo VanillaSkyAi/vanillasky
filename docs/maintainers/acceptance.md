@@ -8,9 +8,12 @@ npm run acceptance:chat
 
 It calls `createVideoChatHandler` with in-memory provider doubles, sends requests,
 and decodes the actual response stream. It requires no credentials, makes no
-provider calls, and spends no FAL credits. The five turns cover an explanation,
-a follow-up carrying the previous answer, a creative story, generated-video
-failure falling back to stock, and both media providers failing back to templates.
+provider calls, and spends no FAL credits. The seven turns cover an explanation,
+a follow-up carrying the previous answer, a creative story, Pexels search,
+AI-video and Pexels failures recovering to authored chapters, and exhausted
+AI-video allowance recovering to chapters without a generation request. Each
+turn checks that only the selected footage provider is called: AI video never
+falls back to stock, and Pexels mode never calls AI-video generation.
 
 The checks require an opening before body scenes (within 250 ms), a ready first
 scene within one second, completion within three seconds, preservation of every
