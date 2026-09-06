@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.1
+
 - Continue narration through failed built-in media using the authored fallback or the existing graphic on black. Keep the recovery anchor after URL resolution, and observe actual mounted images for photo readiness.
 
 - Match planning, narration, visual progression and endings to explanations, fiction, comedy, imaginative requests and practical answers. Remove conflicting instructions that forced a factual arc, fixed sentence length or a different template for every beat.
