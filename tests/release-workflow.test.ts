@@ -221,7 +221,7 @@ describe("release workflow", () => {
   it("pins every CI action to the reviewed v7 commit", () => {
     const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
     const actions = [...workflow.matchAll(/uses:\s+(actions\/(?:checkout|setup-node))@([^\s]+)/g)];
-    expect(actions).toHaveLength(12);
+    expect(actions).toHaveLength(14);
     for (const [, action, revision] of actions) {
       expect(revision, action).toMatch(/^[a-f0-9]{40}$/);
     }
@@ -280,10 +280,17 @@ describe("release workflow", () => {
     const browserJob = workflow.split("  browser-compatibility:")[1];
 
     expect(consumerGate).toContain("gate: [public-api, packed-package, onboarding]");
+    for (const gate of [consumerGate, providerGate]) {
+      expect(gate).toContain("needs: candidate");
+      expect(gate).toContain("VANILLASKY_PACKED_TARBALL:");
+      expect(gate).toContain("VANILLASKY_EXPECTED_INTEGRITY:");
+      expect(gate).toContain("name: sdk-candidate");
+    }
+    expect(workflow).toContain("cancel-in-progress: true");
     expect(consumerGate).not.toContain("documented-examples");
     expect(consumerGate).not.toContain("npm run examples:verify-documented");
-    expect(consumerGate).toContain("npm run verify:api");
-    expect(consumerGate).toContain("npm run verify:package");
+    expect(consumerGate).toContain("node scripts/verify-public-api-surface.mjs");
+    expect(consumerGate).toContain("node scripts/verify-packed-package.mjs");
     expect(consumerGate).toContain("npm run verify:onboarding");
     expect(consumerGate).not.toContain("npm run examples:install-current");
     expect(consumerGate).not.toContain("npm run example:build");
@@ -309,9 +316,9 @@ describe("release workflow", () => {
     expect(browserJob).toContain('trap "pulseaudio --kill" EXIT');
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
-    expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(1);
+    expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(2);
     expect(workflow).not.toContain("matrix.browser");
-    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(8);
+    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(9);
   });
 
   it("enforces the live npm-latest public API comparison in pull-request CI", () => {
@@ -320,8 +327,8 @@ describe("release workflow", () => {
     const consumerJob = workflow.split("  consumer-gate:")[1].split("  consumer-compatibility:")[0];
 
     expect(workflow).toContain("pull_request:");
-    expect(consumerJob).toContain("- run: npm run verify:api");
-    expect(consumerJob.indexOf("npm ci")).toBeLessThan(consumerJob.indexOf("npm run verify:api"));
+    expect(consumerJob).toContain("- run: node scripts/verify-public-api-surface.mjs");
+    expect(consumerJob.indexOf("npm ci")).toBeLessThan(consumerJob.indexOf("node scripts/verify-public-api-surface.mjs"));
   });
 
   it("keeps the Vitest worker pool within the two-core hosted-runner budget", () => {

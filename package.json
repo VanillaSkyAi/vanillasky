@@ -116,7 +116,10 @@
     "verify:api": "npm run build && node scripts/verify-public-api-surface.mjs",
     "verify:package": "npm run build && node scripts/verify-packed-package.mjs",
     "release:build": "node scripts/release-build.mjs",
-    "acceptance:chat": "tsx scripts/acceptance/run.ts"
+    "acceptance:chat": "tsx scripts/acceptance/run.ts",
+    "dev:chat": "vite --config dev/chat/vite.config.ts --open /dev/chat/",
+    "check:chat": "node scripts/chat-check.mjs",
+    "verify:release": "node scripts/chat-verify.mjs"
   },
   "peerDependencies": {
     "react": ">=18 <20",

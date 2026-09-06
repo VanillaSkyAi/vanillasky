@@ -1,0 +1,6 @@
+html, body, #root { margin: 0; min-height: 100%; background: #000; color: #fff; }
+.dev-toolbar { position: relative; z-index: 100; display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 20px; font: 13px system-ui; background: #181818; }
+.dev-toolbar strong { width: 100%; }
+.dev-toolbar button, .dev-toolbar select { font: inherit; }
+.dev-toolbar span { color: #bbb; }
+.dev-chat { height: calc(100dvh - 110px); min-height: 540px; }
