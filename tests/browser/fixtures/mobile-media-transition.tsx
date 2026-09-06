@@ -121,7 +121,9 @@ function Probe() {
     };
     const describe = (video: HTMLVideoElement) => ({
       videoId: videoId(video),
-      sceneId: document.querySelector<HTMLElement>("[data-video-frame]")?.dataset.sceneId,
+      sceneId: video.closest<HTMLElement>("[data-layer-scene-id]")?.dataset.layerSceneId,
+      layer: video.closest<HTMLElement>("[data-scene-layer]")?.dataset.sceneLayer,
+      connectedVideos: document.querySelectorAll("video").length,
       connected: video.isConnected,
       src: video.getAttribute("src"),
       currentSrc: video.currentSrc,
@@ -133,7 +135,7 @@ function Probe() {
       transform: getComputedStyle(video).transform,
       backgroundImage: getComputedStyle(video).backgroundImage,
       posterPlane: (() => {
-        const poster = document.querySelector<HTMLImageElement>("[data-video-poster-plane]");
+        const poster = video.closest("[data-scene-layer]")?.querySelector<HTMLImageElement>("img");
         return poster ? {
           src: poster.getAttribute("src"),
           visible: poster.dataset.videoPosterVisible,
@@ -211,8 +213,8 @@ function Probe() {
   return <main>
     <div data-probe-stage data-poster-background="none">
       <VideoPlayer video={probeVideo} width={366} autoPlay startMuted loop onSceneChange={(scene) => {
-        const video = document.querySelector("video");
-        window.__mobileMediaTransitionProbe?.push({at: performance.now(), kind: "scene-narration-cue", sceneId: scene.id, readyState: video?.readyState, currentSrc: video?.currentSrc});
+        const video = document.querySelector<HTMLVideoElement>(`[data-layer-scene-id="${scene.id}"] video`);
+        window.__mobileMediaTransitionProbe?.push({at: performance.now(), kind: "scene-narration-cue", sceneId: scene.id, videoId: video?.dataset.probeVideoId, readyState: video?.readyState, currentSrc: video?.currentSrc});
       }} ariaLabel="Mobile media transition probe" />
     </div>
     {diagnosticsEnabled && <pre aria-label="Media transition event log" />}
