@@ -560,7 +560,10 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
       ? async (query, context) => {
           mediaStartedAt ??= Date.now();
-          const remainingMs = Math.max(1, mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now());
+          const remainingMs = mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now();
+          // A delayed authored shot cannot meet a deadline that already passed.
+          // Settle its chapter without starting billable work or using allowance.
+          if (remainingMs <= 0) return null;
           const mediaContext: VideoChatMediaContext = {
             purpose: "response",
             orientation: context.input.orientation ?? "landscape",
