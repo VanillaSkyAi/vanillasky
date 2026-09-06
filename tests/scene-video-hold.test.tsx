@@ -156,7 +156,9 @@ it("keeps the decoder visible while waiting and recovers motion without a playin
   expect(view.queryByRole("status")).toBeNull();
   video.currentTime = 1.2;
   const { act } = await import("@testing-library/react");
-  await act(async () => vi.advanceTimersByTime(1100));
+  await act(async () => vi.advanceTimersByTime(60));
+  video.currentTime = 1.4;
+  await act(async () => vi.advanceTimersByTime(1040));
   expect(onError).not.toHaveBeenCalled();
   view.unmount(); vi.useRealTimers();
 });
@@ -206,5 +208,32 @@ it("cancels waiting frame callbacks from a replaced presentation", async () => {
   const { act } = await import("@testing-library/react");
   await act(async () => { callback(); vi.advanceTimersByTime(1100); });
   expect(onError).not.toHaveBeenCalled();
+  view.unmount(); vi.useRealTimers();
+});
+
+
+for (const resumed of [false, true]) it(`requires two forward presented frames after a backwards seek: ${resumed ? "resumed" : "stalled"}`, async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/same.mp4" progress={.5} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  let callback!: (now: number, metadata: VideoFrameCallbackMetadata) => void;
+  Object.defineProperty(video, "requestVideoFrameCallback", { value: (next: typeof callback) => { callback = next; return 1; } });
+  Object.defineProperty(video, "cancelVideoFrameCallback", { value: vi.fn() });
+  video.currentTime = 3;
+  fireEvent.waiting(video);
+  const { act } = await import("@testing-library/react");
+  await act(async () => {
+    video.currentTime = 0;
+    callback(0, { mediaTime: 0 } as VideoFrameCallbackMetadata);
+    video.currentTime = .04;
+    callback(40, { mediaTime: .04 } as VideoFrameCallbackMetadata);
+    if (resumed) callback(80, { mediaTime: .08 } as VideoFrameCallbackMetadata);
+    vi.advanceTimersByTime(1100);
+  });
+  expect(onError).toHaveBeenCalledTimes(resumed ? 0 : 1);
   view.unmount(); vi.useRealTimers();
 });

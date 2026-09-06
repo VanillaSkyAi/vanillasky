@@ -86,13 +86,20 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     const video = videoRef.current;
     if (!video) return;
-    const initialTime = video.currentTime;
+    let previousTime = video.currentTime;
+    let forwardFrames = 0;
     let stopped = false;
     let frame: number | undefined;
     let poll: ReturnType<typeof setTimeout> | undefined;
-    const observe = () => {
+    const observe = (_now?: number, metadata?: VideoFrameCallbackMetadata) => {
       if (stopped) return;
-      if (Math.abs(video.currentTime - initialTime) > .001) {
+      const time = metadata?.mediaTime ?? video.currentTime;
+      if (video.seeking || time < previousTime) forwardFrames = 0;
+      else if (time > previousTime + .001) forwardFrames++;
+      previousTime = time;
+      // One seek frame is not resumed motion. Require consecutive forward
+      // observations before releasing the original bounded stall deadline.
+      if (forwardFrames >= 2) {
         stopped = true;
         clearTimeout(deadline);
         setWaitingKey(undefined);
@@ -260,7 +267,6 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
-        onPlaying={() => setWaitingKey(undefined)}
         onLoadedData={(event) => {
           const video = event.currentTarget;
           const markPresented = () => {
