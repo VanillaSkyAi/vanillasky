@@ -56,6 +56,12 @@ describe("actual mounted media readiness", () => {
     expect(recover).toHaveBeenCalledOnce();
     expect(report).not.toHaveBeenCalled();
   });
+  it("recovers malformed custom media without throwing during source comparison", async () => {
+    vi.useFakeTimers(); const report = vi.fn();
+    render(fixture(report, { ...scene, variables: { ...scene.variables, mediaUrl: "https://[invalid" } }));
+    await act(() => vi.advanceTimersByTimeAsync(8000));
+    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
+  });
   it("reports a bounded decode failure rather than starting narration over black", async () => {
     vi.useFakeTimers(); const report = vi.fn(); render(fixture(report));
     await act(() => vi.advanceTimersByTimeAsync(8000));

@@ -87,7 +87,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     const video = videoRef.current;
     if (!video) return;
-    const expectedSource = new URL(mediaUrl, document.baseURI).href;
+    const expectedSource = video.getAttribute("src") === mediaUrl ? video.src : undefined;
     let awaitingFirstFrame = presentedVideoUrl.current !== mediaUrl || video.currentSrc !== expectedSource;
     let previousTime = video.currentTime;
     let forwardFrames = 0;
@@ -288,7 +288,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
           const video = event.currentTarget;
           const markPresented = () => {
             if (!video.isConnected || presentationRef.current.key !== videoPresentationKey
-              || video.currentSrc !== new URL(mediaUrl, document.baseURI).href) return;
+              || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return;
             presentedVideoUrl.current = mediaUrl;
             onReady?.();
             if (!retainPoster) setDecodedVideoUrl(mediaUrl);

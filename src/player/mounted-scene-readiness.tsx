@@ -32,7 +32,7 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
         if (isVideo) {
           const persistent = root.querySelector('[data-persistent-video-scene-id]');
           const video = (persistent?.getAttribute('data-persistent-video-scene-id') === scene.id ? persistent : layer)?.querySelector('video');
-          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === new URL(mediaUrl, document.baseURI).href && video.readyState >= 2) {
+          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= 2) {
             observed = video;
             if (video.requestVideoFrameCallback) {
               callback = video.requestVideoFrameCallback(() => finish(undefined, true));

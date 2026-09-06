@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.7
+
 - Keep the final chapter visible through answer completion, including recovery from failed footage.
 - Derive recovery titles from authored titles or subject excerpts instead of a generic placeholder.
 
