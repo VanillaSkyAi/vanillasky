@@ -23,7 +23,7 @@ function App() {
     {!live && <><label>Intent <select value={intent} onChange={event => setIntent(event.target.value)}>{intents.map(value => <option key={value}>{value}</option>)}</select></label>
       <label>Condition <select value={scenario} onChange={event => setScenario(event.target.value)}>{scenarios.map(value => <option key={value}>{value}</option>)}</select></label></>}
     {__CHAT_LIVE_ENDPOINT__ && <button onClick={() => setLive(value => !value)}>{live ? "Return to offline" : "Connect live endpoint (uses allowance)"}</button>}
-    <span>{live ? "Host authorization and limits apply." : "Local waterfall + recorded timing cue; not proof of model quality."} {surface && `Body surface: ${surface.elapsedMs} ms. `}{footage && `Moving footage: ${footage.elapsedMs} ms.`}</span>
+    <span>{live ? "Host authorization and limits apply." : "Local waterfall + matching spoken fixtures; not live model output."} {surface && `Body surface: ${surface.elapsedMs} ms. `}{footage && `Moving footage: ${footage.elapsedMs} ms.`}</span>
     <details><summary>Safe phase log ({rows.length})</summary><ol>{rows.map((row, index) => <li key={index}>{row.elapsedMs} ms · {row.phase}{row.durationMs !== undefined && ` · ${row.durationMs} ms duration`}{row.status && ` · HTTP ${row.status}`}</li>)}</ol></details>
   </aside><main className="dev-chat"><VideoChat key={endpoint} options={{endpoint, credentials: live ? "include" : "same-origin", fetcher, onPlaybackMetric: diagnostics.playback}} /></main></>;
 }
