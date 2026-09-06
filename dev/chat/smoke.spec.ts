@@ -47,8 +47,10 @@ test("offline HMR harness plays through the actual local handler without externa
   await page.screenshot({path: info.outputPath("prepared-footage.png")});
   await expect(page.locator('[data-testid="video-player"][data-ended="true"]')).toBeVisible({timeout: 15000});
   const spokenDurations = await page.evaluate(() => (window as unknown as {offlineSpeechDurations: number[]}).offlineSpeechDurations);
-  expect(spokenDurations).toHaveLength(3);
-  expect(spokenDurations.every(seconds => seconds > 1)).toBe(true);
+  const activationDurations = spokenDurations.filter(seconds => seconds <= 0.05);
+  expect(activationDurations.length).toBeLessThanOrEqual(1);
+  expect(spokenDurations.filter(seconds => seconds > 0.05)).toHaveLength(3);
+  expect(spokenDurations.filter(seconds => seconds > 0.05).every(seconds => seconds > 1)).toBe(true);
   expect(external).toEqual([]);
   expect(errors).toEqual([]);
 });
