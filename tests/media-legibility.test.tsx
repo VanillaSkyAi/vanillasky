@@ -233,14 +233,25 @@ describe("media still loading", () => {
         );
       });
 
-      const video = container.querySelector("video");
-      expect(video?.getAttribute("poster")).toBe("https://cdn.test/poster.jpg");
+      const video = container.querySelector("video") as HTMLVideoElement;
+      expect(video.getAttribute("poster")).toBe("https://cdn.test/poster.jpg");
 
+      // An event before the browser selects this source cannot remove its
+      // poster. jsdom does not perform native media resource selection.
       await act(async () => {
-        video?.dispatchEvent(new Event("loadeddata", { bubbles: true }));
+        video.dispatchEvent(new Event("loadeddata", { bubbles: true }));
+      });
+      expect(video.hasAttribute("poster")).toBe(true);
+
+      Object.defineProperties(video, {
+        currentSrc: { configurable: true, value: video.src },
+        readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+      });
+      await act(async () => {
+        video.dispatchEvent(new Event("loadeddata", { bubbles: true }));
       });
 
-      expect(video?.hasAttribute("poster")).toBe(false);
+      expect(video.hasAttribute("poster")).toBe(false);
     } finally {
       await act(async () => root.unmount());
       pause.mockRestore();
@@ -289,6 +300,12 @@ describe("media still loading", () => {
       expect(play).toHaveBeenCalledTimes(1);
       expect(video.getAttribute("poster")).toBe("https://cdn.test/second.jpg");
 
+      // Model the native state accompanying loadeddata; a src attribute alone
+      // does not mean the browser has selected and decoded that resource.
+      Object.defineProperties(video, {
+        currentSrc: { configurable: true, value: video.src },
+        readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+      });
       await act(async () => {
         video.dispatchEvent(new Event("loadeddata", { bubbles: true }));
       });
