@@ -3,7 +3,6 @@ import {
   createElement,
   Component,
   type ReactNode,
-  lazy,
   Suspense,
   useState,
   useCallback,
@@ -76,9 +75,6 @@ class SceneBoundary extends Component<
 }
 
 const SCENE_TRANSITION_SECONDS = 0.3;
-const SceneVideoBackdrop = lazy(() => import(
-  "../visual-system/scene-templates/scene-video-backdrop.js"
-).then((module) => ({ default: module.SceneVideoBackdrop })));
 /**
  * How long before a cut the next scene is mounted when it carries its own
  * backdrop.
@@ -97,8 +93,6 @@ const SceneVideoBackdrop = lazy(() => import(
  * fresh one.
  */
 const MEDIA_PREROLL_SECONDS = 1.2;
-// Isolated experiment only: physical iPhone/iPad decoder safety is unverified.
-const BOUNDED_MOBILE_PREPARATION = true;
 const CONTIGUITY_ULP_FACTOR = 4;
 
 // Device identity cannot change during a page session. useSyncExternalStore
@@ -330,7 +324,6 @@ export function VideoFrame({
       return retained.size === previous.size ? previous : retained;
     });
   }, [config.scenes]);
-  const [readyPersistentVideo, setReadyPersistentVideo] = useState<string>();
   const decoderConstrainedDevice = useDecoderConstraint();
   const timeline = resolveVideoTimeline(config);
   const lastRange = timeline.at(-1);
@@ -406,75 +399,21 @@ export function VideoFrame({
     ? Math.min(Math.max(MEDIA_PREROLL_SECONDS, blendDuration), Math.max(0, duration))
     : blendDuration;
   const prerollStart = active.end - prerollDuration;
-  // Mobile WebKit can terminate the renderer when two scene-sized video
-  // decoders overlap, so never preroll a second video element there.
-  // Experimental bounded preparation: retain keyed local scene elements so
-  // the next decoded resource itself becomes active. Detached warming stays
-  // disabled on these devices; only the immediate next scene is mounted.
-  const boundedPreparation = BOUNDED_MOBILE_PREPARATION && decoderConstrainedDevice && registrySupportsExternalVideoBackdrop(kit);
+  // Known templates own one local video each. Keep only the active and next
+  // keyed layers; promoting the prepared layer retains its decoded resource.
+  // Unknown/custom video templates retain conservative one-layer transitions.
+  const boundedPreparation = decoderConstrainedDevice && registrySupportsExternalVideoBackdrop(kit);
   const decoderConstrainedTransition = Boolean(
     contiguousNext &&
       decoderConstrainedDevice && !boundedPreparation &&
       sceneHasVideoBackdrop(active) &&
       sceneHasVideoBackdrop(contiguousNext),
   );
-  // Decoder ownership cannot depend on future streamed scenes: migrating a
-  // live scene from its local element when scene.add arrives would itself
-  // create the replacement/overlap this path avoids. Compatible registries
-  // therefore use the player plane for every iOS video scene from its first
-  // render. One stale or custom video-capable template disables the contract
-  // for the whole stable registry, preserving the previous one-local-decoder
-  // behavior instead of guessing whether it consumes the shared backdrop.
-  const persistentVideoEnabled = decoderConstrainedDevice && !boundedPreparation &&
-    registrySupportsExternalVideoBackdrop(kit);
-  const activeUsesPersistentVideo = persistentVideoEnabled && sceneHasVideoBackdrop(active);
-  const incomingUsesPersistentVideo = Boolean(
-    persistentVideoEnabled &&
-      contiguousNext &&
-      !sceneHasVideoBackdrop(active) &&
-      sceneHasVideoBackdrop(contiguousNext) &&
-      time >= prerollStart && time < blendEnd,
-  );
-  const persistentVideoRange = activeUsesPersistentVideo
-    ? active
-    : incomingUsesPersistentVideo && contiguousNext
-      ? contiguousNext
-      : undefined;
-  const persistentVideoKey = persistentVideoRange
-    ? `${persistentVideoRange.scene.id}\0${String(persistentVideoRange.scene.variables.mediaUrl || "")}`
-    : undefined;
-  const firstVideoRange = timeline.find(sceneHasVideoBackdrop);
-  const posterPreparationRange = activeUsesPersistentVideo
-    ? contiguousNext && sceneHasVideoBackdrop(contiguousNext)
-      ? contiguousNext
-      : activeIndex === timeline.length - 1 && firstVideoRange?.scene.id !== active.scene.id
-        ? firstVideoRange
-        : undefined
-    : undefined;
-  const preparedPoster = posterPreparationRange && String(
-    posterPreparationRange.scene.variables.mediaPoster || "",
-  ) ? {
-      presentationKey: `${posterPreparationRange.scene.id}\0${String(
-        posterPreparationRange.scene.variables.mediaUrl || "",
-      )}`,
-      mediaPoster: String(posterPreparationRange.scene.variables.mediaPoster),
-      mediaPosition: String(posterPreparationRange.scene.variables.mediaPosition || "center"),
-      backgroundEffect: posterPreparationRange.scene.backgroundEffect ?? config.style.defaultBackgroundEffect,
-    } : undefined;
   const activeMediaFailed = failedMedia.has(sceneReadinessKey(active.scene));
-  const persistentVideoFailed = persistentVideoKey !== undefined &&
-    failedMedia.has(persistentVideoKey);
-  const persistentVideoReady = persistentVideoRange !== undefined && (
-    String(persistentVideoRange.scene.variables.mediaPoster || "") !== "" ||
-    readyPersistentVideo === persistentVideoKey
-  );
-  const persistentVideoMode = persistentVideoFailed
-    ? "fallback" as const
-    : persistentVideoReady ? "ready" as const : "pending" as const;
   const mountingNext = Boolean(
     contiguousNext && !decoderConstrainedTransition &&
       (boundedPreparation || time >= prerollStart) && time < blendEnd &&
-      (eligibleNextTransition || prerollsNext),
+      (eligibleNextTransition || prerollsNext || (boundedPreparation && sceneHasVideoBackdrop(contiguousNext))),
   );
   const previewingNext = Boolean(
     eligibleNextTransition && time >= blendStart && time < blendEnd,
@@ -508,11 +447,13 @@ export function VideoFrame({
     <div
       onErrorCapture={(event) => {
         const target = event.target;
-        if ((target instanceof HTMLVideoElement || target instanceof HTMLImageElement)
-          && target.getAttribute("src") === active.scene.variables.mediaUrl && supportsExternalVideoBackdrop(activeTemplate)
-          && (target.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id") === active.scene.id
-            || target.closest("[data-persistent-video-scene-id]")?.getAttribute("data-persistent-video-scene-id") === active.scene.id)) {
-          markMediaFailed(sceneReadinessKey(active.scene));
+        if (!(target instanceof HTMLVideoElement || target instanceof HTMLImageElement)) return;
+        const ownerId = target.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id");
+        const owner = [active, contiguousNext].find(range => range?.scene.id === ownerId);
+        const template = owner && kit.getTemplate(owner.scene.templateId);
+        if (owner && template && supportsExternalVideoBackdrop(template)
+          && target.getAttribute("src") === owner.scene.variables.mediaUrl) {
+          markMediaFailed(sceneReadinessKey(owner.scene));
         }
       }}
       data-video-frame="ready"
@@ -555,56 +496,6 @@ export function VideoFrame({
             pointerEvents: "none",
           }}
         />
-        {persistentVideoRange && !persistentVideoFailed && (
-          <div
-            data-persistent-video-scene-id={persistentVideoRange.scene.id}
-            aria-hidden="true"
-            style={{ position: "absolute", inset: 0, zIndex: 0 }}
-          >
-            <Suspense fallback={String(persistentVideoRange.scene.variables.mediaPoster || "") ? (
-              <img
-                src={String(persistentVideoRange.scene.variables.mediaPoster)}
-                alt=""
-                data-video-poster-plane="loading"
-                data-video-poster-visible="true"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: String(persistentVideoRange.scene.variables.mediaPosition || "center"),
-                }}
-              />
-            ) : null}>
-              <SceneVideoBackdrop
-                mediaUrl={String(persistentVideoRange.scene.variables.mediaUrl || "")}
-                mediaPoster={String(persistentVideoRange.scene.variables.mediaPoster || "") || undefined}
-                mediaPosition={String(persistentVideoRange.scene.variables.mediaPosition || "center")}
-                backgroundEffect={persistentVideoRange.scene.backgroundEffect ?? config.style.defaultBackgroundEffect}
-                progress={persistentVideoRange.scene.id === active.scene.id ? rawProgress : 0}
-                sceneDuration={persistentVideoRange.end - persistentVideoRange.start}
-                isPlaying={persistentVideoRange.scene.id === active.scene.id && playing}
-                preparingNarration={preparingNarration}
-                muted={mediaAudioMuted || persistentVideoRange.scene.id !== active.scene.id || !playing}
-                volume={mediaAudioVolume}
-                playbackId={persistentVideoRange.scene.id}
-                retainPoster
-                persistent
-                preparedPoster={preparedPoster ? {
-                  ...preparedPoster,
-                  // The image is already decoded and costs no second video
-                  // decoder. Fade it above the outgoing video using the same
-                  // authored transition clock, then reuse that exact DOM image
-                  // as the new source's underlay at the cut.
-                  opacity: decoderConstrainedTransition ? blendProgress : 0,
-                } : undefined}
-                onReady={() => setReadyPersistentVideo(persistentVideoKey)}
-                onError={() => markMediaFailed(persistentVideoKey)}
-              />
-            </Suspense>
-          </div>
-        )}
         {(
           mountingNext && contiguousNext
             ? [
@@ -630,9 +521,7 @@ export function VideoFrame({
               opacity={1 - blendProgress}
               interactive
               zIndex={1}
-              externalVideoBackdrop={activeMediaFailed ? "fallback" : persistentVideoRange?.scene.id === active.scene.id
-                ? persistentVideoMode
-                : false}
+              externalVideoBackdrop={activeMediaFailed ? "fallback" : false}
             />,
             <SceneLayer
               key={contiguousNext.scene.id}
@@ -651,9 +540,8 @@ export function VideoFrame({
               opacity={blendProgress}
               interactive={false}
               zIndex={2}
-              externalVideoBackdrop={persistentVideoRange?.scene.id === contiguousNext.scene.id
-                ? persistentVideoMode
-                : false}
+              onMediaError={() => markMediaFailed(sceneReadinessKey(contiguousNext.scene))}
+              externalVideoBackdrop={failedMedia.has(sceneReadinessKey(contiguousNext.scene)) ? "fallback" : false}
             />,
           ]
             : [
@@ -676,9 +564,7 @@ export function VideoFrame({
             opacity={1}
             interactive
             zIndex={1}
-            externalVideoBackdrop={activeMediaFailed ? "fallback" : persistentVideoRange?.scene.id === active.scene.id
-              ? persistentVideoMode
-              : false}
+            externalVideoBackdrop={activeMediaFailed ? "fallback" : false}
           />,
         ])}
       </div>

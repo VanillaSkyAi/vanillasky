@@ -4,7 +4,7 @@ type Probe = { kind: string; at: number; sources: number; active: string; scene:
 const fixtureUrl = `http://127.0.0.1:4274/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" ? "?webm" : ""}`;
 const readProbe = () => (window as unknown as { narrationProbe: Probe[] }).narrationProbe;
 for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delayMs}ms requests while all paragraphs finish`, async ({ browser, browserName }, info) => {
-  test.skip(browserName !== 'webkit', 'Bounded mobile preparation experiment.');
+  test.skip(browserName !== 'webkit', 'Checks bounded mobile preparation.');
   test.setTimeout(45000);
   const context = await browser.newContext({...devices['iPhone 13']});
   const page = await context.newPage();
@@ -57,7 +57,7 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
 
 
 test('bounded preparation retains chapter recovery for a truly stalled active clip', async ({browser,browserName}) => {
-  test.skip(browserName !== 'webkit', 'Bounded mobile preparation experiment.');
+  test.skip(browserName !== 'webkit', 'Checks bounded mobile preparation.');
   const context=await browser.newContext({...devices['iPhone 13']});
   try {
     const page=await context.newPage();

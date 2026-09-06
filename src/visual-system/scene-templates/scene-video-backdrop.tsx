@@ -18,18 +18,6 @@ export interface SceneVideoBackdropProps {
   muted?: boolean;
   volume?: number;
   playbackId?: string;
-  retainPoster?: boolean;
-  persistent?: boolean;
-  preparedPoster?: {
-    presentationKey: string;
-    mediaPoster: string;
-    mediaPosition: string;
-    backgroundEffect?: string;
-    /** Existing global transition progress. On decoder-constrained Safari,
-     * this fades the decoded incoming still above the outgoing video before
-     * the single video element changes source. */
-    opacity?: number;
-  };
   onReady?: () => void;
   onError?: () => void;
 }
@@ -47,9 +35,6 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   muted,
   volume,
   playbackId = mediaUrl,
-  retainPoster = false,
-  persistent = false,
-  preparedPoster,
   onReady,
   onError,
 }) => {
@@ -133,6 +118,43 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     };
   }, [waitingKey, videoPresentationKey, isPlaying]);
 
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let stopped = false;
+    let frame: number | undefined;
+    const markPresented = () => {
+      if (stopped || !video.isConnected || presentationRef.current.key !== videoPresentationKey
+        || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return false;
+      presentedVideoUrl.current = mediaUrl;
+      video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
+      onReadyRef.current?.();
+      setDecodedVideoUrl(mediaUrl);
+      stopped = true;
+      return true;
+    };
+    const observe = () => {
+      if (stopped || frame !== undefined) return;
+      if (video.requestVideoFrameCallback) {
+        frame = video.requestVideoFrameCallback(() => {
+          frame = undefined;
+          if (!markPresented()) observe();
+        });
+      } else if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) markPresented();
+    };
+    // A cached resource can finish loading while its Suspense tree is still
+    // detached. Observe the mounted frame even if loadeddata was missed.
+    video.addEventListener("loadeddata", observe);
+    observe();
+    return () => {
+      stopped = true;
+      video.removeEventListener("loadeddata", observe);
+      if (frame !== undefined) video.cancelVideoFrameCallback?.(frame);
+    };
+  }, [mediaUrl, videoPresentationKey]);
+
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     // Allow a small decode-to-speech onset margin without changing narration.
     video.playbackRate = (resolvedMuted || video.preservesPitch === true) && sceneDuration && Number.isFinite(video.duration) && video.duration > 0
@@ -214,61 +236,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     objectPosition: resolvedPosition,
     transform: bgTransform.transform,
     transformOrigin: bgTransform.transformOrigin,
-    zIndex: persistent ? 1 : undefined,
   };
-  const preparedPosition = preparedPoster
-    ? resolveMediaPosition(preparedPoster.mediaPosition)
-    : resolvedPosition;
-  const preparedTransform = getBackgroundTransform(preparedPoster?.backgroundEffect, 0, 0);
-  const posterPlanes = [
-    ...(persistent && mediaPoster ? [{
-      presentationKey: videoPresentationKey,
-      mediaPoster,
-      mediaPosition: resolvedPosition,
-      transform: bgTransform.transform,
-      transformOrigin: bgTransform.transformOrigin,
-      opacity: 1,
-      zIndex: 0,
-      role: "current",
-    }] : []),
-    ...(preparedPoster && preparedPoster.presentationKey !== videoPresentationKey ? [{
-      presentationKey: preparedPoster.presentationKey,
-      mediaPoster: preparedPoster.mediaPoster,
-      mediaPosition: preparedPosition,
-      transform: preparedTransform.transform,
-      transformOrigin: preparedTransform.transformOrigin,
-      opacity: preparedPoster.opacity ?? 0,
-      zIndex: 2,
-      role: "prepared",
-    }] : []),
-  ];
-
   return (
     <>
-      {posterPlanes.map((posterPlane) => (
-        <img
-          key={posterPlane.presentationKey}
-          src={posterPlane.mediaPoster}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          data-video-poster-plane={posterPlane.role}
-          data-video-poster-visible={posterPlane.opacity > 0 ? "true" : "false"}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: posterPlane.mediaPosition,
-            transform: posterPlane.transform,
-            transformOrigin: posterPlane.transformOrigin,
-            zIndex: posterPlane.zIndex,
-            opacity: posterPlane.opacity,
-            pointerEvents: "none",
-          }}
-        />
-      ))}
       {exhaustedKey === videoPresentationKey && <div
         role="status" data-media-continuity="exhausted"
         style={{ position: "absolute", inset: 0, zIndex: 3, background: "#000", color: "#bbb", display: "grid", placeContent: "center", font: "14px system-ui" }}
@@ -276,7 +246,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       <video
         ref={videoRef}
         src={mediaUrl}
-        poster={retainPoster || decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
+        poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
         muted={resolvedMuted}
         loop={false}
         playsInline
@@ -284,25 +254,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
-        onLoadedData={(event) => {
-          const video = event.currentTarget;
-          const markPresented = () => {
-            if (!video.isConnected || presentationRef.current.key !== videoPresentationKey
-              || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return;
-            presentedVideoUrl.current = mediaUrl;
-            video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
-            onReady?.();
-            if (!retainPoster) setDecodedVideoUrl(mediaUrl);
-          };
-          if (video.requestVideoFrameCallback) {
-            video.requestVideoFrameCallback(markPresented);
-            return;
-          }
-          markPresented();
-        }}
         onError={onError}
         data-media-position={mediaPosition}
-        data-video-backdrop={persistent ? "persistent" : "scene"}
+        data-video-backdrop="scene"
         style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey ? "hidden" : undefined }}
       />
     </>

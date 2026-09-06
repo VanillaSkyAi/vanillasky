@@ -31,8 +31,7 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
       if (root && layer && !loading && document.fonts?.status !== "loading") {
         if (!mediaUrl || scene.variables.mediaType === "gradient") { finish(); return; }
         if (isVideo) {
-          const persistent = root.querySelector('[data-persistent-video-scene-id]');
-          const video = (persistent?.getAttribute('data-persistent-video-scene-id') === scene.id ? persistent : layer)?.querySelector('video');
+          const video = layer.querySelector('video');
           if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= 2) {
             if (presented === video) { finish(undefined, true); return; }
             observed = video;

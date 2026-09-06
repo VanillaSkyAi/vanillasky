@@ -64,7 +64,7 @@ describe("VideoFrame transition ownership", () => {
       fireEvent.error(view.container.querySelector("img[data-media-position]")!);
       await waitFor(() => expect(view.container.textContent).toContain("A changing shoreline"));
       view.rerender(element(4));
-      await waitFor(() => expect(view.container.querySelector("[data-persistent-video-scene-id='video'] video")).not.toBeNull());
+      await waitFor(() => expect(view.container.querySelector("[data-layer-scene-id='video'] video")).not.toBeNull());
       fireEvent.error(view.container.querySelector("video")!);
       await waitFor(() => expect(view.container.querySelector("video")).toBeNull());
       expect(view.container.querySelector("[data-layer-scene-id='photo']")?.textContent).toContain("A changing shoreline");
@@ -261,7 +261,7 @@ describe("VideoFrame transition ownership", () => {
 
       expect(recoverableErrors).toEqual([]);
       await waitFor(() => {
-        expect(container.querySelector('[data-video-backdrop="persistent"]')).not.toBeNull();
+        expect(container.querySelector('[data-video-backdrop="scene"]')).not.toBeNull();
       });
       expect(container.querySelectorAll("video")).toHaveLength(1);
     } finally {
@@ -274,118 +274,31 @@ describe("VideoFrame transition ownership", () => {
     }
   });
 
-  it("covers a persistent Safari source reset with its poster until the new source presents a frame", () => {
-    const userAgent = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
-    );
+  it("keeps the normal poster until the selected resource presents its frame", () => {
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
     const onReady = vi.fn();
-
-    let view: ReturnType<typeof render> | undefined;
+    const view = render(createElement(SceneVideoBackdrop, {
+      mediaUrl: "second.mp4", mediaPoster: "second.jpg", progress: 0, isPlaying: false, onReady,
+    }));
     try {
-      const backdrop = (
-        mediaUrl: string,
-        mediaPoster: string,
-        playbackId: string,
-        preparedPoster: {
-          presentationKey: string;
-          mediaPoster: string;
-          mediaPosition: string;
-          backgroundEffect: string;
-        },
-      ) => createElement(
-        SceneVideoBackdrop,
-        {
-          mediaUrl,
-          mediaPoster,
-          mediaPosition: "center",
-          backgroundEffect: "static",
-          progress: 0,
-          isPlaying: false,
-          playbackId,
-          retainPoster: true,
-          persistent: true,
-          preparedPoster,
-          onReady,
-        },
-      );
-      view = render(backdrop("first.mp4", "first.jpg", "first-scene", {
-        presentationKey: "second-scene\0second.mp4",
-        mediaPoster: "second.jpg",
-        mediaPosition: "center",
-        backgroundEffect: "static",
-      }));
-      const video = view.container.querySelector("video");
-      const poster = view.container.querySelector<HTMLImageElement>('img[src="first.jpg"]');
-      const preparedPoster = view.container.querySelector<HTMLImageElement>('img[src="second.jpg"]');
-
-      expect(poster).not.toBeNull();
-      expect(poster?.getAttribute("src")).toBe("first.jpg");
-      expect(poster?.style.opacity).toBe("1");
-      expect(poster?.style.zIndex).toBe("0");
-      expect(video?.style.zIndex).toBe("1");
-      expect(preparedPoster).not.toBeNull();
-      expect(preparedPoster?.style.opacity).toBe("0");
-
-      view.rerender(backdrop("second.mp4", "second.jpg", "second-scene", {
-        presentationKey: "first-scene\0first.mp4",
-        mediaPoster: "first.jpg",
-        mediaPosition: "center",
-        backgroundEffect: "static",
-      }));
-      const videoAfterCut = view.container.querySelector("video");
-      const posterAfterCut = view.container.querySelector<HTMLImageElement>('img[src="second.jpg"]');
-      expect(videoAfterCut).toBe(video);
-      expect(posterAfterCut).toBe(preparedPoster);
-      expect(posterAfterCut?.getAttribute("src")).toBe("second.jpg");
-      expect(posterAfterCut?.style.opacity).toBe("1");
-
-      const presented = vi.fn();
-      videoAfterCut?.addEventListener("vanillasky:video-frame-presented", presented);
+      const video = view.container.querySelector("video")!;
       let presentFrame: (() => void) | undefined;
-      if (videoAfterCut) {
-        // loadeddata/frame callbacks accompany an actually selected source;
-        // jsdom leaves currentSrc empty unless the native state is modeled.
-        Object.defineProperties(videoAfterCut, {
-          currentSrc: { configurable: true, value: videoAfterCut.src },
-          readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
-        });
-        videoAfterCut.requestVideoFrameCallback = vi.fn((callback: () => void) => {
-          presentFrame = callback;
-          return 1;
-        });
-      }
-      act(() => videoAfterCut?.dispatchEvent(new Event("loadeddata", { bubbles: true })));
-      expect(onReady).not.toHaveBeenCalled();
-      expect(presented).not.toHaveBeenCalled();
-      expect(posterAfterCut?.style.opacity).toBe("1");
-
-      // A late frame from the outgoing resource must not authorize the new
-      // scene, even though React has already changed its src attribute.
-      Object.defineProperty(videoAfterCut, "currentSrc", {
-        configurable: true, value: new URL("first.mp4", document.baseURI).href,
-      });
+      video.requestVideoFrameCallback = vi.fn(callback => { presentFrame = () => callback(0, {} as VideoFrameCallbackMetadata); return 1; });
+      Object.defineProperty(video, "currentSrc", { configurable: true, value: new URL("first.mp4", document.baseURI).href });
+      act(() => video.dispatchEvent(new Event("loadeddata", { bubbles: true })));
       act(() => presentFrame?.());
       expect(onReady).not.toHaveBeenCalled();
-      expect(presented).not.toHaveBeenCalled();
-      Object.defineProperty(videoAfterCut, "currentSrc", {
-        configurable: true, value: videoAfterCut?.src,
+      expect(video.getAttribute("poster")).toBe("second.jpg");
+      Object.defineProperties(video, {
+        currentSrc: { configurable: true, value: video.src },
+        readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
       });
       act(() => presentFrame?.());
       expect(onReady).toHaveBeenCalledOnce();
-      expect(presented).toHaveBeenCalledOnce();
-      // Mobile Safari can drop the composited video plane even while the
-      // element remains connected and ready. The poster therefore stays
-      // painted underneath the video instead of disappearing after the first
-      // decoded frame. A lost plane exposes this sibling, not the gradient.
-      expect(posterAfterCut?.style.opacity).toBe("1");
-    } finally {
-      view?.unmount();
-      userAgent.mockRestore();
-      pause.mockRestore();
-      load.mockRestore();
-    }
+      expect(video.hasAttribute("poster")).toBe(false);
+      expect(view.container.querySelectorAll("img")).toHaveLength(0);
+    } finally { view.unmount(); pause.mockRestore(); load.mockRestore(); }
   });
 
   it("holds the final scene's readable poster pose instead of playing an exit and snapping back", () => {
@@ -541,7 +454,7 @@ describe("VideoFrame transition ownership", () => {
     expect(Number(view.container.querySelector<HTMLElement>('[data-scene-layer="incoming"]')?.style.opacity)).toBeGreaterThan(0);
   });
 
-  it("never mounts two video decoders together on iPhone Safari", () => {
+  it("prepares at most the active and next known video on iPhone Safari", () => {
     const userAgent = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
     );
@@ -587,8 +500,8 @@ describe("VideoFrame transition ownership", () => {
     let view: ReturnType<typeof render> | undefined;
     try {
       view = render(createElement(VideoFrame, { kit, config, time: 4.2, width: 540, height: 960 }));
-      expect(view.container.querySelectorAll("video")).toHaveLength(1);
-      expect(view.container.querySelector('[data-scene-layer="incoming"]')).toBeNull();
+      expect(view.container.querySelectorAll("video")).toHaveLength(2);
+      expect(view.container.querySelector('[data-scene-layer="incoming"]')).not.toBeNull();
       expect(view.container.querySelector("[data-media-treatment]")).toBeNull();
 
       const video = view.container.querySelector("video");
@@ -609,12 +522,17 @@ describe("VideoFrame transition ownership", () => {
       expect(view.container.querySelector("[data-media-treatment]")).not.toBeNull();
 
       view.rerender(createElement(VideoFrame, { kit, config, time: 4.85, width: 540, height: 960 }));
-      expect(view.container.querySelectorAll("video")).toHaveLength(1);
-      expect(view.container.querySelector('[data-scene-layer="incoming"]')).toBeNull();
+      expect(view.container.querySelectorAll("video")).toHaveLength(2);
+      expect(view.container.querySelector('[data-scene-layer="incoming"]')).not.toBeNull();
 
       view.rerender(createElement(VideoFrame, { kit, config, time: 5, width: 540, height: 960 }));
       expect(view.container.querySelectorAll("video")).toHaveLength(1);
       expect(view.container.querySelector('[data-layer-scene-id="second-video"]')).not.toBeNull();
+      const repeated: Video = { ...config, style: { ...config.style, defaultTransition: undefined }, scenes: config.scenes.map(scene => ({ ...scene, variables: { ...scene.variables, mediaUrl: "shared.mp4" } })) };
+      view.rerender(createElement(VideoFrame, { kit, config: repeated, time: 1, width: 540, height: 960 }));
+      // Reusing a URL must still prepare the next keyed scene even without a
+      // visual blend; the resource may be cached but the next element is new.
+      expect(view.container.querySelectorAll("video")).toHaveLength(2);
     } finally {
       view?.unmount();
       userAgent.mockRestore();
@@ -623,7 +541,7 @@ describe("VideoFrame transition ownership", () => {
     }
   });
 
-  it("keeps one video element across consecutive iPhone scene sources", () => {
+  it("promotes the prepared mobile node and releases resources on seek, pause and unmount", () => {
     const userAgent = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
     );
@@ -693,100 +611,49 @@ describe("VideoFrame transition ownership", () => {
 
     let view: ReturnType<typeof render> | undefined;
     try {
-      const streamedConfig: Video = { ...config, scenes: [config.scenes[0]] };
-      view = render(createElement(VideoFrame, {
-        kit,
-        config: streamedConfig,
-        time: 2,
-        width: 540,
-        height: 960,
-        playing: true,
-      }));
-      const videoBeforeAppend = view.container.querySelector("video");
-      expect(videoBeforeAppend?.getAttribute("src")).toBe("first.mp4");
-
-      // A streamed scene.add must not migrate decoder ownership in the
-      // middle of the scene that is already playing.
-      view.rerender(createElement(VideoFrame, {
-        kit,
-        config,
-        time: 2,
-        width: 540,
-        height: 960,
-        playing: true,
-      }));
-      expect(view.container.querySelector("video")).toBe(videoBeforeAppend);
-
-      view.rerender(createElement(VideoFrame, {
-        kit,
-        config,
-        time: 4.99,
-        width: 540,
-        height: 960,
-        playing: true,
-      }));
-      const videoBeforeCut = view.container.querySelector("video");
-      const preparedPosterBeforeCut = view.container.querySelector<HTMLImageElement>('img[src="second.jpg"]');
-      expect(videoBeforeCut).toBe(videoBeforeAppend);
-      expect(videoBeforeCut?.getAttribute("src")).toBe("first.mp4");
-      expect(preparedPosterBeforeCut).not.toBeNull();
-      expect(preparedPosterBeforeCut?.style.opacity).toBe("0.966667");
-      expect(preparedPosterBeforeCut?.style.zIndex).toBe("2");
-      expect(
-        view.container.querySelector<HTMLElement>('[data-scene-layer="active"]')
-          ?.style.getPropertyValue("--vanillasky-template-surface"),
-      ).toBe("transparent");
-
-      view.rerender(createElement(VideoFrame, {
-        kit,
-        config,
-        time: 5,
-        width: 540,
-        height: 960,
-        playing: true,
-      }));
-      const videoAfterCut = view.container.querySelector("video");
-
-      expect(videoAfterCut).toBe(videoBeforeCut);
-      expect(videoAfterCut?.getAttribute("src")).toBe("second.mp4");
+      const element = (time: number, playing = true, scenes = config.scenes) => createElement(VideoFrame, {
+        kit, config: { ...config, scenes }, time, width: 540, height: 960, playing,
+      });
+      view = render(element(2, true, [config.scenes[0]]));
+      const firstVideo = view.container.querySelector("video")!;
+      // A streamed append retains the live node while creating only next.
+      view.rerender(element(2));
+      const prepared = view.container.querySelector<HTMLVideoElement>('[data-layer-scene-id="second-video"] video')!;
+      expect(view.container.querySelector("video")).toBe(firstVideo);
+      expect(prepared).not.toBeNull();
+      expect(view.container.querySelectorAll("video")).toHaveLength(2);
+      expect(play.mock.instances).not.toContain(prepared);
+      view.rerender(element(2, false));
+      expect(pause.mock.instances).toContain(firstVideo);
+      expect(view.container.querySelector('[data-layer-scene-id="second-video"] video')).toBe(prepared);
+      view.rerender(element(2));
+      expect(play.mock.instances).toContain(firstVideo);
+      view.rerender(element(5));
+      expect(view.container.querySelector("video")).toBe(prepared);
+      expect(play.mock.instances).toContain(prepared);
+      expect(firstVideo.isConnected).toBe(false);
+      expect(firstVideo.hasAttribute("src")).toBe(false);
+      expect(load.mock.instances).toContain(firstVideo);
       expect(view.container.querySelectorAll("video")).toHaveLength(1);
-      expect(play).toHaveBeenCalledTimes(2);
-      const posterAfterCut = view.container.querySelector<HTMLImageElement>('img[src="second.jpg"]');
-      expect(posterAfterCut).toBe(preparedPosterBeforeCut);
-      expect(posterAfterCut?.style.opacity).toBe("1");
-      expect(posterAfterCut?.style.zIndex).toBe("0");
 
-      let presentFrame: (() => void) | undefined;
-      if (videoAfterCut) {
-        // loadeddata/frame callbacks accompany an actually selected source;
-        // jsdom leaves currentSrc empty unless the native state is modeled.
-        Object.defineProperties(videoAfterCut, {
-          currentSrc: { configurable: true, value: videoAfterCut.src },
-          readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
-        });
-        videoAfterCut.requestVideoFrameCallback = vi.fn((callback: () => void) => {
-          presentFrame = callback;
-          return 1;
-        });
-        videoAfterCut.dispatchEvent(new Event("loadeddata", { bubbles: true }));
-        presentFrame?.();
-      }
-      expect(videoAfterCut?.getAttribute("poster")).toBe("second.jpg");
-
-      act(() => videoAfterCut?.dispatchEvent(new Event("error", { bubbles: true })));
-      expect(view.container.querySelectorAll("video")).toHaveLength(0);
-      expect(view.container.querySelector("[data-media-treatment]")).toBeNull();
-      expect(view.container.querySelector("[data-brand-gradient]")).not.toBeNull();
-      expect(
-        view.container.querySelector<HTMLElement>('[data-scene-layer="active"]')
-          ?.style.getPropertyValue("--vanillasky-template-surface"),
-      ).toBe("transparent");
+      // Seeking back creates just the missing prior node and retains the
+      // already mounted next node; the now-incoming video is paused.
+      view.rerender(element(1));
+      const recreatedFirst = view.container.querySelector<HTMLVideoElement>('[data-layer-scene-id="first-video"] video')!;
+      expect(recreatedFirst).not.toBe(firstVideo);
+      expect(view.container.querySelector('[data-layer-scene-id="second-video"] video')).toBe(prepared);
+      expect(pause.mock.instances).toContain(prepared);
+      expect(view.container.querySelectorAll("video")).toHaveLength(2);
+      view.rerender(element(5));
+      expect(view.container.querySelector("video")).toBe(prepared);
+      expect(recreatedFirst.hasAttribute("src")).toBe(false);
+      // Cancelling/removing the player releases every remaining source.
+      view.unmount();
+      expect(prepared.hasAttribute("src")).toBe(false);
+      expect(load.mock.instances).toContain(prepared);
     } finally {
       view?.unmount();
-      userAgent.mockRestore();
-      play.mockRestore();
-      pause.mockRestore();
-      load.mockRestore();
+      userAgent.mockRestore(); play.mockRestore(); pause.mockRestore(); load.mockRestore();
     }
   });
 
