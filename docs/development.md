@@ -8,7 +8,7 @@ The toolbar labels source and fixture identity and reports first-body-frame time
 
 ## Optional live host
 
-Set `VANILLASKY_CHAT_LIVE_ENDPOINT` to an application-owned video-chat endpoint before starting the harness. The toolbar then offers **Connect live endpoint (uses allowance)**. It stays offline until that explicit click. The host must allow the localhost origin and provide its normal authorization; credentials and allowances stay with that application. This tool does not proxy secrets, reset limits, or retry generated answers. Capabilities and welcome requests may run as soon as you connect. Request only the bounded live examples needed to evaluate actual quality.
+Set `VANILLASKY_CHAT_LIVE_ENDPOINT` to an application-owned video-chat endpoint before starting the harness. The toolbar then offers **Connect live endpoint (uses allowance)**. It stays offline until that explicit click. Live fetches include host cookies, subject to browser cookie policy. The host must allow credentialed requests from the localhost origin and provide its normal authorization; credentials and allowances stay with that application. This tool does not proxy secrets, reset limits, or retry generated answers. Capabilities and welcome requests may run as soon as you connect. Request only the bounded live examples needed to evaluate actual quality.
 
 ## Fast checks
 

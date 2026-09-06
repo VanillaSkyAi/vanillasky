@@ -18,6 +18,6 @@ function App() {
       <label>Condition <select value={scenario} onChange={event => setScenario(event.target.value)}>{scenarios.map(value => <option key={value}>{value}</option>)}</select></label></>}
     {__CHAT_LIVE_ENDPOINT__ && <button onClick={() => setLive(value => !value)}>{live ? "Return to offline" : "Connect live endpoint (uses allowance)"}</button>}
     <span>{live ? "Host authorization and limits apply." : "Local waterfall + recorded timing cue; not proof of model quality."} {timing}</span>
-  </aside><main className="dev-chat"><VideoChat key={endpoint} options={{endpoint, onFirstFrame: metric => setTiming(`First body frame: ${metric.timeToFirstFrameMs} ms`)}} /></main></>;
+  </aside><main className="dev-chat"><VideoChat key={endpoint} options={{endpoint, credentials: live ? "include" : "same-origin", onFirstFrame: metric => setTiming(`First body frame: ${metric.timeToFirstFrameMs} ms`)}} /></main></>;
 }
 createRoot(document.getElementById("root")!).render(<App />);
