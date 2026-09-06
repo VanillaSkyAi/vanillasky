@@ -16,6 +16,7 @@ describe("actual mounted media readiness", () => {
   it("no-poster first video waits for a presented frame, with only its mounted decoder", async () => {
     vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
     const video = view.container.querySelector("video")!;
+    Object.defineProperty(video, "currentSrc", {value: scene.variables.mediaUrl, configurable: true});
     let presented: VideoFrameRequestCallback | undefined;
     video.requestVideoFrameCallback = vi.fn(callback => {presented = callback; return 1;});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).not.toHaveBeenCalled();
@@ -28,13 +29,15 @@ describe("actual mounted media readiness", () => {
   it("a next-scene source handoff does not inherit readiness or allocate another decoder", async () => {
     vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
     const video = view.container.querySelector("video")!;
+    Object.defineProperty(video, "currentSrc", {value: scene.variables.mediaUrl, configurable: true});
     Object.defineProperty(video, "readyState", {value: 2, configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(1);
-    Object.defineProperty(video, "readyState", {value: 0, configurable: true});
+    // React updates src before the native element resets readyState/currentSrc.
     view.rerender(fixture(report, {...scene, id: "second", variables: {...scene.variables, mediaUrl: "https://example.com/second.mp4"}}));
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(1);
     expect(view.container.querySelectorAll("video")).toHaveLength(1);
     Object.defineProperty(video, "readyState", {value: 2, configurable: true});
+    Object.defineProperty(video, "currentSrc", {value: "https://example.com/second.mp4", configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(2);
   });
   it("paused preparation cannot time out and interruption discards stale frame callbacks", async () => {

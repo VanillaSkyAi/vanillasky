@@ -34,7 +34,6 @@ export function usePlaybackClock({
   loopRef,
   sceneIndexRef,
   visualReadyRef,
-  posterBridgeKeysRef,
   callbacksRef,
   setCurrentTime,
   setIsPlaying,
@@ -108,7 +107,7 @@ export function usePlaybackClock({
           nextTime = Math.min(raw, duration);
         }
         const target = ranges.find(range => nextTime >= range.start && nextTime < range.end) ?? ranges.at(-1);
-        const waitingForVisual = Boolean(target && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(target.scene) && !posterBridgeKeysRef?.current.has(sceneReadinessKey(target.scene)));
+        const waitingForVisual = Boolean(target && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(target.scene));
         if (waitingForVisual && target) nextTime = target.start;
         if (nextTime !== timeRef.current) {
           timeRef.current = nextTime;
@@ -142,7 +141,7 @@ export function usePlaybackClock({
       }
       const duration = current.config ? getVideoDuration(current.config) : 0;
       const active = current.config ? resolveVideoTimeline(current.config).find(range => timeRef.current >= range.start && timeRef.current < range.end) : undefined;
-      reportStall(Boolean(active && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(active.scene) && !posterBridgeKeysRef?.current.has(sceneReadinessKey(active.scene))) || (!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration));
+      reportStall(Boolean(active && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(active.scene)) || (!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration));
       if (!settled || looping || timeRef.current < duration) frame = requestAnimationFrame(tick);
       else setIsPlaying(false);
     };
