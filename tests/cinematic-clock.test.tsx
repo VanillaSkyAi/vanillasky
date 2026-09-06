@@ -79,8 +79,10 @@ it("uses actual narration time across cold output stalls, visual cuts, pause, an
   audioTime = 3.1;
   await act(() => vi.advanceTimersByTimeAsync(50));
   expect(timeRef.current).toBe(3); expect(change).toHaveBeenCalledOnce();
+  expect(stall).not.toHaveBeenCalledWith(true);
+  await act(() => vi.advanceTimersByTimeAsync(250));
   expect(stall).toHaveBeenCalledWith(true);
-  await act(() => vi.advanceTimersByTimeAsync(2000)); expect(error).not.toHaveBeenCalled();
+  await act(() => vi.advanceTimersByTimeAsync(1750)); expect(error).not.toHaveBeenCalled();
   visualReadyRef.current = sceneReadinessKey(video.scenes[1]);
   await act(() => vi.advanceTimersByTimeAsync(50));
   expect(timeRef.current).toBe(3.1); expect(change).toHaveBeenCalledTimes(2);
@@ -107,4 +109,59 @@ it("keeps an ordinary narrated scene on its audio clock and runs its tail after 
   audioTime = 2; await act(() => vi.advanceTimersByTimeAsync(50)); expect(timeRef.current).toBe(2);
   audioTime = undefined; await act(() => vi.advanceTimersByTimeAsync(100));
   expect(timeRef.current).toBeGreaterThan(2.08); expect(timeRef.current).toBeLessThan(2.12);
+});
+
+it.each([false, true])('keeps paragraph audio continuous only for a brief actual-frame handoff (cold: %s)', async (cold) => {
+  vi.useFakeTimers();
+  let audioTime = .1;
+  const video: Video = {schemaVersion:'0.2',style:{},scenes:[0,1].map(index=>({id:String(index),templateId:'cinemaMedia',variables:{mediaUrl:`/${index}.mp4`,mediaType:'video'},timing:{fixedDuration:1},narrationGroup:{id:'paragraph',text:'One complete spoken paragraph.',offsetSeconds:index,durationSeconds:1,totalSeconds:2}}))};
+  const visualReadyRef = {current:sceneReadinessKey(video.scenes[0])};
+  const timeRef = {current:0}; const change=vi.fn(); const stall=vi.fn();
+  const options = {stateRef:{current:{...createVideoState(),status:'complete' as const,config:video}},timeRef,visualReadyRef,audioRef:{current:null},loopRef:{current:false},sceneIndexRef:{current:-1},callbacksRef:{current:{narrationReady:()=>true,narrationTime:()=>audioTime,onSceneChange:change,onStallChange:stall}},setCurrentTime:vi.fn(),setIsPlaying:vi.fn()};
+  renderHook(()=>usePlaybackClock({...options,isPlaying:true}));
+  await act(()=>vi.advanceTimersByTimeAsync(32));
+  audioTime=1.05;
+  await act(()=>vi.advanceTimersByTimeAsync(160));
+  expect(timeRef.current).toBe(1);
+  expect(change).toHaveBeenCalledTimes(1);
+  expect(stall).not.toHaveBeenCalledWith(true);
+  if(cold){
+    // Streaming appends clone config/scenes; that must not renew the budget.
+    options.stateRef.current={...options.stateRef.current,config:{...video,scenes:[...video.scenes]}};
+    await act(()=>vi.advanceTimersByTimeAsync(100));
+    expect(stall).toHaveBeenCalledWith(true);
+    expect(change).toHaveBeenCalledTimes(1);
+  }
+  visualReadyRef.current=sceneReadinessKey(video.scenes[1]);
+  await act(()=>vi.advanceTimersByTimeAsync(32));
+  expect(change).toHaveBeenCalledTimes(2);
+  expect(timeRef.current).toBe(1.05);
+  if(!cold)expect(stall).not.toHaveBeenCalledWith(true);
+  else expect(stall).toHaveBeenLastCalledWith(false);
+});
+
+it.each(['pause','seek','replacement','different group'] as const)('resets the paragraph handoff window on %s', async (changeKind) => {
+  vi.useFakeTimers();
+  let audioTime=.1;
+  const video:Video={schemaVersion:'0.2',style:{},scenes:[0,1].map(index=>({id:String(index),templateId:'cinemaMedia',variables:{mediaUrl:`/${index}.mp4`,mediaType:'video'},timing:{fixedDuration:1},narrationGroup:{id:'paragraph',text:'One complete paragraph.',offsetSeconds:index,durationSeconds:1,totalSeconds:2}}))};
+  const options={stateRef:{current:{...createVideoState(),requestId:'original',status:'complete' as const,config:video}},timeRef:{current:0},visualReadyRef:{current:sceneReadinessKey(video.scenes[0])},audioRef:{current:null},loopRef:{current:false},sceneIndexRef:{current:-1},callbacksRef:{current:{narrationReady:()=>true,narrationTime:()=>audioTime,onSceneChange:vi.fn(),onStallChange:vi.fn()}},setCurrentTime:vi.fn(),setIsPlaying:vi.fn()};
+  const hook=renderHook(({isPlaying})=>usePlaybackClock({...options,isPlaying}),{initialProps:{isPlaying:true}});
+  await act(()=>vi.advanceTimersByTimeAsync(32));
+  audioTime=1.05;
+  await act(()=>vi.advanceTimersByTimeAsync(160));
+  expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true);
+  if(changeKind==='pause'){
+    hook.rerender({isPlaying:false});
+    await act(()=>vi.advanceTimersByTimeAsync(1000));
+    hook.rerender({isPlaying:true});
+    await act(()=>vi.advanceTimersByTimeAsync(100));
+    expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true);
+    await act(()=>vi.advanceTimersByTimeAsync(140));
+  }else{
+    if(changeKind==='seek')options.timeRef.current=.99;
+    if(changeKind==='replacement')options.stateRef.current={...options.stateRef.current,requestId:'replacement'};
+    if(changeKind==='different group')options.stateRef.current={...options.stateRef.current,config:{...video,scenes:[video.scenes[0],{...video.scenes[1],narrationGroup:{...video.scenes[1].narrationGroup!,id:'different'}}]}};
+    await act(()=>vi.advanceTimersByTimeAsync(32));
+  }
+  expect(options.callbacksRef.current.onStallChange).toHaveBeenCalledWith(true);
 });

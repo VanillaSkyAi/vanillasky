@@ -341,8 +341,16 @@ describe("VideoFrame transition ownership", () => {
       expect(posterAfterCut?.getAttribute("src")).toBe("second.jpg");
       expect(posterAfterCut?.style.opacity).toBe("1");
 
+      const presented = vi.fn();
+      videoAfterCut?.addEventListener("vanillasky:video-frame-presented", presented);
       let presentFrame: (() => void) | undefined;
       if (videoAfterCut) {
+        // loadeddata/frame callbacks accompany an actually selected source;
+        // jsdom leaves currentSrc empty unless the native state is modeled.
+        Object.defineProperties(videoAfterCut, {
+          currentSrc: { configurable: true, value: videoAfterCut.src },
+          readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+        });
         videoAfterCut.requestVideoFrameCallback = vi.fn((callback: () => void) => {
           presentFrame = callback;
           return 1;
@@ -350,10 +358,23 @@ describe("VideoFrame transition ownership", () => {
       }
       act(() => videoAfterCut?.dispatchEvent(new Event("loadeddata", { bubbles: true })));
       expect(onReady).not.toHaveBeenCalled();
+      expect(presented).not.toHaveBeenCalled();
       expect(posterAfterCut?.style.opacity).toBe("1");
 
+      // A late frame from the outgoing resource must not authorize the new
+      // scene, even though React has already changed its src attribute.
+      Object.defineProperty(videoAfterCut, "currentSrc", {
+        configurable: true, value: new URL("first.mp4", document.baseURI).href,
+      });
+      act(() => presentFrame?.());
+      expect(onReady).not.toHaveBeenCalled();
+      expect(presented).not.toHaveBeenCalled();
+      Object.defineProperty(videoAfterCut, "currentSrc", {
+        configurable: true, value: videoAfterCut?.src,
+      });
       act(() => presentFrame?.());
       expect(onReady).toHaveBeenCalledOnce();
+      expect(presented).toHaveBeenCalledOnce();
       // Mobile Safari can drop the composited video plane even while the
       // element remains connected and ready. The poster therefore stays
       // painted underneath the video instead of disappearing after the first
@@ -573,6 +594,10 @@ describe("VideoFrame transition ownership", () => {
       const video = view.container.querySelector("video");
       let presentFrame: (() => void) | undefined;
       if (video) {
+        Object.defineProperties(video, {
+          currentSrc: { configurable: true, value: video.src },
+          readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+        });
         video.requestVideoFrameCallback = vi.fn((callback: () => void) => {
           presentFrame = callback;
           return 1;
@@ -733,6 +758,12 @@ describe("VideoFrame transition ownership", () => {
 
       let presentFrame: (() => void) | undefined;
       if (videoAfterCut) {
+        // loadeddata/frame callbacks accompany an actually selected source;
+        // jsdom leaves currentSrc empty unless the native state is modeled.
+        Object.defineProperties(videoAfterCut, {
+          currentSrc: { configurable: true, value: videoAfterCut.src },
+          readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+        });
         videoAfterCut.requestVideoFrameCallback = vi.fn((callback: () => void) => {
           presentFrame = callback;
           return 1;

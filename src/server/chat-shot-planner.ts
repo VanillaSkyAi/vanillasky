@@ -25,14 +25,24 @@ function text(value: unknown, maximum: number): string {
   // Never truncate spoken content or turn a partial scientific claim into a fact.
   return typeof value === "string" && value.trim().length <= maximum ? value.trim() : "";
 }
-function readShot(value: unknown, clipDurationSec: number): Shot {
+function chapterSubject(subject: string): string {
+  const normalized = subject.replace(/\s+/gu, " ");
+  if (normalized.length <= 65) return normalized;
+  const prefix = normalized.slice(0, 65);
+  const boundary = prefix.lastIndexOf(" ");
+  return boundary > 0 ? prefix.slice(0, boundary) : "";
+}
+function readShot(value: unknown, clipDurationSec: number, answerSubject = ""): Shot {
   const item = object(value);
   const narration = text(item?.narration, 2_000);
   if (!narration) throw new Error("Chat shot requires bounded authored narration");
+  const subject = text(item?.subject, 80);
+  const title = text(item?.title, 65) || chapterSubject(subject) || chapterSubject(answerSubject);
+  if (!title) throw new Error("Chat shot requires an authored chapter title or subject");
   return {
     narration,
-    title: text(item?.title, 65) || text(item?.subject, 65) || "The next step",
-    subject: text(item?.subject, 80),
+    title,
+    subject,
     action: text(item?.action, 600),
     durationSec: typeof item?.durationSec === "number" && Number.isFinite(item.durationSec) ? Math.min(clipDurationSec, Math.max(2, item.durationSec)) : clipDurationSec,
     continuity: item?.continuity === "continue" ? "continue" : "cut",
@@ -100,13 +110,13 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
             brief = { opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
-            if (part.ending) { try { brief.ending = readShot(part.ending, clipDurationSec); } catch (cause) { reject(cause); } }
+            if (part.ending) { try { brief.ending = readShot(part.ending, clipDurationSec, brief.subject); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
             return;
           }
           if (part?.type !== "shot") throw new Error("Chat plan requires an answer brief followed by shots");
           if (!brief) throw new Error("Chat shot arrived before its answer brief");
-          const shot = readShot(part, clipDurationSec);
+          const shot = readShot(part, clipDurationSec, brief.subject);
           if (shot.narration === brief.ending?.narration) return;
           if (firstBody && !continueAfterOpening(shot.narration, [options.openingLine ?? brief.opening])) return;
           const budget = (context.request.input.maxDurationSec ?? 40) - (brief.ending?.durationSec ?? clipDurationSec);

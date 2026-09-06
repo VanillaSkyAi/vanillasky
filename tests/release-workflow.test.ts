@@ -318,11 +318,13 @@ describe("release workflow", () => {
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
     expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(2);
+    expect(browserJob.match(/--fail-on-flaky-tests/g)).toHaveLength(2);
     expect(browserJob).toContain("browser: [chromium, firefox, webkit]");
     expect(browserJob).toContain("fail-fast: false");
-    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --workers=1");
-    expect(browserJob).toContain('if [[ "${{ matrix.browser }}" == "chromium" ]]; then');
-    expect(browserJob).toContain("name: browser-playback-evidence-${{ matrix.browser }}");
+    expect(browserJob).toContain("shard: [1, 2]");
+    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2 --workers=1");
+    expect(browserJob).toContain('if [[ "${{ matrix.browser }}" == "chromium" && "${{ matrix.shard }}" == "1" ]]; then');
+    expect(browserJob).toContain("name: browser-playback-evidence-${{ matrix.browser }}-${{ matrix.shard }}");
     expect(browserJob).toContain("if: always()");
     expect(browserAggregate).toContain("if: always() && github.event_name == 'pull_request'");
     expect(browserAggregate).toContain("needs: browser-gate");

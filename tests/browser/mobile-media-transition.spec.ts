@@ -164,3 +164,37 @@ test("recovers a stalled native decoder independently of healthy source identity
     await expect(page.getByTestId("video-player")).toHaveAttribute("data-playing", "true");
   } finally { await context.close(); }
 });
+
+test("cold replacement footage decodes before its narration cue without losing the decoder", async ({ browser, browserName }, info) => {
+  test.skip(browserName !== "webkit", "Checks the constrained decoder handoff.");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1" });
+  const page = await context.newPage();
+  const codec = process.platform === "linux" ? "VP8" : "H264";
+  const secondFile = codec === "VP8" ? "tram.webm" : "tram.mp4";
+  const requests: { range: string | undefined; at: number }[] = [];
+  try {
+    await page.route(`**/${secondFile}`, async route => { requests.push({ range: route.request().headers()["range"], at: Date.now() }); await new Promise(resolve => setTimeout(resolve, 1500)); await route.continue(); });
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html${codec === "VP8" ? "?webm" : ""}`);
+    await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.some(event => event.kind === "scene-narration-cue" && event.sceneId === "second-video") ?? false), { timeout: 12000 }).toBe(true);
+    const events = await page.evaluate(() => window.__mobileMediaTransitionProbe ?? []);
+    const cue = events.find(event => event.kind === "scene-narration-cue" && event.sceneId === "second-video")!;
+    const firstFrame = events.find(event => event.kind === "presented-frame" && event.sceneId === "second-video" && String(event.currentSrc).includes(secondFile));
+    expect(String(cue.currentSrc)).toContain(secondFile);
+    expect(cue.readyState).toBeGreaterThanOrEqual(2);
+    expect(firstFrame).toBeDefined();
+    expect(cue.at).toBeGreaterThanOrEqual(firstFrame!.at);
+    const originalId = events.find(event => event.kind === "connected")!.videoId;
+    expect(await page.locator("video").getAttribute("data-probe-video-id")).toBe(String(originalId));
+    await expect(page.locator('[data-scene-fallback="true"]')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window.__mobileMediaTransitionProbe ?? []).filter(event => event.kind === "presented-frame" && event.sceneId === "second-video" && Number(event.mediaTime) > .5).length)).toBeGreaterThanOrEqual(3);
+  } finally {
+    const events = await page.evaluate(() => window.__mobileMediaTransitionProbe ?? []);
+    const cut = events.find(event => event.kind === "animation-frame" && event.sceneId === "second-video");
+    const frame = events.find(event => event.kind === "presented-frame" && event.sceneId === "second-video" && String(event.currentSrc).includes(secondFile));
+    const proof = { codec, delayMs: 1500, requests, handoffWaitMs: cut && frame ? frame.at - cut.at : null, events };
+    await writeFile(info.outputPath("cold-source-handoff.json"), JSON.stringify(proof));
+    await info.attach("cold-source-handoff", { body: JSON.stringify(proof), contentType: "application/json" });
+    await context.close();
+  }
+});

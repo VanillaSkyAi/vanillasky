@@ -1,4 +1,4 @@
-import { MountedSceneReadiness, PreparedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -445,7 +445,6 @@ export function VideoFrame({
         ? firstVideoRange
         : undefined
     : undefined;
-  const preparedReadinessRange = posterPreparationRange ?? (contiguousNext && sceneHasVideoBackdrop(contiguousNext) ? contiguousNext : undefined);
   const preparedPoster = posterPreparationRange && String(
     posterPreparationRange.scene.variables.mediaPoster || "",
   ) ? {
@@ -485,8 +484,14 @@ export function VideoFrame({
   // fading out and then snapping back when playback stops. Raw progress still
   // reaches 1 so semantic values and background playback finish normally.
   const isFinalScene = activeIndex === timeline.length - 1;
-  const motionProgress = isFinalScene && activeTiming
-    ? Math.min(rawProgress, activeTiming.holdProgress)
+  const presentsChapter = active.scene.templateId === "chapterTitle"
+    || (active.scene.templateId === "cinemaMedia"
+      && (activeMediaFailed || !String(active.scene.variables.mediaUrl || "").trim()));
+  // Recovery uses the chapter's presentation even when the planned template
+  // was footage. Keep its final readable pose through completion.
+  const finalHold = presentsChapter ? .76 : activeTiming?.holdProgress;
+  const motionProgress = isFinalScene && finalHold !== undefined
+    ? Math.min(rawProgress, finalHold)
     : rawProgress;
   const canvas = getDimensions(config.orientation);
   const scale = Math.min(width / canvas.width, height / canvas.height);
@@ -521,7 +526,6 @@ export function VideoFrame({
         fallback={activeMediaFailed}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
           ? () => markMediaFailed(sceneReadinessKey(active.scene)) : undefined} />
-      {preparedReadinessRange && <PreparedSceneReadiness scene={preparedReadinessRange.scene} />}
       <div
         data-video-canvas="true"
         style={{

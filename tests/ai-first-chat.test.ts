@@ -132,3 +132,20 @@ it("treats still images as unavailable body footage without losing speech", asyn
  expect(scenes.map(s => s.narration)).toEqual([shot.narration, ending.narration]);
  expect(scenes.every(s => s.templateId === "chapterTitle" && typeof s.variables.title === "string")).toBe(true);
 });
+
+it('uses a bounded authored subject when the chapter title is absent', async () => {
+ const subject = 'miniature copper gardener arranging spectacular chrysanthemums beside windows';
+ const result = await run({allowance:0,parts:[brief,{...shot,subject}]});
+ expect(result.scenes[0]).toMatchObject({templateId:'chapterTitle',variables:{title:'miniature copper gardener arranging spectacular chrysanthemums'},narration:shot.narration});
+ expect(result.calls).toEqual([]);
+});
+it('retains the authored answer subject when a spoken beat has no visual direction', async () => {
+ const result = await run({allowance:0,parts:[brief,{...shot,subject:undefined,action:undefined}]});
+ expect(result.scenes[0]).toMatchObject({variables:{title:brief.subject},narration:shot.narration});
+});
+it('reports malformed content rather than inventing a generic chapter', async () => {
+ const result = await run({allowance:0,parts:[{...brief,subject:undefined},{...shot,subject:undefined,title:42}]});
+ expect(result.scenes.map(scene=>scene.narration)).toEqual([ending.narration]);
+ expect(result.events.at(-1)).toMatchObject({type:'response.complete',data:{finishReason:'other'}});
+ expect(JSON.stringify(result.scenes)).not.toContain('The next step');
+});

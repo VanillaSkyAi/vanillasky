@@ -66,6 +66,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [exhaustedKey, setExhaustedKey] = useState<string>();
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const presentedVideoUrl = useRef<string | undefined>(undefined);
   const startedVideoUrl = useRef<string | undefined>(undefined);
   const startedPlaybackId = useRef<string | undefined>(undefined);
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
@@ -86,6 +87,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     const video = videoRef.current;
     if (!video) return;
+    const expectedSource = video.getAttribute("src") === mediaUrl ? video.src : undefined;
+    let awaitingFirstFrame = presentedVideoUrl.current !== mediaUrl || video.currentSrc !== expectedSource;
     let previousTime = video.currentTime;
     let forwardFrames = 0;
     let stopped = false;
@@ -93,8 +96,14 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     let poll: ReturnType<typeof setTimeout> | undefined;
     const observe = (_now?: number, metadata?: VideoFrameCallbackMetadata) => {
       if (stopped) return;
+      const currentSource = video.currentSrc === expectedSource;
+      if (currentSource && awaitingFirstFrame && (metadata || presentedVideoUrl.current === mediaUrl)) {
+        awaitingFirstFrame = false;
+        clearTimeout(deadline);
+        deadline = setTimeout(fail, 1000);
+      }
       const time = metadata?.mediaTime ?? video.currentTime;
-      if (video.seeking || time < previousTime) forwardFrames = 0;
+      if (!currentSource || video.seeking || time < previousTime) forwardFrames = 0;
       else if (time > previousTime + .001) forwardFrames++;
       previousTime = time;
       // One seek frame is not resumed motion. Require consecutive forward
@@ -111,9 +120,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // A seek can emit waiting without another playing event, even while frames
     // resume. Keep the decoder visible and observe motion directly. A real
     // stall gets the player's authored chapter instead of an endless spinner.
-    const deadline = setTimeout(() => {
-      if (!stopped) { stopped = true; unavailable(); }
-    }, 1000);
+    const fail = () => { if (!stopped) { stopped = true; unavailable(); } };
+    // Initial network/decode work has the same bound as mounted readiness.
+    // Only a source that has presented a frame can be judged as stalled motion.
+    let deadline = setTimeout(fail, awaitingFirstFrame ? 8000 : 1000);
     observe();
     return () => {
       stopped = true;
@@ -153,6 +163,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       video.setAttribute("src", mediaUrl);
       video.load();
     }
+  }, [mediaUrl]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    // A source change already starts a native load via React's src update.
+    // Tear down the decoder only on unmount, never cancel that new request.
     return () => {
       video.pause();
       video.removeAttribute("src");
@@ -160,7 +177,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       startedVideoUrl.current = undefined;
       startedPlaybackId.current = undefined;
     };
-  }, [mediaUrl]);
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -270,7 +287,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onLoadedData={(event) => {
           const video = event.currentTarget;
           const markPresented = () => {
-            if (!video.isConnected) return;
+            if (!video.isConnected || presentationRef.current.key !== videoPresentationKey
+              || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return;
+            presentedVideoUrl.current = mediaUrl;
+            video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
             onReady?.();
             if (!retainPoster) setDecodedVideoUrl(mediaUrl);
           };

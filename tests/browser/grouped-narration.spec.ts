@@ -35,3 +35,27 @@ for (const delayedOnset of [false, true]) test(`one prerecorded paragraph surviv
     await context.close();
   }
 });
+
+test('a cold grouped visual pauses the paragraph after its bounded handoff window', async ({browser,browserName}, info) => {
+  test.skip(browserName !== 'webkit', 'Exercises the single-decoder handoff.');
+  const context=await browser.newContext({...devices['iPhone 13']});
+  const page=await context.newPage();
+  try {
+    await page.route('**/tram.mp4',async route=>{await new Promise(resolve=>setTimeout(resolve,1500));await route.continue();});
+    await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html');
+    await page.getByText('Play prerecorded paragraph').click();
+    await page.waitForFunction(()=>(window as unknown as {narrationProbe:Array<{kind:string}>}).narrationProbe.some(event=>event.kind==='ended'),null,{timeout:15000});
+    const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number}>}).narrationProbe);
+    const pause=probe.find(event=>event.kind==='pause' && event.audioTime!>1 && event.audioTime!<4)!;
+    expect(pause).toBeDefined();
+    const cut=probe.find(event=>event.kind==='cut' && event.index===1)!;
+    const frame=probe.find(event=>event.kind==='video-frame' && event.source==='tram.mp4')!;
+    expect(frame).toBeDefined();
+    expect(cut.at).toBeGreaterThanOrEqual(frame.at);
+    expect(cut.at-pause.at).toBeGreaterThan(200);
+    expect(probe.filter(event=>event.kind==='cut').map(event=>event.index)).toEqual([0,1,2]);
+    expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(1);
+    expect(probe.filter(event=>event.kind==='ended')).toHaveLength(1);
+    await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify(probe,null,2));
+  }finally{await context.close();}
+});
