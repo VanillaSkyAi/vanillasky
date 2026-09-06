@@ -4,9 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
-- Initialize the reusable narration audio element during the existing user gesture so delayed first speech can play on Safari.
-
 ## 0.10.6
+
+- Initialize the reusable narration audio element during the existing user gesture so delayed first speech can play on Safari.
 
 - Accept valid Pexels search results without descriptive URL slugs. Rank available matching metadata above unknown relevance, without requiring most query words to appear in the slug.
 
