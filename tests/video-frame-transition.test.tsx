@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { act, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement, lazy, StrictMode, useEffect } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Video } from "../src/internal";
+import { MountedReadinessContext } from "../src/player/mounted-scene-readiness";
 import { VideoFrame } from "../src/player/video-frame";
 import {
   createRenderTemplateRegistry,
@@ -19,6 +20,31 @@ import {
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 describe("VideoFrame transition ownership", () => {
+  it.each(["video", "photo"])("continues on a mounted grounded fallback after resolved %s fails to decode", async (mediaType) => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    const { BUILTIN_PLAYER_KIT, preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await Promise.all([preloadBuiltinTemplate("cinemaMedia"), preloadBuiltinTemplate("chapterTitle")]);
+    const report = vi.fn();
+    const scene = { id: "failed", templateId: "cinemaMedia", variables: {
+      mediaUrl: "https://media.example/broken.mp4", mediaType, fallbackText: "A changing shoreline",
+    }, narration: "As the water becomes shallower, the wave slows and grows steeper.", timing: { fixedDuration: 5 } };
+    const config: Video = { schemaVersion: "0.2", orientation: "portrait", style: TEST_VIDEO_STYLE, scenes: [scene] };
+    try {
+      const view = render(createElement(MountedReadinessContext.Provider, { value: report },
+        createElement(VideoFrame, { kit: BUILTIN_PLAYER_KIT, config, time: 1, width: 540, height: 960, playing: true })));
+      const selector = mediaType === "video" ? "video" : "img[data-media-position]";
+      await waitFor(() => expect(view.container.querySelector(selector)).not.toBeNull());
+      fireEvent.error(view.container.querySelector(selector)!);
+      await waitFor(() => expect(view.container.textContent).toContain("A changing shoreline"));
+      await waitFor(() => expect(report).toHaveBeenCalledWith("failed\0https://media.example/broken.mp4", undefined, false));
+      expect(view.container.textContent).not.toContain(scene.narration);
+      expect(view.container.querySelectorAll("video")).toHaveLength(0);
+      view.unmount();
+    } finally { play.mockRestore(); pause.mockRestore(); load.mockRestore(); }
+  });
+
   it("restores a video source after the Strict Mode effect rehearsal", () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});

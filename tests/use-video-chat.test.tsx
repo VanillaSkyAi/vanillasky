@@ -106,6 +106,40 @@ describe("useVideoChat", () => {
     vi.unstubAllGlobals();
   });
 
+  it("prepares speech alongside a pending photo and keeps the full answer when it fails", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const images: Array<{ onerror: (() => void) | null }> = [];
+    let failImages = false;
+    vi.stubGlobal("Image", class {
+      onload = null; onerror: (() => void) | null = null; complete = false; naturalWidth = 0;
+      set src(_value: string) { if (failImages) queueMicrotask(() => this.onerror?.()); }
+      constructor() { images.push(this); }
+    });
+    const narration = "The robot plants a seed and waits for the first green shoot.";
+    const shot: VideoScene = { id: "photo", templateId: "cinemaMedia", variables: {
+      mediaUrl: "https://media.example/seed.jpg", mediaType: "photo", fallbackText: "A seed of hope",
+    }, narration, timing: { fixedDuration: 5 } };
+    const ending: VideoScene = { id: "ending", templateId: "chapterTitle", variables: { title: "The garden wakes" },
+      narration: "At sunrise, the whole garden finally answers with a thousand tiny leaves.", timing: { fixedDuration: 5 } };
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+      ? Promise.resolve(responseStream("photo-failure", [shot, ending])) : base(input, init);
+    const voice = fakeVoice();
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice }));
+    let answer!: Promise<Video | undefined>;
+    act(() => { answer = result.current.ask("Tell a story about a robot gardener"); });
+    await waitFor(() => expect(voice.prepare).toHaveBeenCalledWith(narration, expect.any(Object)));
+    expect(result.current.currentTurn?.completed).not.toBe(true);
+    await waitFor(() => expect(images.some(image => image.onerror != null)).toBe(true));
+    await act(async () => { failImages = true; for (const image of images) image.onerror?.(); });
+    await waitFor(() => expect(result.current.currentTurn?.completed).toBe(true));
+    const video = await answer;
+    expect(video?.scenes.map(({ templateId }) => templateId)).toEqual(["chapterTitle", "chapterTitle"]);
+    expect(video?.scenes[0].variables).toEqual({ title: "A seed of hope" });
+    expect(video?.scenes.map(({ narration }) => narration)).toEqual([narration, ending.narration]);
+    expect(result.current.currentTurn?.completed).toBe(true);
+  });
+
   it("completes before suggestions and retains context while late suggestions are discarded", async () => {
     const { useVideoChat } = await import("../src/react");
     const requests: Array<{ action: string | null; body?: unknown }> = [];

@@ -210,7 +210,8 @@ async function resolvePartVariables(options: {
     }
     const rendered = { ...variables };
     delete rendered.mediaSource;
-    delete rendered.fallbackText;
+    // Preserve the authored recovery anchor for a URL that later fails to decode.
+    if (options.templateId !== "cinemaMedia") delete rendered.fallbackText;
     delete rendered.shotDirection;
     return { ...options.part, scene: { ...options.part.scene, variables: rendered } };
   }

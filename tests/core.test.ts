@@ -476,26 +476,26 @@ describe("video response core", () => {
     }
   });
 
-  it("asks the planner to distill substantial source material without padding or avoidable template repetition", async () => {
+  it("asks the planner to distill substantial source material without padding or compulsory template changes", async () => {
     const { buildVideoUserPrompt } = await import("../src/internal");
     const prompt = buildVideoUserPrompt({
       input: "Activation is 58%. Enterprise adoption is 64%. SMB adoption is 49%.",
       opening: "Here is your daily briefing.",
     });
 
-    expect(prompt).toContain("Select the most decision-relevant grounded takeaways that fit the duration");
+    expect(prompt).toContain("Develop the requested answer within the duration");
     expect(prompt).toContain("For a long source, summarize instead of attempting to represent every fact");
     expect(prompt).toContain("unless the creative instructions explicitly request complete fact coverage that fits the duration");
     expect(prompt).toContain("Preserve qualifiers, units, denominators, ranges, and comparison direction");
-    expect(prompt).toContain("Choose the scene count from the distinct grounded material and the duration budget");
-    expect(prompt).toContain("For ordinary multi-fact input, form at least three distinct beats");
-    expect(prompt).toContain("Use only one or two beats when the source genuinely contains no more than two independent grounded takeaways");
-    expect(prompt).toContain("continue beyond five when rich input warrants it");
+    expect(prompt).toContain("Choose the scene count from the requested intent, visual progression and duration budget");
+    expect(prompt).toContain("Before plan.complete, check that the answer fulfills the actual request");
+    expect(prompt).not.toContain("form at least three distinct beats");
+    expect(prompt).toContain("Do not stop while an essential step or payoff is missing");
     expect(prompt).toContain("explicitly require one separate scene per named item");
     expect(prompt).toContain("do not merge, group, or omit those required items");
     expect(prompt).toContain("finish with plan.complete using finishReason length");
     expect(prompt).not.toContain("Aim for 3–5 generated body scenes");
-    expect(prompt).toContain("Use a different suitable template for each body scene");
+    expect(prompt).toContain("Reuse the same suitable template when it serves successive beats");
     expect(prompt).toContain("Never add filler to satisfy a count or diversity target");
     expect(prompt).not.toContain("Never use media, ctaMedia, or reaction");
   });

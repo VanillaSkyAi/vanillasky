@@ -5,10 +5,12 @@ export const MountedReadinessContext = createContext<((key: string, error?: Erro
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
 /** Observes the real mounted surface, never a detached decoder or speculative URL. */
-export function MountedSceneReadiness({ scene, playing, fallback = false }: { scene: VideoScene; playing: boolean; fallback?: boolean }) {
+export function MountedSceneReadiness({ scene, playing, fallback = false, onFailure }: { scene: VideoScene; playing: boolean; fallback?: boolean; onFailure?: () => void }) {
   const marker = useRef<HTMLSpanElement>(null);
   const report = useContext(MountedReadinessContext);
   const key = sceneReadinessKey(scene);
+  const onFailureRef = useRef(onFailure);
+  onFailureRef.current = onFailure;
   useEffect(() => {
     if (!report || !playing) return;
     let stopped = false;
@@ -16,11 +18,11 @@ export function MountedSceneReadiness({ scene, playing, fallback = false }: { sc
     let callback: number | undefined;
     let observed: HTMLVideoElement | undefined;
     const start = performance.now();
-    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; report(key, error, actualVideoFrame); } };
+    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (error && onFailureRef.current) onFailureRef.current(); else report(key, error, actualVideoFrame); } };
     const check = () => {
       if (stopped) return;
       const root = marker.current?.closest('[data-video-frame]');
-      if (fallback && root?.querySelector("[data-scene-fallback]")) { finish(); return; }
+      if (fallback && root?.querySelector("[data-scene-fallback]") && !root.querySelector("[data-template-loading]") && document.fonts?.status !== "loading") { finish(); return; }
       const layer = root?.querySelector('[data-scene-layer="active"]');
       const loading = layer?.querySelector('[data-template-loading]');
       const mediaUrl = String(scene.variables.mediaUrl || "");

@@ -306,16 +306,21 @@ export const SceneBackground: React.FC<SceneBackgroundProps> = ({
             onError={() => setMediaPaint("failed")}
           />
         ) : (
-          <div
+          <img
+            src={mediaUrl}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
             data-media-position={mediaPosition}
             style={{
               position: "absolute",
               inset: 0,
               transform: bgTransform.transform,
               transformOrigin: bgTransform.transformOrigin,
-              backgroundImage: `url(${mediaUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: resolvedPosition,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: resolvedPosition,
             }}
           />
         ))}

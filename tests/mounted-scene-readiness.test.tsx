@@ -43,6 +43,16 @@ describe("actual mounted media readiness", () => {
     view.rerender(fixture(report));
     view.unmount(); await act(() => vi.advanceTimersByTimeAsync(9000)); expect(report).not.toHaveBeenCalled();
   });
+  it("requests recovery after a timeout without claiming a frame has appeared", async () => {
+    vi.useFakeTimers(); const report = vi.fn(); const recover = vi.fn();
+    render(<MountedReadinessContext.Provider value={report}><div data-video-frame="ready">
+      <MountedSceneReadiness scene={scene} playing onFailure={recover} />
+      <div data-scene-layer="active" />
+    </div></MountedReadinessContext.Provider>);
+    await act(() => vi.advanceTimersByTimeAsync(8000));
+    expect(recover).toHaveBeenCalledOnce();
+    expect(report).not.toHaveBeenCalled();
+  });
   it("reports a bounded decode failure rather than starting narration over black", async () => {
     vi.useFakeTimers(); const report = vi.fn(); render(fixture(report));
     await act(() => vi.advanceTimersByTimeAsync(8000));
