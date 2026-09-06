@@ -225,15 +225,18 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       if (offsetSeconds !== undefined && (line.source !== "generated" || !line.measured || !Number.isFinite(offsetSeconds) || offsetSeconds < 0 || offsetSeconds >= line.seconds)) throw new Error("Narration group requires measured, seekable audio");
       if (line.source === "browser") {
         const synthesis = globalThis.speechSynthesis;
-        if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+        if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") throw new Error("Browser voice is unavailable");
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1;
+        let unavailable = false;
         await new Promise<void>((resolve) => {
           let finished = false;
+          let onsetRemainingMs = 2_000;
           const finish = () => {
             if (finished) return;
             finished = true;
             clearWatchdog();
+            clearInterval(onsetTimer);
             signal.removeEventListener("abort", stop);
             speechStops.delete(stop);
             utterance.onstart = null;
@@ -243,23 +246,37 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             resolve();
           };
           const stop = () => {
-            synthesis.cancel();
             finish();
+            synthesis.cancel();
           };
           const clearWatchdog = watchSpeech(estimatedBrowserSeconds(text), stop);
           speechStops.add(stop);
           browserFinish = finish;
-          utterance.onstart = () => { if (!finished) notifyStart("browser"); };
+          const fail = () => { unavailable = true; stop(); };
+          // Some embedded/headless browsers accept speak() but never dispatch
+          // onstart. Cancel that pending utterance before the player deadline,
+          // so late speech cannot start over subtitle-only playback.
+          const onsetTimer = setInterval(() => {
+            if (held || finished) return;
+            onsetRemainingMs -= 250;
+            if (onsetRemainingMs <= 0) fail();
+          }, 250);
+          utterance.onstart = () => {
+            if (finished) return;
+            clearInterval(onsetTimer);
+            notifyStart("browser");
+          };
           utterance.onend = finish;
-          utterance.onerror = finish;
+          utterance.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });
           try {
             synthesis.speak(utterance);
             if (held) synthesis.pause();
           } catch {
-            finish();
+            fail();
           }
         });
+        if (unavailable) throw new Error("Browser voice is unavailable");
         return;
       }
 
