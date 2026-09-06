@@ -1128,6 +1128,9 @@
 .vanillasky-video-chat .opening-chapter {
   position: absolute;
   inset: 0;
+  background: #000;
+}
+.vanillasky-video-chat .opening-chapter [data-title-composition="centered"] {
   animation: vanillasky-video-chat-fade-in 800ms ease both;
 }
 .vanillasky-video-chat .line-row[data-opening-copy="true"] {
