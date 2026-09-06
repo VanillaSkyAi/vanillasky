@@ -5,6 +5,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 ## Unreleased
 
 - Keep generated narration playing in Safari after a delayed opening-to-body handoff by reusing the permitted audio element; isolate late playback failures from subsequent lines.
+- In drop mode, a media miss without usable authored fallback skips only that scene and preserves later valid scenes and the ending. Strict mode still fails. The skipped beat is reported; its content cannot be reconstructed without a usable asset or fallback.
+- Keep first-shot narration within its five-second footage budget and develop the answer in later scenes, without imposing a fixed sentence length on the rest of the video.
 
 ## 0.10.1
 
