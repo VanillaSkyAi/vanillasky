@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getBackgroundTransform } from "../backgrounds";
 import { useMediaAudio } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
@@ -64,22 +64,30 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const startedPlaybackId = useRef<string | undefined>(undefined);
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
 
-  const fitDuration = (video: HTMLVideoElement) => {
+  const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying });
+  presentationRef.current = { key: videoPresentationKey, playing: isPlaying };
+  const unavailable = () => {
+    if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) setExhaustedKey(videoPresentationKey);
+  };
+  const fitDuration = useCallback((video: HTMLVideoElement) => {
     // Allow a small decode-to-speech onset margin without changing narration.
     video.playbackRate = (resolvedMuted || video.preservesPitch === true) && sceneDuration && Number.isFinite(video.duration) && video.duration > 0
       ? Math.max(.75, Math.min(1, video.duration / (sceneDuration + .2))) : 1;
-  };
+  }, [resolvedMuted, sceneDuration]);
+  useEffect(() => {
+    if (videoRef.current) fitDuration(videoRef.current);
+  }, [fitDuration]);
   const continueMotion = (video: HTMLVideoElement) => {
     if (!isPlaying) return;
     // The planner supplies short shots as the normal coverage. A single replay
     // bridges exceptional speech overrun/late delivery; never loop indefinitely.
-    if (continuityReplay.current === videoPresentationKey) {
+    if (!resolvedMuted || continuityReplay.current === videoPresentationKey) {
       setExhaustedKey(videoPresentationKey);
       return;
     }
     continuityReplay.current = videoPresentationKey;
     video.currentTime = 0;
-    void video.play().catch(() => setExhaustedKey(videoPresentationKey));
+    void video.play().catch(unavailable);
   };
 
   useEffect(() => {
@@ -115,13 +123,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     if (startedPlaybackId.current === playbackId) {
       if (video.ended) continueMotion(video);
-      else void video.play().catch(() => {});
+      else void video.play().catch(unavailable);
       return;
     }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
     fitDuration(video);
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
-    video.play().catch(() => {});
+    video.play().catch(unavailable);
     startedVideoUrl.current = mediaUrl;
     startedPlaybackId.current = playbackId;
   }, [isPlaying, mediaUrl, playbackId]);

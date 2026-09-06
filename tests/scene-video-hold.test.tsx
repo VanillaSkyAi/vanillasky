@@ -71,3 +71,47 @@ it("fits an audible slight overrun only when native pitch preservation is enable
   expect(video.playbackRate).toBeCloseTo(5 / 5.6);
   view.unmount(); vi.restoreAllMocks();
 });
+it("replaces a decoded video whose play request is rejected", async () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("Playback denied"));
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const view = render(<SceneVideoBackdrop mediaUrl="/shot.mp4" progress={0} isPlaying />);
+  await import("@testing-library/react").then(({ waitFor }) => waitFor(() => expect(view.getByRole("status").textContent).toBe("Visual unavailable")));
+  expect(view.container.querySelector("video")!.style.visibility).toBe("hidden");
+  view.unmount(); vi.restoreAllMocks();
+});
+it("refits a changed speech duration without resetting or replaying current footage", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const props = { mediaUrl: "/shot.mp4", progress: .3, isPlaying: true, sceneDuration: 4, muted: true };
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperty(video, "duration", { configurable: true, value: 5 });
+  fireEvent.loadedMetadata(video); video.currentTime = 2;
+  view.rerender(<SceneVideoBackdrop {...props} sceneDuration={6} />);
+  expect(video.playbackRate).toBeCloseTo(5 / 6.2);
+  expect(video.currentTime).toBe(2); expect(play).toHaveBeenCalledTimes(1);
+  view.unmount(); vi.restoreAllMocks();
+});
+it("ignores a rejected play from the previous presentation", async () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  let reject!: (error: Error) => void;
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; })).mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const view = render(<SceneVideoBackdrop mediaUrl="/old.mp4" progress={0} isPlaying />);
+  view.rerender(<SceneVideoBackdrop mediaUrl="/new.mp4" progress={0} isPlaying />);
+  await import("@testing-library/react").then(({ act }) => act(async () => { reject(new Error("Old request")); }));
+  expect(view.queryByRole("status")).toBeNull();
+  view.unmount(); vi.restoreAllMocks();
+});
+it("never repeats audible dialogue as a continuity bridge", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const view = render(<SceneVideoBackdrop mediaUrl="/dialogue.mp4" progress={.5} isPlaying muted={false} />);
+  fireEvent.ended(view.container.querySelector("video")!);
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(view.getByRole("status").textContent).toBe("Visual unavailable");
+  view.unmount(); vi.restoreAllMocks();
+});
