@@ -285,3 +285,19 @@ it("releases pending readiness and audio clocks when narration is disabled", asy
   expect(hook.result.current.getTime(shot)).toBeUndefined();
   hook.unmount();
 });
+
+it("accepts advancing muted audio as ready without reporting audible speech onset", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  let time = 0;
+  const onSpeechStart = vi.fn();
+  const voice = { getCurrentTime: () => time, speak: () => new Promise<void>(() => undefined) };
+  const shot = scene("muted", "A muted thought.");
+  const hook = renderHook(() => useNarration({ voice, onSpeechStart }));
+  act(() => hook.result.current.onSceneChange(shot, 0));
+  expect(hook.result.current.isReady()).toBe(false);
+  time = 0.05;
+  expect(hook.result.current.getTime(shot)).toBe(0.05);
+  expect(hook.result.current.isReady()).toBe(true);
+  expect(onSpeechStart).not.toHaveBeenCalled();
+  hook.unmount();
+});

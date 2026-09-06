@@ -76,7 +76,8 @@ export function useNarration(options: NarrationOptions): Narration {
     if (time !== undefined && Number.isFinite(time)) clockRef.current = Math.min(group?.totalSeconds ?? Infinity, Math.max(group?.offsetSeconds ?? 0, time));
     return clockRef.current;
   }, []);
-  const isReady = useCallback(() => optionsRef.current.enabled === false || readyRef.current, []);
+  const isReady = useCallback(() => optionsRef.current.enabled === false || readyRef.current
+    || (clockRef.current !== undefined && clockRef.current >= (groupRef.current?.offsetSeconds ?? 0) + 0.04), []);
   const currentRef = useRef<AbortController | undefined>(undefined);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.

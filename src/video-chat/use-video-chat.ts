@@ -454,6 +454,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const speechStartRef = useRef<(source?: "browser" | "generated") => void>(() => undefined);
   const narration = useNarration({ onSpeechStart: (source) => speechStartRef.current(source), voice: {
     supportsOffsets: voice.supportsOffsets,
+    ...(voice.getCurrentTime ? { getCurrentTime: () => voice.getCurrentTime!() } : {}),
     speak: (text, options) => unavailableVoiceLines.current.has(text) ? undefined : voice.speak(text, options),
   } });
   const narrationRef = useRef(narration);

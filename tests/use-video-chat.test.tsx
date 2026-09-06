@@ -1179,3 +1179,37 @@ it.each([true, false])("publishes a group only with measured offset-capable audi
   }
   unmount();
 });
+
+it("forwards the prepared audio clock through the actual chat player props", async () => {
+  const { useVideoChat } = await import("../src/react");
+  const { usePlaybackClock } = await import("../src/player/use-playback-clock");
+  const { createVideoState } = await import("../src/protocol/state");
+  let audioTime: number | undefined;
+  let onset: (() => void) | undefined;
+  const voice = { ...fakeVoice(), getCurrentTime: () => audioTime, speak: vi.fn((_text: string, options: { onStart?: () => void }) => {
+    onset = options.onStart;
+    return new Promise<void>(() => undefined);
+  }) };
+  const base = videoChatFetcher();
+  const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+    ? Promise.resolve(responseStream("clock", [scene("ordinary", "First", "A short thought.")], { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
+  const chat = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  await act(async () => { await chat.result.current.ask("A thought"); });
+  const video = chat.result.current.currentTurn!.video!;
+  const timeRef = { current: 0 };
+  vi.useFakeTimers();
+  const clock = renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef, audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 }, callbacksRef: { current: chat.result.current.playerProps! }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() }));
+  try {
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(chat.result.current.playerProps!.narrationReady?.()).toBe(false);
+    audioTime = 0.05; act(() => onset?.());
+    await act(() => vi.advanceTimersByTimeAsync(1800));
+    expect(timeRef.current).toBe(0.05);
+    audioTime = 1.5;
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(timeRef.current).toBe(1.5);
+    expect(chat.result.current.playerProps!.narrationTime?.(video.scenes[0])).toBe(1.5);
+  } finally {
+    clock.unmount(); chat.unmount(); vi.useRealTimers();
+  }
+});

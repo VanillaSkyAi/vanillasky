@@ -204,7 +204,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     },
     resume() {
       held = false;
-      if (sounding && !silent) void sounding.play().catch(() => playbackFailure?.());
+      if (sounding) void sounding.play().catch(() => playbackFailure?.());
       if (!silent) globalThis.speechSynthesis?.resume();
     },
     setMuted(muted) {
