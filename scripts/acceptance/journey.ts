@@ -13,7 +13,6 @@ export async function runChatAcceptance() {
       streamText: (context) => {
         plannerInput = context.userPrompt;
         return (async function* () {
-          yield JSON.stringify({ type: "video-chat.opening", spokenHook: fixture.hook, mediaKeyword: "moon ocean" }) + "\n";
           for (const part of replayParts(fixture)) yield JSON.stringify(part) + "\n";
         })();
       },

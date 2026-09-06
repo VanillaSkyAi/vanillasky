@@ -1,7 +1,7 @@
 import { fal } from "@fal-ai/client";
 import type { VideoChatHandlerOptions } from "@vanillaskyai/video/server";
 
-const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? "minimax/h3-max/text-to-video";
+const VIDEO_MODEL = process.env.FAL_VIDEO_MODEL ?? "minimax/h3-max-turbo/text-to-video";
 
 async function filmScene(
   subject: string,
@@ -16,16 +16,17 @@ async function filmScene(
     const result = await fal.subscribe(VIDEO_MODEL, {
       input: {
         prompt: [
-          `Cinematic shot, ${orientation === "portrait" ? "9:16 vertical" : "16:9"}. ${subject}.`,
-          "Use a steady composition or one restrained camera move. Physically plausible motion.",
+          `One continuous moving shot, ${orientation === "portrait" ? "9:16 vertical" : "16:9"}. ${subject}.`,
+          "Depict the requested action clearly throughout the clip. Follow its stated visual style and world rules.",
           shotDirection,
           "No on-screen text, captions, subtitles, watermarks or logos.",
-          "Diegetic sound only. No music, no voiceover.",
+          "Natural scene sound only when appropriate. No speech, dialogue, singing, music or voiceover; narration is added separately.",
           generatedLook,
         ].filter(Boolean).join("\n\n"),
         duration: 5,
         resolution: "480P",
         aspect_ratio: orientation === "portrait" ? "9:16" : "16:9",
+        prompt_expansion_mode: "balanced",
       },
       abortSignal: signal,
     });

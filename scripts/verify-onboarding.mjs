@@ -238,14 +238,12 @@ try {
     authorize: "none", heartbeatMs: false,
     streamText: ({ userPrompt }) => (async function* () {
       const followUp = userPrompt.includes("Give me an analogy");
-      yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Let us explore the Moon.", mediaKeyword: "moon" }) + "\n";
-      yield JSON.stringify({ type: "scene.add", placement: "closer", scene: {
-        id: followUp ? "analogy" : "moon", templateId: "chapterTitle",
-        variables: { title: followUp ? "An orbital dance" : "Always facing Earth" },
-        narration: followUp ? "Walk around a friend while facing them." : "The Moon rotates once per orbit.",
-        timing: { fixedDuration: 3 },
-      } }) + "\n";
-      yield JSON.stringify({ type: "plan.complete" }) + "\n";
+      yield JSON.stringify({ type: "answer", intent: "informational",
+        opening: "Let us explore the Moon.", subject: "moon",
+        development: "", visualDirection: "Clear orbital illustration.",
+        ending: { narration: followUp ? "Walk around a friend while facing them." : "The Moon rotates once per orbit.",
+          subject: "moon", action: "Show rotation matching an orbit.", durationSec: 3, continuity: "cut" },
+      }) + "\n";
     })(),
     generateText: async ({ task }) => task === "suggestions" ? "[]" : "The Moon rotates once per orbit.",
   });

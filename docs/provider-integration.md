@@ -12,7 +12,7 @@ npm run dev
 ```
 
 Init runs doctor automatically. The generated `server.ts` starts with one
-`ANTHROPIC_API_KEY`, packaged templates, and browser voice; it installs no
+`ANTHROPIC_API_KEY`, a template introduction, and browser voice; it installs no
 optional speech or video packages.
 
 Use `npx vanillasky providers add speech` to install xAI speech, or
@@ -180,7 +180,7 @@ is intentionally substantial. It is stable for the same SDK version, template
 kit, media policy, and base prompt. Record input-token usage, keep the selected
 kit no broader than the product needs, and enable provider-side prompt caching
 where the chosen provider/model supports it. VanillaSky does not assume one
-provider's cache controls in its provider-neutral adapter. The cinematic catalog contains seven templates; use provider-reported token
+provider's cache controls in its provider-neutral adapter. Default chat streams an answer brief and shot directions rather than the template catalog; use provider-reported token
 usage as the authoritative measurement rather than a character estimate.
 
 Provider finish reasons `error` and `tool-calls` are terminal failures.

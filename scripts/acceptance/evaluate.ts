@@ -11,8 +11,8 @@ export function evaluateChatAcceptance(fixture: ChatFixture, events: TimedVideoE
     { id: "first-scene-ready", passed: !!scenes[0] && scenes[0].elapsedMs <= 1_000 },
     { id: "completed-scenes-preserved", passed: scenes.length === fixture.lines.length && completion?.event.type === "response.complete" && completion.event.data.snapshot.scenes.length === scenes.length },
     { id: "response-complete", passed: !!completion && completion.elapsedMs <= 3_000 && !events.some(({ event }) => event.type === "response.error" || event.type === "response.abort") },
-    { id: "grounded-readable-copy", passed: scenes.length > 0 && scenes.every(({ scene }, index) => (fixture.provider === "stock" || scene.variables.title === fixture.lines[index]) && scene.narration === fixture.lines[index] && fixture.lines[index].split(/\s+/).length <= 15 && (scene.timing?.fixedDuration ?? 0) >= 4) },
-    { id: "media-ready", passed: scenes.length > 0 && scenes.every(({ scene }) => fixture.provider === "stock" ? scene.variables.mediaUrl === "https://media.example/stock.mp4" : scene.templateId === "chapterTitle") },
+    { id: "grounded-readable-copy", passed: scenes.length > 0 && scenes.every(({ scene }, index) => scene.narration === fixture.lines[index] && fixture.lines[index].split(/\s+/).length <= 15 && (scene.timing?.fixedDuration ?? 0) >= 4) },
+    { id: "media-ready", passed: scenes.length > 0 && scenes.every(({ scene }) => fixture.provider === "stock" ? scene.variables.mediaUrl === "https://media.example/stock.mp4" : scene.templateId === "cinemaMedia" && scene.variables.mediaUrl === "") },
     { id: "safe-recovery-warning", passed: (fixture.provider !== "failed" || events.some(({ event }) => event.type === "response.warning")) && !JSON.stringify(events).includes("private-provider-detail") },
   ];
   return { passed: checks.every(({ passed }) => passed), checks, metrics: { openingMs: opening?.elapsedMs, firstSceneMs: scenes[0]?.elapsedMs, completionMs: completion?.elapsedMs } };

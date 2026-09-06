@@ -6,22 +6,23 @@ VanillaSky keeps provider choice in the application. The SDK defines small
 server callbacks, advertises only the capabilities you configure, and keeps
 all credentials out of React and the browser bundle.
 
-## One cinematic mode
+## AI-first video answers
 
-The director combines relevant footage and seven editorial templates. Graphics
-use black and white; footage carries atmosphere and concrete action. Each media
-scene declares `mediaSource: "stock"` or `"generate"`. Provider availability and
-host budgets constrain those choices. There is no all-stock or all-AI switch.
+The default chat shows an immediate template introduction while footage prepares,
+then moving video with narration and subtitles. The planner describes visible
+subjects and actions, adapting its direction to the request's intent. The runtime
+attempts generated footage first and uses relevant stock when generation is
+unavailable, denied by the host budget, or fails. It does not select body cards.
 
-The canonical templates are `cinemaMedia`, `chapterTitle`,
-`editorialTimeline`, `mobileMessage`, `comparison`, `quote`, and `keyFigure`.
-All except `chapterTitle` accept optional media backgrounds. Editorial overlays use soft text shadows and a dark contrast scrim over relevant media, and fall back to black. Use at most one explanatory overlay per typical thirty-second answer. Full-bleed
-footage has no headline; narration and subtitles carry the explanation.
+The seven packaged templates remain available to custom compositions. Default
+chat body shots use `cinemaMedia` as the footage renderer, without extra headlines.
+If both media providers miss, the answer retains its narration and subtitles
+with an explicit unavailable-visual state rather than a text-slide replacement.
 
 ## Reviewed stock
 
-Add `searchMedia` when template answers, the welcome screen, and follow-up
-cards should use approved photography or footage:
+Add `searchMedia` for relevant fallback footage, welcome covers, and follow-up
+cards:
 
 ```ts
 createVideoChatHandler({
@@ -45,14 +46,14 @@ createVideoChatHandler({
 The planner emits a short semantic keyword, not a URL. The callback returns an
 application-approved image or video URL, and the SDK validates it before it
 reaches a scene. Return `null` when no licensed, safe, relevant asset exists;
-`cinemaMedia` becomes a chapter using its grounded `fallbackText`; a message can
-keep its content on black. Missing fallback copy produces an explicit error.
+default chat retains the spoken answer when footage is unavailable. An explicit custom `templates` registry retains its structured planner,
+validation, and fallback contracts.
 
 For Pexels, keep `PEXELS_API_KEY` on the server, enforce a deadline, filter for
 orientation, and return only validated Pexels asset domains. Licensing,
 attribution, caching, MIME checks, and byte limits remain application-owned.
 
-## Planned generated shots
+## Generated shots
 
 Add `generateVideo` to enable generated shots within cinematic responses. It receives the planned visual
 subject plus the generated look so every clip can follow the same direction:
@@ -75,6 +76,8 @@ createVideoChatHandler({
       orientation,
       requestId,
       sceneId: scene?.id,
+      shotDirection: typeof scene?.variables.shotDirection === "string"
+        ? scene.variables.shotDirection : undefined,
       signal,
       maxRetries: 0,
     });
@@ -83,8 +86,9 @@ createVideoChatHandler({
 });
 ```
 
-The first streamed object reserves the first generated shot while the same
-model call continues planning later scenes. Use `requestId` and `scene.id` as
+One model stream supplies an answer brief and shot descriptions. The runtime
+prepares ordered shots while the model continues planning; the first and later
+body shots follow the same path. Use `requestId` and `scene.id` as
 an idempotency key, because generated clips are billable. Keep `maxRetries: 0`
 inside provider calls, honour `signal`, and make retries an explicit product
 decision with a known budget.
@@ -129,7 +133,9 @@ interaction before audible playback on many devices.
 - Keep every provider key in server-only environment variables.
 - Never let a planner return arbitrary final media URLs.
 - Bound query length, response size, duration, concurrency, and generated spend.
-- Preload the next asset and keep the current visual when media is late.
+- Preload upcoming footage and pause narration honestly when usable media is late.
+- Plan enough moving footage for the spoken beat; do not hold a finished frame
+  while narration continues.
 - Return a safe fallback instead of leaving the response waiting forever.
 
 [← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Custom templates →](custom-templates.md)

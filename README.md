@@ -25,9 +25,10 @@ npx vanillasky doctor
 npm run dev
 ```
 
-Open the reported localhost URL. One text key gives you the complete chat with
-packaged templates and browser voice. No template setup or optional provider
-packages are required. If installation is interrupted, rerun the init command.
+Open the reported localhost URL. One text key gives you the chat, an immediate introduction, and browser voice.
+Add the video adapter for generated footage and optional stock for fallback.
+Without a media provider, answers retain narration and subtitles with an
+unavailable-visual state. If installation is interrupted, rerun the init command.
 
 Optional upgrades keep the same client:
 
@@ -80,11 +81,15 @@ conversation and playback lifecycle. Edit the generated server when you want a
 different provider. The [provider guide](docs/provider-integration.md) explains
 both boundaries.
 
-## Templates are the built-in fallback
+## An immediate intro, then moving footage
 
-The packaged visual templates are the fast, inexpensive default and require no
-copied source tree. Add a video provider when you want generated footage; the
-same conversation can mix both modes.
+The default chat uses a template introduction while its first shot prepares,
+then generated footage with narration and subtitles. Relevant stock is the
+fallback when generation is unavailable or fails. The planner adapts its
+visible actions and spoken beats to explanations, stories, comedy, imagination,
+and practical requests. It does not choose body templates.
+
+Packaged templates remain available for custom compositions and source ownership.
 
 Copy template source only when you want to own and edit it:
 

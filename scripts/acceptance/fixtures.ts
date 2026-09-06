@@ -1,5 +1,3 @@
-import type { VideoPlanPart } from "../../src/protocol/types";
-
 export interface ChatFixture {
   id: string;
   prompt: string;
@@ -13,20 +11,17 @@ export const ACCEPTANCE_FIXTURES: ChatFixture[] = [
   { id: "follow-up", prompt: "Explain that with a simple analogy.", hook: "Imagine walking around a friend while turning.", lines: ["Walk around a friend while facing them.", "You turn once during one trip around them."] },
   { id: "creative", prompt: "Invent a tiny fox discovering the Moon.", hook: "A tiny fox found a silver ladder.", lines: ["The fox climbed a ladder of moonbeams.", "At the top, the Moon offered tea."] },
   { id: "stock-fallback", prompt: "Explain ocean currents.", hook: "Ocean currents carry warmth around the world.", lines: ["Warm water travels through the ocean.", "Currents move heat around the world."], provider: "stock" },
-  { id: "template-fallback", prompt: "Explain ocean currents without available footage.", hook: "Ocean currents carry warmth around the world.", lines: ["Warm water travels through the ocean.", "Currents move heat around the world."], provider: "failed" },
+  { id: "unavailable-visuals", prompt: "Explain ocean currents without available footage.", hook: "Ocean currents carry warmth around the world.", lines: ["Warm water travels through the ocean.", "Currents move heat around the world."], provider: "failed" },
 ];
 
-export function replayParts(fixture: ChatFixture): VideoPlanPart[] {
+export function replayParts(fixture: ChatFixture) {
+  const subject = fixture.provider ? "ocean currents" : "moon";
+  const shots = fixture.lines.map((narration) => ({ narration, subject,
+    action: `Show ${subject} moving clearly.`, durationSec: 5, continuity: "cut" }));
   return [
-    ...fixture.lines.map((line, index): VideoPlanPart => ({
-      type: "scene.add",
-      ...(index === fixture.lines.length - 1 ? { placement: "closer" as const } : {}),
-      scene: {
-        id: `${fixture.id}-${index}`, templateId: fixture.provider ? "cinemaMedia" : "chapterTitle",
-        variables: fixture.provider ? {fallbackText:line,mediaType:"video",mediaKeyword:"ocean currents",mediaSource:"stock"} : {title:line},
-        narration: line, timing: { fixedDuration: 5 },
-      },
-    })),
-    { type: "plan.complete" },
+    { type: "answer", intent: fixture.id === "creative" ? "story" : "informational",
+      opening: fixture.hook, subject, visualDirection: "Clear purposeful illustration.",
+      development: "Develop the spoken answer.", ending: shots.at(-1) },
+    ...shots.slice(0, -1).map((shot) => ({ type: "shot", ...shot })),
   ];
 }

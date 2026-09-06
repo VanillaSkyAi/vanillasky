@@ -12,6 +12,18 @@ import { verifyPackedMarkdownDocumentation } from "./lib/packed-markdown.mjs";
 import { verifyPublicApiSurface } from "./lib/public-api-surface.mjs";
 import { chromium } from "playwright";
 
+// Authored chat input; public wire events remain runtime-owned.
+function chatPlan(opening, lines, subject = "ocean currents") {
+  const shots = lines.map((narration) => ({ narration, subject,
+    action: `Show ${subject} moving clearly through the frame.`, durationSec: 5, continuity: "cut" }));
+  return [
+    { type: "answer", intent: "informational", opening, subject,
+      development: shots.length > 1 ? "Develop the explanation." : "",
+      visualDirection: "Clear illustrative footage.", ending: shots.at(-1) },
+    ...shots.slice(0, -1).map((shot) => ({ type: "shot", ...shot })),
+  ].map((part) => JSON.stringify(part) + "\n").join("");
+}
+
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const workspace = mkdtempSync(join(tmpdir(), "vanillasky-packed-consumer-"));
 const consumer = join(workspace, "consumer");
@@ -118,8 +130,7 @@ const handler = createVideoChatHandler({
   generateVideo: async () => { generated++; throw new Error("must not spend"); },
   searchMedia: async () => { searched++; return { type: "video", url: "https://media.example/stock.mp4" }; },
   streamText: async function* () {
-    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "stock", templateId: "cinemaMedia", variables: { mediaType: "video", mediaKeyword: "ocean waves" }, timing: { fixedDuration: 4 }, narration: "The waves move across the ocean and arrive upon the shore." } }) + String.fromCharCode(10);
-    yield JSON.stringify({ type: "plan.complete" }) + String.fromCharCode(10);
+    yield ${JSON.stringify(chatPlan("Watch the ocean", ["The waves move across the ocean toward the shore."], "ocean waves"))};
   },
 });
 const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "Ocean", mode: "cinematic", opening: "Watch the ocean" }) }));
@@ -177,8 +188,7 @@ const handler = createVideoChatHandler({
   onComplete: (summary) => { completed = summary; },
   streamText: () => ({
     textStream: (async function* () {
-      yield '{"type":"scene.add","scene":{"id":"server-only","templateId":"mobileMessage","variables":{"app":"Messages","message":"Server only"},"timing":{"fixedDuration":4}}}\\n';
-      yield '{"type":"plan.complete"}\\n';
+      yield ${JSON.stringify(chatPlan("Start here", ["Server-only narration remains available without media."], "server racks"))};
     })(),
     finishReason: "stop",
     usage: { inputTokens: 4, outputTokens: 2, totalTokens: 6 },
@@ -198,15 +208,13 @@ const complete = body
   .find(({ type }) => type === "response.complete");
 if (!/^fnv1a32:[0-9a-f]{8}$/.test(complete?.data.checksum)) throw new Error("Packed response omitted its checksum");
 if (complete.data.snapshot.schemaVersion !== "0.2") throw new Error("Packed terminal snapshot lost its schema version");
-if (complete.data.snapshot.scenes[0]?.id !== "server-only") throw new Error("Packed terminal snapshot lost its completed scene");
+if (complete.data.snapshot.scenes[0]?.narration !== "Server-only narration remains available without media.") throw new Error("Packed terminal snapshot lost its completed scene");
 
 const videoChat = createVideoChatHandler({
   authorize: "none",
   heartbeatMs: false,
   streamText: async function* () {
-    yield '{"type":"scene.add","scene":{"id":"chat-body","templateId":"mobileMessage","variables":{"app":"Messages","message":"Provider neutral"},"timing":{"fixedDuration":4}}}\\n';
-    yield '{"type":"scene.add","placement":"closer","scene":{"id":"chat-ending","templateId":"chapterTitle","variables":{"title":"Ready to continue"},"timing":{"fixedDuration":4}}}\\n';
-    yield '{"type":"plan.complete"}\\n';
+    yield ${JSON.stringify(chatPlan("A tiny story begins", ["A small robot found a forgotten flower.", "It watered the flower, then waited for spring."], "robot flower"))};
   },
   generateText: async () => "Provider-neutral text",
 });
@@ -221,7 +229,7 @@ if (!(await chatResponse.text()).includes('"type":"response.complete"')) throw n
   execFileSync(process.execPath, [join(serverConsumer, "server.mjs")], { cwd: serverConsumer, stdio: "inherit" });
 
   writeFileSync(join(serverConsumer, "test-kit.mjs"), `
-import { createVideoChatHandler } from "@vanillaskyai/video/server";
+import { createVideoChatHandler, createServerTemplateRegistry } from "@vanillaskyai/video/server";
 import { createMockVideoPlanner, simulateVideoStream, videoFixtures } from "@vanillaskyai/video/test";
 
 if (Object.keys(await import("@vanillaskyai/video/test")).sort().join() !== "createMockVideoPlanner,simulateVideoStream,videoFixtures") {
@@ -240,13 +248,13 @@ const parseSse = (body) => body.split("\\n")
   .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
   .map((line) => JSON.parse(line.slice(6)));
 
-const handler = createVideoChatHandler({ generateText: async () => "A useful answer", authorize: "none", heartbeatMs: false, streamText: createMockVideoPlanner() });
+const handler = createVideoChatHandler({ generateText: async () => "A useful answer", authorize: "none", heartbeatMs: false, templates: createServerTemplateRegistry({ templates: [] }), streamText: createMockVideoPlanner() });
 const response = await handler(new Request("https://app.example/api/video-chat?action=response", {
   method: "POST",
   body: JSON.stringify({ prompt: videoFixtures.portrait.input.input, orientation: "portrait", opening: "Start here" }),
 }));
 const routeEvents = parseSse(await response.text());
-if (routeEvents.at(-1)?.type !== "response.complete") throw new Error("Packed mock did not complete through SSE");
+if (routeEvents.at(-1)?.type !== "response.complete" || !routeEvents.at(-1)?.data?.snapshot?.scenes?.length) throw new Error("Packed mock did not complete through SSE");
 
 const success = await collect(simulateVideoStream(videoFixtures.scenarios.success));
 const delayed = await collect(simulateVideoStream(videoFixtures.scenarios.delayed));
@@ -476,9 +484,7 @@ const pacingHandler = server.createVideoChatHandler({
   onComplete: (summary) => { lifecycleSummary = summary; },
   streamText: () => ({
     textStream: (async function* () {
-      yield JSON.stringify({ type: "scene.add", scene: { id: "body-1", templateId: "keyFigure", variables: { value: "42 million", label: "Revenue" }, timing: { fixedDuration: 29 } } }) + "\\n";
-      yield JSON.stringify({ type: "scene.add", scene: { id: "close-1", templateId: "chapterTitle", variables: { title: "Read every new OpenAI release note with your team" }, timing: { fixedDuration: 4 } } }) + "\\n";
-      yield JSON.stringify({ type: "plan.complete" }) + "\\n";
+      yield ${JSON.stringify(chatPlan("Start here", ["Revenue reached forty-two million this year.", "Read release notes with your team."], "team reviewing report"))};
     })(),
     finishReason: Promise.resolve("stop"),
     usage: Promise.resolve({ inputTokens: 20, outputTokens: 10, totalTokens: 30, inputTokenDetails: { cacheReadTokens: 5 }, outputTokenDetails: { reasoningTokens: 2 } }),
@@ -504,7 +510,7 @@ if (JSON.stringify(pacingEvents).match(/packed-private-response|packed-requested
 const startEvent = pacingEvents.find(({ type }) => type === "response.start");
 if ("brand" in startEvent.data.style) throw new Error("Packed handler retained removed brand state");
 const pacedScenes = pacingEvents.filter(({ type }) => type === "scene.add").map(({ data }) => data.scene);
-if (pacedScenes.length !== 2 || pacedScenes[1].id !== "close-1") throw new Error("Packed chat lost its closer");
+if (pacedScenes.length !== 2 || pacedScenes[1].narration !== "Read release notes with your team.") throw new Error("Packed chat lost its closer");
 if (pacedScenes.some((scene) => root.getSceneDuration(scene) <= 0)) throw new Error("Packed chat emitted unreadable timing");
 if (pacedScenes[1].timing.startTime !== pacedScenes[0].timing.endTime) throw new Error("Packed chat scene timing is not contiguous");
 
@@ -529,11 +535,10 @@ const resilientChat = server.createVideoChatHandler({
     return { type: "video", url: replacementClip };
   },
   streamText: () => (async function* () {
-    yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth around the world.", mediaKeyword: "ocean currents" }) + "\\n";
-    yield JSON.stringify({ type: "scene.add", scene: { id: "packed-completed-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\\n";
-    yield '{"type":"scene.add", malformed}\\n';
-    yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "packed-recovered-scene", templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, narration: "Currents connect our oceans.", timing: { fixedDuration: 5 } } }) + "\\n";
-    yield '{"type":"plan.complete"}\\n';
+    const parts = ${JSON.stringify(chatPlan("Ocean currents carry warmth around the world.", ["Warm water travels around the world.", "Currents connect our oceans."]))}.trim().split("\\n");
+    yield parts[0] + "\\n";
+    yield parts[1] + "\\n";
+    yield '{"type":"shot", malformed}\\n';
   })(),
 });
 const resilientResponse = await resilientChat(new Request("https://app.example/api/video-chat?action=response", {
@@ -553,8 +558,8 @@ if (openingIndex < 0 || openingIndex >= firstSceneIndex
   throw new Error("Packed chat did not preserve its opening before recovered scenes");
 }
 const resilientScenes = resilientEvents.filter(({ type }) => type === "scene.add").map(({ data }) => data.scene);
-if (JSON.stringify(resilientScenes.map(({ id, variables }) => [id, variables.mediaUrl])) !== JSON.stringify([
-  ["packed-completed-scene", completedClip], ["packed-recovered-scene", replacementClip],
+if (JSON.stringify(resilientScenes.map(({ narration, variables }) => [narration, variables.mediaUrl])) !== JSON.stringify([
+  ["Warm water travels around the world.", completedClip], ["Currents connect our oceans.", replacementClip],
 ])) throw new Error("Packed chat lost completed or later scenes during recovery");
 if (resilientEvents.some(({ type, data }) => type === "response.error" && data.terminal)
   || resilientEvents.at(-1)?.type !== "response.complete") throw new Error("Packed recovered chat ended fatally");
@@ -585,11 +590,7 @@ const deadlineChat = server.createVideoChatHandler({
     return new Promise(() => {});
   },
   streamText: () => (async function* () {
-    yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth.", mediaKeyword: "ocean currents" }) + "\\n";
-    for (const id of ["deadline-completed", "deadline-fallback"]) {
-      yield JSON.stringify({ type: "scene.add", scene: { id, templateId: "cinemaMedia", variables: { mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate", fallbackText: "Ocean currents carry warmth" }, timing: { fixedDuration: 5 } } }) + "\\n";
-    }
-    yield '{"type":"plan.complete"}\\n';
+    yield ${JSON.stringify(chatPlan("Ocean currents carry warmth.", ["Warm water moves through the ocean.", "Currents connect distant shores."]))};
   })(),
 });
 const deadlineStarted = performance.now();
@@ -618,11 +619,11 @@ if (deadlineEvents.at(-1)?.type !== "response.complete"
   throw new Error("Packed chat failed instead of recovering from a hanging provider");
 }
 const deadlineVideo = root.parseVideo(deadlineEvents.at(-1).data.snapshot);
-if (deadlineVideo.scenes.length !== 2 || deadlineVideo.scenes[0].id !== "deadline-completed"
+if (deadlineVideo.scenes.length !== 2 || deadlineVideo.scenes[0].narration !== "Warm water moves through the ocean."
   || deadlineVideo.scenes[0].variables.mediaUrl !== completedClip
-  || deadlineVideo.scenes[1].id !== "deadline-fallback"
-  || deadlineVideo.scenes[1].variables.mediaUrl !== completedClip) {
-  throw new Error("Packed provider deadline lost completed scenes or exact-subject footage reuse");
+  || deadlineVideo.scenes[1].narration !== "Currents connect distant shores."
+  || deadlineVideo.scenes[1].variables.mediaUrl !== "") {
+  throw new Error("Packed provider deadline lost completed scenes or unavailable-visual narration");
 }
 if (!deadlineEvents.some(({ type, data }) => type === "response.warning" && data.warning.recoverable)
   || /packed-private-provider-canary|TimeoutError|Optional work exceeded/.test(deadlineBody)) {

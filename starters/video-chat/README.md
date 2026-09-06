@@ -19,8 +19,9 @@ Add one required key to `.env.local`:
 ANTHROPIC_API_KEY=...
 ```
 
-That is enough for rendered templates and the browser's built-in voice. The
-starter installs only the text provider. Enable optional adapters when needed:
+That enables the introduction and browser voice. Add the video adapter for
+generated footage; without media, narration and subtitles remain available.
+The starter installs only the text provider. Enable adapters as needed:
 
 ```bash
 npx vanillasky providers add speech
@@ -43,21 +44,21 @@ Restart the development server after changing keys. Open
 
 ## How a response is made
 
-The planner streams a short spoken hook, then complete narrated scenes. When a
-generated provider is configured, an early shot can start generating while the
-rest of the story is planned. The director chooses footage or one of eight
-editorial templates for each beat; there is one cinematic mode.
+The planner streams an answer brief and short narrated shots through one model
+call. A template introduction starts while footage prepares; body shots contain
+moving footage, narration and subtitles. Intent changes the visible actions and
+pacing, not the rendering pipeline.
 
-Playback starts after a contiguous preparation cushion, or after a shorter
-complete response is ready. Media is decoded before use. At a late video cut,
-the player holds its clock and narration until a usable frame appears, with a
-bounded error path. The first hook can play during preparation.
+The SDK tries generated footage first, then relevant approved stock when the
+provider is unavailable, denied, or fails. Attempts, including failures, share
+the host's `maxGeneratedVideos` ceiling. A stock miss never broadens the subject
+automatically. If no relevant footage is available, narration and subtitles
+continue with an unavailable-visual state.
 
-`mediaSource: "generate"` requests a distinctive illustrative shot;
-`mediaSource: "stock"` requests approved footage. Generation attempts, including
-failures, share the host's `maxGeneratedVideos` ceiling. A stock miss never
-broadens the subject automatically. A failed full-bleed scene uses its grounded
-`fallbackText` as a chapter card.
+Plan narration that fits the provider's five-second clips. Playback measures
+speech and prepares upcoming media before cuts. Verify full answers, including
+longer-than-expected speech and late or failed footage; a finished clip must not
+freeze while the answer keeps speaking.
 
 ## Reviewed stock
 

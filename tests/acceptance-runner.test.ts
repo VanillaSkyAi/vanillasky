@@ -5,7 +5,7 @@ describe("mocked video chat acceptance", () => {
   it("checks explanation, follow-up, creative response, and optional provider recovery", async () => {
     const results = await runChatAcceptance();
     expect(results.map(({ id }) => id)).toEqual([
-      "explanation", "follow-up", "creative", "stock-fallback", "template-fallback",
+      "explanation", "follow-up", "creative", "stock-fallback", "unavailable-visuals",
     ]);
     for (const result of results) {
       expect(result.report.passed, JSON.stringify(result)).toBe(true);

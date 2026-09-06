@@ -70,7 +70,13 @@ change core video state.
 
 ## Planning boundary
 
-LLMs do not emit public protocol envelopes. A server-only planner emits
+LLMs do not emit public protocol envelopes. Default `createVideoChatHandler`
+planning uses an internal answer brief and shot descriptions. The runtime
+translates them into footage scenes and completes the answer at stream end,
+without asking the model for lifecycle commands.
+
+Handlers with an explicit custom `templates` registry keep the existing
+composition planner contract. A server-only planner emits
 validated `scene.add` or `plan.complete` parts. The runtime assigns sequences,
 IDs, terminal snapshots, and checksums. Generated HTML, React, JavaScript, CSS, component
 source, audio events, protocol envelopes, and unknown part types are rejected.

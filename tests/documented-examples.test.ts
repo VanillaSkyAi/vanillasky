@@ -68,7 +68,7 @@ describe("documented examples", () => {
       expect(guide, path).not.toContain("npx vanillasky init");
       expect(guide, path).toContain("npx vanillasky doctor");
       expect(guide, path).toContain("npm run dev");
-      expect(guide, path).toMatch(/templates.*browser voice/is);
+      expect(guide, path).toMatch(/(?:templates|introduction).*browser voice/is);
       expect(guide, path).not.toMatch(/\btutor|\blearner|\blesson|\beducation/i);
     }
 
@@ -98,7 +98,8 @@ describe("documented examples", () => {
 
     expect(guide).toContain("searchMedia");
     expect(guide).toContain("generateVideo");
-    expect(guide).toMatch(/templates.*full/is);
+    expect(guide).toMatch(/generated footage first.*relevant stock/is);
+    expect(guide).toMatch(/retains.*narration.*subtitles/is);
     expect(guide).toMatch(/maxRetries:\s*0/);
     // Generation must stay app-owned: neither a runtime nor a peer requirement.
     const coreInstall = { ...rootPackage.dependencies, ...rootPackage.peerDependencies };
