@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.8
+
 - Correct starter guidance for separate footage modes and remove obsolete planner logs that included raw model output.
 - Prepare the next compatible mobile video while the current scene plays, retaining its decoded element across cuts and limiting mounted footage to the active and next scenes.
 - Observe cached video frames on mount so a missed loading event cannot delay genuine stall recovery.
