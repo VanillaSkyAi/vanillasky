@@ -6,13 +6,13 @@ export const activationLift = defineTemplate({
   description: "A project-owned view of an activation metric before and after an improvement.",
   useWhen: "Use when the source contains an exact activation percentage before and after a change.",
   avoidWhen: "Avoid when the source does not contain both grounded percentages.",
-  family: "Data & metrics",
+  family: "Explainers",
   schema: {
     type: "object",
     properties: {
       title: { type: "string", minLength: 1, maxLength: 64, default: "Activation improved" },
-      previous: { type: "number", format: "grounded-stat", minimum: 0, maximum: 100, default: 41 },
-      current: { type: "number", format: "grounded-stat", minimum: 0, maximum: 100, default: 58 },
+      previous: { type: "string", format: "grounded-stat", minLength: 1, maxLength: 8, default: "41%" },
+      current: { type: "string", format: "grounded-stat", minLength: 1, maxLength: 8, default: "58%" },
       explanation: {
         type: "string",
         minLength: 1,
@@ -28,8 +28,8 @@ export const activationLift = defineTemplate({
     name: "Guided onboarding",
     variables: {
       title: "Activation improved",
-      previous: 41,
-      current: 58,
+      previous: "41%",
+      current: "58%",
       explanation: "Guided onboarding helped more users reach value.",
     },
   }],
@@ -59,10 +59,10 @@ export const activationLift = defineTemplate({
         opacity: reveal,
         transform: `translateY(${Math.round((1 - reveal) * 24)}px)`,
       }}>
-        {variables.current}%
+        {variables.current}
       </strong>
       <p style={{ margin: 0, fontSize: Math.max(22, width * 0.035), lineHeight: 1.35 }}>
-        Up from {variables.previous}%. {variables.explanation}
+        Up from {variables.previous}. {variables.explanation}
       </p>
     </section>;
   },

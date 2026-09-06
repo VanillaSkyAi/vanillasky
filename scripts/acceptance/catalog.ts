@@ -21,18 +21,7 @@ interface RegistryTemplateItem {
 
 const registryDirectory = fileURLToPath(new URL("../../registry/items/", import.meta.url));
 
-export const ACCEPTANCE_TEMPLATE_IDS = [
-  "bigNumber",
-  "brandMessage",
-  "cardList",
-  "ctaLogo",
-  "media",
-  "milestone",
-  "notification",
-  "problemSolution",
-  "steps",
-  "tripleStats",
-] as const;
+export const ACCEPTANCE_TEMPLATE_IDS = ["cinemaMedia", "chapterTitle", "focusCards", "editorialTimeline", "mobileMessage", "comparison", "quote", "keyFigure"] as const;
 
 export function loadAcceptanceKit(templateIds?: readonly string[]): TemplateRegistry {
   const selected = templateIds ? new Set(templateIds) : undefined;

@@ -19,7 +19,7 @@ export function getStandardMediaResolverContract(
   if (
     keyword?.format !== "stock-media-keyword" ||
     url?.format !== "uri" ||
-    !["photo", "video", "gradient"].every((value) => allowedTypes.has(value))
+    !["photo", "video"].every((value) => allowedTypes.has(value))
   ) {
     return undefined;
   }

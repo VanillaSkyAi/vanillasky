@@ -186,3 +186,118 @@ describe("useNarration", () => {
     cleanup();
   });
 });
+
+it("keeps a prepared paragraph across cuts, seeks on replay, and aborts interruption", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  const calls: Array<{ signal: AbortSignal; offsetSeconds?: number }> = [];
+  const voice = { supportsOffsets: true, speak: vi.fn((_text: string, options: { signal: AbortSignal; offsetSeconds?: number }) => {
+    calls.push(options);
+    return new Promise<void>((resolve) => options.signal.addEventListener("abort", () => resolve()));
+  }) };
+  const shots = [0, 1, 2].map((index) => ({ ...scene(String(index), ["One.", "Two.", "Three."][index]),
+    timing: { fixedDuration: 2 }, narrationGroup: { id: "paragraph", text: "One. Two. Three.", offsetSeconds: index * 2, durationSeconds: 2, totalSeconds: 6 },
+  }));
+  const { result, unmount } = renderHook(() => useNarration({ voice }));
+  act(() => result.current.onSceneChange(shots[0]!, 0));
+  act(() => result.current.onSceneChange(shots[1]!, 1));
+  act(() => result.current.onSceneChange(shots[2]!, 2));
+  expect(voice.speak).toHaveBeenCalledTimes(1);
+  expect(calls[0]!.signal.aborted).toBe(false);
+  act(() => result.current.onSceneChange(shots[1]!, 1));
+  expect(calls[0]!.signal.aborted).toBe(true);
+  expect(calls[1]!.offsetSeconds).toBe(2);
+  act(() => result.current.interrupt());
+  expect(calls[1]!.signal.aborted).toBe(true);
+  unmount();
+});
+
+it("opens grouped clock readiness only for current onset, completion, or interruption", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  const starts: Array<(() => void) | undefined> = [];
+  const endings: Array<() => void> = [];
+  const voice = { supportsOffsets: true, speak: (_text: string, options: { onStart?: () => void }) => {
+    starts.push(options.onStart);
+    return new Promise<void>((resolve) => endings.push(resolve));
+  } };
+  const grouped = { ...scene("first", "One."), narrationGroup: { id: "group", text: "One.", offsetSeconds: 0, durationSeconds: 3, totalSeconds: 3 } };
+  const { result, unmount } = renderHook(() => useNarration({ voice }));
+  act(() => result.current.onSceneChange(grouped, 0));
+  expect(result.current.isReady()).toBe(false);
+  act(() => result.current.interrupt());
+  expect(result.current.isReady()).toBe(true);
+  act(() => result.current.onSceneChange(grouped, 0));
+  act(() => starts[0]?.());
+  expect(result.current.isReady()).toBe(false);
+  act(() => starts[1]?.());
+  expect(result.current.isReady()).toBe(true);
+  act(() => result.current.onSceneChange({ ...grouped, id: "another", narrationGroup: { ...grouped.narrationGroup, id: "another" } }, 1));
+  expect(result.current.isReady()).toBe(false);
+  await act(async () => endings[2]?.());
+  expect(result.current.isReady()).toBe(true);
+  unmount();
+});
+
+it("exposes measured narration clocks through group cuts and releases ordinary authored tails", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  let audioTime: number | undefined;
+  let start: (() => void) | undefined;
+  let finish: (() => void) | undefined;
+  const voice = { supportsOffsets: true, getCurrentTime: () => audioTime, speak: (_: string, options: { onStart?: () => void }) => {
+    start = options.onStart;
+    return new Promise<void>(resolve => { finish = resolve; });
+  } };
+  const group = { ...scene("first", "One."), narrationGroup: { id: "g", text: "One. Two.", offsetSeconds: 0, durationSeconds: 3, totalSeconds: 6 } };
+  const second = { ...group, id: "second", narrationGroup: { ...group.narrationGroup, offsetSeconds: 3 } };
+  const { result } = renderHook(() => useNarration({ voice }));
+  act(() => result.current.onSceneChange(group, 0));
+  expect(result.current.getTime(group)).toBe(0);
+  audioTime = 0.05; act(() => start?.());
+  expect(result.current.getTime(group)).toBe(0.05);
+  audioTime = 3.1; act(() => result.current.onSceneChange(second, 1));
+  expect(result.current.getTime(second)).toBe(3.1);
+  audioTime = undefined; await act(async () => finish?.());
+  expect(result.current.getTime(second)).toBe(6);
+  act(() => result.current.interrupt());
+  expect(result.current.getTime(second)).toBeUndefined();
+  act(() => result.current.onSceneChange(second, 1));
+  expect(result.current.getTime(second)).toBe(3);
+  const ordinary = scene("ordinary", "A line.");
+  act(() => result.current.onSceneChange(ordinary, 2));
+  expect(result.current.isReady()).toBe(false);
+  audioTime = 0.1; act(() => start?.());
+  expect(result.current.getTime(ordinary)).toBe(0.1);
+  audioTime = undefined; await act(async () => finish?.());
+  expect(result.current.getTime(ordinary)).toBeUndefined();
+  const silent = scene("silent", "");
+  act(() => result.current.onSceneChange(silent, 3));
+  expect(result.current.getTime(silent)).toBeUndefined();
+});
+
+it("releases pending readiness and audio clocks when narration is disabled", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  const voice = { getCurrentTime: () => 0, speak: () => new Promise<void>(() => undefined) };
+  const shot = scene("one", "A thought.");
+  const hook = renderHook(({ enabled }) => useNarration({ voice, enabled }), { initialProps: { enabled: true } });
+  act(() => hook.result.current.onSceneChange(shot, 0));
+  expect(hook.result.current.isReady()).toBe(false);
+  hook.rerender({ enabled: false });
+  expect(hook.result.current.isReady()).toBe(true);
+  expect(hook.result.current.getTime(shot)).toBeUndefined();
+  hook.unmount();
+});
+
+it("accepts advancing muted audio as ready without reporting audible speech onset", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  let time = 0;
+  const onSpeechStart = vi.fn();
+  const voice = { getCurrentTime: () => time, speak: () => new Promise<void>(() => undefined) };
+  const shot = scene("muted", "A muted thought.");
+  const hook = renderHook(() => useNarration({ voice, onSpeechStart }));
+  act(() => hook.result.current.onSceneChange(shot, 0));
+  expect(hook.result.current.isReady()).toBe(false);
+  time = 0.05;
+  expect(hook.result.current.getTime(shot)).toBe(0.05);
+  expect(hook.result.current.isReady()).toBe(true);
+  expect(onSpeechStart).not.toHaveBeenCalled();
+  hook.unmount();
+});

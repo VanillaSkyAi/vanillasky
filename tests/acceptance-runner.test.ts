@@ -13,7 +13,7 @@ describe("mocked video chat acceptance", () => {
     }
     expect(results[1].plannerInput).toContain(results[0].prompt);
     expect(results[1].plannerInput).toContain("The Moon rotates once per orbit.");
-    expect(results[3].warnings.length).toBeGreaterThan(0);
+    expect(results[3].warnings).toEqual([]);
     expect(results[4].warnings.length).toBeGreaterThan(0);
     expect(JSON.stringify(results)).not.toContain("private-provider-detail");
   });

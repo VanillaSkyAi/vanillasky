@@ -1,3 +1,4 @@
+import { MountedReadinessContext } from "./mounted-scene-readiness.js";
 import {
   useEffect,
   useMemo,
@@ -65,7 +66,10 @@ export function VideoPlayerRuntime({
   onComplete,
   onError,
   onSceneChange,
+  narrationReady,
+  narrationTime,
   onFramePresented,
+  onMediaFramePresented,
   onStallChange,
   onStateChange,
 }: VideoPlayerRuntimeProps): ReactElement {
@@ -94,6 +98,7 @@ export function VideoPlayerRuntime({
   const [state, setState] = useState<VideoState>(() => video ? savedVideoState(video) : createVideoState());
   const [currentTime, setCurrentTime] = useState(0);
   const [activeStream, setActiveStream] = useState(stream);
+  const [activeSavedVideo, setActiveSavedVideo] = useState(video);
   const [replacementPending, setReplacementPending] = useState(false);
   const [startRequested, setStartRequested] = useState(autoStartGeneration);
   const [introPlaying, setIntroPlaying] = useState(autoStartGeneration);
@@ -104,14 +109,31 @@ export function VideoPlayerRuntime({
   const timeRef = useRef(currentTime);
   const audioRef = useRef<HTMLAudioElement>(null);
   const introStartedAtRef = useRef<number | null>(autoStartGeneration ? performance.now() : null);
-  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onStallChange, onStateChange });
+  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
+  const mediaFrameReportedRef = useRef(false);
+  const posterBridgeKeysRef = useRef(new Set<string>());
+  const visualReadyRef = useRef<string | undefined>(undefined);
+  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false, posterBridge = false) => {
+    if (posterBridge) { posterBridgeKeysRef.current.add(key); return; }
+    if (error) {
+      setIsPlaying(false);
+      callbacksRef.current.onError?.(error, stateRef.current);
+    } else {
+      visualReadyRef.current = key;
+      if (actualVideoFrame && !mediaFrameReportedRef.current) {
+        mediaFrameReportedRef.current = true;
+        try { void Promise.resolve(callbacksRef.current.onMediaFramePresented?.()).catch(() => undefined); }
+        catch { /* Metrics cannot stop playback. */ }
+      }
+    }
+  }, []);
   const playbackEndedRef = useRef(false);
 
   stateRef.current = state;
   timeRef.current = currentTime;
-  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, onFramePresented, onStallChange, onStateChange };
+  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
   loopRef.current = loop;
 
   const reportFramePresented = useMemo(() => {
@@ -151,9 +173,13 @@ export function VideoPlayerRuntime({
       .catch(() => context.close());
   };
 
-  if (stream !== activeStream) {
+  if (stream !== activeStream || video !== activeSavedVideo) {
     const autoStartReplacement = Boolean(playbackMode && stream && shouldAutoPlay && !reducedMotion);
     setActiveStream(stream);
+    setActiveSavedVideo(video);
+    mediaFrameReportedRef.current = false;
+    posterBridgeKeysRef.current.clear();
+    sceneIndexRef.current = -1;
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());
     setCurrentTime(0);
@@ -291,6 +317,8 @@ export function VideoPlayerRuntime({
     audioRef,
     loopRef,
     sceneIndexRef,
+    visualReadyRef,
+    posterBridgeKeysRef,
     callbacksRef,
     setCurrentTime,
     setIsPlaying,
@@ -527,7 +555,8 @@ export function VideoPlayerRuntime({
         onStart={armPlayback}
       />
       {!generationCoverVisible && config?.scenes.length ? (
-        <VideoFrame
+        <MountedReadinessContext.Provider value={reportVisualReady}>
+          <VideoFrame
           kit={kit}
           onFramePresented={!showStartPoster && onFramePresented ? reportFramePresented : undefined}
           config={displayConfig!}
@@ -545,6 +574,7 @@ export function VideoPlayerRuntime({
             transformOrigin: "top left",
           }}
         />
+        </MountedReadinessContext.Provider>
       ) : null}
       <StartPosterButton
         visible={showStartPoster}

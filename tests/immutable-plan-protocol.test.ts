@@ -9,8 +9,8 @@ import {
 } from "../src/internal";
 
 describe("immutable planning protocol", () => {
-  it("uses protocol version 0.5 for the breaking wire contract", () => {
-    expect(VIDEO_PROTOCOL_VERSION).toBe("0.5");
+  it("uses protocol version 0.6 for the breaking wire contract", () => {
+    expect(VIDEO_PROTOCOL_VERSION).toBe("0.6");
   });
 
   it.each(["scene.patch", "asset.patch", "plan.error"])(

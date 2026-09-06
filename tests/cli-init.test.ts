@@ -405,7 +405,7 @@ describe("vanillasky templates namespace", () => {
 
     const namespaced = await run(cwd, ["templates", "list", "--builtin", "--json"]);
     expect(namespaced.code).toBe(0);
-    expect(JSON.parse(namespaced.output)).toContainEqual(expect.objectContaining({ id: "bigNumber" }));
+    expect(JSON.parse(namespaced.output)).toContainEqual(expect.objectContaining({ id: "keyFigure" }));
 
     const removed = await run(cwd, ["list"]);
     expect(removed.code).toBe(1);

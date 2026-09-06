@@ -4,13 +4,13 @@ import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 const context = {
   request: {
-    protocolVersion: "0.5" as const,
+    protocolVersion: "0.6" as const,
     requestId: "request-1",
     input: { input: "Grounded facts" },
   },
   systemPrompt: "system",
   userPrompt: "user",
-  initialConfig: { schemaVersion: "0.1" as const, scenes: [], style: TEST_VIDEO_STYLE },
+  initialConfig: { schemaVersion: "0.2" as const, scenes: [], style: TEST_VIDEO_STYLE },
   signal: new AbortController().signal,
 };
 

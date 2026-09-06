@@ -247,8 +247,12 @@ export function validateDiscoveredTemplate(template: DiscoveredTemplate, cwd: st
     validateSchema(metadata.schema);
     if (metadata.timing !== undefined) {
       if (!metadata.timing || typeof metadata.timing !== "object" || Array.isArray(metadata.timing)) throw new Error("timing must be an object");
-      for (const key of Object.keys(metadata.timing)) if (!new Set(["contentFields", "contentUnit"]).has(key)) throw new Error(`timing.${key} is not supported`);
-      if (!Array.isArray(metadata.timing.contentFields) || metadata.timing.contentFields.length === 0) throw new Error("timing.contentFields must contain at least one schema property");
+      for (const key of Object.keys(metadata.timing)) if (!new Set(["contentFields", "contentUnit", "revealSeconds", "holdSeconds", "exitSeconds"]).has(key)) throw new Error(`timing.${key} is not supported`);
+      if (!Array.isArray(metadata.timing.contentFields)) throw new Error("timing.contentFields must be an array of schema properties");
+      for (const key of ["revealSeconds", "holdSeconds", "exitSeconds"] as const) {
+        const value = metadata.timing[key];
+        if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) throw new Error(`timing.${key} must be a finite non-negative number`);
+      }
       const timingFields = new Set<string>();
       for (const field of metadata.timing.contentFields) {
         if (typeof field !== "string" || !Object.hasOwn(metadata.schema.properties, field)) throw new Error(`timing.contentFields references undeclared property ${JSON.stringify(field)}`);
@@ -258,6 +262,12 @@ export function validateDiscoveredTemplate(template: DiscoveredTemplate, cwd: st
       if (!CONTENT_UNITS.has(metadata.timing.contentUnit)) throw new Error("timing.contentUnit contains an unsupported value");
     }
     const defaults = getTemplateDefaults(metadata.schema);
+    // Schema examples are authoring fixtures, never production defaults.
+    const smokeVariables = { ...defaults };
+    for (const field of metadata.schema.required ?? []) {
+      const example = metadata.schema.properties[field]?.examples?.[0];
+      if (!(field in smokeVariables) && example !== undefined) smokeVariables[field] = example;
+    }
     if (template.examples !== undefined && !Array.isArray(template.examples)) throw new Error("examples must be an array");
     const supplied = template.examples ?? [];
     for (const [index, value] of supplied.entries()) {
@@ -274,7 +284,7 @@ export function validateDiscoveredTemplate(template: DiscoveredTemplate, cwd: st
           variables: { ...defaults, ...variables },
           enforceRequiredAnyOf: true,
         }))
-      : [{ name: "defaults", variables: defaults, enforceRequiredAnyOf: false }];
+      : [{ name: "defaults", variables: smokeVariables, enforceRequiredAnyOf: false }];
     const names = new Set<string>();
     for (const example of examples) {
       if (typeof example.name !== "string" || !example.name.trim()) throw new Error("example names must be non-empty strings");

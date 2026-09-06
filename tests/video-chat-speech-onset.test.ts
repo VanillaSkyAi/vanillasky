@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVideoChatVoice } from "../src/video-chat/voice";
 
 interface Playback {
+  currentTime?: number;
   onstart?: (() => void) | null;
   onplaying?: (() => void) | null;
   onend?: (() => void) | null;
@@ -18,7 +19,7 @@ describe("video chat speech onset", () => {
     vi.stubGlobal("speechSynthesis", { speak: (value: Playback) => { playback = value; }, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
     vi.stubGlobal("SpeechSynthesisUtterance", class {});
     vi.stubGlobal("Audio", function () {
-      const element = { onplaying: null, play: () => Promise.resolve(), pause: () => undefined };
+      const element = { currentTime: 0, onplaying: null, play: () => Promise.resolve(), pause: () => undefined };
       playback = element;
       return element;
     });
@@ -26,10 +27,29 @@ describe("video chat speech onset", () => {
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     const voice = createVideoChatVoice({ fetcher: vi.fn(async () => source === "browser"
       ? new Response(null, { status: 204 }) : new Response(new Uint8Array([1, 2, 3]))) });
-    return { voice, playback: () => playback, start: () => source === "browser" ? playback.onstart?.() : playback.onplaying?.(),
+    return { voice, playback: () => playback, start: () => { if (source === "browser") playback.onstart?.(); else { playback.currentTime = 0.05; playback.onplaying?.(); } },
       end: () => source === "browser" ? playback.onend?.() : playback.onended?.(),
       captureStart: () => source === "browser" ? playback.onstart : playback.onplaying };
   }
+
+  it.each([0, 2])("waits for the media clock after early playing at offset %s", async (offsetSeconds) => {
+    const { voice, playback, end } = fixture("generated");
+    vi.stubGlobal("AudioContext", class { decodeAudioData() { return Promise.resolve({ duration: 6 }); } });
+    const onStart = vi.fn();
+    const controller = new AbortController();
+    const speaking = voice.speak("A useful answer.", { signal: controller.signal, onStart, offsetSeconds });
+    await vi.advanceTimersByTimeAsync(0);
+    playback().onplaying?.();
+    playback().currentTime = offsetSeconds + 0.004;
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(onStart).not.toHaveBeenCalled();
+    playback().currentTime = offsetSeconds + 0.05;
+    await vi.advanceTimersByTimeAsync(16);
+    expect(onStart).toHaveBeenCalledExactlyOnceWith("generated");
+    end();
+    await speaking;
+    voice.dispose?.();
+  });
 
   it.each(["browser", "generated"] as const)("reports %s only on actual playback, once per call", async (source) => {
     const { voice, start, end, captureStart } = fixture(source);

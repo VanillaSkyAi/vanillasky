@@ -229,7 +229,7 @@ try {
     generatedVideo: false,
     stockMedia: false,
     transcription: false,
-    modes: ["templates"],
+    modes: ["cinematic"],
   })) throw new Error(`Initialized capability fallback drifted: ${JSON.stringify(initializedCapabilities)}`);
   // Exercise the unchanged initialized UI with the exact installed server package.
   const { createVideoChatHandler } = await import(pathToFileURL(join(app, "node_modules/@vanillaskyai/video/dist/server.js")).href);
@@ -240,8 +240,8 @@ try {
       const followUp = userPrompt.includes("Give me an analogy");
       yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Let us explore the Moon.", mediaKeyword: "moon" }) + "\n";
       yield JSON.stringify({ type: "scene.add", placement: "closer", scene: {
-        id: followUp ? "analogy" : "moon", templateId: "media",
-        variables: { texts: followUp ? "Walk around a friend while facing them." : "The Moon rotates once per orbit.", mediaType: "gradient" },
+        id: followUp ? "analogy" : "moon", templateId: "chapterTitle",
+        variables: { title: followUp ? "An orbital dance" : "Always facing Earth" },
         narration: followUp ? "Walk around a friend while facing them." : "The Moon rotates once per orbit.",
         timing: { fixedDuration: 3 },
       } }) + "\n";
@@ -340,15 +340,15 @@ try {
 
   run("npm", ["install", "--no-audit", "--no-fund", "--save-dev", "tsx@4.23.12"], app);
   const builtinList = runCli(["templates", "list", "--builtin", "--json"]).output;
-  if (!JSON.parse(builtinList).some(({ id }) => id === "bigNumber")) throw new Error("Packed list did not include bigNumber");
-  const builtinDescription = JSON.parse(runCli(["templates", "describe", "bigNumber", "--builtin", "--json"]).output);
-  if (builtinDescription.id !== "bigNumber") throw new Error("Packed describe returned the wrong template");
+  if (!JSON.parse(builtinList).some(({ id }) => id === "keyFigure")) throw new Error("Packed list did not include keyFigure");
+  const builtinDescription = JSON.parse(runCli(["templates", "describe", "keyFigure", "--builtin", "--json"]).output);
+  if (builtinDescription.id !== "keyFigure") throw new Error("Packed describe returned the wrong template");
   const previewBefore = projectHash();
-  const dryRun = runCli(["templates", "add", "bigNumber", "--dry-run"]).output;
-  const diff = runCli(["templates", "add", "bigNumber", "--diff"]).output;
+  const dryRun = runCli(["templates", "add", "keyFigure", "--dry-run"]).output;
+  const diff = runCli(["templates", "add", "keyFigure", "--diff"]).output;
   if (projectHash() !== previewBefore) throw new Error("Packed add preview applied a proposed write in the clean-room fixture");
   for (const path of [
-    "vanillasky/templates/bigNumber.tsx",
+    "vanillasky/templates/keyFigure.tsx",
     "vanillasky/index.ts",
     "vanillasky/server.ts",
   ]) {
@@ -356,13 +356,13 @@ try {
   }
   const previewAfter = parseCreatedPreviewDiff(diff);
   if (previewAfter.size === 0) throw new Error("Packed add --diff did not expose any proposed after bytes");
-  runCli(["templates", "add", "bigNumber"]);
+  runCli(["templates", "add", "keyFigure"]);
   for (const [path, expected] of previewAfter) {
     const actual = readFileSync(join(app, path), "utf8");
     if (actual !== expected) throw new Error(`Packed add preview bytes did not match the applied file: ${path}`);
   }
   const repeatedAddTreeHash = generatedHash();
-  runCli(["templates", "add", "bigNumber"]);
+  runCli(["templates", "add", "keyFigure"]);
   if (generatedHash() !== repeatedAddTreeHash) {
     throw new Error("Repeating packed add changed the customer-owned template tree");
   }
@@ -374,18 +374,18 @@ const stable = (value: unknown): string => Array.isArray(value) ? "[" + value.ma
 const checksum = (value: unknown) => { let hash = 0x811c9dc5; for (const character of stable(value)) { hash ^= character.charCodeAt(0); hash = Math.imul(hash, 0x01000193) >>> 0; } return "fnv1a32:" + hash.toString(16).padStart(8, "0"); };
 const fetcher: typeof fetch = async (_url, init) => {
   const action = new URL(String(_url), "http://localhost").searchParams.get("action");
-  if (action !== "response") return Response.json(action === "capabilities" ? { templates: true, modes: ["templates"] } : action === "narration" ? { line: "A useful customer metric." } : { suggestions: [] });
+  if (action !== "response") return Response.json(action === "capabilities" ? { templates: true, modes: ["cinematic"] } : action === "narration" ? { line: "A useful customer metric." } : { suggestions: [] });
   const request = JSON.parse(String(init?.body));
   const subject = String(request.prompt).split(" ")[0];
-  const scene = { id: "result", templateId: "bigNumber", variables: { texts: subject + "'s quarter", value: 142, label: "customer conversations" }, timing: { fixedDuration: 10, startTime: 0, endTime: 10 } };
-  const style = { brand: { font: "Inter", scriptFont: "Caveat", background: { type: "gradient", colors: ["#8711C1", "#2167E3"] }, colors: { primary: "#00E5A0", secondary: "#006BE5", foreground: "#FFFFFF", surface: "#0A0A14", surfaceElevated: "#14152A", muted: "#A7A6B0" } } };
-  const snapshot = { schemaVersion: "0.1", orientation: "portrait", scenes: [scene], style };
+  const scene = { id: "result", templateId: "keyFigure", variables: { value: "142", label: subject + "'s quarter" }, timing: { fixedDuration: 10, startTime: 0, endTime: 10 } };
+  const style = {};
+  const snapshot = { schemaVersion: "0.2", orientation: "portrait", scenes: [scene], style };
   const events = [
-    { protocolVersion: "0.5", type: "response.start", eventId: "run:0", runId: "run", sequence: 0, data: { requestId: "fixture", format: { orientation: "portrait" }, style, capabilities: request.capabilities } },
-    { protocolVersion: "0.5", type: "scene.add", eventId: "run:1", runId: "run", sequence: 1, data: { scene, position: 0 } },
-    { protocolVersion: "0.5", type: "response.complete", eventId: "run:2", runId: "run", sequence: 2, data: { finishReason: "stop", snapshot, checksum: checksum(snapshot) } },
+    { protocolVersion: "0.6", type: "response.start", eventId: "run:0", runId: "run", sequence: 0, data: { requestId: "fixture", format: { orientation: "portrait" }, style, capabilities: request.capabilities } },
+    { protocolVersion: "0.6", type: "scene.add", eventId: "run:1", runId: "run", sequence: 1, data: { scene, position: 0 } },
+    { protocolVersion: "0.6", type: "response.complete", eventId: "run:2", runId: "run", sequence: 2, data: { finishReason: "stop", snapshot, checksum: checksum(snapshot) } },
   ];
-  return new Response(events.map((event) => "data: " + JSON.stringify(event) + "\\n\\n").join("") + "data: [DONE]\\n\\n", { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.5" } });
+  return new Response(events.map((event) => "data: " + JSON.stringify(event) + "\\n\\n").join("") + "data: [DONE]\\n\\n", { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6" } });
 };
 
 export default function App() {
@@ -451,7 +451,7 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
   await page.goto("http://127.0.0.1:4175/");
   await waitForStatus("Complete:1:Acme");
   try {
-    await page.locator('[data-template-id="bigNumber"]').waitFor({ timeout: 10_000 });
+    await page.locator('[data-template-id="keyFigure"]').waitFor({ timeout: 10_000 });
   } catch (error) {
     const player = page.getByTestId("video-player");
     const playerCount = await player.count();
@@ -464,9 +464,9 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
   await page.getByText("Northstar's quarter").waitFor({ timeout: 10_000 });
   if (browserErrors.length) throw new Error(`Clean-room browser errors: ${browserErrors.join(" | ")}`);
   runCli(["templates", "create", "ownershipProof"]);
-  const ownedTemplatePath = join(app, "vanillasky", "templates", "bigNumber.tsx");
+  const ownedTemplatePath = join(app, "vanillasky", "templates", "keyFigure.tsx");
   const ownedTemplate = readFileSync(ownedTemplatePath, "utf8");
-  const canonicalDescription = "A single animated count-up metric with headline and label.";
+  const canonicalDescription = "One supplied figure with one short label on black.";
   const customerDescription = "A customer-owned acceptance edit for a personalized metric.";
   if (!ownedTemplate.includes(canonicalDescription)) throw new Error("Could not locate the copied template description to edit");
   writeFileSync(ownedTemplatePath, ownedTemplate.replace(canonicalDescription, customerDescription));
@@ -484,7 +484,7 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
   if (!readFileSync(join(app, "vanillasky", "server.ts"), "utf8").includes(customerDescription)) {
     throw new Error("Packed sync did not regenerate server metadata from edited customer source");
   }
-  if (!readFileSync(join(app, "vanillasky", "index.ts"), "utf8").includes("bigNumberTemplate")) {
+  if (!readFileSync(join(app, "vanillasky", "index.ts"), "utf8").includes("keyFigureTemplate")) {
     throw new Error("Packed sync did not regenerate the browser registry");
   }
   const serverOnlyConsumer = join(workspace, "server-only-consumer");
@@ -526,10 +526,10 @@ export { templates as serverTemplates } from "../vanillasky/server";
   runCli(["templates", "sync", "--check"]);
   runCli(["templates", "check"]);
   const effectiveList = JSON.parse(runCli(["templates", "list", "--json"]).output);
-  if (!effectiveList.some(({ id, origin }) => id === "bigNumber" && origin === "project")) {
+  if (!effectiveList.some(({ id, origin }) => id === "keyFigure" && origin === "project")) {
     throw new Error("Packed list did not report the copied template as project-owned");
   }
-  const effectiveDescription = JSON.parse(runCli(["templates", "describe", "bigNumber", "--json"]).output);
+  const effectiveDescription = JSON.parse(runCli(["templates", "describe", "keyFigure", "--json"]).output);
   if (effectiveDescription.summary !== customerDescription) {
     throw new Error("Packed describe did not report the edited customer-owned metadata");
   }

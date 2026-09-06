@@ -9,7 +9,7 @@ import { createRenderTemplateRegistry, defineTemplate } from "../src/visual-syst
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 import type { Video } from "../src/index";
 
-const video: Video = { schemaVersion: "0.1", orientation: "landscape", style: TEST_VIDEO_STYLE,
+const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,
   scenes: [{ id: "first", templateId: "test", variables: {}, timing: { fixedDuration: 1 } }] };
 function clock() {
   const pending = new Map<number, FrameRequestCallback>();

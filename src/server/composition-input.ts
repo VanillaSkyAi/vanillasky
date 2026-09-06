@@ -1,4 +1,3 @@
-import { resolveVideoBrand } from "../protocol/background.js";
 import {
   MAX_RETAINED_INSTRUCTIONS_LENGTH,
   MAX_RETAINED_MEDIA_URL_LENGTH,
@@ -34,7 +33,7 @@ export function resolveStreamCapabilities(
   if (!hasRuntimeOpening || capabilities?.templates == null) return capabilities;
   return {
     ...capabilities,
-    templates: [...new Set(["media", ...capabilities.templates])],
+    templates: [...new Set(["chapterTitle", ...capabilities.templates])],
   };
 }
 
@@ -64,7 +63,6 @@ export function validateVideoInput(input: VideoInput): void {
       throw new Error(`Video response supplied media ${index} poster URL must be at most ${MAX_RETAINED_MEDIA_URL_LENGTH} characters`);
     }
   }
-  resolveVideoBrand(input.brand);
 }
 
 export function buildInitialComposition(
@@ -78,10 +76,9 @@ export function buildInitialComposition(
   const openingScenes: VideoScene[] = openingText
     ? [{
         id: "supplied-opening",
-        templateId: "media",
+        templateId: "chapterTitle",
         variables: {
-          texts: openingText,
-          mediaType: "gradient",
+          title: openingText,
         },
         timing: { fixedDuration: 3 },
       }]
@@ -107,7 +104,7 @@ export function buildInitialComposition(
   }
 
   const meta: NonNullable<Video["meta"]> = {
-    name: input.brand?.name?.trim() || "Video response",
+    name: "Video response",
   };
   if (snapshotRetention?.source) {
     meta.source = input.input.trim().slice(0, MAX_RETAINED_SOURCE_LENGTH);
@@ -128,7 +125,6 @@ export function buildInitialComposition(
       scenes,
       ...(audio ? { audio } : {}),
       style: {
-        brand: resolveVideoBrand(input.brand),
         density: input.style?.density ?? "normal",
         motion: input.style?.motion ?? "normal",
         defaultBackgroundEffect: input.style?.backgroundEffect ?? "static",

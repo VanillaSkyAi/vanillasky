@@ -38,7 +38,7 @@ describe("unified template JSON Schema contract", () => {
 
   it("migrates every built-in to that same schema-only metadata shape", () => {
     const catalog = listBuiltinTemplateMetadata();
-    expect(catalog).toHaveLength(28);
+    expect(catalog).toHaveLength(8);
     for (const template of catalog) {
       expect(template.schema, template.id).toMatchObject({
         type: "object",
@@ -53,16 +53,17 @@ describe("unified template JSON Schema contract", () => {
       expect(template, template.id).not.toHaveProperty("allowsStockMedia");
     }
 
-    expect(getBuiltinTemplateMetadata("bigNumber")?.schema).toMatchObject({
-      properties: { value: { default: 1000 } },
-      required: expect.arrayContaining(["value"]),
-      "x-vanillasky": { requiresStat: true, allowsStockMedia: true },
+    expect(getBuiltinTemplateMetadata("keyFigure")?.schema).toMatchObject({
+      properties: { value: { format: "grounded-stat" } },
+      required: ["value", "label"],
+      "x-vanillasky": { requiresStat: true },
     });
-    expect(getBuiltinTemplateMetadata("testimonial")?.schema).toMatchObject({
+    expect(getBuiltinTemplateMetadata("keyFigure")?.schema.properties.value.default).toBeUndefined();
+    expect(getBuiltinTemplateMetadata("quote")?.schema).toMatchObject({
       properties: { quote: { format: "grounded-quote" } },
     });
-    expect(getBuiltinTemplateMetadata("phoneMockup")?.schema).toMatchObject({
-      properties: { screenMediaUrl: { format: "supplied-image" } },
+    expect(getBuiltinTemplateMetadata("cinemaMedia")?.schema).toMatchObject({
+      "x-vanillasky": { allowsStockMedia: true, requiredAnyOf: [["mediaKeyword", "mediaUrl"]] },
     });
   });
 
@@ -103,8 +104,8 @@ describe("unified template JSON Schema contract", () => {
   });
 
   it("generates registry metadata and copied templates from the canonical schema", () => {
-    const described = describeRegistryTemplate("problemSolution");
-    expect(described?.schema).toEqual(getBuiltinTemplateMetadata("problemSolution")?.schema);
+    const described = describeRegistryTemplate("comparison");
+    expect(described?.schema).toEqual(getBuiltinTemplateMetadata("comparison")?.schema);
     expect(described).not.toHaveProperty("variableSchema");
 
     for (const template of listBuiltinTemplateMetadata()) {

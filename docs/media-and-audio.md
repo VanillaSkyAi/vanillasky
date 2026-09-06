@@ -6,20 +6,19 @@ VanillaSky keeps provider choice in the application. The SDK defines small
 server callbacks, advertises only the capabilities you configure, and keeps
 all credentials out of React and the browser bundle.
 
-## Two visual modes
+## One cinematic mode
 
-The chat exposes only two clear choices:
+The director combines relevant footage and eight editorial templates. Graphics
+use black and white; footage carries atmosphere and concrete action. Each media
+scene declares `mediaSource: "stock"` or `"generate"`. Provider availability and
+host budgets constrain those choices. There is no all-stock or all-AI switch.
 
-| Mode | Visual source | Required callback |
-| --- | --- | --- |
-| `templates` | Trusted rendered templates, optionally with stock footage | none; `searchMedia` is optional |
-| `full` | A generated clip for every visual beat | `generateVideo` |
+The canonical templates are `cinemaMedia`, `chapterTitle`, `focusCards`,
+`editorialTimeline`, `mobileMessage`, `comparison`, `quote`, and `keyFigure`.
+Only `cinemaMedia` and `mobileMessage` accept media backgrounds. Full-bleed
+footage has no headline; narration and subtitles carry the explanation.
 
-Templates are always available and are the fast, inexpensive fallback. The
-`full` mode is advertised only when `generateVideo` exists. VanillaSky does not
-offer a mixed mode that generates only some scenes.
-
-## Stock media for templates
+## Reviewed stock
 
 Add `searchMedia` when template answers, the welcome screen, and follow-up
 cards should use approved photography or footage:
@@ -46,15 +45,16 @@ createVideoChatHandler({
 The planner emits a short semantic keyword, not a URL. The callback returns an
 application-approved image or video URL, and the SDK validates it before it
 reaches a scene. Return `null` when no licensed, safe, relevant asset exists;
-the template falls back to its built-in treatment.
+`cinemaMedia` becomes a chapter using its grounded `fallbackText`; a message can
+keep its content on black. Missing fallback copy produces an explicit error.
 
 For Pexels, keep `PEXELS_API_KEY` on the server, enforce a deadline, filter for
 orientation, and return only validated Pexels asset domains. Licensing,
 attribution, caching, MIME checks, and byte limits remain application-owned.
 
-## Full generated video
+## Planned generated shots
 
-Add `generateVideo` to enable full AI video. It receives the planned visual
+Add `generateVideo` to enable generated shots within cinematic responses. It receives the planned visual
 subject plus the generated look so every clip can follow the same direction:
 
 ```ts

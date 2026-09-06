@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 
 import {
   getVideoDuration,
-  resolveVideoBrand,
   VideoValidationError,
   parseVideo,
   type Video,
@@ -15,10 +14,10 @@ import { checksumVideo } from "../src/protocol/checksum";
 
 function minimalVideo(): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     scenes: [{
       id: "saved-scene",
-      templateId: "notification",
+      templateId: "mobileMessage",
       variables: { message: "Stored safely" },
       timing: { fixedDuration: 4 },
     }],
@@ -28,7 +27,7 @@ function minimalVideo(): Video {
 
 function completeVideo(): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "landscape",
     audio: {
       trackId: "retained-track",
@@ -46,7 +45,7 @@ function completeVideo(): Video {
     scenes: [
       {
         id: "first",
-        templateId: "notification",
+        templateId: "mobileMessage",
         variables: {
           message: "Complete shape",
           nested: { enabled: true, amount: 3, empty: null },
@@ -58,7 +57,7 @@ function completeVideo(): Video {
       },
       {
         id: "second",
-        templateId: "bigNumber",
+        templateId: "keyFigure",
         variables: { value: 42 },
         timing: { beatStart: 1, fixedDuration: 3 },
       },
@@ -103,16 +102,13 @@ function setNull(path: readonly string[]): unknown {
 }
 
 describe("persisted Video contract", () => {
-  it("parses the versioned 0.1.0 release fixture", () => {
-    const fixturePath = resolve(import.meta.dirname, "fixtures/persisted-video-0.1.0.json");
+  it("rejects the previous release fixture rather than silently rewriting brand and template semantics",()=>{
+    const fixturePath=resolve(import.meta.dirname,"fixtures/persisted-video-0.1.0.json");
     expect(existsSync(fixturePath)).toBe(true);
-    if (!existsSync(fixturePath)) return;
-
-    const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
-    const parsed = parseVideo(fixture);
-    expect(parsed).toEqual(fixture);
-    expect(parsed.schemaVersion).toBe("0.1");
-    expect(parsed.scenes).toHaveLength(2);
+    expect(()=>parseVideo(JSON.parse(readFileSync(fixturePath,"utf8")))).toThrow(/schemaVersion/);
+  });
+  it("rejects a brand object even when a caller stamps the new version on it",()=>{
+    expect(()=>parseVideo({...minimalVideo(),style:{brand:{font:"Custom"}}})).toThrow(/unsupported field brand/);
   });
 
   it("parses only the current persisted schema and exposes typed failures", () => {
@@ -120,7 +116,7 @@ describe("persisted Video contract", () => {
 
     let future: unknown;
     try {
-      future = parseVideo({ ...minimalVideo(), schemaVersion: "0.2" });
+      future = parseVideo({ ...minimalVideo(), schemaVersion: "9.0" });
     } catch (error) {
       future = error;
     }
@@ -175,7 +171,7 @@ describe("persisted Video contract", () => {
       get: () => {
         reads += 1;
         if (throws) throw new Error("schema getter ran");
-        return "0.1";
+        return "0.2";
       },
     });
 
@@ -187,12 +183,12 @@ describe("persisted Video contract", () => {
     const nonEnumerable = { ...minimalVideo() } as Record<string, unknown>;
     Object.defineProperty(nonEnumerable, "schemaVersion", {
       enumerable: false,
-      value: "0.1",
+      value: "0.2",
     });
 
     invalidError(nonEnumerable);
     invalidError({ ...minimalVideo(), schemaVersion: null });
-    invalidError({ ...minimalVideo(), schemaVersion: { toString: () => "0.2" } });
+    invalidError({ ...minimalVideo(), schemaVersion: { toString: () => "9.0" } });
   });
 
   it("normalizes reflection failures even when the thrown value is hostile", () => {
@@ -214,7 +210,7 @@ describe("persisted Video contract", () => {
         descriptorReads += 1;
         return {
           ...descriptor,
-          value: descriptorReads <= 2 ? "0.1" : "9.0",
+          value: descriptorReads <= 2 ? "0.2" : "9.0",
         };
       },
     });
@@ -222,7 +218,7 @@ describe("persisted Video contract", () => {
     const parsed = parseVideo(value);
 
     expect(descriptorReads).toBe(2);
-    expect(parsed.schemaVersion).toBe("0.1");
+    expect(parsed.schemaVersion).toBe("0.2");
     expect(Object.isFrozen(parsed)).toBe(true);
   });
 
@@ -235,7 +231,7 @@ describe("persisted Video contract", () => {
         descriptorReads += 1;
         return {
           ...descriptor,
-          value: descriptorReads === 1 ? "0.1" : "9.0",
+          value: descriptorReads === 1 ? "0.2" : "9.0",
         };
       },
     });
@@ -420,8 +416,6 @@ describe("persisted Video contract", () => {
     ["style defaultTransition", ["style", "defaultTransition"]],
     ["style density", ["style", "density"]],
     ["style motion", ["style", "motion"]],
-    ["brand name", ["style", "brand", "name"]],
-    ["brand logoUrl", ["style", "brand", "logoUrl"]],
     ["audio sourceDuration", ["audio", "sourceDuration"]],
     ["audio volume", ["audio", "volume"]],
     ["audio fadeOutMs", ["audio", "fadeOutMs"]],
@@ -473,7 +467,7 @@ describe("persisted Video contract", () => {
     ["non-JSON brand objects", {
       ...minimalVideo(),
       style: {
-        brand: Object.assign(Object.create({ inherited: true }), TEST_VIDEO_STYLE.brand),
+        brand: Object.assign(Object.create({ inherited: true }), {}),
       },
     }],
     ["overlapping scene timing", {
@@ -527,31 +521,26 @@ describe("persisted Video contract", () => {
       schemaVersion: canonical.schemaVersion,
     } satisfies Video;
 
-    expect(checksumVideo(canonical)).toBe("fnv1a32:d72e68aa");
-    expect(checksumVideo(reordered)).toBe("fnv1a32:d72e68aa");
+    expect(checksumVideo(canonical)).toBe("fnv1a32:fc88e1e2");
+    expect(checksumVideo(reordered)).toBe("fnv1a32:fc88e1e2");
     expect(checksumVideo({
       ...canonical,
       scenes: [{
         ...canonical.scenes[0],
         variables: { message: "Stored differently" },
       }],
-    })).not.toBe("fnv1a32:d72e68aa");
+    })).not.toBe("fnv1a32:fc88e1e2");
 
     expect(checksumVideo({
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       scenes: [{
         id: "unicode",
-        templateId: "notification",
+        templateId: "mobileMessage",
         variables: { "ä": 1, z: 2, A: 3 },
         timing: { fixedDuration: 1 },
       }],
-      style: {
-        brand: {
-          ...TEST_VIDEO_STYLE.brand,
-          background: { type: "solid", color: "#000000" },
-        },
-      },
-    })).toBe("fnv1a32:21223ef7");
+      style: {},
+    })).toBe("fnv1a32:629854a1");
   });
 
   it("parses a generated terminal snapshot after native JSON serialization", async () => {
@@ -562,7 +551,7 @@ describe("persisted Video contract", () => {
           type: "scene.add" as const,
           scene: {
             id: "generated",
-            templateId: "notification",
+            templateId: "mobileMessage",
             variables: { message: "Generated and stored" },
             timing: { fixedDuration: 3 },
           },
@@ -573,34 +562,8 @@ describe("persisted Video contract", () => {
     for await (const _event of response.stream) { /* consume */ }
     const completed = (await response.result).config;
 
-    expect(completed?.schemaVersion).toBe("0.1");
+    expect(completed?.schemaVersion).toBe("0.2");
     expect(parseVideo(JSON.parse(JSON.stringify(completed)))).toEqual(completed);
-  });
-});
-
-describe("resolveVideoBrand", () => {
-  it("resolves a partial brand into one parseVideo accepts", () => {
-    const brand = resolveVideoBrand({ name: "Live Channel", background: "midnight" });
-    const video: Video = {
-      schemaVersion: "0.1",
-      scenes: [{
-        id: "scene",
-        templateId: "notification",
-        variables: { message: "Hand-authored" },
-        timing: { fixedDuration: 4 },
-      }],
-      style: { brand },
-    };
-
-    expect(() => parseVideo(video)).not.toThrow();
-    expect(brand.font).toBe("Inter");
-    expect(brand.colors.foreground).toBeTruthy();
-  });
-
-  it("resolves defaults with no input at all", () => {
-    const brand = resolveVideoBrand();
-    expect(brand.background).toBeTruthy();
-    expect(Object.keys(brand.colors).length).toBeGreaterThanOrEqual(6);
   });
 });
 

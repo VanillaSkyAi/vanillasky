@@ -22,7 +22,6 @@ export type {
   CreateVideoOptions,
   CreateVideoRequestOptions,
   VideoAudio,
-  VideoBrand,
   VideoCapabilities,
   Video,
   VideoGenerationContext,

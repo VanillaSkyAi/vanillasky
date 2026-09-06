@@ -8,14 +8,13 @@ const audioUrl = "data:audio/wav;base64,UklGRg==";
 
 function playerVideo(duration: number): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "portrait",
     scenes: [{
       id: "activation",
-      templateId: "media",
+      templateId: "chapterTitle",
       variables: {
-        texts: "Faster first value drives lasting retention.",
-        mediaType: "gradient",
+        title: "Lasting retention",
       },
       timing: { fixedDuration: duration },
     }],

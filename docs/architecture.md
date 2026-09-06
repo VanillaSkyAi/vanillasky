@@ -67,7 +67,7 @@ prompt/validation registry in `vanillasky/server.ts`.
 5. The system prompt combines the opening and composition rules with the trusted template
    catalog, including generated metadata for customer-owned templates. The user
    prompt serializes the prompt, completed conversation, instructions,
-   brand, and approved media.
+   style, and approved media.
 6. The model streams one host-consumed opening object followed by NDJSON plan
    parts. The server emits the opening event, then parses and validates complete
    scenes before emitting them.

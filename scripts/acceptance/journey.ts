@@ -30,7 +30,7 @@ export async function runChatAcceptance() {
     const started = performance.now();
     const response = await handler(new Request("https://app.example/api/video-chat?action=response", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: fixture.prompt, mode: fixture.provider ? "full" : "templates", ...(fixture.id === "follow-up" ? {
+      body: JSON.stringify({ prompt: fixture.prompt, mode: "cinematic", ...(fixture.id === "follow-up" ? {
         conversation: [{ prompt: results[0].prompt, response: ACCEPTANCE_FIXTURES[0].lines.join(" ") }],
       } : {}) }),
     }));

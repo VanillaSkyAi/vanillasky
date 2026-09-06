@@ -59,7 +59,7 @@ test("keeps frame and player templates on the same canonical canvas at thumbnail
   await expect(page.locator('[data-surface="player"] [data-status="complete"]')).toHaveCount(12);
   await expect(page.locator('[data-surface="saved"] [data-status="complete"]')).toHaveCount(12);
 
-  for (const templateId of ["bigNumber", "steps", "cardList"]) {
+  for (const templateId of ["keyFigure", "editorialTimeline", "focusCards"]) {
     for (const width of [180, 380, 600, 960]) {
       for (const surface of ["frame", "player", "saved"]) {
         const fixture = page.locator(`[data-case="${templateId}-${surface}-${width}"]`);
@@ -244,74 +244,38 @@ test("keeps one scene video decoder mounted during iPhone WebKit transitions", a
   await context.close();
 });
 
-test("keeps contiguous transition boundaries readable and semantically inactive in both orientations", async ({ page, browserName }) => {
-  test.skip(browserName !== "chromium", "Focused pixel and semantic transition proof runs once in Chromium.");
+test("keeps black graphic boundaries readable without overlapping two explanations", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Focused pixel proof runs once in Chromium.");
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-  const brandOnly = await page.locator('[data-case="brand-baseline"]').screenshot();
-
-  for (const orientation of ["portrait", "landscape"] as const) {
-    const transitionStart = page.locator(`[data-case="${orientation}-transition-4.7"]`);
-    const firstVisibleFrame = page.locator(`[data-case="${orientation}-transition-4.71"]`);
-    const midpoint = page.locator(`[data-case="${orientation}-transition-4.85"]`);
-    const settled = page.locator(`[data-case="${orientation}-transition-5"]`);
-
-    await expect(transitionStart.locator('[data-scene-layer="outgoing"]')).toHaveAttribute("data-layer-scene-id", "opening");
-    await expect(transitionStart.locator('[data-scene-layer="incoming"]')).toHaveAttribute("data-layer-scene-id", "proof");
-    await expect(transitionStart.locator('[data-scene-layer="outgoing"]')).toContainText(/The\s*opening\s*remains\s*readable\./);
-    await expect(transitionStart.locator('[data-scene-layer="incoming"]')).toHaveAttribute("aria-hidden", "true");
-    const incomingLayer = transitionStart.locator('[data-scene-layer="incoming"]');
-    await expect(incomingLayer).toHaveAttribute("inert", /^(?:inert)?$/);
-    await expect(incomingLayer).toHaveJSProperty("inert", true);
-
-    await expect(firstVisibleFrame.locator('[data-scene-layer="incoming"]')).toHaveCSS("opacity", "0.033333");
-    const transientMetric = firstVisibleFrame.getByText("0%", { exact: true });
-    await expect(transientMetric).toHaveCount(1);
-    await expect(transientMetric).toHaveCSS("visibility", "hidden");
-    const firstVisibleScreenshot = await firstVisibleFrame.screenshot();
-    await transientMetric.evaluate((element) => {
-      (element as HTMLElement).style.visibility = "hidden";
-    });
-    const explicitlyHiddenScreenshot = await firstVisibleFrame.screenshot();
-    expect(await differingPixelRatio(firstVisibleScreenshot, explicitlyHiddenScreenshot, page)).toBeLessThan(0.00001);
-
-    await expect(midpoint.locator('[data-scene-layer="outgoing"]')).toHaveCSS("opacity", "0.5");
-    await expect(midpoint.locator('[data-scene-layer="incoming"]')).toHaveCSS("opacity", "0.5");
-    await expect(midpoint.locator('[data-scene-layer="outgoing"]')).toContainText(/The\s*opening\s*remains\s*readable\./);
-    await expect(midpoint.locator('[data-scene-layer="incoming"]')).toContainText(/The\s*proof\s*is\s*ready\./);
-
-    await expect(settled.locator('[data-scene-layer="active"]')).toHaveAttribute("data-layer-scene-id", "proof");
-    await expect(settled.locator('[data-scene-layer="active"]')).toContainText(/The\s*proof\s*is\s*ready\./);
-    await expect(settled.getByText("0x", { exact: true })).toHaveCount(0);
-
-    for (const fixture of [transitionStart, midpoint, settled]) {
+  const black = await page.locator('[data-case="brand-baseline"]').screenshot();
+  for (const orientation of ["portrait", "landscape"]) {
+    for (const time of [4.7, 4.71, 4.85]) {
+      const fixture = page.locator(`[data-case="${orientation}-transition-${time}"]`);
+      await expect(fixture.locator('[data-scene-layer="active"]')).toHaveAttribute("data-layer-scene-id", "opening");
+      await expect(fixture).toContainText(/The\s*opening\s*remains\s*readable\./);
+      await expect(fixture.locator('[data-scene-layer="incoming"], [data-scene-layer="outgoing"]')).toHaveCount(0);
       const screenshot = await fixture.screenshot();
       expect(await visiblePixelRatio(screenshot, page)).toBeGreaterThan(0.01);
-      if (orientation === "portrait") {
-        expect(await differingPixelRatio(screenshot, brandOnly, page)).toBeGreaterThan(0.005);
-      }
+      if (orientation === "portrait") expect(await differingPixelRatio(screenshot, black, page)).toBeGreaterThan(0.005);
     }
+    const settled = page.locator(`[data-case="${orientation}-transition-5"]`);
+    await expect(settled.locator('[data-scene-layer="active"]')).toHaveAttribute("data-layer-scene-id", "proof");
+    await expect(settled).toContainText("128%");
+    await expect(settled).toContainText("Faster deployment cycles");
+    await expect(settled.getByText("0%", { exact: true })).toHaveCount(0);
+    await expect(settled).not.toContainText("The opening remains readable.");
   }
 });
 
-test("hides only transient metric semantics while a grounded incoming frame crossfades", async ({ page, browserName }) => {
-  test.skip(browserName !== "chromium", "Focused semantic and pixel transition proof runs once in Chromium.");
+test("keeps exact sourced content without synthetic count-ups at graphic cuts", async ({page,browserName}) => {
+  test.skip(browserName !== "chromium", "Semantic geometry runs once in Chromium.");
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-
-  for (const orientation of ["portrait", "landscape"] as const) {
-    for (const templateId of ["bigNumber", "progressRing", "tweet"] as const) {
-      const fixture = page.locator(`[data-case="${orientation}-semantic-${templateId}"]`);
-      const incoming = fixture.locator('[data-scene-layer="incoming"]');
-      await expect(incoming).toHaveCSS("opacity", "0.033333");
-      await expect(incoming).toContainText(templateId === "tweet" ? "The release is grounded." : templateId === "progressRing" ? "Release readiness" : "The proof is ready.");
-
-      const transientSemantics = incoming.locator('[data-transition-semantic="transient"]');
-      await expect(transientSemantics).toHaveCount(templateId === "tweet" ? 2 : 1);
-      for (let index = 0; index < await transientSemantics.count(); index += 1) {
-        await expect(transientSemantics.nth(index)).toHaveCSS("visibility", "hidden");
-      }
-
-      const screenshot = await fixture.screenshot();
-      expect(await visiblePixelRatio(screenshot, page)).toBeGreaterThan(0.01);
+  for (const orientation of ["portrait","landscape"]) {
+    for (const id of ["keyFigure","focusCards","editorialTimeline"]) {
+      const fixture=page.locator(`[data-case="${orientation}-semantic-${id}"]`);
+      await expect(fixture.locator('[data-scene-layer="incoming"]')).toHaveCount(0);
+      await expect(fixture.locator('[data-transition-semantic="transient"]')).toHaveCount(0);
+      await expect(fixture).toContainText(id==="keyFigure" ? "128%" : id==="focusCards" ? "Source preserved" : "Final event");
     }
   }
 });

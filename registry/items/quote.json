@@ -1,0 +1,94 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "quote",
+  "type": "registry:block",
+  "title": "Quote",
+  "description": "A short exact quotation with a legible attribution on black.",
+  "dependencies": [
+    "react"
+  ],
+  "registryDependencies": [
+    "@vanillasky/template-context",
+    "@vanillasky/theme"
+  ],
+  "files": [
+    {
+      "path": "src/visual-system/scene-templates/quote.tsx",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/quote.tsx",
+      "content": "import type {SceneTemplateProps} from './types';\nimport {editorialFont,fade} from './editorial-typography';\n\n/** Exact words with a readable attribution; no decorative oversized quotation mark. */\nfunction QuoteScene({variables,width,height,progress,motionProgress=progress,safeZone}:SceneTemplateProps){\n const u=Math.min(width,height),top=Math.max(height*.16,safeZone.top),bottom=height-Math.max(height*.23,safeZone.bottom);\n const side=Math.max(width*.13,safeZone.left,safeZone.right);\n return <div data-template=\"quote\" style={{position:'absolute',inset:0,background:'#000',color:'#fff',fontFamily:editorialFont,overflow:'hidden'}}>\n  <div style={{position:'absolute',left:side,top:(top+bottom)/2,width:width-side*2,transform:'translateY(-50%)',textAlign:'center',opacity:fade((motionProgress-.03)/.24)}}>\n   <div style={{fontSize:u*.067,fontWeight:500,lineHeight:1.25,letterSpacing:'-.025em',textWrap:'balance',overflowWrap:'anywhere'}}>“{String(variables.quote??'')}”</div>\n   <div style={{fontSize:u*.041,fontWeight:400,color:'#b7b7bc',lineHeight:1.3,marginTop:u*.065,textWrap:'balance',overflowWrap:'anywhere'}}>{String(variables.attribution??'')}</div>\n  </div>\n </div>;\n}\n\nexport const QuoteSceneTemplate = QuoteScene;\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/types.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/types.ts",
+      "content": "/**\n * Scene template types.\n *\n * A template is a reusable React component that defines how a scene looks.\n * It declares the variables an editor or model may provide\n * and receives universal settings as props.\n *\n * Templates are searchable by AI via description, category, jobs, register,\n * and useWhen guidance.\n * The variable schema enables any LLM to fill in template variables via JSON.\n */\n\nimport type { ResolvedTokens } from \"../theme\";\nimport type { SafeZone, TemplateStyle } from \"../template-context\";\n\n/**\n * Props passed to every scene template component.\n *\n * All animation must be driven by `progress` (0→1). No CSS animations,\n * no Framer Motion, no requestAnimationFrame. Use interpolate/spring\n * from animation-utils.ts.\n *\n * Scale factor: use `Math.min(width, height) / 1080` — normalizes to\n * the short edge so visuals are consistent across portrait and landscape.\n */\nexport interface SceneTemplateProps {\n  variables: Record<string, unknown>;\n  style: TemplateStyle;\n  /** 0→1 through the scene's duration */\n  progress: number;\n  /** Presentation clock. Active templates receive the same complete 0→1 timeline as progress. */\n  motionProgress?: number;\n  /** 0→1 beat pulse intensity */\n  beatIntensity: number;\n  /** 1080 (portrait) or 1920 (landscape) */\n  width: number;\n  /** 1920 (portrait) or 1080 (landscape) */\n  height: number;\n  /** Video-level default text effect (for templates that opt in via usesGlobalTextEffect) */\n  textArchetype?: string;\n  /** How text leaves the scene (fade / shrink / pop / blur-scale). Falls back to a sensible default per textArchetype when undefined. */\n  /** Video-level default background effect (for templates that opt in via usesGlobalBackgroundEffect) */\n  backgroundEffect?: string;\n  /** Platform-aware safe zone insets in pixels — use for text placement */\n  safeZone: SafeZone;\n  /** Scene duration in seconds — use for time-based (not progress-based) animations */\n  sceneDuration?: number;\n  /**\n   * Brand tokens already resolved from `style`. Built-in templates import\n   * resolveTokens directly; an ejected `custom_*` scene can't import anything,\n   * so without this it has no way to reach the same values and ends up\n   * hardcoding white, black and shadows — the body then looks generic next to\n   * a frame that IS using the brand.\n   */\n  tokens?: ResolvedTokens;\n  /**\n   * True when the preview player is actively advancing progress; false when paused.\n   * Templates that play HTML5 <video> elements should pause them when this is false.\n   * Undefined (export capture path) is treated as true.\n   */\n  isPlaying?: boolean;\n}\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/editorial-typography.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/editorial-typography.ts",
+      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
+    }
+  ],
+  "meta": {
+    "vanillasky": {
+      "layer": "template",
+      "tier": "free",
+      "label": "Quote",
+      "description": "A short exact quotation with a legible attribution on black.",
+      "usesGlobalTextEffect": false,
+      "usesGlobalTransition": false,
+      "usesGlobalBackgroundEffect": false,
+      "textCanvas": "tight",
+      "family": "Explainers",
+      "jobs": [
+        "proof"
+      ],
+      "register": "motion-led",
+      "useWhen": "A supplied quotation deserves its own moment. Use exact source words and attribution only.",
+      "avoidWhen": "No exact quotation or reliable attribution is supplied; never invent testimony.",
+      "minDuration": 5,
+      "preferredDuration": 7,
+      "timing": {
+        "contentFields": [
+          "quote",
+          "attribution"
+        ],
+        "contentUnit": "words",
+        "revealSeconds": 1.2,
+        "holdSeconds": 3,
+        "exitSeconds": 0
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "format": "grounded-quote",
+            "examples": [
+              "Look closely. There is always more to see."
+            ],
+            "description": "Exact supplied quotation; do not paraphrase or invent."
+          },
+          "attribution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "examples": [
+              "Illustrative example"
+            ],
+            "description": "Grounded attribution belonging to these exact quoted words."
+          }
+        },
+        "required": [
+          "quote",
+          "attribution"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

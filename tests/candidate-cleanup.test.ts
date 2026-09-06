@@ -37,6 +37,10 @@ function unapprovedSourceHits(markers: readonly string[]) {
   const intentionalCutoverWarnings = new Set([
     "tests/release-workflow.test.ts\0vanillasky-sdk",
     "tests/release-workflow.test.ts\0historical",
+    // Contract removal documentation and factual-media guidance are deliberate prose.
+    "docs/maintainers/cinematic-migration.md\0legacy",
+    "docs/maintainers/cinematic-migration.md\0historical",
+    "src/server/video-chat-prompts.ts\0historical",
   ]);
   return sourceHits(markers).filter(({ path, marker }) => !intentionalCutoverWarnings.has(`${path}\0${marker}`));
 }

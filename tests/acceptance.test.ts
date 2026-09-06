@@ -11,7 +11,7 @@ describe("chat acceptance gates", () => {
       if (entry.event.type === "data.video-chat-opening") entry.elapsedMs = 500;
       if (entry.event.type === "scene.add") {
         entry.elapsedMs = 2_000;
-        entry.event.data.scene.variables.texts = "Invented claim";
+        entry.event.data.scene.variables.title = "Invented claim";
       }
       if (entry.event.type === "response.complete") entry.event.data.snapshot.scenes.pop();
     }
@@ -26,7 +26,7 @@ describe("chat acceptance gates", () => {
     const results = await runChatAcceptance();
     const events = structuredClone(results[3].events).filter(({ event }) => event.type !== "response.complete");
     for (const { event } of events) {
-      if (event.type === "scene.add") event.data.scene.variables.mediaUrl = "";
+      if (event.type === "scene.add") { event.data.scene.variables.mediaUrl = ""; event.data.scene.narration = "private-provider-detail"; }
       if (event.type === "response.warning") event.data.warning.message = "private-provider-detail";
     }
     const report = evaluateChatAcceptance(ACCEPTANCE_FIXTURES[3], events);

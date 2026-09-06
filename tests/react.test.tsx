@@ -5,30 +5,30 @@ import type { Video } from "../src/internal";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 describe("React renderer", () => {
-  it("lets same-gradient scenes start their native template motion at zero", async () => {
+  it("lets same-black scenes start their native template motion at zero", async () => {
     const { VideoFrame } = await import("../src/player/video-frame");
     const { createRenderTemplateRegistry } = await import("../src/visual-system/catalog/internal");
     const { getTemplate } = await import("../src/visual-system/scene-templates/registry");
-    const opening = getTemplate("notification");
-    const cardList = getTemplate("cardList");
+    const opening = getTemplate("mobileMessage");
+    const cardList = getTemplate("focusCards");
     expect(opening).toBeDefined();
     expect(cardList).toBeDefined();
     if (!opening || !cardList) return;
     const kit = createRenderTemplateRegistry({ templates: [opening, cardList] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
         {
           id: "opening",
-          templateId: "notification",
+          templateId: "mobileMessage",
           variables: { message: "Opening" },
           timing: { fixedDuration: 5 },
         },
         {
           id: "cards",
-          templateId: "cardList",
+          templateId: "focusCards",
           variables: {
             texts: "Daybreak access is gated",
             items: [
@@ -81,7 +81,7 @@ describe("React renderer", () => {
     const frameFor = (firstVariables: Record<string, unknown>, secondVariables: Record<string, unknown>) =>
       renderToStaticMarkup(createElement(VideoFrame, {
         config: {
-          schemaVersion: "0.1",
+          schemaVersion: "0.2",
           orientation: "portrait",
           style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
           scenes: [
@@ -131,7 +131,7 @@ describe("React renderer", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [probe("opening"), probe("next")] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -186,7 +186,7 @@ describe("React renderer", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [probe("opening"), probe("counter")] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -284,7 +284,7 @@ describe("React renderer", () => {
       })],
     });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: TEST_VIDEO_STYLE,
       scenes: [
@@ -326,7 +326,7 @@ describe("React renderer", () => {
     const kit = createRenderTemplateRegistry({ templates: [template] });
     const render = (scenes: Video["scenes"], time: number) => renderToStaticMarkup(createElement(VideoFrame, {
       config: {
-        schemaVersion: "0.1",
+        schemaVersion: "0.2",
         orientation: "portrait",
         style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
         scenes,
@@ -391,7 +391,7 @@ describe("React renderer", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [template] });
     const base: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [],
@@ -442,7 +442,7 @@ describe("React renderer", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [template] });
     const configFor = (secondStart: number): Video => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -503,7 +503,7 @@ describe("React renderer", () => {
       })],
     });
     const config = (orientation: "portrait" | "landscape"): Video => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation,
       style: TEST_VIDEO_STYLE,
       scenes: [{ id: "probe", templateId: "canvasProbe", variables: {}, timing: { fixedDuration: 5 } }],
@@ -573,7 +573,7 @@ describe("React renderer", () => {
     });
 
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: TEST_VIDEO_STYLE,
       scenes: [{

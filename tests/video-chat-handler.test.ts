@@ -14,8 +14,8 @@ async function loadCreateVideoChatHandler(): Promise<CreateVideoChatHandler> {
 
 function plannedResponse() {
   return async function* () {
-    yield '{"type":"scene.add","scene":{"id":"body","templateId":"notification","variables":{"appName":"VanillaSky","message":"A useful answer"},"timing":{"fixedDuration":4}}}\n';
-    yield '{"type":"scene.add","placement":"closer","scene":{"id":"ending","templateId":"media","variables":{"texts":"A memorable ending","mediaType":"gradient"},"timing":{"fixedDuration":4}}}\n';
+    yield '{"type":"scene.add","scene":{"id":"body","templateId":"chapterTitle","variables":{"title":"A useful answer"},"timing":{"fixedDuration":4}}}\n';
+    yield '{"type":"scene.add","placement":"closer","scene":{"id":"ending","templateId":"chapterTitle","variables":{"title":"A memorable ending"},"timing":{"fixedDuration":4}}}\n';
     yield '{"type":"plan.complete"}\n';
   };
 }
@@ -123,7 +123,7 @@ describe("createVideoChatHandler", () => {
     const response = await handler(new Request("https://app.example/api/video-chat?action=response", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: "Test the lifecycle", mode: "templates", orientation: "landscape" }),
+      body: JSON.stringify({ prompt: "Test the lifecycle", mode: "cinematic", orientation: "landscape" }),
     }));
     await response.text();
 
@@ -163,7 +163,7 @@ describe("createVideoChatHandler", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt: "Why does the Moon always show one face?",
-        mode: "templates",
+        mode: "cinematic",
         orientation: "landscape",
       }),
     }));
@@ -220,7 +220,7 @@ describe("createVideoChatHandler", () => {
       generatedVideo: false,
       stockMedia: false,
       transcription: false,
-      modes: ["templates"],
+      modes: ["cinematic"],
     });
 
     const speech = await handler(new Request("https://app.example/api/video-chat?action=speech", {
@@ -251,7 +251,7 @@ describe("createVideoChatHandler", () => {
       body: JSON.stringify({
         prompt: "Invent a playful bedtime story about a moonlit bakery",
         opening: "Tonight, one impossible loaf is about to change this tiny bakery.",
-        mode: "templates",
+        mode: "cinematic",
         orientation: "landscape",
         conversation: [{ prompt: "Make it whimsical", response: "We chose a tiny fox hero." }],
       }),
@@ -261,8 +261,8 @@ describe("createVideoChatHandler", () => {
 
     expect(response.status).toBe(200);
     expect(events.at(-1)?.type).toBe("response.complete");
-    expect(systemPrompt).toContain("A story should feel like a story");
-    expect(systemPrompt).toContain("creative request");
+    expect(systemPrompt).toContain("Match the user's requested form");
+    expect(systemPrompt).toContain("Creative stories may be invented");
     expect(systemPrompt).toContain("Every scene.add carries a narration");
     expect(systemPrompt).not.toContain('"id":"reaction"');
     expect(systemPrompt).not.toContain('"id":"ctaMedia"');
@@ -304,8 +304,8 @@ describe("createVideoChatHandler", () => {
       authorize: "none",
       heartbeatMs: false,
       streamText: async function* () {
-        yield '{"type":"scene.add","scene":{"id":"film-one","templateId":"media","variables":{"texts":"First","mediaType":"video","mediaKeyword":"fox baking bread"},"timing":{"fixedDuration":4}}}\n';
-        yield '{"type":"scene.add","placement":"closer","scene":{"id":"film-two","templateId":"media","variables":{"texts":"Second","mediaType":"video","mediaKeyword":"moon over bakery"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","scene":{"id":"film-one","templateId":"cinemaMedia","variables":{"fallbackText":"First","mediaType":"video","mediaSource":"generate","mediaKeyword":"fox baking bread"},"timing":{"fixedDuration":4}}}\n';
+        yield '{"type":"scene.add","placement":"closer","scene":{"id":"film-two","templateId":"cinemaMedia","variables":{"fallbackText":"Second","mediaType":"video","mediaSource":"generate","mediaKeyword":"moon over bakery"},"timing":{"fixedDuration":4}}}\n';
         yield '{"type":"plan.complete"}\n';
       },
       generateText: async () => "unused",
@@ -319,7 +319,7 @@ describe("createVideoChatHandler", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt: "Tell a story",
-        mode: "full",
+        mode: "cinematic",
         orientation: "portrait",
         maxGeneratedVideos: 99,
       }),
@@ -339,7 +339,7 @@ describe("createVideoChatHandler", () => {
     const allowed = await handler(new Request("https://app.example/api/video-chat?action=response", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: "Tell a story", mode: "full", orientation: "portrait" }),
+      body: JSON.stringify({ prompt: "Tell a story", mode: "cinematic", orientation: "portrait" }),
     }));
     await allowed.text();
     expect(allowed.status).toBe(200);
@@ -376,10 +376,10 @@ describe("createVideoChatHandler", () => {
               firstShot,
             })}\n`;
             plannerStarted();
-            yield '{"type":"scene.add","placement":"closer","scene":{"id":"ending","templateId":"media","variables":{"texts":"Morning tastes different","mediaType":"video","mediaKeyword":"sunrise bakery customers"},"timing":{"fixedDuration":5},"narration":"By sunrise, every customer carries a little piece of impossible courage home."}}\n';
-            yield '{"type":"scene.add","narration":"Redundant provider copy.","scene":{"id":"body-2","templateId":"media","variables":{"texts":"Flour starts floating","mediaType":"video","mediaKeyword":"floating flour bakery"},"timing":{"fixedDuration":5},"narration":"Flour lifts from the counter as the baker watches gravity loosen its grip."}}\n';
-            yield '{"type":"scene.add","scene":{"id":"body-3","templateId":"media","variables":{"texts":"The town wakes","mediaType":"video","mediaKeyword":"town bakery dawn"},"timing":{"fixedDuration":5},"narration":"The warm scent rolls through town, drawing dreamers toward the glowing doorway."}}\n';
-            yield '{"type":"scene.add","scene":{"id":"body-4","templateId":"media","variables":{"texts":"One brave bite","mediaType":"video","mediaKeyword":"child tasting bread"},"timing":{"fixedDuration":5},"narration":"One brave child takes a bite, and suddenly everyone remembers their boldest dream."}}\n';
+            yield '{"type":"scene.add","placement":"closer","scene":{"id":"ending","templateId":"cinemaMedia","variables":{"fallbackText":"Morning tastes different","mediaType":"video","mediaSource":"generate","mediaKeyword":"sunrise bakery customers"},"timing":{"fixedDuration":5},"narration":"By sunrise, every customer carries a little piece of impossible courage home."}}\n';
+            yield '{"type":"scene.add","narration":"Redundant provider copy.","scene":{"id":"body-2","templateId":"cinemaMedia","variables":{"fallbackText":"Flour starts floating","mediaType":"video","mediaSource":"generate","mediaKeyword":"floating flour bakery"},"timing":{"fixedDuration":5},"narration":"Flour lifts from the counter as the baker watches gravity loosen its grip."}}\n';
+            yield '{"type":"scene.add","scene":{"id":"body-3","templateId":"cinemaMedia","variables":{"fallbackText":"The town wakes","mediaType":"video","mediaSource":"generate","mediaKeyword":"town bakery dawn"},"timing":{"fixedDuration":5},"narration":"The warm scent rolls through town, drawing dreamers toward the glowing doorway."}}\n';
+            yield '{"type":"scene.add","scene":{"id":"body-4","templateId":"cinemaMedia","variables":{"fallbackText":"One brave bite","mediaType":"video","mediaSource":"generate","mediaKeyword":"child tasting bread"},"timing":{"fixedDuration":5},"narration":"One brave child takes a bite, and suddenly everyone remembers their boldest dream."}}\n';
             yield '{"type":"plan.complete"}\n';
           })(),
           finishReason: Promise.resolve("stop"),
@@ -400,7 +400,7 @@ describe("createVideoChatHandler", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt: "Tell a moonlit bakery story",
-        mode: "full",
+        mode: "cinematic",
         orientation: "landscape",
       }),
     }));
@@ -418,16 +418,15 @@ describe("createVideoChatHandler", () => {
 
     expect(scenes).toHaveLength(5);
     expect(scenes[0]).toMatchObject({
-      templateId: "media",
+      templateId: "cinemaMedia",
       narration: firstShot.narration,
       variables: {
-        texts: firstShot.text,
         mediaUrl: "https://media.example/1.mp4",
         mediaType: "video",
       },
     });
     expect(generatedQueries).toHaveLength(5);
-    expect(plannerSystemPrompt).toContain("emit exactly four additional scenes");
+    expect(plannerSystemPrompt).toContain("Never pad to a fixed count");
     expect(plannerSystemPrompt).toContain('"type":"video-chat.opening"');
     expect(plannerUserPrompt).toContain("Tell a moonlit bakery story");
   });
@@ -462,7 +461,7 @@ describe("createVideoChatHandler", () => {
     const response = await handler(new Request("https://app.example/api/video-chat?action=response", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: "Tell a story about a robot garden on Mars", mode: "full" }),
+      body: JSON.stringify({ prompt: "Tell a story about a robot garden on Mars", mode: "cinematic" }),
     }));
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
@@ -475,7 +474,7 @@ describe("createVideoChatHandler", () => {
     });
     expect(first?.type === "scene.add" && first.data.scene).toMatchObject({
       narration: "Its careful hands press one fragile seed into the red soil.",
-      variables: { texts: "The first seed" },
+      variables: { mediaType: "video", mediaUrl: "https://media.example/generated.mp4" },
     });
     expect(queries[0]).toBe("robot metal hand gently pressing one tiny green");
   });
@@ -498,7 +497,7 @@ describe("createVideoChatHandler", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt: "Tell a story",
-        mode: "full",
+        mode: "cinematic",
         style: "not-a-style-object",
       }),
     }));
@@ -541,7 +540,7 @@ describe("createVideoChatHandler", () => {
       generatedVideo: true,
       stockMedia: true,
       transcription: true,
-      modes: ["templates", "full"],
+      modes: ["cinematic"],
     });
 
     const suggestions = await handler(new Request("https://app.example/api/video-chat?action=suggestions", {
@@ -675,7 +674,7 @@ describe("createVideoChatHandler", () => {
         origin: "https://client.example",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ prompt: "A clear answer", mode: "templates" }),
+      body: JSON.stringify({ prompt: "A clear answer", mode: "cinematic" }),
     }));
 
     expect(response.headers.get("access-control-allow-origin")).toBe("https://client.example");

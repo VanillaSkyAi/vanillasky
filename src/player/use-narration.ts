@@ -26,7 +26,11 @@ export interface NarrationVoice {
    * scene is worse than being cut off. Report onStart only when speech actually
    * begins playing; leave it uncalled when onset cannot be observed.
    */
-  speak(text: string, options: { signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void }): void | Promise<void>;
+  /** True only when the provider can start prepared audio at an exact offset. */
+  supportsOffsets?: boolean;
+  /** Active prepared audio time in seconds, including any requested seek offset. */
+  getCurrentTime?: () => number | undefined;
+  speak(text: string, options: { offsetSeconds?: number; signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void }): void | Promise<void>;
 }
 
 export interface NarrationOptions {
@@ -38,6 +42,9 @@ export interface NarrationOptions {
 }
 
 export interface Narration {
+  /** Pair with VideoPlayer.narrationReady to hold grouped cuts until actual audio onset. */
+  isReady: () => boolean;
+  getTime: (scene: VideoScene) => number | undefined;
   /**
    * Hand this to the player's `onSceneChange`.
    *
@@ -56,14 +63,33 @@ export function useNarration(options: NarrationOptions): Narration {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  const groupRef = useRef<VideoScene["narrationGroup"]>(undefined);
+  const clockRef = useRef<number | undefined>(undefined);
+  const clockSceneRef = useRef<string | undefined>(undefined);
+  const readyRef = useRef(true);
+  const getTime = useCallback((scene: VideoScene) => {
+    const group = groupRef.current;
+    if (optionsRef.current.enabled === false || (group ? scene.narrationGroup?.id !== group.id : scene.id !== clockSceneRef.current)) return undefined;
+    if (!optionsRef.current.voice.getCurrentTime) return undefined;
+    const time = currentRef.current ? optionsRef.current.voice.getCurrentTime() : undefined;
+    if (currentRef.current && readyRef.current && time === undefined) return undefined;
+    if (time !== undefined && Number.isFinite(time)) clockRef.current = Math.min(group?.totalSeconds ?? Infinity, Math.max(group?.offsetSeconds ?? 0, time));
+    return clockRef.current;
+  }, []);
+  const isReady = useCallback(() => optionsRef.current.enabled === false || readyRef.current
+    || (clockRef.current !== undefined && clockRef.current >= (groupRef.current?.offsetSeconds ?? 0) + 0.04), []);
   const currentRef = useRef<AbortController | undefined>(undefined);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.
   const spokenIndexRef = useRef<number | undefined>(undefined);
 
   const stop = useCallback(() => {
+    readyRef.current = true;
     currentRef.current?.abort();
     currentRef.current = undefined;
+    groupRef.current = undefined;
+    clockRef.current = undefined;
+    clockSceneRef.current = undefined;
     setSpeaking(false);
   }, []);
 
@@ -80,38 +106,55 @@ export function useNarration(options: NarrationOptions): Narration {
     if (!enabled) return;
     if (spokenIndexRef.current === index) return;
 
+    const group = scene.narrationGroup;
+    if (group && voice.supportsOffsets !== true) { stop(); return; }
+    if (group && currentRef.current && groupRef.current?.id === group.id && groupRef.current.text === group.text && spokenIndexRef.current === index - 1) {
+      spokenIndexRef.current = index;
+      return;
+    }
     stop();
     spokenIndexRef.current = index;
-    const line = scene.narration?.trim();
-    if (!line) return;
+    groupRef.current = group;
+    clockRef.current = group?.offsetSeconds ?? 0;
+    clockSceneRef.current = scene.id;
+    const line = group?.text ?? scene.narration?.trim();
+    if (!line) { clockRef.current = undefined; return; }
 
     const controller = new AbortController();
     currentRef.current = controller;
+    readyRef.current = !group && !voice.getCurrentTime;
     setSpeaking(true);
     void (async () => {
       try {
         let started = false;
         await voice.speak(line, {
           signal: controller.signal,
+          ...(group ? { offsetSeconds: group.offsetSeconds } : {}),
           onStart: (source) => {
             if (started || controller.signal.aborted || currentRef.current !== controller
-              || spokenIndexRef.current !== index || optionsRef.current.enabled === false) return;
+              || (!group && spokenIndexRef.current !== index) || optionsRef.current.enabled === false) return;
             started = true;
+            readyRef.current = true;
             try { void Promise.resolve(optionsRef.current.onSpeechStart?.(source)).catch(() => undefined); }
             catch { /* Observer failures do not affect narration. */ }
           },
         });
+        if (currentRef.current === controller && !controller.signal.aborted) {
+          clockRef.current = group && started ? group.totalSeconds : undefined;
+        }
       } catch {
+        if (currentRef.current === controller) { groupRef.current = undefined; clockRef.current = undefined; }
         // A voice that fails is a video without narration, not a broken video.
         // The application hears about it through its own provider.
       } finally {
         if (currentRef.current === controller) {
           currentRef.current = undefined;
+          readyRef.current = true;
           setSpeaking(false);
         }
       }
     })();
   }, [stop]);
 
-  return { onSceneChange, interrupt, speaking };
+  return { onSceneChange, interrupt, speaking, isReady, getTime };
 }

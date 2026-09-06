@@ -12,7 +12,7 @@ const templateMetadata: ServerTemplateMetadata[] = [
     "id": "activationLift",
     "useWhen": "Use when the source contains an exact activation percentage before and after a change.",
     "avoidWhen": "Avoid when the source does not contain both grounded percentages.",
-    "family": "Data & metrics",
+    "family": "Explainers",
     "minDuration": 4,
     "preferredDuration": 6,
     "schema": {
@@ -25,18 +25,18 @@ const templateMetadata: ServerTemplateMetadata[] = [
           "default": "Activation improved"
         },
         "previous": {
-          "type": "number",
+          "type": "string",
           "format": "grounded-stat",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 41
+          "minLength": 1,
+          "maxLength": 8,
+          "default": "41%"
         },
         "current": {
-          "type": "number",
+          "type": "string",
           "format": "grounded-stat",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 58
+          "minLength": 1,
+          "maxLength": 8,
+          "default": "58%"
         },
         "explanation": {
           "type": "string",

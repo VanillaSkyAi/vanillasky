@@ -1,3 +1,5 @@
+import { parseVideoPlanPart } from "../protocol/validation.js";
+import { validateTemplateSceneStructure } from "../visual-system/catalog/validate.js";
 import type {
   VideoInput,
   VideoPlanner,
@@ -69,7 +71,8 @@ function fallbackVariables(
   delete fallback.mediaKeyword;
   delete fallback.mediaUrl;
   delete fallback.mediaPoster;
-  fallback.mediaType = "gradient";
+  delete fallback.mediaType;
+  delete fallback.mediaSource;
   return fallback;
 }
 
@@ -198,7 +201,18 @@ async function resolvePartVariables(options: {
       scene: options.part.scene,
       variables: options.part.scene.variables,
     });
-    return { ...options.part, scene: { ...options.part.scene, variables } };
+    if (options.templateId === "cinemaMedia" && !variables.mediaUrl) {
+      const title = variables.fallbackText;
+      if (typeof title !== "string" || !title.trim() || [...title].length > 65) {
+        throw new Error("A media scene without a usable asset requires grounded fallbackText (1–65 characters)");
+      }
+      return { ...options.part, scene: { ...options.part.scene, templateId: "chapterTitle", variables: { title: title.trim() } } };
+    }
+    const rendered = { ...variables };
+    delete rendered.mediaSource;
+    delete rendered.fallbackText;
+    delete rendered.shotDirection;
+    return { ...options.part, scene: { ...options.part.scene, variables: rendered } };
   }
   return options.part;
 }
@@ -225,7 +239,7 @@ export function createMediaResolvingPlanner(options: {
    * Nothing bounded this. The planner decides how many scenes a video has, and
    * every one of them may resolve media - free when it is searched for, a paid
    * clip each when it is generated. Past the ceiling a scene falls back to the
-   * brand gradient: the video is poorer, it is not broken, and nobody is billed
+   * grounded text treatment; nobody is billed
    * for the difference.
    */
   maxResolvedMedia?: number;
@@ -258,6 +272,26 @@ export function createMediaResolvingPlanner(options: {
       return false;
     };
 
+    const preflight = (part: VideoPlanPart): boolean => {
+      try {
+        parseVideoPlanPart(part);
+        if (part.type === "scene.add") {
+          const { templateId, variables } = part.scene;
+          if (context.request.capabilities?.templates && !context.request.capabilities.templates.includes(templateId)) {
+            throw new Error(`Scene template ${templateId} was not negotiated`);
+          }
+          const template = options.templates.getTemplateMetadata(templateId);
+          if (!template) throw new Error(`Template ${templateId} is not installed`);
+          validateTemplateSceneStructure(template.schema, variables, true);
+        }
+        return true;
+      } catch (cause) {
+        const error = cause instanceof Error ? cause : new Error(String(cause));
+        if (!getGenerationLifecycleSink(context)?.rejectPart?.(error)) throw error;
+        return false;
+      }
+    };
+
     const resolveOne = (part: VideoPlanPart, openingReady?: boolean) => resolvePartVariables({
       part,
       requestId: context.request.requestId,
@@ -276,7 +310,9 @@ export function createMediaResolvingPlanner(options: {
     });
 
     if (limit === 1) {
-      for await (const part of options.planner(context)) yield await resolveOne(part);
+      for await (const part of options.planner(context)) {
+        if (preflight(part)) yield await resolveOne(part);
+      }
       return;
     }
 
@@ -321,6 +357,7 @@ export function createMediaResolvingPlanner(options: {
           const next = await iterator.next();
           if (next.done || consumerClosed) break;
           const part = next.value;
+          if (!preflight(part)) continue;
           pending.push(resolveOne(part, openingReady).then(
             (resolved) => ({ part: resolved }),
             (cause) => ({ cause }),

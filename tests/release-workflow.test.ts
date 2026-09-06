@@ -303,7 +303,10 @@ describe("release workflow", () => {
     expect(workflow).toContain(
       "mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07",
     );
-    expect(browserJob).toContain("options: --ipc=host --user pwuser");
+    expect(browserJob).toContain("options: --ipc=host");
+    expect(browserJob).toMatch(/runuser -u pwuser -- bash -eu -c '[\s\S]*npx playwright test[\s\S]*'/);
+    expect(browserJob).toContain("module-null-sink sink_name=cinematic_test");
+    expect(browserJob).toContain('trap "pulseaudio --kill" EXIT');
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
     expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(1);
@@ -348,7 +351,7 @@ describe("release workflow", () => {
     expect(verifier).toContain('join(app, "src", "template-ownership.ts")');
     expect(verifier).toContain('export { templates as browserTemplates } from "../vanillasky/index";');
     expect(verifier).toContain('export { templates as serverTemplates } from "../vanillasky/server";');
-    expect(verifier.indexOf('runCli(["templates", "add", "bigNumber"])'))
+    expect(verifier.indexOf('runCli(["templates", "add", "keyFigure"])'))
       .toBeLessThan(verifier.lastIndexOf('run("npm", ["run", "build"], app)'));
   });
 
@@ -366,8 +369,8 @@ describe("release workflow", () => {
     for (const command of ["list", "describe", "create", "add", "sync", "check"]) {
       expect(verifier).toContain(`runCli(["templates", "${command}"`);
     }
-    expect(verifier).toContain('runCli(["templates", "add", "bigNumber", "--dry-run"]');
-    expect(verifier).toContain('runCli(["templates", "add", "bigNumber", "--diff"]');
+    expect(verifier).toContain('runCli(["templates", "add", "keyFigure", "--dry-run"]');
+    expect(verifier).toContain('runCli(["templates", "add", "keyFigure", "--diff"]');
     expect(verifier).toContain('runCli(["templates", "sync", "--check"]');
     expect(verifier).toContain("assertProjectImports");
     expect(verifier).toContain("tsconfigSnapshot");

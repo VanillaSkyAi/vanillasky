@@ -20,12 +20,14 @@ The handler rejects unknown templates and fields, invalid variables, unsafe
 media, and fabricated quote-template content before a scene reaches the
 player. Read the [security guide](security.md) for the complete controls.
 
-## Visual modes and providers
+## Cinematic direction and providers
 
-Keep templates available on every deployment. They are the reliable fallback
-when stock, speech, or generated-video providers are missing or late. Add
-`searchMedia` for approved stock footage and `generateVideo` for the separate
-full AI video mode. Do not expose a partial generated-video mode.
+One cinematic mode combines footage and editorial graphics according to the
+story. Keep templates available as grounded fallbacks. Add `searchMedia` for
+reviewed stock and `generateVideo` for selected illustrative shots. The planner
+sets `mediaSource` per media scene; the host enforces the generation budget.
+A stock candidate must match the subject, action and permitted crop. Return
+`null` for uncertainty rather than broadening an essential detail.
 
 Use explicit provider deadlines. Generated video should use idempotency keys
 and `maxRetries: 0` so one visible action cannot silently create several
@@ -36,13 +38,13 @@ licensing before use.
 
 The planner's first streamed object supplies the spoken hook and media keyword.
 Start speech immediately, resolve stock in parallel, and keep the opening
-playing until the first narrated scene and its media are ready. Welcome cards
+playing until the contiguous preparation cushion and first frame are ready. Welcome cards
 should carry a prepared hook and preloaded footage so they can start without a
 model round trip.
 
 Do not wait for the complete plan before showing the first validated scene.
 Preload upcoming assets and keep the current visual if the next one is late.
-For full AI video, reserve the first shot in the opening object so generation
+When generated footage is useful, reserve the first shot in the opening object so generation
 can begin while the planner streams later scenes.
 
 ## Data and privacy
@@ -101,8 +103,8 @@ npm test
 - [ ] Keys exist only in the server secret store.
 - [ ] Authentication, tenant policy, rate limits, and origin allowlist are live.
 - [ ] Cancellation, timeouts, fallbacks, and safe errors are tested.
-- [ ] Template mode completes when every optional provider is unavailable.
-- [ ] Full mode appears only when generated video is configured.
+- [ ] Grounded graphic recovery works when every optional provider is unavailable.
+- [ ] Per-scene media choices obey provider availability and spending limits.
 - [ ] Both orientations render and narration stays synchronized.
 - [ ] A packed-artifact consumer and deterministic browser chat pass.
 - [ ] One bounded real-provider run meets the product's latency and quality target.

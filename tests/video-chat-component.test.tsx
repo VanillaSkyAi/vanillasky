@@ -24,7 +24,7 @@ function chatFetcher(
         generatedVideo: false,
         stockMedia: false,
         transcription: false,
-        modes: ["templates"],
+        modes: ["cinematic"],
       });
     }
     if (action === "welcome") {
@@ -72,15 +72,15 @@ describe("VideoChat", () => {
     const { checksumVideo } = await import("../src/protocol/checksum");
     const { TEST_VIDEO_STYLE } = await import("./semantic-brand-fixture");
     const baseFetcher = chatFetcher();
-    const scene = { id: "recovered", templateId: "media", variables: { texts: "A playable answer", mediaType: "gradient" }, narration: "The ocean brings a new wave to the shore every moment.", timing: { fixedDuration: 4 } };
-    const snapshot = { schemaVersion: "0.1" as const, orientation: "landscape" as const, scenes: [scene], style: TEST_VIDEO_STYLE };
+    const scene = { id: "recovered", templateId: "chapterTitle", variables: { title: "A playable answer" }, narration: "The ocean brings a new wave to the shore every moment.", timing: { fixedDuration: 4 } };
+    const snapshot = { schemaVersion: "0.2" as const, orientation: "landscape" as const, scenes: [scene], style: TEST_VIDEO_STYLE };
     const parts = [
-      { type: "response.start", data: { requestId: "recover", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["media"] } } },
+      { type: "response.start", data: { requestId: "recover", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
       { type: "scene.add", data: { scene, position: 0 } },
       { type: "response.warning", data: { warning: { code: "provider_warning", category: "provider", message: "Some visuals were replaced so your response can continue.", recoverable: true } } },
       { type: "response.complete", data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
     ];
-    const response = new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.5", eventId: `recover:${sequence}`, runId: "recover", sequence, ...part })}\n\n`).join(""), { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.5" } });
+    const response = new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `recover:${sequence}`, runId: "recover", sequence, ...part })}\n\n`).join(""), { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6" } });
     render(<VideoChat showRecoveryNotice={showRecoveryNotice} options={{
       fetcher: async (input, init) => new URL(String(input), "https://app.example").searchParams.get("action") === "response"
         ? response.clone()
@@ -98,15 +98,13 @@ describe("VideoChat", () => {
     expect(document.body.textContent).not.toMatch(/simplified|private-provider-detail|Some visuals/);
   });
 
-  it("uses host copy only for the generated video option", async () => {
+  it("does not expose removed source modes or brand controls", async () => {
     const { VideoChat } = await import("../src/react");
-    const base = chatFetcher();
-    render(<VideoChat generatedVideoLabel="AI preview" generatedVideoDescription="One clip, then stock" options={{ fetcher: async (input, init) => new URL(String(input), "https://app.example").searchParams.get("action") === "capabilities" ? Response.json({ templates: true, generatedVideo: true, modes: ["templates", "full"] }) : base(input, init) }} />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(await screen.findByText("AI preview")).toBeTruthy();
-    expect(screen.getByText("One clip, then stock")).toBeTruthy();
-    expect(screen.getByText("Templates only")).toBeTruthy();
+    render(<VideoChat options={{fetcher: chatFetcher()}} />);
+    fireEvent.click(screen.getByRole("button", {name: "Settings"}));
+    expect(screen.queryByText("Templates only")).toBeNull();
     expect(screen.queryByText("Full AI video")).toBeNull();
+    expect(screen.queryByText("Brand kit")).toBeNull();
   });
 
   it("still shows an error when no playable response can be produced", async () => {

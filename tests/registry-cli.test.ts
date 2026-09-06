@@ -16,13 +16,7 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { previewTemplateSync, syncTemplates } from "../src/cli/sync";
 
-const EXPECTED_TEMPLATE_IDS = [
-  "media", "reaction", "confetti", "emojiBurst", "bigNumber", "barChart",
-  "progressRing", "phoneMockup", "webMockup", "codeEditor", "terminal", "tweet",
-  "notification", "chatMessenger", "chatWhatsapp", "milestone", "reviewStack",
-  "testimonial", "incomingCall", "brandMessage", "promptInput", "beforeAfter",
-  "tripleStats", "problemSolution", "cardList", "steps", "ctaLogo", "ctaMedia",
-].sort();
+const EXPECTED_TEMPLATE_IDS = ["cinemaMedia","chapterTitle","focusCards","editorialTimeline","mobileMessage","comparison","quote","keyFigure"].sort();
 
 function snapshotTree(root: string): string[] {
   return (readdirSync(root, { recursive: true }) as string[])
@@ -39,42 +33,28 @@ describe("customer-owned template registry", () => {
   it("describes a template schema as text and JSON", async () => {
     const { runVanillaSkyCli } = await import("../src/cli/index");
     const text: string[] = [];
-    expect(runVanillaSkyCli(["templates", "describe", "steps"], { write: (line) => text.push(line) })).toBe(0);
-    expect(text.join("\n")).toContain("steps — Steps");
-    expect(text.join("\n")).toContain("steps\tstring-array[2..3]\trequired");
-    expect(text.join("\n")).toContain("stepEmojis\tstring-array[0..3]\toptional");
+    expect(runVanillaSkyCli(["templates", "describe", "editorialTimeline"], { write: (line) => text.push(line) })).toBe(0);
+    expect(text.join("\n")).toContain("editorialTimeline — Timeline");
+    expect(text.join("\n")).toContain("events\tdata-points[3..5]\trequired");
+    expect(text.join("\n")).not.toContain("date\t");
 
     const json: string[] = [];
-    expect(runVanillaSkyCli(["templates", "describe", "beforeAfter", "--json"], { write: (line) => json.push(line) })).toBe(0);
+    expect(runVanillaSkyCli(["templates", "describe", "comparison", "--json"], { write: (line) => json.push(line) })).toBe(0);
     const described = JSON.parse(json.join("\n"));
-    expect(described.id).toBe("beforeAfter");
+    expect(described.id).toBe("comparison");
     expect(described).not.toHaveProperty("type");
-    expect(described.schema.required).toContain("problemHeadline");
-    expect(described.schema.properties.problemEmojis.type).toBe("array");
+    expect(described.schema.required).toContain("leftText");
+    expect(described.schema.properties.rightText.type).toBe("string");
   });
 
-  it("installs the same schema and runtime defaults that describe reports", async () => {
-    const api = await import("../src/cli/registry");
-    const cwd = mkdtempSync(join(tmpdir(), "vanillasky-described-schema-"));
-    api.addRegistryTemplates({ cwd, names: ["steps", "terminal", "ctaLogo"] });
-
-    const steps = readFileSync(join(cwd, "vanillasky/templates/steps.tsx"), "utf8");
-    expect(steps).toContain('"type": "array"');
-    expect(steps).toContain('"stepEmojis"');
-    const terminal = readFileSync(join(cwd, "vanillasky/templates/terminal.tsx"), "utf8");
-    expect(terminal).toContain('"output": {');
-    expect(terminal).toContain('"default": []');
-    const cta = readFileSync(join(cwd, "vanillasky/templates/ctaLogo.tsx"), "utf8");
-    expect(cta).toMatch(/"url": \{[\s\S]*?"default": ""/);
-
-    api.addRegistryTemplates({ cwd, names: ["testimonial", "cardList", "phoneMockup"] });
-    const testimonial = readFileSync(join(cwd, "vanillasky/templates/testimonial.tsx"), "utf8");
-    expect(testimonial).toContain('"format": "grounded-quote"');
-    const cardList = readFileSync(join(cwd, "vanillasky/templates/cardList.tsx"), "utf8");
-    expect(cardList).toContain('"minItems": 2');
-    expect(cardList).toContain('"maxItems": 3');
-    const phone = readFileSync(join(cwd, "vanillasky/templates/phoneMockup.tsx"), "utf8");
-    expect(phone).toContain('"format": "supplied-image"');
+  it("installs the same schemas that describe reports",async()=>{
+    const api=await import("../src/cli/registry");
+    const cwd=mkdtempSync(join(tmpdir(),"vanillasky-described-schema-"));
+    api.addRegistryTemplates({cwd,names:["editorialTimeline","quote","focusCards","cinemaMedia"]});
+    expect(readFileSync(join(cwd,"vanillasky/templates/editorialTimeline.tsx"),"utf8")).toContain('"maxItems": 5');
+    expect(readFileSync(join(cwd,"vanillasky/templates/quote.tsx"),"utf8")).toContain('"format": "grounded-quote"');
+    expect(readFileSync(join(cwd,"vanillasky/templates/focusCards.tsx"),"utf8")).toContain('"maxItems": 4');
+    expect(readFileSync(join(cwd,"vanillasky/templates/cinemaMedia.tsx"),"utf8")).toContain('__vanillaskyExternalVideoBackdrop');
   });
 
   it("preserves built-in planner and render metadata in copied template definitions", async () => {
@@ -82,17 +62,15 @@ describe("customer-owned template registry", () => {
     const { getBuiltinTemplateMetadata } = await import("../src/visual-system/catalog/catalog");
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-template-metadata-"));
 
-    addRegistryTemplates({ cwd, names: ["bigNumber"] });
+    addRegistryTemplates({ cwd, names: ["keyFigure"] });
 
-    const source = readFileSync(join(cwd, "vanillasky/templates/bigNumber.tsx"), "utf8");
-    expect(source).toContain(
-      'Object.defineProperty(ChartCounterTemplate, "__vanillaskyExternalVideoBackdrop", { value: true });',
-    );
-    const definitionStart = source.indexOf("export const bigNumberTemplate = defineTemplate({\n")
-      + "export const bigNumberTemplate = defineTemplate({\n".length;
-    const componentStart = source.indexOf("  component: ChartCounterTemplate,", definitionStart);
+    const source = readFileSync(join(cwd, "vanillasky/templates/keyFigure.tsx"), "utf8");
+    expect(source).not.toContain('__vanillaskyExternalVideoBackdrop');
+    const definitionStart = source.indexOf("export const keyFigureTemplate = defineTemplate({\n")
+      + "export const keyFigureTemplate = defineTemplate({\n".length;
+    const componentStart = source.indexOf("  component: KeyFigureSceneTemplate,", definitionStart);
     const serializedMetadata = source.slice(definitionStart, componentStart).replace(/,\n$/, "\n");
-    const canonical = getBuiltinTemplateMetadata("bigNumber");
+    const canonical = getBuiltinTemplateMetadata("keyFigure");
 
     expect(JSON.parse(`{\n${serializedMetadata}}`)).toEqual(canonical);
 
@@ -117,7 +95,7 @@ describe("customer-owned template registry", () => {
     const syncedMetadata = server.match(/const templateMetadata: ServerTemplateMetadata\[\] = ([\s\S]*);\nexport const templates/)?.[1];
     expect(syncedMetadata).toBeDefined();
     expect(JSON.parse(syncedMetadata!)).toEqual([{
-      label: "bigNumber",
+      label: "keyFigure",
       description: "",
       ...canonical,
     }]);
@@ -143,32 +121,32 @@ describe("customer-owned template registry", () => {
     expect(api.listRegistryTemplates().map(({ id }) => id).sort()).toEqual(EXPECTED_TEMPLATE_IDS);
 
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-registry-"));
-    const result = api.addRegistryTemplates({ cwd, names: ["bigNumber", "bigNumber"] });
+    const result = api.addRegistryTemplates({ cwd, names: ["keyFigure", "keyFigure"] });
 
-    expect(result.added).toEqual(["bigNumber"]);
+    expect(result.added).toEqual(["keyFigure"]);
     expect(existsSync(join(cwd, "vanillasky/scene-templates/chart-counter.tsx"))).toBe(false);
-    const installedTemplate = readFileSync(join(cwd, "vanillasky/templates/bigNumber.tsx"), "utf8");
+    const installedTemplate = readFileSync(join(cwd, "vanillasky/templates/keyFigure.tsx"), "utf8");
     expect(installedTemplate).toContain("defineTemplate");
-    expect(installedTemplate).toContain("export const ChartCounterTemplate");
-    expect(installedTemplate).toContain("component: ChartCounterTemplate");
-    expect(installedTemplate).toContain('from "../scene-templates/scene-background"');
+    expect(installedTemplate).toContain("export const KeyFigureSceneTemplate");
+    expect(installedTemplate).toContain("component: KeyFigureSceneTemplate");
+    expect(installedTemplate).toContain("../scene-templates/editorial-typography");
     expect(installedTemplate, "installed source should be straightforward to edit").not.toContain("...{");
     expect(existsSync(join(cwd, "vanillasky/emoji/emoji-map.generated.cjs"))).toBe(false);
     expect(existsSync(join(cwd, "vanillasky/emoji/emoji-map.generated.d.cts"))).toBe(false);
     expect(existsSync(join(cwd, "vanillasky/vanillasky.json"))).toBe(false);
 
-    expect(api.addRegistryTemplates({ cwd, names: ["bigNumber"] }).added).toEqual([]);
+    expect(api.addRegistryTemplates({ cwd, names: ["keyFigure"] }).added).toEqual([]);
   });
 
   it("infers installed templates from source files without registry bookkeeping", async () => {
     const api = await import("../src/cli/registry");
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-inferred-install-"));
 
-    api.addRegistryTemplates({ cwd, names: ["bigNumber", "steps"] });
+    api.addRegistryTemplates({ cwd, names: ["keyFigure", "editorialTimeline"] });
 
-    expect(api.listInstalledTemplates(cwd)).toEqual(["bigNumber", "steps"]);
+    expect(api.listInstalledTemplates(cwd)).toEqual(["editorialTimeline", "keyFigure"]);
     expect(existsSync(join(cwd, "vanillasky/vanillasky.json"))).toBe(false);
-    expect(api.addRegistryTemplates({ cwd, names: ["steps"] }).added).toEqual([]);
+    expect(api.addRegistryTemplates({ cwd, names: ["editorialTimeline"] }).added).toEqual([]);
   });
 
   it("exposes list and add through the installable vanillasky command", async () => {
@@ -198,22 +176,22 @@ describe("customer-owned template registry", () => {
     ].join("\n"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(api.runVanillaSkyCli(["templates", "list"], { cwd, write: (line) => output.push(line) })).toBe(0);
-    expect(output.join("\n")).toContain("bigNumber");
+    expect(output.join("\n")).toContain("keyFigure");
 
-    const exitCode = await api.runVanillaSkyCli(["templates", "add", "notification"], {
+    const exitCode = await api.runVanillaSkyCli(["templates", "add", "mobileMessage"], {
       cwd,
       write: (line) => output.push(line),
     });
     expect(exitCode, output.join("\n")).toBe(0);
-    expect(readFileSync(join(cwd, "vanillasky/templates/notification.tsx"), "utf8"))
-      .toContain("notificationTemplate");
+    expect(readFileSync(join(cwd, "vanillasky/templates/mobileMessage.tsx"), "utf8"))
+      .toContain("mobileMessageTemplate");
     expect(readFileSync(join(cwd, "vanillasky/index.ts"), "utf8"))
-      .toContain("notificationTemplate");
+      .toContain("mobileMessageTemplate");
     expect(readFileSync(join(cwd, "vanillasky/server.ts"), "utf8"))
-      .toContain('"id": "notification"');
+      .toContain('"id": "mobileMessage"');
     expect(output.slice(-2)).toEqual([
-      "Added notification.",
-      "Template source: vanillasky/templates/notification.tsx",
+      "Added mobileMessage.",
+      "Template source: vanillasky/templates/mobileMessage.tsx",
     ]);
     await new Promise((resolve) => setImmediate(resolve));
     expect(warn).not.toHaveBeenCalled();
@@ -232,7 +210,7 @@ describe("customer-owned template registry", () => {
     expect(() => api.addRegistryTemplates({ cwd, names: ["motion"] }))
       .toThrow("motion is not a template");
 
-    api.addRegistryTemplates({ cwd, names: ["bigNumber"] });
+    api.addRegistryTemplates({ cwd, names: ["mobileMessage"] });
     expect(existsSync(join(cwd, "vanillasky/motion/index.ts"))).toBe(true);
     expect(existsSync(join(cwd, "vanillasky/theme/index.ts"))).toBe(true);
     expect(existsSync(join(cwd, "vanillasky/templates/motion.tsx"))).toBe(false);
@@ -284,7 +262,7 @@ describe("customer-owned template registry", () => {
       cwd,
       write: (line) => output.push(line),
     })).toBe(0);
-    expect(output.join("\n")).toContain("bigNumber");
+    expect(output.join("\n")).toContain("keyFigure");
     expect(output.join("\n")).not.toMatch(/\tmotion\t|\tlib\t/);
 
     output.length = 0;
@@ -299,39 +277,39 @@ describe("customer-owned template registry", () => {
     const registry = await import("../src/cli/registry");
     const { runVanillaSkyCli } = await import("../src/cli/index");
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-preview-"));
-    registry.addRegistryTemplates({ cwd, names: ["bigNumber"] });
-    const sourcePath = join(cwd, "vanillasky/templates/bigNumber.tsx");
+    registry.addRegistryTemplates({ cwd, names: ["keyFigure"] });
+    const sourcePath = join(cwd, "vanillasky/templates/keyFigure.tsx");
     const canonical = readFileSync(sourcePath, "utf8");
     const customized = `${canonical}\n// customer customization\n`;
     writeFileSync(sourcePath, customized);
 
-    expect(() => registry.addRegistryTemplates({ cwd, names: ["bigNumber"] }))
-      .toThrow("Refusing to overwrite customer-owned file: vanillasky/templates/bigNumber.tsx");
+    expect(() => registry.addRegistryTemplates({ cwd, names: ["keyFigure"] }))
+      .toThrow("Refusing to overwrite customer-owned file: vanillasky/templates/keyFigure.tsx");
 
     const dryRunCwd = mkdtempSync(join(tmpdir(), "vanillasky-dry-run-"));
     const dryRunBefore = snapshotTree(dryRunCwd);
     const dryOutput: string[] = [];
-    await expect(runVanillaSkyCli(["templates", "add", "steps", "--dry-run"], {
+    await expect(runVanillaSkyCli(["templates", "add", "editorialTimeline", "--dry-run"], {
       cwd: dryRunCwd,
       write: (line) => dryOutput.push(line),
     })).resolves.toBe(0);
     expect(snapshotTree(dryRunCwd)).toEqual(dryRunBefore);
     expect(existsSync(join(dryRunCwd, "vanillasky"))).toBe(false);
-    expect(dryOutput.join("\n")).toContain("Would add steps.");
-    expect(dryOutput.join("\n")).toContain("vanillasky/templates/steps.tsx");
+    expect(dryOutput.join("\n")).toContain("Would add editorialTimeline.");
+    expect(dryOutput.join("\n")).toContain("vanillasky/templates/editorialTimeline.tsx");
     expect(dryOutput.join("\n")).toContain("vanillasky/index.ts");
     expect(dryOutput.join("\n")).toContain("vanillasky/server.ts");
 
     const diffBefore = snapshotTree(join(cwd, "vanillasky"));
     const diffOutput: string[] = [];
-    await expect(runVanillaSkyCli(["templates", "add", "bigNumber", "--diff"], {
+    await expect(runVanillaSkyCli(["templates", "add", "keyFigure", "--diff"], {
       cwd,
       write: (line) => diffOutput.push(line),
     })).resolves.toBe(0);
     expect(snapshotTree(join(cwd, "vanillasky"))).toEqual(diffBefore);
     expect(readFileSync(sourcePath, "utf8")).toBe(customized);
-    expect(diffOutput.join("\n")).toContain("--- vanillasky/templates/bigNumber.tsx");
-    expect(diffOutput.join("\n")).toContain("+++ vanillasky/templates/bigNumber.tsx");
+    expect(diffOutput.join("\n")).toContain("--- vanillasky/templates/keyFigure.tsx");
+    expect(diffOutput.join("\n")).toContain("+++ vanillasky/templates/keyFigure.tsx");
     expect(diffOutput.join("\n")).toContain("-// customer customization");
     expect(diffOutput.join("\n")).toContain("--- vanillasky/index.ts");
     expect(diffOutput.join("\n")).toContain("+++ vanillasky/index.ts");
@@ -340,10 +318,10 @@ describe("customer-owned template registry", () => {
 
     const overwrite = registry.addRegistryTemplates({
       cwd,
-      names: ["bigNumber"],
+      names: ["keyFigure"],
       overwrite: true,
     });
-    expect(overwrite.updated).toEqual(["bigNumber"]);
+    expect(overwrite.updated).toEqual(["keyFigure"]);
     expect(readFileSync(sourcePath, "utf8")).toBe(canonical);
   });
 
@@ -374,7 +352,7 @@ describe("customer-owned template registry", () => {
     const before = snapshotTree(cwd);
     const planned = registry.addRegistryTemplates({
       cwd,
-      names: ["bigNumber"],
+      names: ["keyFigure"],
       dryRun: true,
     });
     const changes = [
@@ -383,7 +361,7 @@ describe("customer-owned template registry", () => {
     ];
 
     expect(snapshotTree(cwd)).toEqual(before);
-    await expect(runVanillaSkyCli(["templates", "add", "bigNumber"], { cwd })).resolves.toBe(0);
+    await expect(runVanillaSkyCli(["templates", "add", "keyFigure"], { cwd })).resolves.toBe(0);
 
     for (const change of changes) {
       expect(readFileSync(join(cwd, change.path), "utf8"), change.path).toBe(change.after);
@@ -393,13 +371,13 @@ describe("customer-owned template registry", () => {
   it("detects every conflict before writing any part of an install", async () => {
     const registry = await import("../src/cli/registry");
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-install-preflight-"));
-    registry.addRegistryTemplates({ cwd, names: ["bigNumber"] });
+    registry.addRegistryTemplates({ cwd, names: ["keyFigure"] });
     const supportPath = join(cwd, "vanillasky/theme/index.ts");
     writeFileSync(supportPath, `${readFileSync(supportPath, "utf8")}\n// local support edit\n`);
 
-    expect(() => registry.addRegistryTemplates({ cwd, names: ["steps"] }))
+    expect(() => registry.addRegistryTemplates({ cwd, names: ["editorialTimeline"] }))
       .toThrow("Refusing to overwrite customer-owned file: vanillasky/theme/index.ts");
-    expect(existsSync(join(cwd, "vanillasky/templates/steps.tsx"))).toBe(false);
+    expect(existsSync(join(cwd, "vanillasky/templates/editorialTimeline.tsx"))).toBe(false);
   });
 
   it("rejects a symlinked install root before writing outside the project", async () => {
@@ -408,7 +386,7 @@ describe("customer-owned template registry", () => {
     const outside = mkdtempSync(join(tmpdir(), "vanillasky-symlink-outside-"));
     symlinkSync(outside, join(cwd, "vanillasky"), "dir");
 
-    expect(() => addRegistryTemplates({ cwd, names: ["bigNumber"] }))
+    expect(() => addRegistryTemplates({ cwd, names: ["keyFigure"] }))
       .toThrow(/symbolic link|symlink/i);
     expect(readdirSync(outside)).toEqual([]);
   });
@@ -416,13 +394,13 @@ describe("customer-owned template registry", () => {
   it("atomically replaces an overwritten bundled template", async () => {
     const { addRegistryTemplates } = await import("../src/cli/registry");
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-atomic-install-"));
-    addRegistryTemplates({ cwd, names: ["bigNumber"] });
-    const target = join(cwd, "vanillasky/templates/bigNumber.tsx");
+    addRegistryTemplates({ cwd, names: ["keyFigure"] });
+    const target = join(cwd, "vanillasky/templates/keyFigure.tsx");
     const canonical = readFileSync(target, "utf8");
     writeFileSync(target, `${canonical}\n// local edit\n`);
     const inodeBefore = statSync(target).ino;
 
-    addRegistryTemplates({ cwd, names: ["bigNumber"], overwrite: true });
+    addRegistryTemplates({ cwd, names: ["keyFigure"], overwrite: true });
 
     expect(readFileSync(target, "utf8")).toBe(canonical);
     expect(statSync(target).ino).not.toBe(inodeBefore);
@@ -452,7 +430,7 @@ describe("customer-owned template registry", () => {
     fetcher.mockRestore();
   });
 
-  it("removes terminal control bytes from CLI diagnostics", async () => {
+  it("removes chapterTitle control bytes from CLI diagnostics", async () => {
     const { runVanillaSkyCli } = await import("../src/cli/index");
     const output: string[] = [];
     const cwd = mkdtempSync(join(tmpdir(), "vanillasky-safe-diagnostic-"));

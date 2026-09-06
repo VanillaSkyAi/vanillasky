@@ -3,14 +3,14 @@ import { createVideoHandler } from "../src/server/create-video-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
 
 const scene = (id: string, media = false) => JSON.stringify({ type: "scene.add", scene: {
-  id, templateId: "media", variables: { texts: id, ...(media ? { mediaKeyword: "ocean waves", mediaType: "video" } : { mediaType: "gradient" }) },
+  id, templateId: media ? "cinemaMedia" : "chapterTitle", variables: media ? { fallbackText: id, mediaKeyword: "ocean waves", mediaType: "video" } : { title: id },
   timing: { fixedDuration: 4 }, narration: `This is ${id}.`,
 } });
 async function response(options: Partial<Parameters<typeof createVideoHandler>[0]> = {}, lines = [scene("one"), scene("two"), '{"type":"plan.complete"}']) {
   const handler = createVideoHandler({ authorize: "none", heartbeatMs: false, requireCloser: false,
     streamText: async function* () { for (const line of lines) yield `${line}\n`; }, ...options });
   const result = await handler(new Request("https://app.test/api", { method: "POST", body: JSON.stringify({
-    protocolVersion: "0.5", requestId: "recovery-test", input: { input: "Explain ocean waves", opening: false },
+    protocolVersion: "0.6", requestId: "recovery-test", input: { input: "Explain ocean waves", opening: false },
   }) }));
   const events = [];
   for await (const event of decodeVideoSse(result.body!)) events.push(event);
@@ -36,7 +36,7 @@ describe("response pipeline recovery", () => {
     const resolveMedia = vi.fn(async () => { if (outcome instanceof Error) throw outcome; return outcome as never; });
     const events = await response({ resolveMedia, mediaConcurrency: 3 }, [scene("one", true), scene("two"), '{"type":"plan.complete"}']);
     expectPlayable(events, ["one", "two"]);
-    expect(events.find(event => event.type === "scene.add")?.data).toMatchObject({ scene: { variables: { mediaType: "gradient" } } });
+    expect(events.find(event => event.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "chapterTitle", variables: { title: "one" } } });
   });
   it("drains ordered media already queued when the planner fails", async () => {
     const events = await response({ mediaConcurrency: 3,
@@ -68,10 +68,10 @@ describe("response pipeline recovery", () => {
     const unavailable = JSON.parse(scene("one")); unavailable.scene.templateId = "unavailable";
     const events = await response({}, [JSON.stringify(unavailable), scene("two"), '{"type":"plan.complete"}']);
     expectPlayable(events, ["one", "two"]);
-    expect(events.find(event => event.type === "scene.add")).toMatchObject({ data: { scene: { templateId: "media", narration: "This is one." } } });
+    expect(events.find(event => event.type === "scene.add")).toMatchObject({ data: { scene: { templateId: "chapterTitle", narration: "This is one." } } });
   });
   it("isolates throwing warning observers while bounding copy", async () => {
-    const long = JSON.parse(scene("one")); long.scene.variables.texts = "word ".repeat(100);
+    const long = JSON.parse(scene("one")); long.scene.variables.title = "word ".repeat(100);
     const events = await response({ onWarning() { throw new Error("private-provider-detail"); } }, [JSON.stringify(long), scene("two"), '{"type":"plan.complete"}']);
     expect(events.at(-1)).toMatchObject({ type: "response.complete", data: { snapshot: { scenes: [{ id: "one" }, { id: "two" }] } } });
   });

@@ -18,7 +18,7 @@ import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 function video(templateId: string): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "landscape",
     style: TEST_VIDEO_STYLE,
     scenes: [
@@ -34,21 +34,21 @@ function video(templateId: string): Video {
 
 describe("built-in template loading", () => {
   it("warms the same renderer state used by the player", async () => {
-    await preloadBuiltinTemplate("cardList");
+    await preloadBuiltinTemplate("focusCards");
 
     const view = render(createElement(VideoFrame, {
       kit: BUILTIN_PLAYER_KIT,
-      config: video("cardList"),
+      config: video("focusCards"),
       time: 0,
       width: 960,
       height: 540,
     }));
 
-    expect(view.container.querySelector('[data-template-loading="cardList"]')).toBeNull();
-    expect(view.container.querySelector('[data-layer-template-id="cardList"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-loading="focusCards"]')).toBeNull();
+    expect(view.container.querySelector('[data-layer-template-id="focusCards"]')).not.toBeNull();
   });
 
-  it("keeps the player-owned brand background visible while a cold renderer suspends", () => {
+  it("keeps the player-owned black background visible while a cold renderer suspends", () => {
     const ColdTemplate = lazy(() => new Promise<never>(() => undefined));
     const cold = defineTemplate({
       id: "cold-template",
@@ -66,8 +66,8 @@ describe("built-in template loading", () => {
     }));
 
     expect(view.container.querySelector('[data-template-loading="cold-template"]')).not.toBeNull();
-    const playerBackground = view.container.querySelector<HTMLElement>('[data-player-background="brand"]');
+    const playerBackground = view.container.querySelector<HTMLElement>('[data-player-background="black"]');
     expect(playerBackground).not.toBeNull();
-    expect(playerBackground?.style.backgroundColor).toBe("rgb(135, 17, 193)");
+    expect(playerBackground?.style.backgroundColor).toBe("rgb(0, 0, 0)");
   });
 });

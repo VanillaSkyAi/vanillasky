@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { Video } from "../protocol/types.js";
-import { fontStack } from "../visual-system/scene-templates/tokens.js";
 
 type PlayerIconName = "enter-fullscreen" | "exit-fullscreen" | "pause" | "play" | "replay" | "volume" | "volume-off";
 
@@ -87,10 +86,6 @@ export function GenerationCover({
   onStart,
 }: GenerationCoverProps): ReactElement | null {
   if (!visible) return null;
-  const background = config?.style.brand.background;
-  const backgroundCss = background?.type === "solid"
-    ? background.color
-    : `linear-gradient(135deg, ${background?.colors[0] ?? "#8711C1"}, ${background?.colors[1] ?? "#2167E3"})`;
 
   return (
     <div
@@ -104,9 +99,9 @@ export function GenerationCover({
         placeItems: "center",
         padding: "12%",
         textAlign: "center",
-        color: config?.style.brand.colors.foreground ?? "#ffffff",
-        background: backgroundCss,
-        fontFamily: fontStack(config?.style.brand.font),
+        color: "#fff",
+        background: "#000",
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif',
       }}
     >
       <div style={{ position: "absolute", top: "28%", left: "10%", right: "10%" }}>

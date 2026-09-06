@@ -57,13 +57,12 @@ Composition rules:
 - Before emitting, assign each supported fact to at most one scene. The supplied opening counts: once a fact is visible, treat it as unavailable to later scenes. Finish when the supported material is covered instead of padding the response.
 - Do not infer that something is scheduled, ready, triggered, enabled, automatic, causal, or available unless the permitted factual basis supports it.
 - The first generated body scene must be asset-free and fully playable before any external media resolves.
-- Never use media, ctaMedia, or reaction as the first generated body template, including in gradient mode.
 - Use only media URLs present in the supplied input or already resolved by the host. Never expose a loading placeholder or unresolved media keyword. Audio is optional and must never delay the first scene.
 - Audio is selected by the host before generation. Never emit audio.
 
 Streaming rules:
 - Emit every scene once as a complete scene.add.
-- Emit exactly one closer immediately after the first playable body scene using placement:"closer". The runtime holds that closer and appends it last while later body scenes continue streaming.
+- Emit exactly one closer using placement:"closer". It is held and appended last; preserve the intended story order.
 - Prefer resolved media on scene.add. Scenes are immutable after emission.
 - End explicitly with plan.complete. A truncated stream is never treated as complete.
 - Return only plan parts accepted by the provided schema.

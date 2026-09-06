@@ -65,7 +65,6 @@ export function buildVideoUserPrompt(input: VideoInput, openingDurationSec = 0):
       : "Add the first grounded scene as soon as it is complete.",
     ...(input.opening === false ? [] : [
       "The first generated body scene must be fully playable without external media. Use a content-fit text, data, comparison, list, or device-free template with no media URL or keyword.",
-      "Never use media, ctaMedia, or reaction as the first generated body template, even with mediaType=gradient. Choose a non-media template first.",
       "Add that scene before resolving any stock or supplied asset. Resolve media as part of each complete later body scene.",
     ]),
     "Use only claims supported by the factual basis permitted by the trusted system prompt.",
@@ -76,7 +75,7 @@ export function buildVideoUserPrompt(input: VideoInput, openingDurationSec = 0):
     "If the creative instructions explicitly require one separate scene per named item, release, section, or list entry, do not merge, group, or omit those required items. Keep related required scenes adjacent in a coherent progression while preserving each item as its own scene.",
     "Before emitting, verify that the explicitly requested structure can fit readably within the maximum duration. If it cannot, preserve readability and the requested separation for the scenes that fit, then finish with plan.complete using finishReason length rather than silently changing the structure.",
     "For ordinary multi-fact input, form at least three distinct beats: hook, comprehension, and payoff. Use only one or two beats when the source genuinely contains no more than two independent grounded takeaways. This is a narrative guideline, never permission to repeat facts or add filler.",
-    "After the first playable body scene, emit exactly one scene.add with placement closer. Generate a short grounded conclusion that answers the story's so-what; it must not repeat hook language or imply another scene follows.",
+    "Emit exactly one final scene.add with placement closer. Generate a short grounded conclusion that answers the story's so-what; it must not repeat hook language or imply another scene follows.",
     "Use a different suitable template for each body scene when the catalog supports it.",
     "Never add filler to satisfy a count or diversity target.",
     input.suppliedMedia?.length
@@ -98,11 +97,5 @@ export function buildVideoUserPrompt(input: VideoInput, openingDurationSec = 0):
     "",
     "SUPPLIED MEDIA",
     JSON.stringify(suppliedMediaReferences(input)),
-    "",
-    "BRAND",
-    JSON.stringify({
-      ...(input.brand?.name?.trim() ? { name: input.brand.name.trim() } : {}),
-      hasLogo: Boolean(input.brand?.logoUrl?.trim()),
-    }),
   ].join("\n");
 }

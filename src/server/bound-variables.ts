@@ -38,6 +38,7 @@ export function clipText(value: string, maxLength: number): string {
 
 function boundValue(value: unknown, schema: TemplateJsonSchemaProperty | undefined): unknown {
   if (!schema) return value;
+  if (schema.format === "grounded-stat" || schema.format === "grounded-quote") return value;
   if (typeof value === "string") {
     return typeof schema.maxLength === "number" ? clipText(value, schema.maxLength) : value;
   }
@@ -91,12 +92,12 @@ export function createBoundedVariablePlanner(options: {
       try {
         const lifecycle = getGenerationLifecycleSink(context);
         if (!options.templates.getTemplateMetadata(part.scene.templateId) && lifecycle?.recoverGeneratedParts &&
-          (context.request.capabilities?.templates == null || context.request.capabilities.templates.includes("media"))) {
+          (context.request.capabilities?.templates == null || context.request.capabilities.templates.includes("chapterTitle"))) {
           const copy = [part.scene.variables.texts, part.scene.variables.title, part.scene.variables.message, part.scene.narration]
             .find((value): value is string => typeof value === "string" && Boolean(value.trim()) &&
               !/https?:\/\/|\b(?:api[_-]?key|authorization|secret|token|password)\s*[:=]/i.test(value));
           if (copy) {
-            part = { ...part, scene: { ...part.scene, templateId: "media", variables: { texts: copy, mediaType: "gradient" } } };
+            part = { ...part, scene: { ...part.scene, templateId: "chapterTitle", variables: { title: copy } } };
             lifecycle.reportWarning?.({ code: "provider_warning", category: "provider", message: "Some scenes use a simpler layout.", recoverable: true });
           }
         }

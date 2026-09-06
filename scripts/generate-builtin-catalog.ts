@@ -15,34 +15,38 @@ const loadersOutputPath = join(root, "src/visual-system/catalog/builtin-loaders.
 const playerOutputPath = join(root, "src/visual-system/catalog/builtin-player.generated.ts");
 
 const templateModules = {
-  media: { file: "bg-media.tsx", component: "BgMediaTemplate" },
-  reaction: { file: "reaction.tsx", component: "ReactionTemplate" },
-  confetti: { file: "bg-confetti.tsx", component: "BgConfettiTemplate" },
-  emojiBurst: { file: "bg-emoji.tsx", component: "BgEmojiTemplate" },
-  bigNumber: { file: "chart-counter.tsx", component: "ChartCounterTemplate" },
-  barChart: { file: "chart-bar.tsx", component: "ChartBarTemplate" },
-  progressRing: { file: "chart-progress-ring.tsx", component: "ChartProgressRingTemplate" },
-  phoneMockup: { file: "showcase-phone.tsx", component: "ShowcasePhoneTemplate" },
-  webMockup: { file: "showcase-web.tsx", component: "ShowcaseWebTemplate" },
-  codeEditor: { file: "showcase-code.tsx", component: "ShowcaseCodeTemplate" },
-  terminal: { file: "showcase-terminal.tsx", component: "ShowcaseTerminalTemplate" },
-  tweet: { file: "social-tweet.tsx", component: "SocialTweetTemplate" },
-  notification: { file: "social-notification.tsx", component: "SocialNotificationTemplate" },
-  chatMessenger: { file: "social-conversation.tsx", component: "SocialConversationTemplate" },
-  chatWhatsapp: { file: "social-conversation.tsx", component: "SocialConversationTemplate" },
-  milestone: { file: "social-milestone.tsx", component: "SocialMilestoneTemplate" },
-  reviewStack: { file: "social-review-stack.tsx", component: "SocialReviewStackTemplate" },
-  testimonial: { file: "social-testimonial.tsx", component: "SocialTestimonialTemplate" },
-  incomingCall: { file: "incoming-call.tsx", component: "IncomingCallTemplate" },
-  brandMessage: { file: "brand-message.tsx", component: "BrandMessageTemplate" },
-  promptInput: { file: "prompt-input.tsx", component: "PromptInputTemplate" },
-  beforeAfter: { file: "infographic-before-after.tsx", component: "InfographicBeforeAfterTemplate" },
-  tripleStats: { file: "infographic-stat-row.tsx", component: "InfographicStatRowTemplate" },
-  problemSolution: { file: "infographic-problem-solution.tsx", component: "InfographicProblemSolutionTemplate" },
-  cardList: { file: "infographic-feature-list.tsx", component: "InfographicFeatureListTemplate" },
-  steps: { file: "infographic-steps.tsx", component: "InfographicStepsTemplate" },
-  ctaLogo: { file: "cta-logo.tsx", component: "CtaLogoTemplate" },
-  ctaMedia: { file: "cta-media.tsx", component: "CtaMediaTemplate" },
+  "cinemaMedia": {
+    "file": "cinema-media.tsx",
+    "component": "MediaSceneTemplate"
+  },
+  "chapterTitle": {
+    "file": "chapter-title.tsx",
+    "component": "TitleSceneTemplate"
+  },
+  "focusCards": {
+    "file": "focus-cards.tsx",
+    "component": "CardsSceneTemplate"
+  },
+  "editorialTimeline": {
+    "file": "editorial-timeline.tsx",
+    "component": "TimelineSceneTemplate"
+  },
+  "mobileMessage": {
+    "file": "mobile-message.tsx",
+    "component": "NotificationSceneTemplate"
+  },
+  "comparison": {
+    "file": "comparison.tsx",
+    "component": "ComparisonSceneTemplate"
+  },
+  "quote": {
+    "file": "quote.tsx",
+    "component": "QuoteSceneTemplate"
+  },
+  "keyFigure": {
+    "file": "key-figure.tsx",
+    "component": "KeyFigureSceneTemplate"
+  }
 } satisfies Record<BuiltinTemplateId, { file: string; component: string }>;
 
 function renderGeneratedCatalog(): string {
@@ -104,6 +108,8 @@ function renderGeneratedPlayerTemplates(): string {
 import type { PlayerTemplateData } from "./player-kit.js";
 
 export const GENERATED_BUILTIN_PLAYER_TEMPLATES = ${JSON.stringify(templates, null, 2)} as const satisfies readonly PlayerTemplateData[];
+
+export const GENERATED_BUILTIN_VIDEO_BACKDROP_IDS: readonly string[] = ${JSON.stringify(BUILTIN_TEMPLATE_MANIFEST.filter(template => template.schema.properties.mediaUrl?.format === "uri" && template.schema.properties.mediaType?.enum?.includes("video")).map(template => template.id))};
 `;
 }
 

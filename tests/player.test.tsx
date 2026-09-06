@@ -27,11 +27,11 @@ describe("VideoPlayer", () => {
   it("plays a saved video without requiring stream player props", async () => {
     const { VideoPlayer } = await import("../src/react");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [{
         id: "saved",
-        templateId: "bigNumber",
+        templateId: "keyFigure",
         variables: { value: "42", label: "saved result" },
         timing: { fixedDuration: 4 },
       }],
@@ -44,7 +44,7 @@ describe("VideoPlayer", () => {
     expect(player.getAttribute("data-status")).toBe("complete");
     expect(player.getAttribute("data-scenes")).toBe("1");
     await waitFor(() => expect(view.getByText("saved result")).toBeDefined(), { timeout: 3_000 });
-    expect(view.container.querySelector('[data-template-id="bigNumber"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="keyFigure"]')).not.toBeNull();
   });
 
   it.each(["missing", "throws"])("keeps scene content playable when a renderer %s", async (failure) => {
@@ -54,7 +54,7 @@ describe("VideoPlayer", () => {
       id: "broken", schema: { type: "object", properties: {}, additionalProperties: true },
       component: () => { throw new Error("private renderer failure"); },
     })] });
-    const video: Video = { schemaVersion: "0.1", orientation: "landscape", style: TEST_VIDEO_STYLE,
+    const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,
       scenes: [{ id: "safe", templateId: "broken", variables: {}, narration: "The response remains available.", timing: { fixedDuration: 4 } }],
     };
     const view = render(createElement(VideoPlayer, { video, templates, autoPlay: false }));
@@ -69,11 +69,11 @@ describe("VideoPlayer", () => {
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
     const { VideoPlayer } = await import("../src/react");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [{
         id: "native-audio",
-        templateId: "media",
+        templateId: "cinemaMedia",
         variables: {
           texts: "A storm answers.",
           mediaUrl: "https://media.example.test/h3-with-audio.mp4",
@@ -103,12 +103,21 @@ describe("VideoPlayer", () => {
   });
 
   it("overlays customer templates onto built-ins when replaying a mixed saved video", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     const customerTemplates = createRenderTemplateRegistry({ templates: [defineTemplate({
       id: "customerMetric",
       schema: {
@@ -120,7 +129,7 @@ describe("VideoPlayer", () => {
       component: ({ variables }) => createElement("span", null, `Customer: ${variables.label}`),
     })] });
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [
         {
@@ -131,7 +140,7 @@ describe("VideoPlayer", () => {
         },
         {
           id: "builtin",
-          templateId: "bigNumber",
+          templateId: "keyFigure",
           variables: { value: "42", label: "retention" },
           timing: { fixedDuration: 1 },
         },
@@ -149,21 +158,30 @@ describe("VideoPlayer", () => {
     await waitFor(() => expect(view.getByText("Customer: activation")).toBeDefined());
     act(() => nextFrame?.(performance.now() + 1_100));
     await waitFor(() => expect(view.getByText("retention")).toBeDefined());
-    expect(view.container.querySelector('[data-template-id="bigNumber"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="keyFigure"]')).not.toBeNull();
   });
 
   it("loops a saved video instead of ending, and reports scene changes", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
 
     const { VideoPlayer } = await import("../src/react");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       audio: {
         trackId: "short-soundtrack",
@@ -175,8 +193,8 @@ describe("VideoPlayer", () => {
         beatMarkers: [],
       },
       scenes: [
-        { id: "one", templateId: "bigNumber", variables: { value: "1", label: "first" }, timing: { fixedDuration: 2 } },
-        { id: "two", templateId: "bigNumber", variables: { value: "2", label: "second" }, timing: { fixedDuration: 2 } },
+        { id: "one", templateId: "keyFigure", variables: { value: "1", label: "first" }, timing: { fixedDuration: 2 } },
+        { id: "two", templateId: "keyFigure", variables: { value: "2", label: "second" }, timing: { fixedDuration: 2 } },
       ],
       style: TEST_VIDEO_STYLE,
     };
@@ -202,6 +220,8 @@ describe("VideoPlayer", () => {
     // Run past the 4s duration so a non-looping player would end.
     advance(1.4);
     advance(1.4);
+    advance(1.4);
+    advance(0.1);
 
     expect(seen.map(([id]) => id)).toEqual(["one", "two", "one"]);
     expect(seen.map(([, index]) => index)).toEqual([0, 1, 0]);
@@ -214,18 +234,27 @@ describe("VideoPlayer", () => {
   });
 
   it("still ends a saved video when loop is not set", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
 
     const { VideoPlayer } = await import("../src/react");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "only", templateId: "bigNumber", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
+      scenes: [{ id: "only", templateId: "keyFigure", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
       style: TEST_VIDEO_STYLE,
     };
 
@@ -246,17 +275,26 @@ describe("VideoPlayer", () => {
   });
 
   it("reports playback end again for replacement content", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     const { VideoPlayer } = await import("../src/react");
     const makeVideo = (id: string): Video => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id, templateId: "bigNumber", variables: { value: id, label: id }, timing: { fixedDuration: 1 } }],
+      scenes: [{ id, templateId: "keyFigure", variables: { value: id, label: id }, timing: { fixedDuration: 1 } }],
       style: TEST_VIDEO_STYLE,
     });
     const first = makeVideo("first");
@@ -268,24 +306,36 @@ describe("VideoPlayer", () => {
     await waitFor(() => expect(onPlaybackEnd).toHaveBeenCalledWith(first));
     view.rerender(createElement(VideoPlayer, { video: second, autoPlay: true, onPlaybackEnd }));
     act(() => nextFrame?.(performance.now() + 4_000));
+    // The boundary mounts and acknowledges the next scene before its clock advances.
+    act(() => nextFrame?.(performance.now() + 8_000));
+    act(() => nextFrame?.(performance.now() + 10_000));
 
     await waitFor(() => expect(onPlaybackEnd).toHaveBeenCalledWith(second));
     expect(onPlaybackEnd).toHaveBeenCalledTimes(2);
   });
 
   it("renders no controls and no replay when controls are off", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
 
     const { VideoPlayer } = await import("../src/react");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "only", templateId: "bigNumber", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
+      scenes: [{ id: "only", templateId: "keyFigure", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
       style: TEST_VIDEO_STYLE,
     };
 
@@ -313,7 +363,7 @@ describe("VideoPlayer", () => {
       component: renderTemplate,
     })] });
     const future = {
-      schemaVersion: "0.2",
+      schemaVersion: "99.0",
       scenes: [{
         id: "future",
         templateId: "futureTemplate",
@@ -347,7 +397,7 @@ describe("VideoPlayer", () => {
         ([key, property]) => "default" in property ? [[key, property.default]] : [],
       ));
       const video: Video = {
-        schemaVersion: "0.1",
+        schemaVersion: "0.2",
         orientation: "portrait",
         scenes: [{
           id: `saved-${template.id}`,
@@ -373,20 +423,12 @@ describe("VideoPlayer", () => {
     expect(generationRequests).toEqual([]);
   });
 
-  it("shows a brand-aware generation cover until the first validated scene arrives", async () => {
+  it("shows a monochrome generation cover until the first validated scene arrives", async () => {
     let releasePlanner!: () => void;
     const plannerGate = new Promise<void>((resolve) => { releasePlanner = resolve; });
     const { VideoPlayer } = await import("../src/player/video-player");
     const events = createVideoEventFactory({ runId: "run-generation-cover" });
-    const style = {
-      ...TEST_VIDEO_STYLE,
-      brand: {
-        ...TEST_VIDEO_STYLE.brand,
-        name: "Acme",
-        font: "Inter",
-        background: { type: "gradient" as const, colors: ["#241F54", "#17122F"] as [string, string] },
-      },
-    };
+    const style = TEST_VIDEO_STYLE;
     const stream = (async function* () {
         yield events.create("response.start", {
           requestId: "request-generation-cover",
@@ -410,9 +452,8 @@ describe("VideoPlayer", () => {
     const cover = await view.findByTestId("video-generation-cover");
     expect(cover.textContent).toContain("Creating your video…");
     expect(cover.textContent).toContain("Choosing the best scenes for your content.");
-    expect(cover.style.background).toContain("#241F54");
-    expect(cover.style.background).toContain("#17122F");
-    expect(cover.style.fontFamily).toBe('Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif');
+    expect(cover.style.background).toBe("rgb(0, 0, 0)");
+    expect(cover.style.fontFamily).toContain("-apple-system");
     const coverStart = view.getByRole("button", { name: "Play video response" });
     expect(coverStart.style.top).toBe("50%");
 
@@ -436,7 +477,7 @@ describe("VideoPlayer", () => {
       }),
     })] });
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [{
         id: "intro",
@@ -469,7 +510,7 @@ describe("VideoPlayer", () => {
           type: "scene.add" as const,
           scene: {
             id: "first",
-            templateId: "bigNumber",
+            templateId: "keyFigure",
             variables: { texts: "Activation", value: 58, label: "percent" },
             timing: { fixedDuration: 3 },
           },
@@ -487,7 +528,7 @@ describe("VideoPlayer", () => {
     await waitFor(() => expect(view.container.querySelector("audio")).not.toBeNull());
     await waitFor(() => expect(player.getAttribute("data-scenes")).toBe("1"));
     expect(view.queryByTestId("video-generation-cover")).toBeNull();
-    expect(view.container.querySelector('[data-template-id="media"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="chapterTitle"]')).not.toBeNull();
     await waitFor(() => expect(view.container.textContent).toContain("Creating your video..."));
     fireEvent.click(view.getByRole("button", { name: "Play video with sound" }));
     expect(play).toHaveBeenCalled();
@@ -514,7 +555,7 @@ describe("VideoPlayer", () => {
           type: "scene.add" as const,
           scene: {
             id: "first",
-            templateId: "bigNumber",
+            templateId: "keyFigure",
             variables: { texts: "Activation", value: 58, label: "percent" },
             timing: { fixedDuration: 3 },
           },
@@ -535,7 +576,7 @@ describe("VideoPlayer", () => {
     expect(player.getAttribute("data-current-time")).toBe("0.000");
     expect(player.getAttribute("data-playing")).toBe("false");
     expect(view.queryByTestId("video-generation-cover")).toBeNull();
-    expect(view.container.querySelector('[data-template-id="media"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="chapterTitle"]')).not.toBeNull();
     await waitFor(() => expect(view.container.textContent).toContain("Creating your video..."));
     expect(view.container.querySelector("audio")?.muted).toBe(false);
     expect(view.getAllByRole("button", { name: "Play video with sound" })).toHaveLength(1);
@@ -572,7 +613,7 @@ describe("VideoPlayer", () => {
     const player = view.getByTestId("video-player");
     await waitFor(() => expect(player.getAttribute("data-scenes")).toBe("1"));
     expect(view.queryByTestId("video-generation-cover")).toBeNull();
-    expect(view.container.querySelector('[data-template-id="media"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="chapterTitle"]')).not.toBeNull();
     await waitFor(() => expect(view.container.textContent).toContain("Creating your video..."));
     expect(player.getAttribute("data-current-time")).toBe("0.000");
     expect(player.getAttribute("data-start-poster")).toBe("true");
@@ -638,12 +679,21 @@ describe("VideoPlayer", () => {
   });
 
   it("starts each replacement stream as a fresh autoplay session with an immediate cover", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: () => ({
@@ -665,6 +715,8 @@ describe("VideoPlayer", () => {
     const player = view.getByTestId("video-player");
     await waitFor(() => expect(player.getAttribute("data-status")).toBe("complete"));
     act(() => nextFrame?.(performance.now() + 4_000));
+    // The boundary mounts and acknowledges the next scene before its clock advances.
+    act(() => nextFrame?.(performance.now() + 8_000));
     await waitFor(() => expect(player.getAttribute("data-playing")).toBe("false"));
 
     let releaseSecond!: () => void;
@@ -768,12 +820,21 @@ describe("VideoPlayer", () => {
   });
 
   it("enters an ended state and restarts from zero", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: () => ({
@@ -806,6 +867,8 @@ describe("VideoPlayer", () => {
     expect(onComplete).toHaveBeenCalledOnce();
     expect(onPlaybackEnd).not.toHaveBeenCalled();
     act(() => nextFrame?.(performance.now() + 4_000));
+    // The boundary mounts and acknowledges the next scene before its clock advances.
+    act(() => nextFrame?.(performance.now() + 8_000));
     await waitFor(() => {
       expect(player.getAttribute("data-playing")).toBe("false");
       expect(player.getAttribute("data-ended")).toBe("true");
@@ -824,16 +887,26 @@ describe("VideoPlayer", () => {
     expect(player.getAttribute("data-ended")).toBe("false");
     expect(player.getAttribute("data-current-time")).toBe("0.000");
     act(() => nextFrame?.(performance.now() + 8_000));
+    act(() => nextFrame?.(performance.now() + 12_000));
     await waitFor(() => expect(onPlaybackEnd).toHaveBeenCalledTimes(2));
   });
 
   it("presents idle, playing, and paused controls as distinct player states", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     const { VideoPlayer } = await import("../src/player/video-player");
@@ -1047,12 +1120,21 @@ describe("VideoPlayer", () => {
   });
 
   it("fades soundtrack audio through Web Audio when iPhone Safari locks element volume", async () => {
-    let nextFrame: FrameRequestCallback | undefined;
+    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
+    await preloadBuiltinTemplate("keyFigure");
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const nextFrame = (time: number) => {
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(time);
+    };
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      queuedFrames.set(++frameId, callback);
+      return frameId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, "volume", "get").mockReturnValue(1);
@@ -1084,7 +1166,7 @@ describe("VideoPlayer", () => {
 
     const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       audio: {
         trackId: "soundtrack",
@@ -1097,7 +1179,7 @@ describe("VideoPlayer", () => {
       },
       scenes: [{
         id: "saved",
-        templateId: "bigNumber",
+        templateId: "keyFigure",
         variables: { value: "1", label: "update" },
         timing: { fixedDuration: 4 },
       }],
@@ -1179,7 +1261,7 @@ describe("VideoPlayer", () => {
 
     const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       audio: {
         trackId: "soundtrack",
@@ -1224,7 +1306,7 @@ describe("VideoPlayer", () => {
 
     const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       audio: {
         trackId: "soundtrack",
@@ -1237,7 +1319,7 @@ describe("VideoPlayer", () => {
       },
       scenes: [{
         id: "saved",
-        templateId: "bigNumber",
+        templateId: "keyFigure",
         variables: { value: "1", label: "update" },
         timing: { fixedDuration: 4 },
       }],
@@ -1364,9 +1446,9 @@ describe("VideoPlayer", () => {
     });
     const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "saved", templateId: "bigNumber", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
+      scenes: [{ id: "saved", templateId: "keyFigure", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
       style: TEST_VIDEO_STYLE,
     };
     const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
@@ -1399,9 +1481,9 @@ describe("VideoPlayer", () => {
     });
     const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "saved", templateId: "bigNumber", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
+      scenes: [{ id: "saved", templateId: "keyFigure", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
       style: TEST_VIDEO_STYLE,
     };
     const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
@@ -1472,7 +1554,6 @@ describe("VideoPlayer", () => {
       {
         input: "Activation increased from 41% to 58%.",
         opening: "Your activation update is ready.",
-        brand: { name: "Acme", colors: { primary: "#6D5EF5", secondary: "#17122F" } },
       },
       {
         requestId: "request-player",
@@ -1507,7 +1588,7 @@ describe("VideoPlayer", () => {
     expect(player.getAttribute("data-scenes")).toBe("2");
     expect(player.style.width).toBe("360px");
     expect(player.style.height).toBe("640px");
-    expect(player.querySelector('[data-template-id="media"]')).not.toBeNull();
+    expect(player.querySelector('[data-template-id="chapterTitle"]')).not.toBeNull();
     expect(player.textContent).toContain("Your activation update is ready.");
     expect(view.queryByText("Video response could not finish")).toBeNull();
   });

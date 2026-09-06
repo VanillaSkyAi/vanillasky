@@ -1,0 +1,101 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "comparison",
+  "type": "registry:block",
+  "title": "Comparison",
+  "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+  "dependencies": [
+    "react"
+  ],
+  "registryDependencies": [
+    "@vanillasky/template-context",
+    "@vanillasky/theme"
+  ],
+  "files": [
+    {
+      "path": "src/visual-system/scene-templates/comparison.tsx",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/comparison.tsx",
+      "content": "import type {SceneTemplateProps} from './types';\nimport {editorialFont,editorialLabel,fade} from './editorial-typography';\n\n/** Two concise alternatives, with equal visual weight and a quiet sequential reveal. */\nfunction ComparisonScene({variables,width,height,progress,motionProgress=progress,safeZone}:SceneTemplateProps){\n const portrait=height>width,u=Math.min(width,height);\n const side=Math.max(width*.12,safeZone.left,safeZone.right);\n const top=Math.max(height*.2,safeZone.top),bottom=height-Math.max(height*.23,safeZone.bottom);\n const area=bottom-top,cy=(top+bottom)/2,available=width-side*2;\n const entries=[{label:String(variables.leftLabel??''),text:String(variables.leftText??'')},{label:String(variables.rightLabel??''),text:String(variables.rightText??'')}];\n const textWidth=portrait?available:available*.39;\n return <div data-template=\"comparison\" style={{position:'absolute',inset:0,background:'#000',color:'#fff',fontFamily:editorialFont,overflow:'hidden'}}>\n  <div aria-hidden=\"true\" style={{position:'absolute',left:portrait?width*.32:width/2,top:portrait?cy:top+area*.18,width:portrait?width*.36:u*.001,height:portrait?u*.001:area*.64,background:'#fff',opacity:.22*fade((motionProgress-.16)/.18)}}/>\n  {entries.map((entry,i)=><div key={i} data-comparison-side={i===0?'left':'right'} style={{position:'absolute',left:portrait?side:side+available*(i===0?.055:.555),top:portrait?top+area*(i===0?.25:.75):cy,width:textWidth,transform:'translateY(-50%)',textAlign:'center',opacity:fade((motionProgress-.04-i*.22)/.2)}}>\n   {entry.label&&<div style={{...editorialLabel(u),marginBottom:u*.028}}>{entry.label}</div>}\n   <div style={{fontSize:u*.058,fontWeight:500,lineHeight:1.22,letterSpacing:'-.025em',textWrap:'balance',overflowWrap:'anywhere'}}>{entry.text}</div>\n  </div>)}\n </div>;\n}\n\nexport const ComparisonSceneTemplate = ComparisonScene;\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/types.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/types.ts",
+      "content": "/**\n * Scene template types.\n *\n * A template is a reusable React component that defines how a scene looks.\n * It declares the variables an editor or model may provide\n * and receives universal settings as props.\n *\n * Templates are searchable by AI via description, category, jobs, register,\n * and useWhen guidance.\n * The variable schema enables any LLM to fill in template variables via JSON.\n */\n\nimport type { ResolvedTokens } from \"../theme\";\nimport type { SafeZone, TemplateStyle } from \"../template-context\";\n\n/**\n * Props passed to every scene template component.\n *\n * All animation must be driven by `progress` (0→1). No CSS animations,\n * no Framer Motion, no requestAnimationFrame. Use interpolate/spring\n * from animation-utils.ts.\n *\n * Scale factor: use `Math.min(width, height) / 1080` — normalizes to\n * the short edge so visuals are consistent across portrait and landscape.\n */\nexport interface SceneTemplateProps {\n  variables: Record<string, unknown>;\n  style: TemplateStyle;\n  /** 0→1 through the scene's duration */\n  progress: number;\n  /** Presentation clock. Active templates receive the same complete 0→1 timeline as progress. */\n  motionProgress?: number;\n  /** 0→1 beat pulse intensity */\n  beatIntensity: number;\n  /** 1080 (portrait) or 1920 (landscape) */\n  width: number;\n  /** 1920 (portrait) or 1080 (landscape) */\n  height: number;\n  /** Video-level default text effect (for templates that opt in via usesGlobalTextEffect) */\n  textArchetype?: string;\n  /** How text leaves the scene (fade / shrink / pop / blur-scale). Falls back to a sensible default per textArchetype when undefined. */\n  /** Video-level default background effect (for templates that opt in via usesGlobalBackgroundEffect) */\n  backgroundEffect?: string;\n  /** Platform-aware safe zone insets in pixels — use for text placement */\n  safeZone: SafeZone;\n  /** Scene duration in seconds — use for time-based (not progress-based) animations */\n  sceneDuration?: number;\n  /**\n   * Brand tokens already resolved from `style`. Built-in templates import\n   * resolveTokens directly; an ejected `custom_*` scene can't import anything,\n   * so without this it has no way to reach the same values and ends up\n   * hardcoding white, black and shadows — the body then looks generic next to\n   * a frame that IS using the brand.\n   */\n  tokens?: ResolvedTokens;\n  /**\n   * True when the preview player is actively advancing progress; false when paused.\n   * Templates that play HTML5 <video> elements should pause them when this is false.\n   * Undefined (export capture path) is treated as true.\n   */\n  isPlaying?: boolean;\n}\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/editorial-typography.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/editorial-typography.ts",
+      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
+    }
+  ],
+  "meta": {
+    "vanillasky": {
+      "layer": "template",
+      "tier": "free",
+      "label": "Comparison",
+      "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+      "usesGlobalTextEffect": false,
+      "usesGlobalTransition": false,
+      "usesGlobalBackgroundEffect": false,
+      "textCanvas": "tight",
+      "family": "Explainers",
+      "jobs": [
+        "proof"
+      ],
+      "register": "motion-led",
+      "useWhen": "Explain a before/after change or two alternatives with short parallel statements. ",
+      "avoidWhen": "There are more than two alternatives or a numerical chart is needed.",
+      "minDuration": 4,
+      "preferredDuration": 6,
+      "timing": {
+        "contentFields": [
+          "leftText",
+          "rightText",
+          "leftLabel",
+          "rightLabel"
+        ],
+        "contentUnit": "words",
+        "revealSeconds": 1.2,
+        "holdSeconds": 2.5,
+        "exitSeconds": 0
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "leftLabel": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Optional short identifier for the first alternative."
+          },
+          "rightLabel": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Optional short identifier for the second alternative."
+          },
+          "leftText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "default": "More distractions",
+            "description": "First real alternative in one short phrase."
+          },
+          "rightText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "default": "More room to think",
+            "description": "Second real alternative, parallel to the first."
+          }
+        },
+        "required": [
+          "leftText",
+          "rightText"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

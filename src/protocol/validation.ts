@@ -1,3 +1,4 @@
+import { validateNarrationGroup, validateNarrationGroups } from "./narration-group.js";
 import {
   type VideoCoreEventType,
   type VideoEvent,
@@ -13,7 +14,6 @@ import {
   type VideoStyle,
   type VideoTiming,
 } from "./types.js";
-import { validateVideoBrand } from "./background.js";
 import {
   MAX_PUBLIC_DIAGNOSTIC_LENGTH,
   VIDEO_WARNING_CATEGORIES,
@@ -76,6 +76,7 @@ function scene(value: unknown, path: string): VideoScene {
     "backgroundEffect",
     "timing",
     "narration",
+    "narrationGroup",
   ], path);
   string(result.id, `${path}.id`);
   string(result.templateId, `${path}.templateId`);
@@ -85,6 +86,7 @@ function scene(value: unknown, path: string): VideoScene {
   if (result.textArchetype != null) string(result.textArchetype, `${path}.textArchetype`);
   if (result.backgroundEffect != null) string(result.backgroundEffect, `${path}.backgroundEffect`);
   if (result.narration != null) string(result.narration, `${path}.narration`);
+  if (result.narrationGroup !== undefined) validateNarrationGroup(result.narrationGroup);
   return result as unknown as VideoScene;
 }
 
@@ -108,7 +110,6 @@ function capabilities(value: unknown, path: string): VideoCapabilities {
 function style(value: unknown, path: string): VideoStyle {
   const result = record(value, path);
   allowedKeys(result, [
-    "brand",
     "preset",
     "defaultBackgroundEffect",
     "defaultTextArchetype",
@@ -117,7 +118,6 @@ function style(value: unknown, path: string): VideoStyle {
     "motion",
     "generatedLook",
   ], path);
-  validateVideoBrand(result.brand, `${path}.brand`);
   if (result.generatedLook != null) string(result.generatedLook, `${path}.generatedLook`);
   return result as unknown as VideoStyle;
 }
@@ -183,6 +183,7 @@ function config(value: unknown, path: string): Video {
   }
   if (!Array.isArray(result.scenes)) throw new Error(`${path}.scenes must be an array`);
   result.scenes.forEach((item, index) => scene(item, `${path}.scenes[${index}]`));
+  validateNarrationGroups(result.scenes as VideoScene[]);
   style(result.style, `${path}.style`);
   if (result.orientation != null && result.orientation !== "portrait" && result.orientation !== "landscape") {
     throw new Error(`${path}.orientation is unsupported`);
@@ -286,6 +287,7 @@ export function parseVideoPlanPart(value: unknown): VideoPlanPart {
       throw new Error("plan part.placement is unsupported");
     }
     scene(part.scene, "plan part.scene");
+    if ((part.scene as VideoScene).narrationGroup !== undefined) throw new Error("narrationGroup is host-authored and cannot be emitted by a planner");
   } else if (type === "plan.complete") {
     allowedKeys(part, ["type", "finishReason"], "plan part");
     if (part.finishReason != null &&

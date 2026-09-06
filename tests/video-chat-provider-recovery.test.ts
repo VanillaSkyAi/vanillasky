@@ -6,13 +6,13 @@ import type { ResolvedMedia } from "../src/server/media-resolver";
 const media = { url: "https://media.example/stock.mp4", type: "video" as const };
 const request = () => new Request("https://app.example/api/video-chat?action=response", {
   method: "POST",
-  body: JSON.stringify({ prompt: "Explain ocean currents", mode: "full" }),
+  body: JSON.stringify({ prompt: "Explain ocean currents", mode: "cinematic" }),
 });
 function streamText() {
   return (async function* () {
     yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Ocean currents carry warmth around the world.", mediaKeyword: "ocean currents" }) + "\n";
     for (const [id, placement] of [["first", undefined], ["last", "closer"]] as const) {
-      yield JSON.stringify({ type: "scene.add", placement, scene: { id, templateId: "media", variables: { texts: "Warm water travels", mediaKeyword: "ocean currents", mediaType: "video" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\n";
+      yield JSON.stringify({ type: "scene.add", placement, scene: { id, templateId: "cinemaMedia", variables: { fallbackText: "Warm water travels", mediaKeyword: "ocean currents", mediaType: "video", mediaSource: "generate" }, narration: "Warm water travels around the world.", timing: { fixedDuration: 5 } } }) + "\n";
     }
     yield '{"type":"plan.complete"}\n';
   })();
@@ -53,7 +53,7 @@ describe("video chat optional provider recovery", () => {
     const response = await handler(request());
     const events = [];
     for await (const event of decodeVideoSse(response.body!)) events.push(event);
-    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.variables.mediaType)).toEqual(["gradient", "gradient"]);
+    expect(events.filter((event) => event.type === "scene.add").map((event) => event.data.scene.templateId)).toEqual(["chapterTitle", "chapterTitle"]);
     expect(events.at(-1)?.type).toBe("response.complete");
     expect(events.some((event) => event.type === "response.warning")).toBe(true);
     expect(JSON.stringify(events)).not.toMatch(/private-ai-detail|private-stock-detail/);
@@ -129,7 +129,7 @@ describe("video chat provider deadlines", () => {
     const result = handler(request()).then((response) => response.text()).then((text) => { completed = true; return text; });
     await vi.advanceTimersByTimeAsync(3_000);
     expect(completed).toBe(true);
-    expect(await result).toContain('"mediaType":"gradient"');
+    expect(await result).toContain('"templateId":"chapterTitle"');
   });
 
   it.each(["welcome", "opening-media", "suggestions"])("bounds ignored media cancellation for %s", async (action) => {

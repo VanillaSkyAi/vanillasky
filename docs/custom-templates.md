@@ -37,7 +37,7 @@ npx vanillasky templates describe customer-health
 Or copy a built-in when its behavior is already close:
 
 ```bash
-npx vanillasky templates add bigNumber
+npx vanillasky templates add keyFigure
 ```
 
 Then edit the owned `.tsx` file, regenerate the two small registries, and check
@@ -50,7 +50,7 @@ npx vanillasky templates check
 
 For an original template, the source is
 `vanillasky/templates/customer-health.tsx`. For the copied built-in, it is
-`vanillasky/templates/bigNumber.tsx`. These are application source: commit them,
+`vanillasky/templates/keyFigure.tsx`. These are application source: commit them,
 review them, and change them like any other React component.
 
 `create` and `add` run `sync` once, so the generated entry points exist
@@ -62,8 +62,8 @@ registry parity.
 Preview either operation without applying the proposed file writes:
 
 ```bash
-npx vanillasky templates add bigNumber --dry-run
-npx vanillasky templates add bigNumber --diff
+npx vanillasky templates add keyFigure --dry-run
+npx vanillasky templates add keyFigure --diff
 ```
 
 `--dry-run` lists every proposed file and `--diff` shows its content changes,
@@ -119,8 +119,8 @@ the selected catalog contains a template with one of those two jobs.
 
 Customer templates hard-cut by default. Opt into renderer-owned fades only
 for scenes that use the standard media-background variables, and only after
-both timing points are visually tested in portrait and landscape. Shared brand
-gradients and unchanged media do not crossfade:
+both timing points are visually tested in portrait and landscape. Shared render
+black backgrounds and unchanged media do not crossfade:
 
 ```tsx
 export default defineTemplate({
@@ -277,7 +277,7 @@ import { VideoPlayer } from "@vanillaskyai/video/react";
 import { templates } from "../vanillasky";
 
 const savedVideo: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [{
     id: "customer-health-preview",
@@ -288,21 +288,7 @@ const savedVideo: Video = {
     },
     timing: { fixedDuration: 5 },
   }],
-  style: {
-    brand: {
-      font: "Inter",
-      scriptFont: "Caveat",
-      background: { type: "gradient", colors: ["#8711C1", "#2167E3"] },
-      colors: {
-        primary: "#00E5A0",
-        secondary: "#006BE5",
-        foreground: "#FFFFFF",
-        surface: "#0A0A14",
-        surfaceElevated: "#14152A",
-        muted: "#A7A6B0",
-      },
-    },
-  },
+  style: {},
 };
 
 export function TemplatePreview() {
@@ -328,8 +314,8 @@ maps.
 
 Useful formats add grounding behavior:
 
-- `grounded-stat` marks numeric statistical evidence for the planner; it does
-  not compare the value against raw input at runtime;
+- `grounded-stat` accepts numeric or string quantities and requires an exact
+  quantity in raw input, preserving its unit;
 - `grounded-quote` requires the quote to exist verbatim in the input;
 - `uri` validates approved media URLs restored by the server;
 - `stock-media-keyword` is only for hosts that resolve stock media before a
@@ -338,14 +324,13 @@ Useful formats add grounding behavior:
 Templates whose core proof needs a real statistic can add
 `"x-vanillasky": { "requiresStat": true }`. See the structured-data reference for a complete example.
 
-For media-backed chat scenes, copy the built-in `media` template and keep its
+For media-backed chat scenes, copy the built-in `cinemaMedia` template and keep its
 `mediaKeyword`, `mediaUrl`, and `mediaType` contract. Configure `searchMedia` on
 the chat handler so the server resolves semantic searches into approved assets.
 The chat request does not accept a separate supplied-media input list.
 
-The automatic `opening` uses the built-in `media` variables (`texts` and
-`mediaType: "gradient"`). If you replace `media` while using automatic
-openings, keep that variable contract.
+The automatic `opening` uses the built-in `chapterTitle` variable `title`.
+If you replace that template while using automatic openings, keep this contract.
 
 ## What belongs where
 

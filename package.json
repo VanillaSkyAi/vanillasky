@@ -16,7 +16,8 @@
   ],
   "type": "module",
   "sideEffects": [
-    "./styles/video-chat.css"
+    "./styles/video-chat.css",
+    "./styles/fonts/roboto.css"
   ],
   "license": "Apache-2.0",
   "repository": {
@@ -31,6 +32,7 @@
     "bin",
     "dist",
     "styles/video-chat.css",
+    "styles/fonts",
     "starters/video-chat/.env.example",
     "starters/video-chat/README.md",
     "starters/video-chat/index.html",
@@ -54,7 +56,8 @@
     "docs/reference/protocol.md",
     "CHANGELOG.md",
     "docs/*.md",
-    "docs/reference"
+    "docs/reference",
+    "docs/maintainers/cinematic-migration.md"
   ],
   "bin": {
     "vanillasky": "bin/vanillasky.js"

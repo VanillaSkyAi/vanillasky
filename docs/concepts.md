@@ -31,7 +31,7 @@ or export pipeline when an encoded file is required.
 
 The viewer sends a prompt with bounded completed conversation turns. The server
 adds trusted application `instructions`, template capabilities, and the selected
-visual mode. `VideoChat` options control brand, style, orientation, and custom
+cinematic mode. `VideoChat` options control style, orientation, and custom
 templates. Exact facts belong in the authorized prompt or conversation; secrets
 and provider configuration stay on the server.
 

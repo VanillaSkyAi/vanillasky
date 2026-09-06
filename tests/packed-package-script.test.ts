@@ -7,8 +7,8 @@ describe("packed package verification", () => {
     const script = readFileSync(new URL("../scripts/verify-packed-package.mjs", import.meta.url), "utf8");
 
     expect(script).toContain('join(serverConsumer, "root.mjs")');
-    expect(script).toContain("VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo,resolveVideoBrand");
-    expect(script).toContain('schemaVersion: "0.1"');
+    expect(script).toContain("VideoValidationError,getSceneDuration,getSceneDurationBounds,getSpokenDuration,getVideoDuration,parseVideo");
+    expect(script).toContain('schemaVersion: "0.2"');
     expect(script).toContain("Packed response omitted its checksum");
     expect(script).toContain("Packed terminal snapshot lost its completed scene");
     expect(script).toContain('pathname === "/api/video"');
@@ -18,7 +18,7 @@ describe("packed package verification", () => {
     expect(script).toContain('join(consumer, "persistence-example.tsx")');
   });
 
-  it("replays the immutable 0.1.0 persisted fixture through the packed parser", () => {
+  it("rejects the immutable old persisted fixture through the packed parser", () => {
     const script = readFileSync(new URL("../scripts/verify-packed-package.mjs", import.meta.url), "utf8");
     const fixture = readFileSync(new URL("fixtures/persisted-video-0.1.0.json", import.meta.url));
 
@@ -44,7 +44,7 @@ describe("packed package verification", () => {
     const guide = readFileSync(new URL("../docs/custom-templates.md", import.meta.url), "utf8");
 
     expect(guide).toContain("<!-- verify:custom-template-preview:start -->");
-    expect(guide).toContain('schemaVersion: "0.1"');
+    expect(guide).toContain('schemaVersion: "0.2"');
     expect(script).toContain('join(packageRoot, "docs", "custom-templates.md")');
     expect(script).toContain('join(consumer, "src", "custom-template-preview.tsx")');
     expect(guide).toContain("<!-- verify:transition-semantic-value:start -->");
@@ -69,7 +69,7 @@ describe("packed package verification", () => {
     expect(script).toContain('from "playwright"');
     expect(script).toContain('[packedCli, "templates", "create", "customer-health"]');
     expect(script).toContain('data-template-id="minimal-text"');
-    expect(script).toContain('data-template-id="bigNumber"');
+    expect(script).toContain('data-template-id="keyFigure"');
     expect(script).toContain("new VideoError");
     expect(script).toContain("onPlaybackEnd");
     expect(script).toContain("Packed playback-end callback did not fire");
@@ -83,11 +83,9 @@ describe("packed package verification", () => {
     expect(script).toContain("VideoChatProps");
     expect(script).toContain("provider secret");
     expect(script).toContain('from "@vanillaskyai/video/templates/catalog"');
-    expect(script).toContain("builtinTemplates.length !== 28");
+    expect(script).toContain("builtinTemplates.length !== 8");
     expect(script).toContain("Packed template API accepted the removed duration alias");
-    expect(script).toContain('style.brand.background.type !== "gradient"');
-    expect(script).toContain('style.brand.colors.primary !== "#FF3366"');
-    expect(script).toContain('customStyle.brand.colors.foreground !== "#000000"');
+    expect(script).toContain('"brand" in startEvent.data.style');
     expect(script).not.toContain("brandKit");
     expect(script).not.toContain("logoDataUrl");
     expect(script).toContain('"react@19.2.8"');
@@ -193,7 +191,7 @@ describe("packed package verification", () => {
 
     expect(script).toContain('[packedCli, "templates", "add", "--all"]');
     expect(script).toContain('[packedCli, "templates", "check"]');
-    expect(script).toContain("Checked 28 templates, 28 examples, and 336 deterministic renders.");
+    expect(script).toContain("Checked 8 templates, 8 examples, and 96 deterministic renders.");
   });
 
   it("copies, syncs, checks, strictly compiles, and previews the packaged custom references", () => {
@@ -217,9 +215,9 @@ describe("packed package verification", () => {
     const script = readFileSync(new URL("../scripts/verify-packed-package.mjs", import.meta.url), "utf8");
 
     expect(script).toContain('[packedCli, "templates", "create", "customer-health"]');
-    expect(script).toContain('[packedCli, "templates", "add", "bigNumber"]');
-    expect(script).toContain('[packedCli, "templates", "add", "bigNumber", "--dry-run"]');
-    expect(script).toContain('[packedCli, "templates", "add", "bigNumber", "--diff"]');
+    expect(script).toContain('[packedCli, "templates", "add", "keyFigure"]');
+    expect(script).toContain('[packedCli, "templates", "add", "keyFigure", "--dry-run"]');
+    expect(script).toContain('[packedCli, "templates", "add", "keyFigure", "--diff"]');
     expect(script).toContain('[packedCli, "templates", "list"]');
     expect(script).toContain('[packedCli, "templates", "describe", "customer-health"]');
     expect(script).toContain('[packedCli, "templates", "sync"]');

@@ -8,12 +8,14 @@ const FALLBACK_BITS_PER_SECOND = 128_000;
 let sharedContext: AudioContext | undefined;
 
 type PreparedLine =
-  | { source: "generated"; src: string; seconds: number }
+  | { source: "generated"; src: string; seconds: number; measured?: boolean }
   | { source: "browser"; seconds: number };
 
 export interface VideoChatPreparedSpeech {
   /** Measured or conservatively estimated spoken duration, in seconds. */
   seconds: number;
+  /** True only for decoded audio with seek support, never duration estimates. */
+  supportsOffsets?: boolean;
 }
 
 export interface VideoChatVoice extends NarrationVoice {
@@ -44,15 +46,15 @@ function estimatedBrowserSeconds(text: string): number {
   return Math.max(1, words / 2.5);
 }
 
-async function measureSeconds(bytes: ArrayBuffer): Promise<number> {
+async function measureSeconds(bytes: ArrayBuffer): Promise<{ seconds: number; measured: boolean }> {
   try {
     sharedContext ??= new AudioContext();
     const decoded = await sharedContext.decodeAudioData(bytes.slice(0));
-    if (decoded.duration > 0) return decoded.duration;
+    if (decoded.duration > 0) return { seconds: decoded.duration, measured: true };
   } catch {
     // Browsers may keep audio decoding locked until the first user gesture.
   }
-  return (bytes.byteLength * 8) / FALLBACK_BITS_PER_SECOND;
+  return { seconds: (bytes.byteLength * 8) / FALLBACK_BITS_PER_SECOND, measured: false };
 }
 
 /**
@@ -138,7 +140,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             createdSrc = URL.createObjectURL(new Blob([bytes], {
               type: response.headers.get("content-type") || "audio/mpeg",
             }));
-            return { source: "generated", src: createdSrc, seconds };
+            return { source: "generated", src: createdSrc, ...seconds };
           }, SPEECH_PREPARATION_TIMEOUT_MS, controller.signal);
         }
       } catch (cause) {
@@ -189,9 +191,11 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   };
 
   return {
+    supportsOffsets: true,
+    getCurrentTime: () => sounding?.currentTime,
     async prepare(text, preparation = {}) {
       const line = await load(text, preparation.signal);
-      return { seconds: line.seconds };
+      return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}) };
     },
     pause() {
       held = true;
@@ -200,7 +204,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     },
     resume() {
       held = false;
-      if (sounding && !silent) void sounding.play().catch(() => playbackFailure?.());
+      if (sounding) void sounding.play().catch(() => playbackFailure?.());
       if (!silent) globalThis.speechSynthesis?.resume();
     },
     setMuted(muted) {
@@ -208,7 +212,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       if (sounding) sounding.muted = muted;
       if (muted) stopBrowser();
     },
-    async speak(text, { signal, onStart }): Promise<void> {
+    async speak(text, { signal, onStart, offsetSeconds }): Promise<void> {
       let started = false;
       const notifyStart = (source?: "browser" | "generated") => {
         if (started || disposed || signal.aborted || silent || held) return;
@@ -218,6 +222,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       };
       const line = await load(text, signal);
       if (disposed || signal.aborted || silent) return;
+      if (offsetSeconds !== undefined && (line.source !== "generated" || !line.measured || !Number.isFinite(offsetSeconds) || offsetSeconds < 0 || offsetSeconds >= line.seconds)) throw new Error("Narration group requires measured, seekable audio");
       if (line.source === "browser") {
         const synthesis = globalThis.speechSynthesis;
         if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") return;
@@ -262,13 +267,17 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       try {
         const element = new Audio(line.src);
         element.muted = silent;
+        if (offsetSeconds !== undefined) element.currentTime = offsetSeconds;
         sounding = element;
         await new Promise<void>((resolve) => {
           let finished = false;
+          let onsetTimer: ReturnType<typeof setTimeout> | undefined;
+          const initialTime = offsetSeconds ?? 0;
           const finish = () => {
             if (finished) return;
             finished = true;
             clearWatchdog();
+            clearTimeout(onsetTimer);
             signal.removeEventListener("abort", stop);
             speechStops.delete(stop);
             element.onplaying = null;
@@ -288,7 +297,16 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
           speechStops.add(stop);
           playbackFailure = fail;
-          element.onplaying = () => { if (!finished) notifyStart("generated"); };
+          // A native playing event may precede a working audio sink. Wait for
+          // the actual media clock to advance beyond its seek position; a tiny
+          // decoder priming increment alone is not audible onset evidence.
+          const observeClock = () => {
+            clearTimeout(onsetTimer);
+            if (finished || started) return;
+            if (!held && element.currentTime >= initialTime + 0.04) notifyStart("generated");
+            if (!started) onsetTimer = setTimeout(observeClock, 16);
+          };
+          element.onplaying = observeClock;
           element.onended = finish;
           element.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });
@@ -301,6 +319,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       } catch {
         playbackFailed = true;
       }
+      if (playbackFailed && offsetSeconds !== undefined) throw new Error("Grouped narration playback failed");
       if (playbackFailed && !disposed && !signal.aborted && !silent) {
         notifyFallback();
         URL.revokeObjectURL(line.src);

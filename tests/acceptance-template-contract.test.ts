@@ -7,14 +7,14 @@ describe("acceptance fixture template contract", () => {
   it("never uses optional preview content as a runtime fallback", async () => {
     const { BUILTIN_TEMPLATE_CATALOG } = await import("../src/visual-system/catalog/catalog");
     const presentationFieldsWithRuntimeDefaults = new Set([
-      "acceptLabel", "appIcon", "badgeEmoji",
+      "app", "acceptLabel", "appIcon", "badgeEmoji",
       "declineLabel", "filename", "frame", "mediaPosition", "mediaTreatment", "mediaType",
       "problemLabel", "promptPrefix", "screenCalloutX", "screenCalloutY", "screenFit",
       "screenFocusX", "screenFocusY", "screenMotion", "showEmojis", "solutionLabel",
       "subtitle", "theme", "unit",
     ]);
 
-    expect(BUILTIN_TEMPLATE_CATALOG).toHaveLength(28);
+    expect(BUILTIN_TEMPLATE_CATALOG).toHaveLength(8);
     for (const template of BUILTIN_TEMPLATE_CATALOG) {
       const required = new Set(template.schema.required ?? []);
       for (const [name, field] of Object.entries(template.schema.properties)) {
@@ -69,17 +69,12 @@ describe("acceptance fixture template contract", () => {
   it("lets the list templates carry the count the evidence supports", () => {
     // A host with two supported facts must not be forced to invent a third:
     // The maintainer acceptance guide treats any factual invention as a release blocker.
-    for (const [id, listField, emojiField] of [
-      ["cardList", "items", "itemEmojis"],
-      ["steps", "steps", "stepEmojis"],
-    ] as const) {
-      const schema = getTemplate(id)?.schema;
-      expect(schema, `${id} is missing from the registry`).toBeDefined();
-      expect(schema?.properties[listField]?.minItems, `${id}.${listField} must accept two entries`).toBe(2);
-      expect(schema?.properties[listField]?.maxItems, `${id}.${listField} renders at most three`).toBe(3);
-      // Emoji rows fall back to ✦, so they are decoration and never required.
-      expect(schema?.required).not.toContain(emojiField);
-      expect(schema?.properties[emojiField]?.minItems, `${id}.${emojiField} must not demand a count`).toBeUndefined();
-    }
+    const cards = getTemplate("focusCards")?.schema;
+    expect(cards?.properties.items).toMatchObject({ minItems: 2, maxItems: 4 });
+    expect(Object.keys(cards?.properties ?? {})).toEqual(["items"]);
+    // Timeline requires three ordered events. Two supported points belong in cards.
+    const timeline = getTemplate("editorialTimeline")?.schema;
+    expect(timeline?.properties.events).toMatchObject({ minItems: 3, maxItems: 5 });
+    expect(Object.keys(timeline?.properties ?? {})).toEqual(["events"]);
   });
 });

@@ -1,3 +1,4 @@
+import { validateNarrationGroup, validateNarrationGroups } from "./narration-group.js";
 import {
   VIDEO_SCHEMA_VERSION,
   type VideoAudio,
@@ -6,7 +7,6 @@ import {
   type VideoStyle,
   type VideoTiming,
 } from "./types.js";
-import { validateVideoBrand } from "./background.js";
 
 export const MAX_RETAINED_SOURCE_LENGTH = 16_384;
 export const MAX_RETAINED_INSTRUCTIONS_LENGTH = 4_096;
@@ -319,6 +319,7 @@ function validateScene(value: unknown, path: string): VideoScene {
     "backgroundEffect",
     "timing",
     "narration",
+    "narrationGroup",
   ], path);
   nonEmptyString(requiredField(result, "id", `${path}.id`), `${path}.id`, 128);
   nonEmptyString(requiredField(result, "templateId", `${path}.templateId`), `${path}.templateId`, 128);
@@ -334,13 +335,13 @@ function validateScene(value: unknown, path: string): VideoScene {
   // this is untrusted input that a voice will be asked to read.
   const narration = ownField(result, "narration", `${path}.narration`);
   if (narration.present) nonEmptyString(narration.value, `${path}.narration`, 4_000);
+  if (result.narrationGroup !== undefined) validateNarrationGroup(result.narrationGroup);
   return result as unknown as VideoScene;
 }
 
 function validateStyle(value: unknown, path: string): VideoStyle {
   const result = record(value, path);
   allowedKeys(result, [
-    "brand",
     "preset",
     "defaultBackgroundEffect",
     "defaultTextArchetype",
@@ -349,14 +350,6 @@ function validateStyle(value: unknown, path: string): VideoStyle {
     "motion",
     "generatedLook",
   ], path);
-
-  const brandValue = requiredField(result, "brand", `${path}.brand`);
-  const brand = record(brandValue, `${path}.brand`);
-  for (const key of ["name", "logoUrl"] as const) {
-    const field = ownField(brand, key, `${path}.brand.${key}`);
-    if (field.present) nonEmptyString(field.value, `${path}.brand.${key}`);
-  }
-  validateVideoBrand(brandValue, `${path}.brand`);
 
   // A description of a visual language, so longer than the token-like fields
   // beside it, and bounded because it is untrusted input that reaches a
@@ -515,6 +508,7 @@ function validateCurrentVideo(value: unknown): Video {
   for (let index = 0; index < sceneItems.length; index += 1) {
     scenes[index] = validateScene(sceneItems[index], `video.scenes[${index}]`);
   }
+  try { validateNarrationGroups(scenes); } catch (error) { fail(error instanceof Error ? error.message : "Invalid narration groups"); }
 
   const ids = new Set<string>();
   let cursor = 0;
@@ -556,7 +550,7 @@ function asValidationError(error: unknown): VideoValidationError | undefined {
   }
 }
 
-/** Parse a persisted Video using the current-only 0.1 schema policy. */
+/** Parse a persisted Video using the current-only 0.2 schema policy. */
 export function parseVideo(value: unknown): Video {
   try {
     if (!value || typeof value !== "object" || Array.isArray(value)) {

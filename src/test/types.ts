@@ -1,4 +1,4 @@
-import type { VideoInput } from "../protocol/types.js";
+import type { VIDEO_PROTOCOL_VERSION, VideoInput } from "../protocol/types.js";
 import type {
   Video,
   VideoAudio,
@@ -32,7 +32,7 @@ export interface MockProviderTextStream {
 }
 
 type SimulatedEventEnvelope<TType extends string, TData> = {
-  protocolVersion: "0.5";
+  protocolVersion: typeof VIDEO_PROTOCOL_VERSION;
   runId: string;
   sequence: number;
   eventId: string;

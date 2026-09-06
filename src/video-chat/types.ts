@@ -1,4 +1,4 @@
-export type VideoChatMode = "templates" | "full";
+export type VideoChatMode = "cinematic";
 
 export interface VideoChatConversationTurn {
   prompt: string;

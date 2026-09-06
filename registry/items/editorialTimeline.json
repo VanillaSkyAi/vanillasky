@@ -1,0 +1,105 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "editorialTimeline",
+  "type": "registry:block",
+  "title": "Timeline",
+  "description": "Three to five events on a fine continuous line on black; without dates.",
+  "dependencies": [
+    "react"
+  ],
+  "registryDependencies": [
+    "@vanillasky/template-context",
+    "@vanillasky/theme"
+  ],
+  "files": [
+    {
+      "path": "src/visual-system/scene-templates/editorial-timeline.tsx",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/editorial-timeline.tsx",
+      "content": "import type {SceneTemplateProps} from './types';\nimport {editorialFont,fade} from './editorial-typography';\nexport const timelineTiming=(index:number)=>({nodeStart:index===0?.06:.23+(index-1)*.11,lineStart:.14+index*.11,lineDuration:.09,entranceDuration:.16});\n\n/** A fine line establishes order; labels carry the sequence without dates. */\nfunction TimelineScene({variables,progress,motionProgress=progress,width,height,safeZone}:SceneTemplateProps){\n const events=(Array.isArray(variables.events)?variables.events:[]).slice(0,5).map(e=>({label:String(e?.label??'')}));\n const portrait=height>width,u=Math.min(width,height),n=Math.max(1,events.length);\n const side=Math.max(width*.13,safeZone.left,safeZone.right),available=width-side*2;\n const top=Math.max(height*.2,safeZone.top),bottom=height-Math.max(height*.24,safeZone.bottom);\n const slot=portrait?(bottom-top)/n:available/n;\n const points=events.map((_,i)=>({x:portrait?side:side+slot*(i+.5),y:portrait?top+slot*(i+.5):height*.43}));\n const radius=u*.0045;\n return <div data-template=\"timeline\" style={{position:'absolute',inset:0,overflow:'hidden',background:'#000',fontFamily:editorialFont,color:'#fff'}}>\n  {points.slice(0,-1).map((point,i)=>{\n   const next=points[i+1],timing=timelineTiming(i),line=fade((motionProgress-timing.lineStart)/timing.lineDuration);\n   return <div key={`line-${i}`} data-step-connector=\"true\" style={{position:'absolute',left:point.x,top:point.y,width:portrait?u*.001:next.x-point.x,height:portrait?next.y-point.y:u*.001,background:'#fff',opacity:.3,transform:portrait?`scaleY(${line})`:`scaleX(${line})`,transformOrigin:portrait?'top':'left'}}/>;\n  })}\n  {points.map((point,i)=>{\n   const timing=timelineTiming(i),event=events[i],opacity=fade((motionProgress-timing.nodeStart)/timing.entranceDuration);\n   const textW=portrait?available-u*.055:slot*.86;\n   return <div key={i} data-template-item=\"steps\" style={{opacity}}>\n    <div aria-hidden=\"true\" style={{position:'absolute',left:point.x-radius,top:point.y-radius,width:radius*2,height:radius*2,borderRadius:'50%',background:'#fff'}}/>\n    <div style={{position:'absolute',left:portrait?point.x+u*.055:point.x-textW/2,top:portrait?point.y:point.y+u*.05,width:textW,transform:portrait?'translateY(-50%)':undefined,textAlign:portrait?'left':'center'}}>\n     <div style={{fontSize:u*(portrait?.052:.041),fontWeight:500,lineHeight:1.22,letterSpacing:'-.025em',textWrap:'balance',overflowWrap:'anywhere'}}>{event.label}</div>\n    </div>\n   </div>;\n  })}\n </div>;\n}\n\nexport const TimelineSceneTemplate = TimelineScene;\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/types.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/types.ts",
+      "content": "/**\n * Scene template types.\n *\n * A template is a reusable React component that defines how a scene looks.\n * It declares the variables an editor or model may provide\n * and receives universal settings as props.\n *\n * Templates are searchable by AI via description, category, jobs, register,\n * and useWhen guidance.\n * The variable schema enables any LLM to fill in template variables via JSON.\n */\n\nimport type { ResolvedTokens } from \"../theme\";\nimport type { SafeZone, TemplateStyle } from \"../template-context\";\n\n/**\n * Props passed to every scene template component.\n *\n * All animation must be driven by `progress` (0→1). No CSS animations,\n * no Framer Motion, no requestAnimationFrame. Use interpolate/spring\n * from animation-utils.ts.\n *\n * Scale factor: use `Math.min(width, height) / 1080` — normalizes to\n * the short edge so visuals are consistent across portrait and landscape.\n */\nexport interface SceneTemplateProps {\n  variables: Record<string, unknown>;\n  style: TemplateStyle;\n  /** 0→1 through the scene's duration */\n  progress: number;\n  /** Presentation clock. Active templates receive the same complete 0→1 timeline as progress. */\n  motionProgress?: number;\n  /** 0→1 beat pulse intensity */\n  beatIntensity: number;\n  /** 1080 (portrait) or 1920 (landscape) */\n  width: number;\n  /** 1920 (portrait) or 1080 (landscape) */\n  height: number;\n  /** Video-level default text effect (for templates that opt in via usesGlobalTextEffect) */\n  textArchetype?: string;\n  /** How text leaves the scene (fade / shrink / pop / blur-scale). Falls back to a sensible default per textArchetype when undefined. */\n  /** Video-level default background effect (for templates that opt in via usesGlobalBackgroundEffect) */\n  backgroundEffect?: string;\n  /** Platform-aware safe zone insets in pixels — use for text placement */\n  safeZone: SafeZone;\n  /** Scene duration in seconds — use for time-based (not progress-based) animations */\n  sceneDuration?: number;\n  /**\n   * Brand tokens already resolved from `style`. Built-in templates import\n   * resolveTokens directly; an ejected `custom_*` scene can't import anything,\n   * so without this it has no way to reach the same values and ends up\n   * hardcoding white, black and shadows — the body then looks generic next to\n   * a frame that IS using the brand.\n   */\n  tokens?: ResolvedTokens;\n  /**\n   * True when the preview player is actively advancing progress; false when paused.\n   * Templates that play HTML5 <video> elements should pause them when this is false.\n   * Undefined (export capture path) is treated as true.\n   */\n  isPlaying?: boolean;\n}\n"
+    },
+    {
+      "path": "src/visual-system/scene-templates/editorial-typography.ts",
+      "type": "registry:component",
+      "target": "vanillasky/scene-templates/editorial-typography.ts",
+      "content": "/** Shared typography for quiet editorial scenes. */\nexport const editorialFont = '-apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif';\nexport const fade = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };\n\nexport const editorialLabel = (unit: number) => ({fontSize:unit*.042,fontWeight:400,color:'#b7b7bc',lineHeight:1.25} as const);\n"
+    }
+  ],
+  "meta": {
+    "vanillasky": {
+      "layer": "template",
+      "tier": "free",
+      "label": "Timeline",
+      "description": "Three to five events on a fine continuous line on black; without dates.",
+      "usesGlobalTextEffect": false,
+      "usesGlobalTransition": false,
+      "usesGlobalBackgroundEffect": false,
+      "textCanvas": "tight",
+      "family": "Explainers",
+      "jobs": [
+        "setup",
+        "proof"
+      ],
+      "register": "card-led",
+      "useWhen": "Events unfold in an order, or actions form a process. No dates or heading. ",
+      "avoidWhen": "The points are unordered or the story needs branching relationships.",
+      "minDuration": 5,
+      "preferredDuration": 6,
+      "timing": {
+        "contentFields": [
+          "events"
+        ],
+        "contentUnit": "items",
+        "revealSeconds": 3.2,
+        "holdSeconds": 1.8,
+        "exitSeconds": 0
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 45
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "default": [
+              {
+                "label": "Observe"
+              },
+              {
+                "label": "Understand"
+              },
+              {
+                "label": "Act"
+              }
+            ],
+            "description": "3–5 ordered events or actions, each with one short label; no dates."
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

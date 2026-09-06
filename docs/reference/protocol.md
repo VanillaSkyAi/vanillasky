@@ -1,10 +1,10 @@
-# Video Response Protocol 0.5
+# Video Response Protocol 0.6
 
 ## Transport
 
 The public transport is UTF-8 Server-Sent Events returned from a `POST` request.
 Responses use `Content-Type: text/event-stream`,
-`x-vanillasky-video-stream: 0.5`, `Cache-Control: no-cache, no-transform`, and
+`x-vanillasky-video-stream: 0.6`, `Cache-Control: no-cache, no-transform`, and
 `X-Accel-Buffering: no`. Each block has an SSE `id`, the event name
 `video`, and one JSON envelope in `data`. A final `data: [DONE]`
 closes the transport after a terminal protocol event. Comment heartbeats do not
@@ -14,7 +14,7 @@ change protocol state.
 
 ```ts
 type VideoEvent<T extends string, D> = {
-  protocolVersion: "0.5";
+  protocolVersion: "0.6";
   runId: string;
   sequence: number;
   eventId: string;        // exactly `${runId}:${sequence}`
@@ -42,7 +42,7 @@ finish reason, and a deterministic checksum. The reducer verifies that the
 snapshot equals the state produced by all prior events. The checksum detects
 accidental drift; it is not a cryptographic signature.
 
-The terminal snapshot carries persisted `schemaVersion: "0.1"`. That storage
+The terminal snapshot carries persisted `schemaVersion: "0.2"`. That storage
 version is independent from this streaming protocol version. Load stored
 snapshots through the universal `parseVideo` boundary described in the
 [persistence guide](../persistence.md).
@@ -100,3 +100,13 @@ SDK does not prescribe or operate a persistence service.
 Validate adapter output and persisted replay logs against this protocol before
 accepting them. A replay log must preserve ordering, checksums, and a terminal
 event.
+
+## Host-authored narration across cuts
+
+`VideoScene.narrationGroup` optionally joins adjacent shots to one prepared spoken paragraph. A host supplies the shared `id`, `text`, measured `totalSeconds`, and each segment's `offsetSeconds` and `durationSeconds`. Each scene retains its narration fragment and a matching `timing.fixedDuration`; fragments must exactly cover the paragraph in order. The planner cannot emit this field or guess speech timings.
+
+Grouped playback requires prepared speech with `supportsOffsets: true`. The generated-audio voice supports offsets; browser speech synthesis does not. The chat hook prepares and validates a complete group before showing its first scene, including saved replay. Hosts using a standalone player must prepare the paragraph and coordinate narration themselves before starting playback. Unsupported voices and mismatched measured durations fail explicitly. Default planner responses still prepare narration per scene.
+
+For standalone playback, provide a synchronous `narrationReady` callback alongside your `onSceneChange` narration handler. Return false while a new grouped paragraph awaits actual audio onset, then true from the voice's `onStart` callback; also release readiness on completion, failure, or interruption. Abort pending narration from the player's `onError` handler. `VideoChat` wires this automatically through its internal narration hook. For grouped paragraphs, the voice must invoke `onStart` when audio actually begins, not when audio is prepared or `play()` is requested. The first visual cue starts narration, then the playhead waits for that onset without pausing the voice. A missing onset stops the player with an error after eight seconds of active waiting. For prepared audio, also provide `narrationTime(scene)` using the active voice's optional `getCurrentTime()`: return paragraph-relative seconds (including the seek offset) for a group, or scene-relative seconds otherwise. This makes the actual audio clock authoritative through cold-start delays and mid-speech stalls. Return `undefined` for silent scenes or unavailable clocks; after ordinary narration completes, release to wall time so the authored reading hold can finish. `VideoChat` coordinates these callbacks automatically. A clock that stops advancing for eight active seconds produces an error; visual-readiness holds and deliberate pauses do not consume that timeout. Voices without an observable playback clock retain wall-time playback.
+
+Readiness holds pause narration together with the picture. The same audio continues across adjacent group scenes; replay starts a new playback session. This preserves words through delayed media rather than promising uninterrupted playback on every network.

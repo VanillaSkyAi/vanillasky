@@ -52,8 +52,7 @@ export interface VideoHandlerOptions extends Omit<
    *
    * Unbounded by default, which is right when media is searched for and wrong
    * when it is generated: the planner decides the scene count, and every scene
-   * is then a paid clip. Past the ceiling a scene keeps its copy on the brand
-   * gradient, and a `media_budget_reached` warning says it happened.
+   * is then a paid clip. Past the ceiling a scene uses its grounded text fallback, and a `media_budget_reached` warning says it happened.
    */
   maxResolvedMedia?: number;
   /**

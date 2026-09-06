@@ -14,7 +14,6 @@ heading and a root class when the application needs its own copy or chrome color
 <VideoChat
   className="acme-chat"
   welcomeTitle={<>Ask Acme<br />See the answer</>}
-  options={{ brand: acmeBrand }}
 />
 ```
 
@@ -32,10 +31,10 @@ that instance:
 ```
 
 The built-in navigation carries the VanillaSky logo. `welcomeTitle` changes
-the welcome heading; it does not replace the navigation logo. `options.brand`
-styles generated video content independently of the surrounding controls.
+the welcome heading; it does not replace the navigation logo. Graphic scenes
+use fixed black backgrounds and white/neutral system typography.
 
-Use `options` for the endpoint, templates, orientation, visual brand, request
+Use `options` for the endpoint, templates, orientation, request
 headers, and an optional custom voice. Provider capabilities are discovered
 from the server. Use `useVideoChat()` only when the application needs to own the
 entire interface.
@@ -44,63 +43,16 @@ Pass the following visual settings through `VideoChat` or `useVideoChat` options
 Keep viewer context in the prompt and completed conversation turns; use the
 server handler’s `instructions` for trusted product guidance.
 
-## Background and semantic brand
+## Cinematic visual direction
 
-Omit brand configuration to use the standard `cosmic` background. Prefer a
-named curated choice over raw color work:
+Graphics use black backgrounds and white/neutral typography. Full-bleed media
+and Reach out can show naturally colored footage; the other six templates
+explain with their own composition and motion. There is no brand-kit option.
 
-```ts
-const brand = {
-  name: "Acme",
-  logoUrl: "https://cdn.acme.com/logo.svg",
-  font: "Inter",
-  scriptFont: "Caveat",
-  background: "twilight",
-  colors: {
-    primary: "#6D5EF5",
-    secondary: "#3D2A78",
-    foreground: "#FFFFFF",
-    surface: "#17122F",
-    surfaceElevated: "#231B42",
-    muted: "#A7A6B0",
-  },
-};
-```
-
-Gradient presets: `cosmic`, `horizon`, `twilight`, `meadow`, `velvet`,
-`flamingo`, `peach`, `saffron`. Solid presets: `black`, `midnight`,
-`aubergine`, `coal`, `navy`. When a named choice genuinely cannot express the
-brand, use `{ colors: ["#112233", "#334455"] }` for a custom gradient or
-`{ color: "#070B20" }` for a custom solid.
-
-`colors` may be partial; the resolver fills every semantic token before the
-video is emitted. With no foreground, named and custom backgrounds
-deterministically select black or white for at least 4.5:1 contrast across the
-full rendered sRGB ramp, including gradient interiors. A ramp that neither can
-cover is rejected. An explicit foreground is preserved and validated by the
-same invariant during input resolution and replay; low-contrast values are
-rejected with the failing path and minimum ratio. Elevated surfaces derive an
-accessible internal text treatment without changing the semantic foreground.
-Use an approved public or signed URL for logos, and never put a private storage
-credential in the config.
-
-## Global visual direction
-
-Leave visual direction unset to use VanillaSky's defaults, or set one coherent
-look for the completed video:
-
-```ts
-style: {
-  density: "airy",           // airy | normal | packed
-  motion: "calm",            // calm | normal | punchy
-  textArchetype: "cinematic",
-  backgroundEffect: "slow-zoom-out",
-}
-```
-
-These are defaults, not generated CSS. A validated scene may still select a
-more appropriate text or background treatment when its trusted template allows
-it.
+The host can provide a shared `generatedLook` description for media preparation.
+Custom source-owned templates can define their own visual language in code.
+Do not rely on old global brand, text-effect, or gradient controls to restyle
+the eight cinematic templates.
 
 ## Opening
 

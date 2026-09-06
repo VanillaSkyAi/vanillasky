@@ -3,12 +3,11 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { VideoOrientation } from "../protocol/types.js";
 import { VideoPlayer } from "../player/video-player.js";
 import { useVideoChatSession, type UseVideoChatOptions, type VideoChatTurn } from "./use-video-chat.js";
-import type { VideoChatMode, VideoChatSuggestion } from "./types.js";
-import { defaultMode, modeById, visualModes } from "./modes";
-import { defaultTheme, themeBackground, themeById, themes } from "./themes";
+import type { VideoChatSuggestion } from "./types.js";
 import { ChevronUp, Close, Gear, Mic, Replay, Send, Sound, Stop, Muted, Play, Plus, Sessions, Warning } from "./icons";
 import { useDismiss, useFocusTrap } from "./use-dismiss";
 import { Welcome } from "./welcome";
+import { OpeningChapter } from "./opening-chapter";
 import { Frame, SuggestionCards } from "./suggestion-cards";
 import { useVoiceInput } from "./use-voice-input";
 import { useImmersiveControls } from "./use-immersive-controls";
@@ -64,21 +63,15 @@ export interface VideoChatProps {
   className?: string;
   /** Replaces the default two-line welcome heading without changing the interaction. */
   welcomeTitle?: ReactNode;
-  /** Host-owned name for the generated-video choice in Settings. Does not change server capabilities. */
-  generatedVideoLabel?: string;
-  /** Explain the host's generated-video offering, including preview limits. */
-  generatedVideoDescription?: string;
   /** Show a dismissible safe notice when generated visuals fall back. Defaults to false. */
   showRecoveryNotice?: boolean;
 }
 
 /** A complete voice-and-video chat interface backed by createVideoChatHandler. */
-export function VideoChat({ options = {}, className, welcomeTitle, generatedVideoLabel, generatedVideoDescription, showRecoveryNotice = false }: VideoChatProps) {
+export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryNotice = false }: VideoChatProps) {
   const [dismissedNoticeTurn, setDismissedNoticeTurn] = useState<string>();
   const [draft, setDraft] = useState("");
   const [savedSessions, setSavedSessions] = useState<Array<{ id: string; turns: readonly VideoChatTurn[] }>>([]);
-  const [themeId, setThemeId] = useState(defaultTheme.id);
-  const [modeId, setModeId] = useState<VideoChatMode>(options.mode ?? defaultMode.id);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -90,24 +83,17 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
   const panelRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const viewportOrientation = useViewportOrientation();
-  const theme = themeById(themeId);
   const sessionOrientation = options.orientation ?? viewportOrientation;
-  const { brand: configuredBrand, style: configuredStyle, ...sessionOptions } = options;
-  const presentationBrand = configuredBrand ?? theme.brand;
   const { chat, restoreSession } = useVideoChatSession({
-    ...sessionOptions,
-    mode: modeId,
+    ...options,
     orientation: sessionOrientation,
-    brand: presentationBrand,
-    style: { generatedLook: theme.generatedLook, ...configuredStyle },
+    style: { generatedLook: "Natural light, restrained camera movement, documentary realism, consistent natural color. No embedded text.", ...options.style },
   });
 
   const instanceId = useId();
   const historyId = `${instanceId}-history`;
   const settingsId = `${instanceId}-settings`;
   const promptId = `${instanceId}-prompt`;
-  const visualsName = `${instanceId}-visuals`;
-  const styleName = `${instanceId}-style`;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<HTMLElement>(null);
   const historyButtonRef = useRef<HTMLButtonElement>(null);
@@ -169,7 +155,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
   const current = chat.currentTurn;
   const shown = chat.shownTurn;
   const showing = chat.playerProps != null;
-  const ambientPoster = shown?.openingMedia?.type === "image" ? shown.openingMedia.url : shown?.openingMedia?.posterUrl;
+  const [openingAsset, setOpeningAsset] = useState<{ key: string; state: "ready" | "failed" }>();
+  const openingAssetKey = `${shown?.id ?? ""}:${shown?.openingMedia?.url ?? ""}`;
+  const openingMediaFailed = openingAsset?.key === openingAssetKey && openingAsset.state === "failed";
+  const openingMediaReady = openingAsset?.key === openingAssetKey && openingAsset.state === "ready";
+  const openingChapter = !showing && Boolean(shown?.opening) && (!shown?.openingMedia || openingMediaFailed || !openingMediaReady);
+
   const waitingForPicture = chat.turns.length > 0 && !showing
     && (chat.status === "composing" || chat.status === "playing" || chat.status === "paused");
   const filmingStep = useFilmingStep(waitingForPicture, current?.id);
@@ -181,8 +172,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
 
   const shownOrientation = shown?.orientation ?? sessionOrientation;
   const stageOrientation = shown?.fixedOrientation ? shownOrientation : sessionOrientation;
-  const availableModes = visualModes.filter((option) => chat.availableModes.includes(option.id));
-  const selectedMode = modeById(modeId);
   const line = chat.caption ?? "";
   const fullTranscript = shown?.video ? [shown.opening, ...shown.video.scenes.map((scene) => scene.narration)].filter((entry): entry is string => Boolean(entry)) : chat.transcript;
   const transport = status === "narrating"
@@ -278,16 +267,18 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
     </header>
 
     <div className="stage-area">
-      <div className="stage" style={{ background: themeBackground(presentationBrand) }}>
-        {showing && <div className="ambient-media" aria-hidden="true">{ambientPoster && <img className="frame-media" src={ambientPoster} alt="" />}</div>}
+      <div className="stage" style={{ background: "#000" }}>
         {!showing && <>
           <div className="ground" aria-hidden="true" />
-          {shown?.openingMedia && <>
-            <Frame media={shown.openingMedia} poster />
-            <div className="opening-wash" aria-hidden="true" />
+          {openingChapter && <OpeningChapter key={shown!.id} title={shown!.opening!} />}
+          {shown?.openingMedia && !openingMediaFailed && <>
+            <Frame key={openingAssetKey} media={shown.openingMedia} poster revealWhenReady
+              onReady={() => setOpeningAsset({key:openingAssetKey,state:"ready"})}
+              onError={() => setOpeningAsset({key:openingAssetKey,state:"failed"})} />
+            {openingMediaReady && <div className="opening-wash" aria-hidden="true" />}
           </>}
           {chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
-          {shown?.prompt && <div className="asked">
+          {shown?.prompt && !shown.opening && <div className="asked">
             <p className="asked-prompt">{shown.prompt}</p>
             {waitingForPicture && <p className="asked-step" aria-live="polite">{filmingStep}</p>}
           </div>}
@@ -346,25 +337,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
           <label className="switch-row"><span><strong>Keep controls visible</strong><small>Keep the input bar on screen</small></span><input type="checkbox" role="switch" checked={alwaysShowControls} onChange={(event) => setAlwaysShowControls(event.target.checked)} /></label>
         </fieldset>
-        <fieldset className="visual-options">
-          <legend>Video creation</legend>
-          <div className="visual-choices">
-          {availableModes.map((option) => <label className="choice-row" key={option.id}>
-            <input type="radio" name={visualsName} checked={option.id === selectedMode.id} onChange={() => setModeId(option.id)} />
-            <span><strong>{option.id === "full" ? generatedVideoLabel ?? option.label : option.label}</strong><small>{option.id === "full" ? generatedVideoDescription ?? option.note : option.note}</small></span>
-          </label>)}
-          </div>
-        </fieldset>
-        <fieldset className="style-options">
-          <legend>Video style</legend>
-          <div className="style-choices">
-          {themes.map((option) => <label key={option.id}>
-            <input type="radio" name={styleName} checked={option.id === themeId} onChange={() => setThemeId(option.id)} />
-            <span><strong>{option.label}</strong></span>
-          </label>)}
-          </div>
-        </fieldset>
-        <p className="settings-note">Creation and style changes apply to your next question.</p>
         <nav className="developer-links" aria-label="Build with VanillaSky">
           <p className="section-label">Build with VanillaSky</p>
           <a href="https://github.com/VanillaSkyAi/video/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Docs<span aria-hidden="true">↗</span></a>
@@ -379,7 +351,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
       <div className="panel-inner">
         <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
           <div className="caption-clip">
-            <div className="line-row" data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
+            <div className="line-row" data-opening-copy={openingChapter && line === shown?.opening && !captionsExpanded} data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
               {captionsOn && line && <div className="caption-actions">
@@ -388,7 +360,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, generatedVide
               </div>}
               {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : <p className="line" aria-live="polite">{line}</p>}
+              </div> : <p className="line" aria-live="polite">{openingChapter && line === shown?.opening ? "" : line}</p>}
             </div>
           </div>
         </div>

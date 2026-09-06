@@ -39,6 +39,10 @@ interface VideoPlayerSharedProps {
    * where a replay scrim would cover the answer the moment it finished.
    */
   controls?: boolean;
+  /** Optional synchronous onset handshake from useNarration.isReady. Does not pause audio or prevent the first scene cue. */
+  narrationReady?: () => boolean;
+  /** Active audio time: paragraph-relative for a narration group, scene-relative otherwise. Undefined resumes the normal clock. */
+  narrationTime?: (scene: VideoScene) => number | undefined;
   /**
    * Hold the playhead where it is, and release it again.
    *
@@ -62,6 +66,8 @@ interface VideoPlayerSharedProps {
   onError?: (error: Error) => void;
   /** First active scene committed, observed at the next animation frame; excludes idle posters. */
   onFramePresented?: () => unknown;
+  /** First actual mounted video frame; excludes graphics, posters and safe fallbacks. */
+  onMediaFramePresented?: () => unknown;
   /** Stream playback has reached its available scenes; excludes initial waiting and deliberate pauses. */
   onStallChange?: (stalled: boolean) => unknown;
   /** Fires when the scene under the playhead changes, including on a loop wrap. */

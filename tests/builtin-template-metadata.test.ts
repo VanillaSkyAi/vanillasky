@@ -7,13 +7,7 @@ import {
   createBuiltinTemplateSystemPrompt,
 } from "../src/visual-system/catalog/catalog";
 
-const STABLE_TEMPLATE_IDS = [
-  "media", "reaction", "confetti", "emojiBurst", "bigNumber", "barChart",
-  "progressRing", "phoneMockup", "webMockup", "codeEditor", "terminal", "tweet",
-  "notification", "chatMessenger", "chatWhatsapp", "milestone", "reviewStack",
-  "testimonial", "incomingCall", "brandMessage", "promptInput", "beforeAfter",
-  "tripleStats", "problemSolution", "cardList", "steps", "ctaLogo", "ctaMedia",
-] as const;
+const STABLE_TEMPLATE_IDS = ["cinemaMedia", "chapterTitle", "focusCards", "editorialTimeline", "mobileMessage", "comparison", "quote", "keyFigure"] as const;
 
 const BROWSE_FAMILIES = new Set([
   "Media & motion",
@@ -52,7 +46,7 @@ function expectValidDefault(
 describe("built-in template metadata", () => {
   it("keeps stable IDs and complete human and adaptive-timing metadata", () => {
     expect(BUILTIN_TEMPLATE_CATALOG.map(({ id }) => id)).toEqual(STABLE_TEMPLATE_IDS);
-    expect(new Set(BUILTIN_TEMPLATE_CATALOG.map(({ label }) => label)).size).toBe(28);
+    expect(new Set(BUILTIN_TEMPLATE_CATALOG.map(({ label }) => label)).size).toBe(8);
 
     for (const template of BUILTIN_TEMPLATE_CATALOG) {
       expect(template.label?.trim(), `${template.id}.label`).toBeTruthy();
@@ -65,7 +59,8 @@ describe("built-in template metadata", () => {
       expect(template.useWhen, `${template.id}.useWhen`).not.toMatch(/\bavoid\b/i);
       expect(template.minDuration, `${template.id}.minDuration`).toBeGreaterThan(0);
       expect(template.preferredDuration, `${template.id}.preferredDuration`).toBeGreaterThanOrEqual(template.minDuration!);
-      expect(template.timing?.contentFields.length, `${template.id}.timing.contentFields`).toBeGreaterThan(0);
+      expect(template.timing?.holdSeconds, `${template.id}.timing.holdSeconds`).toBeGreaterThan(0);
+      if (template.id !== "cinemaMedia") expect(template.timing?.contentFields.length).toBeGreaterThan(0);
       expect(["words", "characters", "items"], `${template.id}.timing.contentUnit`).toContain(template.timing?.contentUnit);
       for (const field of template.timing?.contentFields ?? []) {
         expect(template.schema.properties, `${template.id}.timing field ${field}`).toHaveProperty(field);
@@ -79,7 +74,8 @@ describe("built-in template metadata", () => {
       expect(template, template.id).not.toHaveProperty("defaults");
       expect(template, template.id).not.toHaveProperty("defaultVariables");
       for (const required of template.schema.required ?? []) {
-        expect(template.schema.properties[required]?.default, `${template.id}.${required}`).not.toBeUndefined();
+        const property = template.schema.properties[required];
+        expect(property?.default ?? property?.examples?.[0], `${template.id}.${required} preview content`).not.toBeUndefined();
       }
       for (const [fieldName, property] of Object.entries(template.schema.properties)) {
         expectValidDefault(template.id, fieldName, property);
@@ -87,57 +83,19 @@ describe("built-in template metadata", () => {
     }
   });
 
-  it("uses precise closer and payoff jobs", () => {
+  it("distinguishes footage, chapters, grounded proof and optional message media", () => {
     const byId = new Map(BUILTIN_TEMPLATE_CATALOG.map((template) => [template.id, template]));
-    expect(byId.get("ctaLogo")?.jobs).toEqual(["ask"]);
-    expect(byId.get("ctaMedia")?.jobs).toEqual(["ask"]);
-    expect(byId.get("ctaLogo")?.minDuration).toBe(3);
-    expect(byId.get("ctaMedia")?.minDuration).toBe(3);
-    expect(byId.get("confetti")?.jobs).toEqual(["payoff", "punctuation"]);
-    expect(byId.get("emojiBurst")?.jobs).toEqual(["payoff", "punctuation"]);
-    expect(byId.get("reaction")?.jobs).toEqual(["payoff", "punctuation"]);
-    expect(byId.get("brandMessage")?.jobs).toEqual(["claim"]);
-  });
-
-  it("requires resolved media and grounded actions for media-dependent payoff and closer templates", () => {
-    const byId = new Map(BUILTIN_TEMPLATE_CATALOG.map((template) => [template.id, template]));
-    expect(byId.get("reaction")?.schema["x-vanillasky"]?.requiredAnyOf).toEqual([["mediaUrl"]]);
-    expect(byId.get("ctaLogo")?.schema["x-vanillasky"]?.requiredAnyOf).toEqual([["cta", "url"]]);
-    expect(byId.get("ctaMedia")?.schema["x-vanillasky"]?.requiredAnyOf).toEqual([
-      ["cta", "url"],
-      ["mediaUrl"],
-    ]);
-  });
-
-  it("ships real three-message exchanges and the verified review reading duration", () => {
-    const byId = new Map(BUILTIN_TEMPLATE_CATALOG.map((template) => [template.id, template]));
-    for (const id of ["chatMessenger", "chatWhatsapp"] as const) {
-      const schema = byId.get(id)?.schema;
-      expect(schema?.properties.msg1.default).not.toMatch(/\|out$/);
-      expect(schema?.properties.msg2.default).toMatch(/\|out$/);
-      expect(schema?.properties.msg3.default).not.toMatch(/\|out$/);
-      expect(schema?.properties.msg2.title).toMatch(/sent/i);
-      expect(schema?.properties.msg2.description).toMatch(/right\/sent by default/i);
+    expect(byId.get("chapterTitle")?.jobs).toEqual(["setup", "payoff"]);
+    expect(byId.get("cinemaMedia")?.timing?.contentFields).toEqual([]);
+    expect(byId.get("cinemaMedia")?.schema["x-vanillasky"]?.requiredAnyOf).toEqual([["mediaKeyword", "mediaUrl"]]);
+    expect(byId.get("mobileMessage")?.schema["x-vanillasky"]?.requiredAnyOf).toBeUndefined();
+    for (const id of ["keyFigure", "quote"]) {
+      const template = byId.get(id)!;
+      expect(template.jobs).toEqual(["proof"]);
+      for (const required of template.schema.required ?? []) {
+        expect(template.schema.properties[required].default).toBeUndefined();
+      }
     }
-    expect(byId.get("reviewStack")?.minDuration).toBe(4);
-    expect(byId.get("reviewStack")?.preferredDuration).toBe(6);
-    expect(byId.get("reviewStack")?.timing).toEqual({
-      contentFields: [
-        "review1Title", "review1Body", "review2Title", "review2Body", "review3Title", "review3Body",
-      ],
-      contentUnit: "words",
-    });
-    expect(byId.get("reviewStack")?.useWhen).toMatch(/three grounded review excerpts/i);
-    expect(byId.get("reviewStack")?.avoidWhen).toMatch(/fewer than three/i);
-    expect(byId.get("reviewStack")?.avoidWhen).not.toMatch(/attribution/i);
-  });
-
-  it("describes tweet, emoji burst, and bar chart as they render", () => {
-    const byId = new Map(BUILTIN_TEMPLATE_CATALOG.map((template) => [template.id, template]));
-    expect(`${byId.get("tweet")?.description} ${byId.get("tweet")?.useWhen}`).not.toMatch(/image grid|tweetImage/i);
-    expect(byId.get("emojiBurst")?.description).toMatch(/fixed|hearts|rockets/i);
-    expect(byId.get("barChart")?.description).toMatch(/labeled bars/i);
-    expect(byId.get("barChart")?.avoidWhen).toMatch(/labels|exact values/i);
   });
 
   it("keeps generated catalog and source registry metadata in parity", () => {
@@ -160,7 +118,7 @@ describe("built-in template metadata", () => {
     for (const template of plannerCatalog) {
       expect(template.jobs?.length, `${template.id}.jobs`).toBeGreaterThan(0);
       expect(template.use, `${template.id}.use`).toBeTruthy();
-      expect(template, `${template.id}.avoid`).not.toHaveProperty("avoid");
+      expect(template.avoid, `${template.id}.avoid`).toBeTruthy();
     }
   });
 });

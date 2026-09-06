@@ -18,7 +18,7 @@ function request(input = videoFixtures.portrait.input, signal?: AbortSignal): Re
     method: "POST",
     signal,
     body: JSON.stringify({
-      protocolVersion: "0.5",
+      protocolVersion: "0.6",
       requestId: "test-request",
       input,
     }),
@@ -39,8 +39,8 @@ describe("public deterministic test kit", () => {
       placement: "closer",
       scene: {
         id: "ending",
-        templateId: "confetti",
-        variables: { texts: "The grounded story reaches its conclusion" },
+        templateId: "chapterTitle",
+        variables: { title: "The grounded story reaches its conclusion" },
         timing: { fixedDuration: 3 },
       },
     } satisfies MockVideoStreamPart;

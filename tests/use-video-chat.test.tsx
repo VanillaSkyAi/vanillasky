@@ -34,19 +34,19 @@ function responseStream(
   opening = { line: "Let us begin somewhere unexpected.", keyword: "unexpected story opening", fallbackKeyword: "night sky" },
 ): Response {
   const snapshot: Video = {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "landscape",
     scenes,
     style: TEST_VIDEO_STYLE,
   };
   const events = [
-    { protocolVersion: "0.5", type: "response.start", eventId: `${requestId}:0`, runId: requestId, sequence: 0, data: { requestId, format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"], extensions: ["data.video-chat-opening"] } } },
-    { protocolVersion: "0.5", type: "data.video-chat-opening", eventId: `${requestId}:1`, runId: requestId, sequence: 1, data: opening },
-    ...scenes.map((entry, position) => ({ protocolVersion: "0.5", type: "scene.add", eventId: `${requestId}:${position + 2}`, runId: requestId, sequence: position + 2, data: { scene: entry, position } })),
-    { protocolVersion: "0.5", type: "response.complete", eventId: `${requestId}:${scenes.length + 2}`, runId: requestId, sequence: scenes.length + 2, data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
+    { protocolVersion: "0.6", type: "response.start", eventId: `${requestId}:0`, runId: requestId, sequence: 0, data: { requestId, format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"], extensions: ["data.video-chat-opening"] } } },
+    { protocolVersion: "0.6", type: "data.video-chat-opening", eventId: `${requestId}:1`, runId: requestId, sequence: 1, data: opening },
+    ...scenes.map((entry, position) => ({ protocolVersion: "0.6", type: "scene.add", eventId: `${requestId}:${position + 2}`, runId: requestId, sequence: position + 2, data: { scene: entry, position } })),
+    { protocolVersion: "0.6", type: "response.complete", eventId: `${requestId}:${scenes.length + 2}`, runId: requestId, sequence: scenes.length + 2, data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
   ];
   return new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") + "data: [DONE]\n\n", {
-    headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.5" },
+    headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6" },
   });
 }
 
@@ -69,7 +69,7 @@ function videoChatFetcher(options: { requests?: Array<{ action: string | null; b
     const body = init?.body && typeof init.body === "string" ? JSON.parse(init.body) : undefined;
     options.requests?.push({ action, body });
     if (action === "capabilities") {
-      return Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: true, transcription: false, modes: ["templates", "full"] });
+      return Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: true, transcription: false, modes: ["cinematic"] });
     }
     if (action === "welcome") {
       return Response.json({
@@ -187,6 +187,9 @@ describe("useVideoChat", () => {
     expect(metrics).toEqual([]);
     now = 150;
     act(() => result.current.playerProps?.onFramePresented?.());
+    now = 175;
+    act(() => result.current.playerProps?.onMediaFramePresented?.());
+    act(() => result.current.playerProps?.onMediaFramePresented?.());
     now = 200;
     act(() => speechStarted?.());
     act(() => speechStarted?.());
@@ -195,16 +198,17 @@ describe("useVideoChat", () => {
     now = 550;
     act(() => result.current.playerProps?.onStallChange?.(false));
     expect(metrics).toEqual([
-      { type: "first-frame", turnId: "opaque-turn", mode: "templates", elapsedMs: 50 },
-      { type: "first-speech", turnId: "opaque-turn", mode: "templates", elapsedMs: 100, source: "custom" },
-      { type: "stall", turnId: "opaque-turn", mode: "templates", elapsedMs: 450, durationMs: 250, reason: "scene-generation" },
+      { type: "first-frame", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 50 },
+      { type: "first-media-frame", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 75 },
+      { type: "first-speech", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 100, source: "custom" },
+      { type: "stall", turnId: "opaque-turn", mode: "cinematic", elapsedMs: 450, durationMs: 250, reason: "scene-generation" },
     ]);
     expect(firstFrame).toHaveBeenCalledOnce();
     expect(JSON.stringify(metrics)).not.toMatch(/private|https|sceneId/);
     act(() => result.current.cancel());
     act(() => result.current.playerProps?.onFramePresented?.());
     act(() => speechStarted?.());
-    expect(metrics).toHaveLength(3);
+    expect(metrics).toHaveLength(4);
   });
 
   it("excludes pauses from starvation and isolates rejected metric observers", async () => {
@@ -266,11 +270,11 @@ describe("useVideoChat", () => {
     const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher({ requests }), voice: fakeVoice() }));
 
     expectTypeOf(useVideoChat).toBeFunction();
-    await waitFor(() => expect(result.current.capabilities?.modes).toEqual(["templates", "full"]));
+    await waitFor(() => expect(result.current.capabilities?.modes).toEqual(["cinematic"]));
     await waitFor(() => expect(result.current.welcome?.cards[0]?.prompt).toBe("Tell me a tiny story"));
     expect(requests.filter(({ action }) => action === "capabilities")).toHaveLength(1);
     expect(requests.filter(({ action }) => action === "welcome")).toHaveLength(1);
-    expect(result.current.availableModes).toEqual(["templates", "full"]);
+    expect(result.current.availableModes).toEqual(["cinematic"]);
   });
 
   it("starts from the opening carried by the response stream without a separate opening request", async () => {
@@ -311,7 +315,7 @@ describe("useVideoChat", () => {
     expect(onFirstFrame).toHaveBeenCalledOnce();
     expect(onFirstFrame).toHaveBeenCalledWith({
       turnId: "measured-turn",
-      mode: "templates",
+      mode: "cinematic",
       timeToFirstFrameMs: expect.any(Number),
     });
   });
@@ -323,9 +327,8 @@ describe("useVideoChat", () => {
       templates: kit,
       fetcher: videoChatFetcher(),
       voice,
-      mode: "full",
+      mode: "cinematic",
       orientation: "landscape",
-      brand: { colors: { primary: "#ff3366" } },
       style: { generatedLook: "paper collage" },
     }));
 
@@ -488,8 +491,8 @@ describe("useVideoChat", () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           const events = [
-            { protocolVersion: "0.5", type: "response.start", eventId: "partial:0", runId: "partial", sequence: 0, data: { requestId: "partial", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
-            { protocolVersion: "0.5", type: "scene.add", eventId: "partial:1", runId: "partial", sequence: 1, data: { scene: scene("partial", "Partial", "Abandoned"), position: 0 } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "partial:0", runId: "partial", sequence: 0, data: { requestId: "partial", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "scene.add", eventId: "partial:1", runId: "partial", sequence: 1, data: { scene: scene("partial", "Partial", "Abandoned"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
           init?.signal?.addEventListener("abort", () => controller.close(), { once: true });
@@ -497,7 +500,7 @@ describe("useVideoChat", () => {
       });
       return new Response(stream, { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let first!: Promise<Video | undefined>;
     act(() => { first = result.current.ask("Abandon this response"); });
@@ -527,11 +530,11 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(), mode: "full" }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(), mode: "cinematic" }));
 
     await act(async () => { await result.current.ask("Use generated video immediately"); });
-    expect(responseBody?.mode).toBe("full");
-    releaseCapabilities(Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: false, transcription: false, modes: ["templates", "full"] }));
+    expect(responseBody?.mode).toBe("cinematic");
+    releaseCapabilities(Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: false, transcription: false, modes: ["cinematic"] }));
   });
 
   it("keeps pause, voice, replay, and history selection synchronized with the player", async () => {
@@ -711,15 +714,15 @@ describe("useVideoChat", () => {
       return new Response(new ReadableStream<Uint8Array>({
         start(controller) {
           const events = [
-            { protocolVersion: "0.5", type: "response.start", eventId: "cancel:0", runId: "cancel", sequence: 0, data: { requestId: "cancel", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
-            { protocolVersion: "0.5", type: "scene.add", eventId: "cancel:1", runId: "cancel", sequence: 1, data: { scene: scene("cancelled", "Partial", "First line"), position: 0 } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "cancel:0", runId: "cancel", sequence: 0, data: { requestId: "cancel", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "scene.add", eventId: "cancel:1", runId: "cancel", sequence: 1, data: { scene: scene("cancelled", "Partial", "First line"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
           init?.signal?.addEventListener("abort", () => controller.close(), { once: true });
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Cancel after playback starts"); });
@@ -747,19 +750,19 @@ describe("useVideoChat", () => {
       return new Response(new ReadableStream<Uint8Array>({
         start(controller) {
           const first = [
-            { protocolVersion: "0.5", type: "response.start", eventId: "terminal:0", runId: "terminal", sequence: 0, data: { requestId: "terminal", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
-            { protocolVersion: "0.5", type: "scene.add", eventId: "terminal:1", runId: "terminal", sequence: 1, data: { scene: scene("terminal", "Partial", "First line"), position: 0 } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "terminal:0", runId: "terminal", sequence: 0, data: { requestId: "terminal", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "scene.add", eventId: "terminal:1", runId: "terminal", sequence: 1, data: { scene: scene("terminal", "Partial", "First line"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(first.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
           void failureReady.then(() => {
-            const event = { protocolVersion: "0.5", type: "response.error", eventId: "terminal:2", runId: "terminal", sequence: 2, data: { error: { code: "generation_failed", message: "Planning stopped", recoverable: false }, terminal: true } };
+            const event = { protocolVersion: "0.6", type: "response.error", eventId: "terminal:2", runId: "terminal", sequence: 2, data: { error: { code: "generation_failed", message: "Planning stopped", recoverable: false }, terminal: true } };
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\ndata: [DONE]\n\n`));
             controller.close();
           });
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Fail after playback starts"); });
@@ -782,7 +785,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=narration")
       ? Response.json({ line: "" }, { status }) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
     await act(async () => { await result.current.ask("Keep going"); });
     expect(result.current.currentTurn?.video?.scenes[0]?.narration).toBe("First");
     expect(result.current.warnings.length).toBeGreaterThan(0);
@@ -1150,4 +1153,63 @@ describe("createVideoChatVoice", () => {
     await expect(speaking).rejects.toMatchObject({ name: "AbortError" });
     expect(synthesisSpeak).not.toHaveBeenCalled();
   });
+});
+
+
+it.each([true, false])("publishes a group only with measured offset-capable audio (%s)", async (supported) => {
+  const { useVideoChat } = await import("../src/react");
+  const grouped = ["First thought.", "Second thought."].map((line, index) => ({ ...scene(String(index), "Quiet", line),
+    timing: { fixedDuration: 3 }, narrationGroup: { id: "group", text: "First thought. Second thought.", offsetSeconds: index * 3, durationSeconds: 3, totalSeconds: 6 },
+  }));
+  const base = videoChatFetcher();
+  const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+    ? Promise.resolve(responseStream("group", grouped, { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
+  const voice = { ...fakeVoice(), supportsOffsets: supported, prepare: vi.fn(async () => ({ seconds: 6, supportsOffsets: supported })) };
+  const { result, unmount } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  await act(async () => { await result.current.ask("A short paragraph"); });
+  if (supported) {
+    expect(result.current.currentTurn?.video?.scenes.map((entry) => entry.timing.fixedDuration)).toEqual([3, 3]);
+    expect(voice.prepare).toHaveBeenCalledWith("First thought. Second thought.", expect.anything());
+    voice.prepare.mockClear();
+    await act(async () => { result.current.replay(); await Promise.resolve(); });
+    await waitFor(() => expect(voice.prepare).toHaveBeenCalledWith("First thought. Second thought.", expect.anything()));
+  } else {
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.playerProps).toBeUndefined();
+  }
+  unmount();
+});
+
+it("forwards the prepared audio clock through the actual chat player props", async () => {
+  const { useVideoChat } = await import("../src/react");
+  const { usePlaybackClock } = await import("../src/player/use-playback-clock");
+  const { createVideoState } = await import("../src/protocol/state");
+  let audioTime: number | undefined;
+  let onset: (() => void) | undefined;
+  const voice = { ...fakeVoice(), getCurrentTime: () => audioTime, speak: vi.fn((_text: string, options: { onStart?: () => void }) => {
+    onset = options.onStart;
+    return new Promise<void>(() => undefined);
+  }) };
+  const base = videoChatFetcher();
+  const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+    ? Promise.resolve(responseStream("clock", [scene("ordinary", "First", "A short thought.")], { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
+  const chat = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  await act(async () => { await chat.result.current.ask("A thought"); });
+  const video = chat.result.current.currentTurn!.video!;
+  const timeRef = { current: 0 };
+  vi.useFakeTimers();
+  const clock = renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef, audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 }, callbacksRef: { current: chat.result.current.playerProps! }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() }));
+  try {
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(chat.result.current.playerProps!.narrationReady?.()).toBe(false);
+    audioTime = 0.05; act(() => onset?.());
+    await act(() => vi.advanceTimersByTimeAsync(1800));
+    expect(timeRef.current).toBe(0.05);
+    audioTime = 1.5;
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(timeRef.current).toBe(1.5);
+    expect(chat.result.current.playerProps!.narrationTime?.(video.scenes[0])).toBe(1.5);
+  } finally {
+    clock.unmount(); chat.unmount(); vi.useRealTimers();
+  }
 });

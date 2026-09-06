@@ -13,8 +13,8 @@ const scene = (id: string) => JSON.stringify({
   type: "scene.add",
   scene: {
     id,
-    templateId: "notification",
-    variables: { appName: "VanillaSky", message: id },
+    templateId: "mobileMessage",
+    variables: { app: "VanillaSky", message: id },
     timing: { fixedDuration: 4 },
   },
 });
@@ -441,7 +441,7 @@ describe("typed generation lifecycle", () => {
 describe("safe diagnostics", () => {
   it("rejects inconsistent warning code/category pairs and oversized diagnostics", () => {
     const base = {
-      protocolVersion: "0.5",
+      protocolVersion: "0.6",
       runId: "run",
       sequence: 0,
       eventId: "run:0",

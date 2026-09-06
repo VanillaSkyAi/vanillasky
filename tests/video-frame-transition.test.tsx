@@ -80,7 +80,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [media] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -162,7 +162,7 @@ describe("VideoFrame transition ownership", () => {
     }));
     const kit = createRenderTemplateRegistry({ templates: [media] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: TEST_VIDEO_STYLE,
       scenes: [{
@@ -324,7 +324,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [final] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: TEST_VIDEO_STYLE,
       scenes: [{
@@ -369,7 +369,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [opening, incoming] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -433,7 +433,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [opening, incoming] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -498,7 +498,7 @@ describe("VideoFrame transition ownership", () => {
     }));
     const kit = createRenderTemplateRegistry({ templates: [media] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -591,7 +591,7 @@ describe("VideoFrame transition ownership", () => {
     const second = scene("second-template");
     const kit = createRenderTemplateRegistry({ templates: [first, second] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -724,7 +724,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [rawVideo] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: TEST_VIDEO_STYLE,
       scenes: [
@@ -758,7 +758,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [selfTransitioning, media] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [
@@ -806,7 +806,7 @@ describe("VideoFrame transition ownership", () => {
     });
     const kit = createRenderTemplateRegistry({ templates: [opening, media] });
     const config: Video = {
-      schemaVersion: "0.1",
+      schemaVersion: "0.2",
       orientation: "portrait",
       style: { ...TEST_VIDEO_STYLE, defaultTransition: "crossfade" },
       scenes: [

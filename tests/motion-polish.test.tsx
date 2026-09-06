@@ -1,63 +1,5 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { StepsList } from "../src/visual-system/primitives/infographic/StepsList";
-import { BgEmojiTemplate } from "../src/visual-system/scene-templates/bg-emoji";
-import { ConfettiLayer } from "../src/visual-system/scene-templates/confetti-layer";
 import { renderArchetype, TEXT_ARCHETYPES } from "../src/visual-system/scene-templates/text-archetypes";
-import { TEST_VIDEO_STYLE as style } from "./semantic-brand-fixture";
-
-function renderEmoji(progress: number): string {
-  return renderToStaticMarkup(createElement(BgEmojiTemplate, {
-    variables: { texts: "Celebrate" },
-    style,
-    progress,
-    beatIntensity: 0,
-    width: 1080,
-    height: 1920,
-    safeZone: { top: 100, right: 60, bottom: 100, left: 60 },
-    sceneDuration: 4,
-    isPlaying: false,
-  }));
-}
-
-function count(markup: string, pattern: RegExp): number {
-  return markup.match(pattern)?.length ?? 0;
-}
-
-describe("canonical particle timing", () => {
-  it("keeps a restrained confetti wave visible through 65%", () => {
-    const markup = renderToStaticMarkup(createElement(ConfettiLayer, {
-      progress: 0.65,
-      width: 1080,
-      height: 1920,
-    }));
-    const particles = count(markup, /background-color:/g);
-
-    expect(particles).toBeGreaterThanOrEqual(45);
-    expect(particles).toBeLessThanOrEqual(100);
-  });
-
-  it("keeps a restrained emoji wave visible through 65%", () => {
-    const particles = count(renderEmoji(0.65), /role="img"/g);
-
-    expect(particles).toBeGreaterThanOrEqual(25);
-    expect(particles).toBeLessThanOrEqual(55);
-  });
-
-  it("removes every confetti and emoji particle by 85%", () => {
-    for (const progress of [0.85, 1]) {
-      const confetti = renderToStaticMarkup(createElement(ConfettiLayer, {
-        progress,
-        width: 1080,
-        height: 1920,
-      }));
-
-      expect(count(confetti, /background-color:/g)).toBe(0);
-      expect(count(renderEmoji(progress), /role="img"/g)).toBe(0);
-    }
-  });
-});
 
 describe("global transition hold contract", () => {
   it.each(TEXT_ARCHETYPES)("makes %s recognizable at an incoming transition boundary", (archetype) => {
@@ -105,23 +47,3 @@ describe("global transition hold contract", () => {
   });
 });
 
-describe("StepsList connector exits", () => {
-  it.each([
-    { width: 1080, height: 1920, gradient: "to bottom" },
-    { width: 1920, height: 1080, gradient: "to right" },
-  ])("fades and translates $gradient connectors with their items", ({ width, height, gradient }) => {
-    const markup = renderToStaticMarkup(createElement(StepsList, {
-      progress: 1,
-      width,
-      height,
-      steps: [{ title: "Connect" }, { title: "Generate" }, { title: "Share" }],
-    }));
-    const connectorStyles = [...markup.matchAll(/<div style="([^"]*background:linear-gradient[^"]*)"/g)]
-      .map((match) => match[1])
-      .filter((connectorStyle) => connectorStyle.includes(gradient));
-
-    expect(connectorStyles).toHaveLength(2);
-    expect(connectorStyles.every((connectorStyle) => connectorStyle.includes("opacity:0"))).toBe(true);
-    expect(connectorStyles.every((connectorStyle) => connectorStyle.includes("translateX(-90px)"))).toBe(true);
-  });
-});

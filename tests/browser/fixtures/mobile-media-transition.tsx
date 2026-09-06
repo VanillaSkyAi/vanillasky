@@ -4,6 +4,7 @@ import type { Video } from "../../../src/internal";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 import waterfallVideo from "./media-transition/waterfall.mp4?url";
+import waterfallHoldVideo from "./media-transition/waterfall-hold.webm?url";
 import tramVideo from "./media-transition/tram.mp4?url";
 import sunflowersVideo from "./media-transition/sunflowers.mp4?url";
 import waterfallPoster from "./media-transition/waterfall.jpg?url";
@@ -20,6 +21,11 @@ import sunflowersPoster from "./media-transition/sunflowers.jpg?url";
 // poster extracted from frame zero. New filenames also avoid an iPhone cache
 // hit from the first physical-device test set.
 
+// The long-hold probe uses a VP8 derivative of the same five-second waterfall.
+// Linux WebKit can stall native H264 decoding even in a bare video element;
+// all transition probes retain the original MP4 assets.
+const longHold = new URLSearchParams(location.search).has("longHold");
+
 type ProbeEntry = { at: number; kind: string; [key: string]: unknown };
 type ProbeInput = { kind: string; [key: string]: unknown };
 
@@ -30,7 +36,7 @@ declare global {
 }
 
 const probeVideo: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   style: {
     ...TEST_VIDEO_STYLE,
@@ -40,20 +46,18 @@ const probeVideo: Video = {
   scenes: [
     {
       id: "first-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 1 — FOREST WATERFALL|ONE VIDEO ELEMENT — FIRST SOURCE ACTIVE",
-        mediaUrl: waterfallVideo,
+        mediaUrl: longHold ? waterfallHoldVideo : waterfallVideo,
         mediaType: "video",
         mediaPoster: waterfallPoster,
       },
-      timing: { fixedDuration: 4 },
+      timing: { fixedDuration: longHold ? 9 : 4 },
     },
     {
       id: "second-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 2 — RAINY CITY TRAM|SAME ELEMENT — SOURCE CHANGE ONE",
         mediaUrl: tramVideo,
         mediaType: "video",
         mediaPoster: tramPoster,
@@ -62,9 +66,8 @@ const probeVideo: Video = {
     },
     {
       id: "third-video",
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: "ALT SCENE 3 — SUNFLOWERS|SAME ELEMENT — SOURCE CHANGE TWO",
         mediaUrl: sunflowersVideo,
         mediaType: "video",
         mediaPoster: sunflowersPoster,
@@ -73,6 +76,10 @@ const probeVideo: Video = {
     },
   ],
 };
+
+if (new URLSearchParams(window.location.search).has("noPoster")) {
+  for (const scene of probeVideo.scenes) delete scene.variables.mediaPoster;
+}
 
 const mediaEvents = [
   "loadstart", "loadedmetadata", "loadeddata", "canplay", "play", "playing",
@@ -201,7 +208,10 @@ function Probe() {
 
   return <main>
     <div data-probe-stage data-poster-background="none">
-      <VideoPlayer video={probeVideo} width={366} autoPlay startMuted loop ariaLabel="Mobile media transition probe" />
+      <VideoPlayer video={probeVideo} width={366} autoPlay startMuted loop onSceneChange={(scene) => {
+        const video = document.querySelector("video");
+        window.__mobileMediaTransitionProbe?.push({at: performance.now(), kind: "scene-narration-cue", sceneId: scene.id, readyState: video?.readyState, currentSrc: video?.currentSrc});
+      }} ariaLabel="Mobile media transition probe" />
     </div>
     {diagnosticsEnabled && <pre aria-label="Media transition event log" />}
   </main>;

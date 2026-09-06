@@ -3,11 +3,13 @@ import {
   GENERATED_BUILTIN_TEMPLATE_LOADERS,
   type BuiltinTemplateModule,
 } from "./builtin-loaders.generated.js";
-import { GENERATED_BUILTIN_PLAYER_TEMPLATES } from "./builtin-player.generated.js";
+import { GENERATED_BUILTIN_PLAYER_TEMPLATES, GENERATED_BUILTIN_VIDEO_BACKDROP_IDS } from "./builtin-player.generated.js";
 import {
   createPlayerTemplateRegistry,
   type PlayerTemplate,
 } from "./player-kit.js";
+
+import { markExternalVideoBackdropTemplate } from "./video-backdrop-capability.js";
 
 interface PreloadableBuiltinTemplate {
   component: PlayerTemplate["component"];
@@ -16,6 +18,7 @@ interface PreloadableBuiltinTemplate {
 
 function createPreloadableBuiltinTemplate(
   loader: () => Promise<BuiltinTemplateModule>,
+  mediaBackdrop: boolean,
 ): PreloadableBuiltinTemplate {
   let loaded: BuiltinTemplateModule | undefined;
   let failure: unknown;
@@ -42,7 +45,8 @@ function createPreloadableBuiltinTemplate(
     throw preload();
   };
 
-  return { component, preload };
+  const template = { component, preload };
+  return mediaBackdrop ? markExternalVideoBackdropTemplate(template) : template;
 }
 
 function freezeValue<T>(value: T): T {
@@ -56,7 +60,7 @@ function freezeValue<T>(value: T): T {
 const preloadableById = new Map(
   GENERATED_BUILTIN_PLAYER_TEMPLATES.map(({ id }) => [
     id,
-    createPreloadableBuiltinTemplate(GENERATED_BUILTIN_TEMPLATE_LOADERS[id]),
+    createPreloadableBuiltinTemplate(GENERATED_BUILTIN_TEMPLATE_LOADERS[id], GENERATED_BUILTIN_VIDEO_BACKDROP_IDS.includes(id)),
   ] as const),
 );
 

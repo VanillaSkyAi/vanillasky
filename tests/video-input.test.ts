@@ -3,49 +3,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import type {
-  VideoBackground,
-  VideoBrand,
-  VideoStyle,
-} from "../src/index";
+import type { VideoStyle } from "../src/index";
 import type { VideoAudio } from "../src/internal";
 
 const complete = async function* () {
   yield { type: "plan.complete" as const };
 };
 
-function relativeLuminance(color: string): number {
-  const channel = (offset: number) => {
-    const value = Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-}
-
-function contrastRatio(first: string, second: string): number {
-  const lighter = Math.max(relativeLuminance(first), relativeLuminance(second));
-  const darker = Math.min(relativeLuminance(first), relativeLuminance(second));
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-/** Independent render-space oracle: CSS gradients interpolate their sRGB channels. */
-function minimumRenderedContrast(background: VideoBackground, foreground: string): number {
-  if (background.type === "solid") return contrastRatio(background.color, foreground);
-  const endpoints = background.colors.map((color) => [1, 3, 5].map((offset) =>
-    Number.parseInt(color.slice(offset, offset + 2), 16))) as [[number, number, number], [number, number, number]];
-  let minimum = Number.POSITIVE_INFINITY;
-  for (let step = 0; step <= 4096; step += 1) {
-    const progress = step / 4096;
-    const color = `#${endpoints[0].map((channel, index) =>
-      Math.round(channel + (endpoints[1][index] - channel) * progress).toString(16).padStart(2, "0")
-    ).join("")}`;
-    minimum = Math.min(minimum, contrastRatio(color, foreground));
-  }
-  return minimum;
-}
-
 describe("VideoInput", () => {
-  it("uses a deterministic gradient media opening when opening is omitted", async () => {
+  it("uses a deterministic chapter opening when opening is omitted", async () => {
     const { buildVideoUserPrompt, createVideo } = await import("../src/internal");
     const response = createVideo({
       input: "Activation increased to 58%.",
@@ -58,8 +24,8 @@ describe("VideoInput", () => {
     expect(response.request.input.opening).toBe("Creating your video...");
     expect(response.initialConfig.scenes).toEqual([{
       id: "supplied-opening",
-      templateId: "media",
-      variables: { texts: "Creating your video...", mediaType: "gradient" },
+      templateId: "chapterTitle",
+      variables: { title: "Creating your video..." },
       timing: { fixedDuration: 3, startTime: 0, endTime: 3 },
     }]);
     expect(buildVideoUserPrompt(response.request.input)).toContain(
@@ -119,8 +85,8 @@ describe("VideoInput", () => {
 
     expect(response.initialConfig.scenes).toEqual([{
       id: "supplied-opening",
-      templateId: "media",
-      variables: { texts: "Your activation update is ready.", mediaType: "gradient" },
+      templateId: "chapterTitle",
+      variables: { title: "Your activation update is ready." },
       timing: { fixedDuration: 3, startTime: 0, endTime: 3 },
     }]);
     expect(response.request.input.opening).toBe("Your activation update is ready.");
@@ -204,273 +170,12 @@ describe("VideoInput", () => {
     });
   });
 
-  it("resolves one complete semantic brand when brand configuration is omitted", async () => {
-    const { createVideo } = await import("../src/internal");
-    const response = createVideo({ input: "Use the standard background." }, { generate: complete });
-
-    expect(response.initialConfig.style.brand).toEqual({
-      font: "Inter",
-      scriptFont: "Caveat",
-      background: { type: "gradient", colors: ["#8711C1", "#2167E3"] },
-      colors: {
-        primary: "#00E5A0",
-        secondary: "#006BE5",
-        foreground: "#FFFFFF",
-        surface: "#0A0A14",
-        surfaceElevated: "#14152A",
-        muted: "#A7A6B0",
-      },
-    });
-  });
-
-  it("returns independent resolved backgrounds so one consumer cannot poison later defaults", async () => {
-    const { createVideo } = await import("../src/internal");
-    const first = createVideo({ input: "First." }, { generate: complete });
-    const firstBackground = first.initialConfig.style.brand.background;
-    if (firstBackground.type === "gradient") firstBackground.colors[0] = "#000000";
-
-    const second = createVideo({ input: "Second." }, { generate: complete });
-    expect(second.initialConfig.style.brand.background).toEqual({
-      type: "gradient",
-      colors: ["#8711C1", "#2167E3"],
-    });
-  });
-
-  it("resolves identity, typography, and partial semantic colours without coupling them to the background", async () => {
-    const { createVideo } = await import("../src/internal");
-    const response = createVideo({
-      input: "Use the standard background with our logo.",
-      brand: {
-        name: "Acme",
-        logoUrl: "https://cdn.example.com/logo.svg",
-        font: "Geist",
-        scriptFont: "Permanent Marker",
-        colors: { foreground: "#FAFAFA", primary: "#FF3366" },
-      },
-    }, { generate: complete });
-
-    expect(response.initialConfig.style.brand).toEqual({
-      name: "Acme",
-      logoUrl: "https://cdn.example.com/logo.svg",
-      font: "Geist",
-      scriptFont: "Permanent Marker",
-      background: { type: "gradient", colors: ["#8711C1", "#2167E3"] },
-      colors: {
-        primary: "#FF3366",
-        secondary: "#006BE5",
-        foreground: "#FAFAFA",
-        surface: "#0A0A14",
-        surfaceElevated: "#14152A",
-        muted: "#A7A6B0",
-      },
-    });
-  });
-
-  it.each([
-    ["cosmic", "#8711C1", "#2167E3", "#FFFFFF"],
-    ["horizon", "#5967C4", "#133A94", "#FFFFFF"],
-    ["twilight", "#0C1740", "#3D1B66", "#FFFFFF"],
-    ["meadow", "#348756", "#54B6CA", "#000000"],
-    ["velvet", "#76030F", "#121B67", "#FFFFFF"],
-    ["flamingo", "#C72D50", "#3E3B92", "#FFFFFF"],
-    ["peach", "#B45A4A", "#AD336D", "#FFFFFF"],
-    ["saffron", "#F3696E", "#F8A902", "#000000"],
-  ] as const)("resolves the %s gradient background preset accessibly", async (background, first, second, foreground) => {
-    const { createVideo } = await import("../src/internal");
-    const response = createVideo({
-      input: "Use a curated background.",
-      brand: {
-        background,
-        colors: { primary: "#AA11CC", secondary: "#11CCAA" },
-      },
-    }, { generate: complete });
-
-    expect(response.initialConfig.style.brand.background).toEqual({
-      type: "gradient",
-      colors: [first, second],
-    });
-    expect(response.initialConfig.style.brand.colors.primary).toBe("#AA11CC");
-    expect(response.initialConfig.style.brand.colors.secondary).toBe("#11CCAA");
-    expect(response.initialConfig.style.brand.colors.foreground).toBe(foreground);
-    expect(minimumRenderedContrast(
-      response.initialConfig.style.brand.background,
-      response.initialConfig.style.brand.colors.foreground,
-    )).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it.each([
-    ["black", "#000000"],
-    ["midnight", "#070B20"],
-    ["aubergine", "#170A2E"],
-    ["coal", "#0A0A0A"],
-    ["navy", "#0A2240"],
-  ] as const)("resolves the %s solid background", async (background, color) => {
-    const { createVideo } = await import("../src/internal");
-    const response = createVideo({
-      input: "Use a solid background.",
-      brand: { background },
-    }, { generate: complete });
-
-    expect(response.initialConfig.style.brand.background).toEqual({ type: "solid", color });
-    expect(minimumRenderedContrast(
-      response.initialConfig.style.brand.background,
-      response.initialConfig.style.brand.colors.foreground,
-    )).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("accepts custom gradients and solids only when the preset choices do not fit", async () => {
-    const { createVideo } = await import("../src/internal");
-    const gradient = createVideo({
-      input: "Use exact campaign colors.",
-      brand: {
-        background: { colors: ["#112233", "#334455"] },
-        colors: { foreground: "#FAFAFA" },
-        logoUrl: "https://cdn.example.com/logo.svg",
-      },
-    }, { generate: complete });
-    const solid = createVideo({
-      input: "Use an exact solid color.",
-      brand: { background: { color: "#123456" } },
-    }, { generate: complete });
-
-    expect(gradient.initialConfig.style.brand.background).toEqual({
-      type: "gradient",
-      colors: ["#112233", "#334455"],
-    });
-    expect(gradient.initialConfig.style.brand.colors.foreground).toBe("#FAFAFA");
-    expect(gradient.initialConfig.style.brand.logoUrl).toBe("https://cdn.example.com/logo.svg");
-    expect(solid.initialConfig.style.brand.background).toEqual({ type: "solid", color: "#123456" });
-  });
-
-  it("selects a deterministic readable foreground when a custom background omits one", async () => {
-    const { createVideo } = await import("../src/internal");
-    const light = createVideo({
-      input: "Use a light campaign background.",
-      brand: {
-        background: { colors: ["#F8FAFC", "#E2E8F0"] },
-        colors: { primary: "#5B3FD6" },
-      },
-    }, { generate: complete });
-    const dark = createVideo({
-      input: "Use a dark campaign background.",
-      brand: { background: { color: "#111827" } },
-    }, { generate: complete });
-
-    expect(light.initialConfig.style.brand.colors.foreground).toBe("#000000");
-    expect(light.initialConfig.style.brand.colors.primary).toBe("#5B3FD6");
-    expect(dark.initialConfig.style.brand.colors.foreground).toBe("#FFFFFF");
-    expect(() => createVideo({
-      input: "Use an extreme split background.",
-      brand: { background: { colors: ["#000000", "#FFFFFF"] } },
-    }, { generate: complete })).toThrow(
-      "brand.colors.foreground is required because neither black nor white contrasts with the entire background",
-    );
-    expect(() => createVideo({
-      input: "Catch the dark interior, not just the safe endpoints.",
-      brand: { background: { colors: ["#FF0000", "#00FF00"] } },
-    }, { generate: complete })).toThrow(
-      "brand.colors.foreground is required because neither black nor white contrasts with the entire background",
-    );
-  });
-
-  it("rejects unknown or malformed background choices", async () => {
-    const { createVideo, createVideoRequest, parseVideoRequest } = await import("../src/internal");
-    expect(() => createVideo({
-      input: "Unknown preset.",
-      brand: { background: "neon" as never },
-    }, { generate: complete })).toThrow("background preset is unsupported");
-
-    const request = createVideoRequest({ input: "Malformed custom background." }, { requestId: "background-test" });
-    expect(() => parseVideoRequest({
-      ...request,
-      input: { input: "Malformed custom background.", brand: { background: { colors: ["#123456"] } } },
-    })).toThrow("request.input.brand.background.colors must contain two colors");
-  });
-
-  it("rejects malformed colours and low-contrast custom foreground/background combinations", async () => {
-    const { createVideo } = await import("../src/internal");
-
-    expect(() => createVideo({
-      input: "Malformed foreground.",
-      brand: { colors: { foreground: "white" } },
-    }, { generate: complete })).toThrow("brand.colors.foreground must be a hex color");
-    expect(() => createVideo({
-      input: "Unreadable light brand.",
-      brand: {
-        background: { color: "#FFFFFF" },
-        colors: { foreground: "#FAFAFA" },
-      },
-    }, { generate: complete })).toThrow(
-      "brand.colors.foreground must have at least 4.5:1 contrast across brand.background",
-    );
-    expect(() => createVideo({
-      input: "Do not silently replace an explicit semantic foreground.",
-      brand: {
-        background: "meadow",
-        colors: { foreground: "#FFFFFF" },
-      },
-    }, { generate: complete })).toThrow(
-      "brand.colors.foreground must have at least 4.5:1 contrast across brand.background",
-    );
-    expect(() => createVideo({
-      input: "Catch a low-contrast gradient interior.",
-      brand: {
-        background: { colors: ["#FF0000", "#00FF00"] },
-        colors: { foreground: "#000000" },
-      },
-    }, { generate: complete })).toThrow(
-      "brand.colors.foreground must have at least 4.5:1 contrast across brand.background",
-    );
-  });
-
-  it("applies the same contrast invariant to external or replayed resolved brands", async () => {
-    const { createVideo, parseVideoEvent, VIDEO_PROTOCOL_VERSION } = await import("../src/internal");
-    const response = createVideo({ input: "Create a valid resolved style." }, { generate: complete });
-    const brand = response.initialConfig.style.brand;
-    const event = {
-      protocolVersion: VIDEO_PROTOCOL_VERSION,
-      runId: "external-brand",
-      sequence: 0,
-      eventId: "external-brand:0",
-      type: "response.start",
-      data: {
-        requestId: "external-request",
-        format: { orientation: "portrait" },
-        style: {
-          ...response.initialConfig.style,
-          brand: {
-            ...brand,
-            background: { type: "gradient", colors: ["#FF0000", "#00FF00"] },
-            colors: { ...brand.colors, foreground: "#000000" },
-          },
-        },
-      },
-    };
-
-    expect(() => parseVideoEvent(event)).toThrow(
-      "event.data.style.brand.colors.foreground must have at least 4.5:1 contrast across event.data.style.brand.background",
-    );
-  });
-
-  it("sends only brand identity and logo presence to the planner", async () => {
-    const { buildVideoUserPrompt } = await import("../src/internal");
-    const prompt = buildVideoUserPrompt({
-      input: "A grounded update.",
-      brand: {
-        name: "Acme",
-        logoUrl: "https://private.example.com/brand.svg",
-        font: "Geist",
-        scriptFont: "Caveat",
-        background: { color: "#010203" },
-        colors: { primary: "#FF3366" },
-      },
-    });
-    const brandSection = prompt.split("\nBRAND\n")[1];
-
-    expect(JSON.parse(brandSection)).toEqual({ name: "Acme", hasLogo: true });
-    expect(brandSection).not.toContain("private.example.com");
-    expect(brandSection).not.toContain("#FF3366");
-    expect(brandSection).not.toContain("Geist");
+  it("does not expose or persist a configurable brand", async () => {
+    const {createVideo,createVideoRequest,parseVideoRequest}=await import("../src/internal");
+    const response=createVideo({input:"A grounded story."},{generate:complete});
+    expect(response.initialConfig.style).not.toHaveProperty("brand");
+    const request=createVideoRequest({input:"A grounded story."},{requestId:"brand-rejection"});
+    expect(()=>parseVideoRequest({...request,input:{...request.input,brand:{font:"Custom"}}})).toThrow(/unsupported field brand/);
   });
 
   it("validates only the simplified opening and audio request shapes", async () => {
@@ -596,21 +301,8 @@ describe("VideoInput", () => {
     expectTypeOf<VideoInput["knowledgeMode"]>().toEqualTypeOf<"input-only" | "general" | undefined>();
     expectTypeOf<VideoInput["opening"]>().toEqualTypeOf<string | false | undefined>();
     expectTypeOf<VideoInput["audio"]>().toEqualTypeOf<false | { src: string } | undefined>();
-    expectTypeOf<VideoBackground>().toEqualTypeOf<
-      | { type: "solid"; color: string }
-      | { type: "gradient"; colors: [string, string] }
-    >();
-    expectTypeOf<VideoBrand["font"]>().toEqualTypeOf<string>();
-    expectTypeOf<VideoBrand["scriptFont"]>().toEqualTypeOf<string>();
-    expectTypeOf<VideoBrand["colors"]>().toEqualTypeOf<{
-      primary: string;
-      secondary: string;
-      foreground: string;
-      surface: string;
-      surfaceElevated: string;
-      muted: string;
-    }>();
-    expectTypeOf<VideoStyle["brand"]>().toEqualTypeOf<VideoBrand>();
+    expectTypeOf<Extract<keyof VideoStyle,"brand">>().toEqualTypeOf<never>();
+    expectTypeOf<Extract<keyof VideoInput,"brand">>().toEqualTypeOf<never>();
   });
 });
 

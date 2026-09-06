@@ -1,10 +1,10 @@
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
-import type {
-  VideoBrandInput,
-  VideoOrientation,
-  VideoPlanPart,
-  VideoScene,
-  VideoStyleOptions,
+import {
+  VIDEO_PROTOCOL_VERSION,
+  type VideoOrientation,
+  type VideoPlanPart,
+  type VideoScene,
+  type VideoStyleOptions,
 } from "../protocol/types.js";
 import {
   createVideoHandler,
@@ -150,7 +150,6 @@ interface ParsedResponseRequest {
   mode: VideoChatMode;
   orientation: VideoOrientation;
   conversation: VideoChatConversationTurn[];
-  brand?: VideoBrandInput;
   style?: VideoStyleOptions;
 }
 
@@ -219,10 +218,10 @@ function boundedString(value: unknown, label: string, maximum = MAX_PROMPT_CHARA
 
 function parseResponseRequest(value: unknown): ParsedResponseRequest {
   const body = record(value, "request");
-  allowedKeys(body, ["prompt", "opening", "mode", "orientation", "conversation", "brand", "style"], "request");
-  const mode = body.mode ?? "templates";
-  if (mode !== "templates" && mode !== "full") {
-    throw new Error("request.mode must be templates or full");
+  allowedKeys(body, ["prompt", "opening", "mode", "orientation", "conversation", "style"], "request");
+  const mode = body.mode ?? "cinematic";
+  if (mode !== "cinematic") {
+    throw new Error("request.mode must be cinematic");
   }
   const orientation = body.orientation ?? "landscape";
   if (orientation !== "portrait" && orientation !== "landscape") {
@@ -247,7 +246,6 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
           : { response: boundedString(turn.response, `request.conversation[${index}].response`, MAX_CONVERSATION_RESPONSE_CHARACTERS) }),
       };
     }),
-    ...(body.brand == null ? {} : { brand: body.brand as VideoBrandInput }),
     ...(body.style == null ? {} : { style: body.style as VideoStyleOptions }),
   };
 }
@@ -303,10 +301,11 @@ function readGeneratedFirstShot(value: unknown): VideoChatFirstShot | undefined 
   const bounded = (field: unknown, maximum: number) => typeof field === "string"
     ? [...field.trim()].slice(0, maximum).join("").trim()
     : "";
-  const text = bounded(shot.text, 120);
+  const text = bounded(shot.text, 65);
   const narration = bounded(shot.narration, 300);
   const mediaKeyword = bounded(shot.mediaKeyword, 80).match(/\S+/gu)?.slice(0, 8).join(" ") ?? "";
-  return text && narration && mediaKeyword ? { text, narration, mediaKeyword } : undefined;
+  const shotDirection = bounded(shot.shotDirection, 220);
+  return text && narration && mediaKeyword ? { text, narration, mediaKeyword, ...(shotDirection ? {shotDirection} : {}) } : undefined;
 }
 
 function boundedWords(value: unknown, maximum: number, characters: number): string {
@@ -344,9 +343,11 @@ function reservedFirstScene(
     type: "scene.add",
     scene: {
       id: `${requestId}-first-shot`,
-      templateId: "media",
+      templateId: "cinemaMedia",
       variables: {
-        texts: firstShot.text,
+        fallbackText: firstShot.text,
+        mediaSource: "generate",
+        ...(firstShot.shotDirection ? {shotDirection: firstShot.shotDirection} : {}),
         mediaType: "video",
         mediaKeyword: firstShot.mediaKeyword,
       },
@@ -399,7 +400,7 @@ function interceptOpeningPlan(
     expectOpening: boolean;
     openingProvided: boolean;
     requestId: string;
-    fullAiVideo: boolean;
+    generatedVideoAvailable: boolean;
     publish: OpeningChannel["publish"];
   },
 ): ReturnType<VideoHandlerOptions["streamText"]> {
@@ -424,7 +425,7 @@ function interceptOpeningPlan(
             decided = true;
             if (opening) {
               if (!options.openingProvided) options.publish(opening.line ? opening : undefined);
-              if (options.fullAiVideo && opening.firstShot) {
+              if (options.generatedVideoAvailable && opening.firstShot) {
                 yield `${JSON.stringify(reservedFirstScene(options.requestId, opening.firstShot))}\n`;
               }
               newline = buffer.indexOf("\n");
@@ -443,7 +444,7 @@ function interceptOpeningPlan(
           decided = true;
           if (opening) {
             if (!options.openingProvided) options.publish(opening.line ? opening : undefined);
-            if (options.fullAiVideo && opening.firstShot) {
+            if (options.generatedVideoAvailable && opening.firstShot) {
               yield `${JSON.stringify(reservedFirstScene(options.requestId, opening.firstShot))}\n`;
             }
           } else {
@@ -646,7 +647,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     generatedVideo: generateVideo != null,
     stockMedia: searchMedia != null,
     transcription: transcribe != null,
-    modes: generateVideo ? ["templates", "full"] : ["templates"],
+    modes: ["cinematic"],
   };
   const welcomePrompts = (welcomeOptions?.prompts ?? DEFAULT_WELCOME_PROMPTS).slice(0, 4);
   const heroQuery = welcomeOptions?.heroQuery;
@@ -654,13 +655,11 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
   let requestSequence = 0;
 
   const responseHandler = (
-    requestedMode: VideoChatMode,
     requestId: string,
     openingProvided: boolean,
     openingChannel: OpeningChannel,
   ) => {
-    const mode = requestedMode !== "templates" && !generateVideo ? "templates" : requestedMode;
-    const fullAiVideo = mode === "full";
+    const generatedVideoAvailable = generateVideo != null && maxGeneratedVideos > 0;
     let lifecycle: VideoGenerationLifecycleSink | undefined;
     let generatedAttempts = 0;
     // Exact bounded query + visual look only: no inferred semantic matches and
@@ -669,7 +668,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     const reusedUrls = new Set<string>();
     const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
       ? async (query, context) => {
-          const reuseKey = JSON.stringify([query, context.generatedLook ?? ""]);
+          const reuseKey = JSON.stringify([query, context.generatedLook ?? "", context.scene.variables.shotDirection ?? "", context.input.orientation ?? "landscape"]);
           const remember = (media: ResolvedMedia | null) => {
             if (media?.type === "video") completedVideos.set(reuseKey, media);
             return media;
@@ -701,7 +700,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
               return null;
             }
           };
-          if (fullAiVideo) {
+          if (generatedVideoAvailable && context.scene.variables.mediaSource === "generate") {
             const generated = generatedAttempts < maxGeneratedVideos
               ? (generatedAttempts++, await attempt(generateVideo, generateVideoTimeoutMs))
               : null;
@@ -715,7 +714,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           }
           const stock = await attempt(searchMedia, 3_000);
           if (stock) return remember(stock);
-          if (fullAiVideo) {
+          if (generatedVideoAvailable) {
             const previous = completedVideos.get(reuseKey);
             if (previous && !reusedUrls.has(previous.url)) {
               reusedUrls.add(previous.url);
@@ -731,10 +730,10 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         lifecycle = getGenerationLifecycleSink(context);
         try {
           return interceptOpeningPlan(videoOptions.streamText(context), {
-            expectOpening: fullAiVideo || !openingProvided,
+            expectOpening: generatedVideoAvailable || !openingProvided,
             openingProvided,
             requestId,
-            fullAiVideo,
+            generatedVideoAvailable,
             publish: openingChannel.publish,
           });
         } catch (cause) {
@@ -747,7 +746,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       allowCredentials,
       maxBodyBytes,
       mediaConcurrency,
-      basePrompt: [createVideoChatResponseInstructions(fullAiVideo, openingProvided, maxGeneratedVideos), instructions?.trim()]
+      basePrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos), instructions?.trim()]
         .filter(Boolean)
         .join("\n\nAPPLICATION GUIDANCE\n"),
       narrate: true,
@@ -884,8 +883,6 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       try { input = parseResponseRequest(body); } catch (cause) {
         return jsonError(400, "invalid_request", cause instanceof Error ? cause.message : "Request is invalid", headers);
       }
-      const mode = input.mode !== "templates" && !generateVideo ? "templates" : input.mode;
-      const fullAiVideo = mode === "full";
       const requestId = `video-chat-${Date.now()}-${requestSequence += 1}`;
       const openingChannel = createOpeningChannel(input.opening
         ? { line: input.opening, keyword: "" }
@@ -897,16 +894,14 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         headers: forwardedHeaders,
         signal: request.signal,
         body: JSON.stringify({
-          protocolVersion: "0.5",
+          protocolVersion: VIDEO_PROTOCOL_VERSION,
           requestId,
-          ...(fullAiVideo ? { capabilities: { templates: ["media"] } } : {}),
           input: {
             input: conversationInput(input.prompt, input.conversation, input.opening),
             knowledgeMode: "general",
             opening: false,
             orientation: input.orientation,
             maxDurationSec: 40,
-            ...(input.brand ? { brand: input.brand } : {}),
             style: {
               density: "airy",
               motion: "calm",
@@ -917,7 +912,6 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         }),
       });
       const response = await responseHandler(
-        mode,
         requestId,
         input.opening != null,
         openingChannel,

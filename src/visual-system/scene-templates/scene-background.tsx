@@ -1,41 +1,12 @@
 /**
- * SceneBackground — shared backdrop component for any scene template that
- * wants to support both a brand-color gradient and stock media (Pexels
- * photo / video) as an alternate atmosphere.
- *
- * Usage:
- *   <SceneBackground
- *     style={style}
- *     progress={progress}
- *     sceneDuration={sceneDuration}
- *     width={width}
- *     height={height}
- *     mediaUrl={String(variables.mediaUrl || "")}
- *     mediaType={String(variables.mediaType || "auto")}
- *     seed={String(variables.texts || "")}
- *     isPlaying={isPlaying}
- *   />
- *   ... template's content layered on top
- *
- * Behavior:
- *   - Brand gradient is the always-on backdrop (uses BrandGradientOverlay).
- *   - When mediaUrl is set and mediaType isn't "gradient", the photo/video
- *     covers the gradient. Legibility is then split between two instruments:
- *     eased scrims shaped to where the template's copy sits (`textAnchor`),
- *     and a per-glyph halo on the type itself (MEDIA_TEXT_SHADOW). Neither
- *     alone can hold white type over a blown-out highlight without flattening
- *     the picture; together they do it at roughly half the darkening.
- *   - mediaType="gradient" deliberately ignores mediaUrl and renders only
- *     the brand gradient. First-class atmospheric mode.
- *   - When mediaUrl is empty, 404s, is blocked, or Pexels search returned
- *     nothing, the gradient shows through cleanly and no scrim is painted —
- *     a scrim over a bare gradient is just a muddy gradient. Enforced, not
- *     assumed: the media has to load before anything darkens for it.
- *
- * Extracted from bg-media.tsx so any template can compose it. bg-media
- * now uses this component too — its "media is the scene" identity comes
- * from how it positions the title (centered, full-frame), not from
- * duplicated render logic.
+ * Shared photo/video backdrop for built-in and customer-owned templates.
+ * Media is host-resolved; this component never searches or generates assets.
+ * The base is fixed black. Photos and videos cover it when available, and
+ * optional scrims appear only once the media can paint. The cinematic built-ins
+ * request no scrim; custom templates can choose a treatment and text anchor.
+ * The retained internal "gradient" media sentinel selects the black base and
+ * ignores mediaUrl. It is not a built-in authoring mode or brand-color control.
+ * Video playback can be owned by the player's persistent external backdrop.
  */
 
 import React, { useEffect, useState } from "react";
@@ -191,7 +162,7 @@ function initialMediaPaint(
   if (typeof Image === "undefined") return "ready";
   // Preloaded or browser-cached media decodes synchronously. Reporting it
   // ready on the first render keeps the common mid-playback case free of a
-  // gradient-then-photo flicker.
+  // black-then-photo flicker.
   const cached = new Image();
   cached.src = mediaUrl;
   return cached.complete && cached.naturalWidth > 0 ? "ready" : "pending";
@@ -217,7 +188,7 @@ export interface SceneBackgroundProps {
   mediaType?: string;
   /** Still image URL shown while the <video> backdrop decodes its first
    *  frame. Without it the element renders transparent during the
-   *  ~50–400ms decode window and the gradient flashes through. */
+   *  decode window and the black base shows through. */
   mediaPoster?: string;
   /** Cover-crop focal anchor. Keeps the important edge/subject visible. */
   mediaPosition?: string;
@@ -229,8 +200,7 @@ export interface SceneBackgroundProps {
   textAnchor?: MediaTextAnchor;
   /** Background motion effect (drift / pulse / Ken Burns). Applied to the photo/video. */
   backgroundEffect?: string;
-  /** Stable seed for the gradient breathing animation. Pass the scene's
-   *  text content (or any stable string) — it's hashed deterministically. */
+  /** Retained seed input for customer-owned backdrop compositions. */
   seed?: number | string;
   /** Pause video when preview is paused. Defaults to true (export path). */
   isPlaying?: boolean;
@@ -263,16 +233,8 @@ export const SceneBackground: React.FC<SceneBackgroundProps> = ({
   const externalVideoFailed = externalVideoBackdrop === "fallback" && resolved === "video";
   const externalVideoReady = externalVideoBackdrop === "ready" && resolved === "video";
 
-  // A scrim exists to hold type against footage. Until the footage is on
-  // screen there is nothing to hold it against, so the scrim would just be
-  // darkening the brand gradient it was never meant to touch — the scene
-  // reads as a muddy, vignetted version of the gradient scenes beside it.
-  // That window is not rare: it covers the whole load, and it never ends for
-  // a dead URL, a blocked host, or an empty stock search.
-  //
-  // So the media has to paint before anything darkens for it. Both edges of
-  // the swap land on the same commit — scrim and picture appear together,
-  // and the fallback is the clean gradient the docs always promised.
+  // Apply picture and scrim together. A loading or failed asset keeps the
+  // fixed black base instead of painting contrast treatment over empty media.
   const [mediaPaint, setMediaPaint] = useState<MediaPaintState>(() =>
     initialMediaPaint(wantsMedia, resolved, mediaUrl, mediaPoster),
   );

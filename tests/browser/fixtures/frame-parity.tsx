@@ -12,52 +12,23 @@ import secondVideo from "./media-transition/tram.mp4?url";
 
 const widths = [180, 380, 600, 960];
 const scenes = {
-  bigNumber: { texts: "Our biggest milestone yet.", value: 128, unit: "%", label: "Faster deployment cycles" },
-  steps: { texts: "How rollout works", steps: ["Connect", "Review", "Publish"], stepEmojis: ["🔌", "👀", "🚀"] },
-  cardList: { texts: "Everything your team needs", items: ["Instant updates", "Grounded messaging", "Ready-to-ship motion"], itemEmojis: ["⚡", "🎯", "🎬"] },
+  keyFigure: {value: "128%", label: "Faster deployment cycles"},
+  editorialTimeline: {events: [{label: "Connect"}, {label: "Review"}, {label: "Publish"}]},
+  focusCards: {items: ["Instant updates", "Grounded messaging", "Ready motion"]},
 } as const;
-
 const transitionScenes: Video["scenes"] = [
-  {
-    id: "opening",
-    templateId: "notification",
-    variables: { appName: "VanillaSky", message: "The opening remains readable.", mediaUrl: "opening.jpg" },
-    timing: { fixedDuration: 5 },
-  },
-  {
-    id: "proof",
-    templateId: "bigNumber",
-    variables: { texts: "The proof is ready.", value: 128, unit: "%", label: "Faster deployment cycles", mediaUrl: "proof.jpg" },
-    timing: { fixedDuration: 6 },
-  },
+ {id:"opening", templateId:"mobileMessage", variables:{app:"Messages",message:"The opening remains readable."},timing:{fixedDuration:5}},
+ {id:"proof",templateId:"keyFigure",variables:{value:"128%",label:"Faster deployment cycles"},timing:{fixedDuration:6}},
 ];
-
 const transientSemanticScenes = {
-  bigNumber: {
-    texts: "The proof is ready.",
-    value: 128,
-    unit: "%",
-    label: "Faster deployment cycles",
-  },
-  progressRing: {
-    texts: "Release readiness",
-    value: 75,
-    unit: "%",
-    label: "Checks passing",
-  },
-  tweet: {
-    authorName: "VanillaSky",
-    authorHandle: "@vanillaskyai",
-    authorVerified: true,
-    message: "The release is grounded.",
-    replies: 90,
-    likes: 100,
-  },
+ keyFigure: {value:"128%",label:"Faster deployment cycles"},
+ focusCards: {items:["Grounded explanation", "Source preserved"]},
+ editorialTimeline: {events:[{label:"First"},{label:"Second"},{label:"Final event"}]},
 } as const;
 
 function transitionConfig(orientation: Video["orientation"]): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation,
     style: { ...style, defaultTransition: "crossfade" },
     scenes: transitionScenes,
@@ -69,7 +40,7 @@ function transientSemanticConfig(
   templateId: keyof typeof transientSemanticScenes,
 ): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation,
     style: { ...style, defaultTransition: "crossfade" },
     scenes: [
@@ -95,7 +66,7 @@ const focusKit = createRenderTemplateRegistry({
 });
 
 const focusConfig: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   style: { ...style, defaultTransition: "crossfade" },
   scenes: [
@@ -132,7 +103,7 @@ const decoderKit = createRenderTemplateRegistry({
 });
 
 const decoderConfig: Video = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   style: { ...style, defaultTransition: "crossfade" },
   scenes: [
@@ -143,7 +114,7 @@ const decoderConfig: Video = {
 
 function configFor(templateId: keyof typeof scenes): Video {
   return {
-    schemaVersion: "0.1",
+    schemaVersion: "0.2",
     orientation: "portrait",
     style,
     scenes: [{ id: templateId, templateId, variables: scenes[templateId], timing: { fixedDuration: 4 } }],
@@ -154,12 +125,6 @@ function streamFor(templateId: keyof typeof scenes) {
   return createVideo({
     input: "Frame parity fixture",
     orientation: "portrait",
-    brand: {
-      font: style.brand.font,
-      scriptFont: style.brand.scriptFont,
-      background: { colors: style.brand.background.colors },
-      colors: style.brand.colors,
-    },
   }, {
     generate: async function* () {
       yield {
@@ -222,7 +187,7 @@ function Fixture() {
           <VideoFrame
             kit={BUILTIN_PLAYER_KIT}
             config={transientSemanticConfig(orientation, templateId)}
-            time={4.71}
+            time={5.25}
             width={dimensions.width}
             height={dimensions.height}
           />
@@ -232,7 +197,7 @@ function Fixture() {
     <section data-case="brand-baseline" style={{ width: 270, height: 480 }}>
       <VideoFrame
         kit={BUILTIN_PLAYER_KIT}
-        config={{ schemaVersion: "0.1", orientation: "portrait", style, scenes: [] }}
+        config={{ schemaVersion: "0.2", orientation: "portrait", style, scenes: [] }}
         time={0}
         width={270}
         height={480}

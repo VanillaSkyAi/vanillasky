@@ -14,7 +14,7 @@ beforeEach(() => {
   const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans." };
   session.current = {
     ask: vi.fn(async () => undefined), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), replay: vi.fn(), selectTurn: vi.fn(), reset: vi.fn(), setMuted: vi.fn(),
-    turns: [turn], currentTurn: turn, shownTurn: turn, availableModes: ["templates"], status: "playing", warnings: [], suggestions: [],
+    turns: [turn], currentTurn: turn, shownTurn: turn, availableModes: ["cinematic"], status: "playing", warnings: [], suggestions: [],
     caption: "The tide rises.", transcript: ["The Moon moves our oceans.", "The tide rises.", "Then the tide falls."], speaking: true, muted: false, playbackEnded: false, playerKey: 0,
   };
 });
@@ -158,4 +158,35 @@ it("does not let a final caption hide the input after playback has already ended
     cleanup();
     vi.useRealTimers();
   }
+});
+
+it("shows the spoken opening as a held chapter when opening media is absent", () => {
+  session.current = { ...session.current, caption: session.current.shownTurn!.opening };
+  const { container, rerender } = render(<VideoChat />);
+  const title = container.querySelector('[data-opening-chapter] [data-title-composition="centered"]');
+  expect(title?.textContent).toBe("The Moon moves our oceans.");
+  expect(container.querySelector('.line')?.textContent).toBe("");
+  expect(screen.getByRole("button", { name: "Expand subtitles" })).toBeTruthy();
+  session.current = { ...session.current, playerProps: { video: { schemaVersion: "0.2", scenes: [], style: {} } } };
+  rerender(<VideoChat />);
+  expect(container.querySelector('[data-opening-chapter]')).toBeNull();
+});
+
+it.each(["video", "image"] as const)("returns broken opening %s media to the exact chapter hook", (type) => {
+  const turn = { ...session.current.shownTurn!, openingMedia: {type, url:"https://media.example.test/broken"} };
+  session.current = { ...session.current, shownTurn:turn, currentTurn:turn, turns:[turn] };
+  const { container } = render(<VideoChat />);
+  fireEvent.error(container.querySelector(type === "video" ? '.stage > video' : '.stage > img')!);
+  expect(container.querySelector('[data-opening-chapter]')?.textContent).toBe(turn.opening);
+  expect(container.querySelector('.stage > .frame-media')).toBeNull();
+});
+
+it("holds the chapter until late relevant media can actually paint", () => {
+  const { container, rerender } = render(<VideoChat />);
+  const turn = { ...session.current.shownTurn!, openingMedia: {type:"video" as const, url:"https://media.example.test/ocean.mp4"} };
+  session.current = { ...session.current, shownTurn:turn, currentTurn:turn, turns:[turn] };
+  rerender(<VideoChat />);
+  expect(container.querySelector('[data-opening-chapter]')).not.toBeNull();
+  fireEvent.playing(container.querySelector('.stage > video')!);
+  expect(container.querySelector('[data-opening-chapter]')).toBeNull();
 });

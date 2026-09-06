@@ -1,3 +1,4 @@
+import { MountedSceneReadiness, PreparedSceneReadiness } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -51,6 +52,7 @@ function SafeScene({ scene, onFramePresented }: { scene: VideoScene; onFramePres
       font: "500 clamp(20px, 4vw, 64px)/1.3 system-ui", overflow: "hidden",
     }}
   >
+    <MountedSceneReadiness scene={scene} playing fallback />
     <PresentedScene notify={onFramePresented} />
     <p>{copy.slice(0, 600) || "Your response continues."}</p>
     <small style={{ fontSize: "0.3em" }} role="status">This scene uses a simpler layout.</small>
@@ -124,19 +126,7 @@ function rangesAreContiguous(left: VideoSceneRange, right: VideoSceneRange): boo
   return Math.abs(left.end - right.start) <= ulpTolerance;
 }
 
-function brandBackground(config: Video): string {
-  const background = config.style.brand.background;
-  return background.type === "solid"
-    ? background.color
-    : `linear-gradient(135deg, ${background.colors[0]}, ${background.colors[1]})`;
-}
-
-function brandBackgroundFallback(config: Video): string {
-  const background = config.style.brand.background;
-  return background.type === "solid" ? background.color : background.colors[0];
-}
-
-/** True when the scene paints a photo or video rather than the brand gradient. */
+/** True when the scene paints a photo or video rather than black. */
 function sceneHasBackdrop(range: VideoSceneRange): boolean {
   return String(range.scene.variables.mediaType || "auto") !== "gradient" &&
     String(range.scene.variables.mediaUrl || "").trim() !== "";
@@ -321,7 +311,7 @@ export function VideoFrame({
       <div
         data-video-frame={timeline.length === 0 ? "empty" : "gap"}
         className={className}
-        style={{ width, height, background: brandBackground(config), ...style }}
+        style={{ width, height, background: "#000", ...style }}
       />
     );
   }
@@ -424,6 +414,7 @@ export function VideoFrame({
         ? firstVideoRange
         : undefined
     : undefined;
+  const preparedReadinessRange = posterPreparationRange ?? (contiguousNext && sceneHasVideoBackdrop(contiguousNext) ? contiguousNext : undefined);
   const preparedPoster = posterPreparationRange && String(
     posterPreparationRange.scene.variables.mediaPoster || "",
   ) ? {
@@ -481,10 +472,12 @@ export function VideoFrame({
         height,
         position: "relative",
         overflow: "hidden",
-        background: brandBackground(config),
+        background: "#000",
         ...style,
       }}
     >
+      <MountedSceneReadiness scene={active.scene} playing={playing} />
+      {preparedReadinessRange && <PreparedSceneReadiness scene={preparedReadinessRange.scene} />}
       <div
         data-video-canvas="true"
         style={{
@@ -498,13 +491,13 @@ export function VideoFrame({
         }}
       >
         <div
-          data-player-background="brand"
+          data-player-background="black"
           aria-hidden="true"
           style={{
             position: "absolute",
             inset: 0,
-            background: brandBackground(config),
-            backgroundColor: brandBackgroundFallback(config),
+            background: "#000",
+            backgroundColor: "#000",
             pointerEvents: "none",
           }}
         />

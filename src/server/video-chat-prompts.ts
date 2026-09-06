@@ -1,49 +1,27 @@
 import type { VideoScene } from "../protocol/types.js";
 
-const RESPONSE_SCENES = 5;
-
+/** Small early shot plus an ordered, narrated hybrid plan. Providers remain host-owned. */
 export function createVideoChatResponseInstructions(
-  fullAiVideo: boolean,
+  generatedVideoAvailable: boolean,
   openingAlreadyProvided = false,
   maxGeneratedVideos = 5,
 ): string {
-  return [
-    "The input is a prompt from a user. Respond as a short, coherent video.",
-    "Honor the requested purpose and tone. A story should feel like a story, a recommendation should be useful, an explanation should be clear, and a creative request should not be turned into a lecture.",
-    fullAiVideo
-      ? 'Your first output line must be exactly one host-consumed JSON object: {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"2-4 concrete words","fallbackKeyword":"2-4 broader concrete words","firstShot":{"text":"2-7 words","narration":"10-16 spoken words","mediaKeyword":"2-8 concrete words"}}. This leading object is the one explicit exception to the standard plan-part list and is consumed before plan validation.'
-      : openingAlreadyProvided
-        ? "The host has already started the supplied OPENING ALREADY SPOKEN. Start directly with scene.add plan parts; do not emit a video-chat.opening object."
-        : 'Your first output line must be exactly one host-consumed JSON object: {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"2-4 concrete words","fallbackKeyword":"2-4 broader concrete words"}. This leading object is the one explicit exception to the standard plan-part list and is consumed before plan validation.',
-    "For the opening only, fallbackKeyword names a broader real-world subject that can provide atmosphere if the specific stock search misses. It must not pretend to demonstrate specialized instructions. For example, Minecraft castle can broaden to medieval castle for atmosphere. Do not broaden body-scene subjects into misleading demonstrations.",
-    fullAiVideo && openingAlreadyProvided
-      ? "Copy the supplied OPENING ALREADY SPOKEN exactly into spokenHook; do not replace or paraphrase it."
-      : undefined,
-    fullAiVideo
-      ? "The host inserts firstShot as the first body scene and begins generating it immediately. After the opening object, emit exactly four additional scenes that continue it. Never emit, repeat, paraphrase, or replace firstShot as a scene."
-      : `After the opening instruction above, use exactly ${RESPONSE_SCENES} scenes and build a progression that fits the request:`,
-    fullAiVideo
-      ? `The response has a budget of ${maxGeneratedVideos} generated-video attempts, including the host-inserted firstShot. The first ${maxGeneratedVideos} media requests may generate footage; all later requests use stock footage. Plan later subjects that stock footage can honestly illustrate. Keep five total scenes even when the budget is smaller; do not request extra generated scenes.`
-      : undefined,
-    fullAiVideo ? undefined : "1. Open directly on the strongest image, action, claim, or idea.",
-    "2. Develop it with new information or movement.",
-    "3. Deepen, complicate, or advance the response.",
-    "4. Deliver the turn, consequence, recommendation, or emotional peak.",
-    "5. Close on the payoff or the one thing worth carrying forward, never a recap.",
-    "No scene may repeat another scene's job. If a scene could be deleted without weakening the response, replace it.",
-    "The prompt is already on screen, so never spend the opening scene restating it.",
-    "If the input includes an OPENING ALREADY SPOKEN transcript, continue directly from that exact hook. Never repeat, paraphrase, contradict, or render it as the first scene's copy.",
-    "For factual requests, distinguish supplied facts from stable general knowledge and never invent statistics, quotations, sources, or personal experience.",
-    "For creative requests, create the requested material directly rather than explaining how one might create it.",
-    fullAiVideo
-      ? "Use the media template for every scene you emit. Every scene must set mediaType to video and carry a mediaKeyword: a concrete, filmable subject, a real object doing a real thing, never a diagram or an abstraction. Never use mediaType gradient and never omit mediaKeyword - a scene without one has nothing to film. If a beat seems too abstract to film, film the closest real thing that shows it."
-      : "Choose the template that fits each beat honestly - a figure belongs in a number scene, an ordered process in steps, a comparison in a chart - rather than repeating one shape. Give any scene that would be stronger over real footage a mediaKeyword: a concrete, filmable subject, a real object doing a real thing, never a diagram or an abstraction. Use the media template for the one or two beats most worth watching happen.",
-    fullAiVideo
-      ? 'Mark the final scene placement:"closer". Use the media template for it, as for every other beat.'
-      : 'Mark the final scene placement:"closer" and use either the milestone or the media template for it. Those are the only two here that may close, so the response must end on one.',
-    "Every scene must carry a timing object, even an empty one. A scene without it fails the whole response.",
-    "Never mention the video, the scenes, or yourself.",
-  ].filter((line): line is string => line != null).join("\n");
+ return [
+  "Respond as a coherent short film: establish, develop, then land a useful or emotional payoff. Match the user's requested form.",
+  generatedVideoAvailable
+   ? 'First emit one host-consumed opening JSON object: {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"literal subject","firstShot":{"text":"short grounded fallback","narration":"one natural spoken sentence","mediaKeyword":"2-8 concrete words","shotDirection":"optional framing and action"}}. Include firstShot only when a distinctive illustrative shot serves the story; omit it for an abstract explanation best opened with graphics. When present, the host inserts it once and begins generation immediately; do not emit it again.'
+   : openingAlreadyProvided ? "Start directly with scene.add; the opening has already been supplied."
+   : 'First emit {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"literal subject"}. This is host-consumed, not a scene.',
+  openingAlreadyProvided ? "Preserve the supplied opening exactly; continue it without repeating its words or claim." : undefined,
+  "Continue with only as many scenes as the story and duration need. Never pad to a fixed count. Every emitted scene carries narration beside variables and timing; no additional narration request should be needed.",
+  "For concrete topics, coherent footage carries the story and graphics clarify particular points. Maintain consistent setting, lighting and subject while varying shot scale. Avoid unrelated cinematic montages.",
+  "Use the installed catalog: parallel points, ordered events, comparison, exact quote, one key figure, chapter or a message only when its narrative job fits. Do not force every template into a video. Avoid repeating the same graphic or more than two consecutive graphic scenes unless necessary.",
+  `At most ${generatedVideoAvailable ? maxGeneratedVideos : 0} generated-video attempts are available. Media scenes choose mediaSource=generate for distinctive illustrative shots or mediaSource=stock for generic verified imagery. A stock miss is not permission to broaden essential details. Do not spend generation on every scene.`,
+  "Each mediaKeyword is a literal filmable subject/action, 2–8 words, maximum 80 characters. Use optional shotDirection for action, camera framing and continuity; it does not change the literal stock subject. Supply a short grounded fallbackText when the schema declares it. Do not put visible headline text over full-bleed footage.",
+  "No invented quotations, attribution, statistics, personal evidence or URLs. Creative stories may be invented when requested; do not present generated illustration as historical evidence.",
+  'Emit exactly one final placement:"closer" scene using a catalog template with a suitable payoff or ask job. It should land the meaning, not recap the whole answer.',
+  "Every scene needs timing, even an empty object. Narration forms one continuous spoken explanation, uses natural sentence lengths, and does not read every on-screen word back. Finish with plan.complete.",
+ ].filter((line): line is string=>line!=null).join("\n");
 }
 export const VIDEO_CHAT_NARRATION_PROMPT = [
   "You narrate a short video response, one scene at a time.",

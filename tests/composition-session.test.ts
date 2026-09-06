@@ -11,7 +11,7 @@ import {
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 const emptyVideo = (): Video => ({
-  schemaVersion: "0.1",
+  schemaVersion: "0.2",
   orientation: "portrait",
   scenes: [],
   style: TEST_VIDEO_STYLE,

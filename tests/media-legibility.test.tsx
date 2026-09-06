@@ -5,11 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   getMediaTreatmentLayers,
-  hasSceneMedia,
   SceneBackground,
 } from "../src/visual-system/scene-templates/scene-background";
-import { BgMediaTemplate } from "../src/visual-system/scene-templates/bg-media";
-import { MEDIA_TEXT_SHADOW } from "../src/visual-system/theme";
+import { MediaSceneTemplate } from "../src/visual-system/scene-templates/cinema-media";
 import { TEST_VIDEO_STYLE as style } from "./semantic-brand-fixture";
 
 const TREATMENTS = ["subtle", "cinematic", "text-safe"];
@@ -22,7 +20,7 @@ function alphaStops(background: string): number[] {
 
 function render(variables: Record<string, unknown>): string {
   return renderToStaticMarkup(
-    createElement(BgMediaTemplate, {
+    createElement(MediaSceneTemplate, {
       variables,
       style,
       progress: 0.5,
@@ -77,21 +75,10 @@ describe("media scrims", () => {
     }
   });
 
-  it("keeps the media halo on type over footage and off type over gradients", () => {
-    expect(hasSceneMedia({ mediaUrl: "https://cdn.test/a.jpg" })).toBe(true);
-    expect(
-      hasSceneMedia({ mediaUrl: "https://cdn.test/a.jpg", mediaType: "gradient" }),
-    ).toBe(false);
-
-    const overPhoto = render({
-      texts: "Legible",
-      mediaUrl: "https://cdn.test/a.jpg",
-    });
-    expect(overPhoto).toContain(MEDIA_TEXT_SHADOW);
-    expect(overPhoto).not.toContain('data-media-overlay="bottom-scrim"');
-
-    const overGradient = render({ texts: "Legible", mediaType: "gradient" });
-    expect(overGradient).not.toContain(MEDIA_TEXT_SHADOW);
+  it("keeps full-bleed free of headlines and arbitrary darkening", () => {
+    const markup = render({texts:"No headline",mediaUrl:"https://cdn.test/a.jpg",mediaType:"photo"});
+    expect(markup).not.toContain("No headline");
+    expect(markup).not.toContain('data-media-overlay=');
   });
 });
 
@@ -124,14 +111,13 @@ function mountBgMedia(
   variables: Record<string, unknown>,
 ): void {
   root.render(
-    createElement(BgMediaTemplate, {
-      variables,
+    createElement(SceneBackground, {
+      ...variables,
       style,
       progress: 0.5,
       beatIntensity: 0,
       width: 1080,
       height: 1920,
-      safeZone: { top: 100, right: 60, bottom: 100, left: 60 },
       sceneDuration: 4,
       isPlaying: false,
     }),
@@ -154,7 +140,7 @@ describe("media that never paints", () => {
     try {
       await act(async () => {
         root.render(
-          createElement(BgMediaTemplate, {
+          createElement(MediaSceneTemplate, {
             variables: { texts: "Autumn", mediaUrl: "https://cdn.test/missing.jpg" },
             style,
             progress: 0.5,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeVideoSse } from "../src/protocol/sse";
-import { clipText } from "../src/server/bound-variables";
+import { clipText, boundSceneVariables } from "../src/server/bound-variables";
 
 /**
  * A template's bounds are a layout contract, and a scene that breaks one used
@@ -21,8 +21,8 @@ async function plan(texts: string) {
         type: "scene.add",
         scene: {
           id: "one",
-          templateId: "cardList",
-          variables: { texts, items: ["a", "b", "c"] },
+          templateId: "chapterTitle",
+          variables: { title: texts },
           timing: { fixedDuration: 4 },
         },
       })}\n`;
@@ -32,10 +32,10 @@ async function plan(texts: string) {
   const response = await handler(new Request("https://app.example/api/video", {
     method: "POST",
     body: JSON.stringify({
-      protocolVersion: "0.5",
+      protocolVersion: "0.6",
       requestId: "request-bound-variables",
       input: { input: "A question worth several beats." },
-      capabilities: { templates: ["cardList"] },
+      capabilities: { templates: ["chapterTitle"] },
     }),
   }));
   const scenes = [];
@@ -50,14 +50,14 @@ describe("bounded planner variables", () => {
     const long = "This balance between attraction and quantum confinement is why atoms are stable";
     const { scenes, warnings } = await plan(long);
     expect(scenes).toHaveLength(1);
-    expect(String(scenes[0].variables.texts).length).toBeLessThanOrEqual(48);
+    expect(String(scenes[0].variables.title).length).toBeLessThanOrEqual(65);
     expect(warnings.some((warning) => warning.code === "scene_variable_clipped")).toBe(true);
   });
 
   it("leaves copy that already fits exactly as written", async () => {
     const short = "Two locked rhythms";
     const { scenes, warnings } = await plan(short);
-    expect(scenes[0].variables.texts).toBe(short);
+    expect(scenes[0].variables.title).toBe(short);
     expect(warnings.some((warning) => warning.code === "scene_variable_clipped")).toBe(false);
   });
 
@@ -67,4 +67,11 @@ describe("bounded planner variables", () => {
     expect(clipText("Shallow water trips the wave", 24).length).toBeLessThanOrEqual(24);
     expect(clipText("short", 24)).toBe("short");
   });
+});
+
+it("never truncates an exact quotation or numeric value to make it fit",()=>{
+ const kit={getTemplateMetadata:()=>({schema:{properties:{value:{type:'string',format:'grounded-stat',maxLength:3},quote:{type:'string',format:'grounded-quote',maxLength:5}}}})};
+ const variables={value:'123456',quote:'These exact quoted words must stay intact.'};
+ const result=boundSceneVariables(kit as never,'proof',variables);
+ expect(result.variables).toEqual(variables);expect(result.clipped).toEqual([]);
 });

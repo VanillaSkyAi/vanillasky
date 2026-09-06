@@ -7,13 +7,13 @@ describe("acceptance template catalog", () => {
     if (!api?.loadAcceptanceKit) return;
 
     const kit = api.loadAcceptanceKit();
-    expect(kit.templates).toHaveLength(28);
-    expect(kit.capabilities.templates).toContain("notification");
-    expect(kit.capabilities.templates).toContain("bigNumber");
-    expect(kit.capabilities.templates).toContain("ctaLogo");
+    expect(kit.templates).toHaveLength(8);
+    expect(kit.capabilities.templates).toContain("mobileMessage");
+    expect(kit.capabilities.templates).toContain("keyFigure");
+    expect(kit.capabilities.templates).toContain("chapterTitle");
 
-    const starter = api.loadAcceptanceKit(api.ACCEPTANCE_TEMPLATE_IDS);
-    expect(starter.templates).toHaveLength(10);
-    expect(starter.capabilities.templates).not.toContain("testimonial");
+    const starter = api.loadAcceptanceKit(["chapterTitle", "cinemaMedia"]);
+    expect(starter.templates).toHaveLength(2);
+    expect(starter.capabilities.templates).not.toContain("quote");
   });
 });
