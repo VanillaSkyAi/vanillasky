@@ -290,6 +290,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
             if (!video.isConnected || presentationRef.current.key !== videoPresentationKey
               || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return;
             presentedVideoUrl.current = mediaUrl;
+            video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
             onReady?.();
             if (!retainPoster) setDecodedVideoUrl(mediaUrl);
           };

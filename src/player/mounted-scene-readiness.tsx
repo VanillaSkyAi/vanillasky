@@ -17,11 +17,12 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
     let frame = 0;
     let callback: number | undefined;
     let observed: HTMLVideoElement | undefined;
+    let presented: HTMLVideoElement | undefined;
+    const root = marker.current?.closest('[data-video-frame]');
     const start = performance.now();
-    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (error && onFailureRef.current) onFailureRef.current(); else report(key, error, actualVideoFrame); } };
+    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback); if (error && onFailureRef.current) onFailureRef.current(); else report(key, error, actualVideoFrame); } };
     const check = () => {
       if (stopped) return;
-      const root = marker.current?.closest('[data-video-frame]');
       if (fallback && root?.querySelector("[data-scene-fallback]") && !root.querySelector("[data-template-loading]") && document.fonts?.status !== "loading") { finish(); return; }
       const layer = root?.querySelector('[data-scene-layer="active"]');
       const loading = layer?.querySelector('[data-template-loading]');
@@ -33,6 +34,7 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
           const persistent = root.querySelector('[data-persistent-video-scene-id]');
           const video = (persistent?.getAttribute('data-persistent-video-scene-id') === scene.id ? persistent : layer)?.querySelector('video');
           if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= 2) {
+            if (presented === video) { finish(undefined, true); return; }
             observed = video;
             if (video.requestVideoFrameCallback) {
               callback = video.requestVideoFrameCallback(() => finish(undefined, true));
@@ -48,9 +50,24 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
       if (performance.now() - start >= 8_000) { finish(new Error("Scene media did not become ready")); return; }
       frame = requestAnimationFrame(check);
     };
+    // Built-in backdrops already observe their first presented frame. Reuse
+    // that proof instead of asking the decoder for a second frame at a cut.
+    const onPresented = (event: Event) => {
+      const video = event.target;
+      if (!(video instanceof HTMLVideoElement) || stopped
+        || video.getAttribute("src") !== String(scene.variables.mediaUrl || "")
+        || video.currentSrc !== video.src) return;
+      presented = video;
+      cancelAnimationFrame(frame);
+      if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
+      callback = undefined;
+      check();
+    };
+    root?.addEventListener("vanillasky:video-frame-presented", onPresented);
     check();
     const timeout = setTimeout(() => finish(new Error("Scene media did not become ready")), 8_000);
     return () => {
+      root?.removeEventListener("vanillasky:video-frame-presented", onPresented);
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
       if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
     };

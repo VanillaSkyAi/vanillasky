@@ -341,6 +341,8 @@ describe("VideoFrame transition ownership", () => {
       expect(posterAfterCut?.getAttribute("src")).toBe("second.jpg");
       expect(posterAfterCut?.style.opacity).toBe("1");
 
+      const presented = vi.fn();
+      videoAfterCut?.addEventListener("vanillasky:video-frame-presented", presented);
       let presentFrame: (() => void) | undefined;
       if (videoAfterCut) {
         // loadeddata/frame callbacks accompany an actually selected source;
@@ -356,6 +358,7 @@ describe("VideoFrame transition ownership", () => {
       }
       act(() => videoAfterCut?.dispatchEvent(new Event("loadeddata", { bubbles: true })));
       expect(onReady).not.toHaveBeenCalled();
+      expect(presented).not.toHaveBeenCalled();
       expect(posterAfterCut?.style.opacity).toBe("1");
 
       // A late frame from the outgoing resource must not authorize the new
@@ -365,11 +368,13 @@ describe("VideoFrame transition ownership", () => {
       });
       act(() => presentFrame?.());
       expect(onReady).not.toHaveBeenCalled();
+      expect(presented).not.toHaveBeenCalled();
       Object.defineProperty(videoAfterCut, "currentSrc", {
         configurable: true, value: videoAfterCut?.src,
       });
       act(() => presentFrame?.());
       expect(onReady).toHaveBeenCalledOnce();
+      expect(presented).toHaveBeenCalledOnce();
       // Mobile Safari can drop the composited video plane even while the
       // element remains connected and ready. The poster therefore stays
       // painted underneath the video instead of disappearing after the first

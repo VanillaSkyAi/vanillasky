@@ -26,6 +26,44 @@ describe("actual mounted media readiness", () => {
     expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
     expect(view.container.querySelectorAll("video")).toHaveLength(1);
   });
+  it("consumes the backdrop's first frame without waiting for a second callback", async () => {
+    vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
+    const video = view.container.querySelector("video")!;
+    Object.defineProperties(video, {
+      currentSrc: { value: video.src, configurable: true },
+      readyState: { value: 2, configurable: true },
+    });
+    video.requestVideoFrameCallback = vi.fn(() => 1);
+    video.cancelVideoFrameCallback = vi.fn();
+    await act(() => vi.advanceTimersByTimeAsync(32));
+    expect(report).not.toHaveBeenCalled();
+    act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+    await act(() => vi.advanceTimersByTimeAsync(8000));
+    expect(report).toHaveBeenCalledOnce();
+  });
+  it("retains first-frame proof while waiting for the active template, and rejects stale sources", async () => {
+    vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
+    const video = view.container.querySelector("video")!;
+    Object.defineProperties(video, {
+      currentSrc: { value: "https://example.com/old.mp4", configurable: true },
+      readyState: { value: 2, configurable: true },
+    });
+    video.requestVideoFrameCallback = vi.fn(() => 1);
+    const loading = document.createElement("div"); loading.setAttribute("data-template-loading", "");
+    view.container.querySelector('[data-scene-layer="active"]')!.append(loading);
+    act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
+    Object.defineProperty(video, "currentSrc", { value: video.src, configurable: true });
+    loading.remove();
+    await act(() => vi.advanceTimersByTimeAsync(32));
+    expect(report).not.toHaveBeenCalled();
+    view.container.querySelector('[data-scene-layer="active"]')!.append(loading);
+    act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
+    expect(report).not.toHaveBeenCalled();
+    loading.remove();
+    await act(() => vi.advanceTimersByTimeAsync(32));
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+  });
   it("a next-scene source handoff does not inherit readiness or allocate another decoder", async () => {
     vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
     const video = view.container.querySelector("video")!;
