@@ -51,6 +51,16 @@ describe("VideoChat", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([undefined, "Playful clay animation in an imaginary world."])("preserves optional visual direction without imposing a documentary style (%s)", async (generatedLook) => {
+    const { VideoChat } = await import("../src/react");
+    const requests: Array<{ action: string | null; body?: unknown }> = [];
+    render(<VideoChat options={{ fetcher: chatFetcher(requests), ...(generatedLook ? { style: { generatedLook } } : {}) }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
+    await waitFor(() => expect(requests.some(({ action }) => action === "response")).toBe(true));
+    const body = requests.find(({ action }) => action === "response")?.body as { style?: { generatedLook?: string } };
+    expect(body.style?.generatedLook).toBe(generatedLook);
+  });
+
   it("renders the complete general-purpose experience from the React entry", async () => {
     const { VideoChat } = await import("../src/react");
     const options: UseVideoChatOptions = { fetcher: chatFetcher() };

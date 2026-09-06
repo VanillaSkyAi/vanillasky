@@ -87,7 +87,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const { chat, restoreSession } = useVideoChatSession({
     ...options,
     orientation: sessionOrientation,
-    style: { generatedLook: "Natural light, restrained camera movement, documentary realism, consistent natural color. No embedded text.", ...options.style },
   });
 
   const instanceId = useId();
