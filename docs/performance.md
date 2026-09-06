@@ -20,6 +20,13 @@ The SDK sends nothing to a telemetry service. Events contain only an opaque
 turn ID, mode, relative timing, and fixed event categories. Keep custom turn IDs
 opaque; do not put prompts or customer information into them.
 
+The handler's optional `onDiagnostic(event)` observes accepted requests,
+authored openings and shots, and media start/end/skip timings on the host.
+Fixed reasons distinguish allowance, deadline, timeout, provider error, empty
+results, cancellation and absent configuration. These records contain no
+prompt, narration, query, media URL or provider response. They are never sent
+to the browser automatically, and callback failures cannot stop an answer.
+
 ## What the measurements mean
 
 `first-frame` is the first committed active scene reaching an animation-frame
@@ -55,15 +62,19 @@ these against an explicitly authorized, bounded live run before treating them
 as tuned provider budgets. Compare first-frame/speech times, stalled duration,
 and visual/voice quality together; faster fallback alone does not prove quality.
 
-## Opening stock footage
+## Opening and media preparation
 
-The opening's stock lookup runs alongside narration and body generation. Ready
-footage stays behind the hook until the body starts; late results are ignored.
-Playback never waits solely for intro footage.
+The submitted prompt immediately appears in the chapter template; the streamed
+opening replaces that topic with an authored spoken beat. The default UI makes
+no opening stock request. Each body beat starts speech preparation while its
+selected footage source prepares. At most two speech preparations run together.
 
-The packaged stock adapter tries the specific and optional broader video query
-before photo recovery, within one three-second budget. The planner supplies the
-broader query only for opening atmosphere; body demonstrations retain their
-specific subject. Pexels resource-page slugs and photo descriptions can screen
-obvious mismatches, but missing metadata remains unknown and is accepted. This
-is not visual relevance verification. See the [Pexels API contract](https://www.pexels.com/api/documentation/).
+`first-media-frame` reports the first decoded footage frame presented by the
+mounted media surface. It is separate from `first-frame`, which also includes
+chapter scenes. Neither callback measures the immediate opening template;
+measure that surface separately when checking submit-to-template latency.
+
+AI and Pexels modes remain separate. Missing, late, or unplayable footage uses
+the authored chapter and complete narration. Silent clips loop for the finite
+narrated scene. See [the local chat harness](development.md) for fixture timing
+and explicit live-provider checks.

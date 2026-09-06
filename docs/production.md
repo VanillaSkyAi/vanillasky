@@ -22,13 +22,11 @@ player. Read the [security guide](security.md) for the complete controls.
 
 ## Cinematic direction and providers
 
-Default chat uses a template introduction during preparation, then generated
-footage with narration and subtitles. Add `generateVideo` for these shots and
-`searchMedia` for relevant stock fallback. The runtime selects media within the
-host generation budget; the model supplies narration and visible actions.
-If both sources miss, valid narration remains available with an explicit visual
-unavailability state. Explicit custom template registries keep their existing
-composition and fallback contracts.
+Default chat shows an immediate chapter while speech and selected footage prepare.
+Configure `generateVideo` for AI mode and `searchMedia` for Pexels mode. Neither
+mode calls the other footage source. Missing or late footage uses the authored
+chapter with complete narration. Explicit custom template registries keep their
+existing composition and fallback contracts.
 A stock candidate must match the subject, action and permitted crop. Return
 `null` for uncertainty rather than broadening an essential detail.
 
@@ -39,11 +37,11 @@ licensing before use.
 
 ## Fast first response
 
-The planner's first streamed object supplies the spoken hook and media keyword.
-Start speech immediately, resolve stock in parallel, and keep the opening
-playing until the contiguous preparation cushion and first frame are ready. Welcome cards
-should carry a prepared hook and preloaded footage so they can start without a
-model round trip.
+The prompt appears immediately in the chapter template. The planner's first
+streamed object supplies an authored spoken opening and reserves the ending.
+Prepare each shot's speech alongside its footage, and keep the opening readable
+until its narration and the contiguous preparation cushion are ready. Welcome
+cards may carry a prepared opening so its speech starts without a model round trip.
 
 Do not wait for the complete plan before showing the first validated scene.
 Preload upcoming assets and keep the current visual if the next one is late.
@@ -106,7 +104,7 @@ npm test
 - [ ] Keys exist only in the server secret store.
 - [ ] Authentication, tenant policy, rate limits, and origin allowlist are live.
 - [ ] Cancellation, timeouts, fallbacks, and safe errors are tested.
-- [ ] Grounded graphic recovery works when every optional provider is unavailable.
+- [ ] Authored chapter recovery works when every optional provider is unavailable.
 - [ ] Per-scene media choices obey provider availability and spending limits.
 - [ ] Both orientations render and narration stays synchronized.
 - [ ] A packed-artifact consumer and deterministic browser chat pass.

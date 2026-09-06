@@ -23,7 +23,7 @@ trusted templates. It begins before the full plan is available and ends as an
 editable deterministic configuration.
 
 It is not an encoded video stream. The browser renders normal React components
-from validated scene instructions. The 0.1 SDK does not include MP4 or WebM
+from validated scene instructions. The SDK does not include MP4 or WebM
 encoding; pass the completed deterministic JSON to an application-owned render
 or export pipeline when an encoded file is required.
 
@@ -31,7 +31,7 @@ or export pipeline when an encoded file is required.
 
 The viewer sends a prompt with bounded completed conversation turns. The server
 adds trusted application `instructions`, template capabilities, and the selected
-cinematic mode. `VideoChat` options control style, orientation, and custom
+AI video or Pexels mode. `VideoChat` options control style, orientation, and custom
 templates. Exact facts belong in the authorized prompt or conversation; secrets
 and provider configuration stay on the server.
 

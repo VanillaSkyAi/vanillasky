@@ -137,33 +137,28 @@ application-configured visual-mode attempt limits, capability fallbacks, and aux
 shapes. The application supplies provider-neutral `streamText`, `generateText`,
 `generateSpeech`, `transcribe`, `searchMedia`, and `generateVideo` callbacks.
 Only the two text callbacks are required. Missing optional callbacks remove
-their capability; templates and browser speech remain available. During response
-creation, failed generated footage falls back to stock when available, then to
-matching completed footage and finally a safe template. The default handler skips invalid planner parts and preserves
-playable scenes on an interrupted plan, emitting non-fatal warnings. Explicit
-`invalidPartBehavior: "fail"` retains strict generation semantics.
+their capability; templates and browser speech remain available. Failed or late
+footage becomes an authored chapter with complete narration. The default handler
+skips invalid planner parts and preserves playable scenes on an interrupted plan,
+emitting non-fatal warnings. Explicit `invalidPartBehavior: "fail"` retains strict
+generation semantics.
 
 - A response accepts `prompt`, `mode`, `orientation`, optional bounded
   `conversation`, `opening`, and `style`. `opening` is an optional
   prewritten hook from a selected suggestion. The response returns protocol
-  `0.6` SSE and negotiates `data.video-chat-opening`, which carries the bounded
-  6-9 word hook and optional stock-search `keyword` and `fallbackKeyword` before the first scene.
-- The planner produces that opening as the first line of the same model stream
-  that produces the scenes. The separate opening-media action resolves its
-  keyword through the application-owned `searchMedia` callback, with an optional
-  bounded `fallbackQuery` for broader opening atmosphere. Stock lookup
-  never delays speech or planning. In `full` mode the first line also directs
-  the exact first generated scene; the handler consumes that private direction
-  and starts the clip while the model continues with scenes two through five.
-- `templates` never generates video. `full` uses an application-owned
-  `maxGeneratedVideos` limit (default five, nonnegative safe integer). The limit
-  counts attempts including failed attempts and the reserved first shot; it is
-  neither a currency nor duration cap. Stock lookup remains available after
-  the limit. With zero, full mode uses stock only. The planner receives this
-  budget, and the server enforces it independently. If providers fail, an
-  already completed video with the identical search query and visual look may
-  be reused once in the same response before a readable template fallback. Without `generateVideo`, only `templates` is exposed
-  and forged generated-mode requests degrade to it.
+  `0.6` SSE and negotiates `data.video-chat-opening` and
+  `data.video-chat-preparation` before the associated scene is ready.
+- The planner produces the opening and shots in one model stream, reserving the
+  intended ending. Each shot supplies an authored recovery title, complete
+  narration and visual direction. The default UI uses a chapter opening; the
+  separate opening-media action remains available to custom consumers.
+- `cinematic` uses the application-owned `maxGeneratedVideos` limit (default
+  five, nonnegative safe integer). It counts generation attempts, including
+  failures. Zero skips generation and keeps authored chapters. Expired scene
+  deadlines also skip generation without consuming an attempt. This limit is
+  neither a currency nor duration cap. Pexels mode uses only `searchMedia` and
+  never consumes this allowance. Capabilities expose Pexels when stock search
+  is configured; AI mode remains usable with chapter recovery without video.
 - The response planner writes narration on each scene. The narration action is
   retained as a compatibility fallback for missing lines, not used in the
   normal path.
@@ -264,9 +259,9 @@ playable output; an error is shown only when no playable response remains.
 `ask(prompt, { opening, openingMedia })` lets a custom interface start a
 prewritten suggestion hook immediately and reuse its image or video without
 another model or media lookup. The hook otherwise reads the opening from the
-response stream, resolves its media keyword, holds that media while it is
-spoken, and starts the planned timeline only when both speech and the first
-scene are ready. `UseVideoChatOptions.onFirstFrame` receives a
+response stream and starts the planned timeline only when opening speech and
+the contiguous prepared scenes are ready. It no longer requests opening stock
+automatically. `UseVideoChatOptions.onFirstFrame` receives a
 `VideoChatFirstFrameMetric` once after its first active scene commits and reaches
 an animation-frame opportunity. This measures presentation readiness, not physical
 screen paint or media decoding. Each `VideoChatTurn` exposes `openingMedia` and `completed`, so
@@ -441,6 +436,7 @@ from `/server` without crossing a React type boundary.
 and nonnegative `elapsedMs` since the prompt was submitted:
 
 - `first-frame`: first committed active scene at an animation-frame opportunity;
+- `first-media-frame`: first decoded frame reported by the mounted footage surface;
 - `first-speech`: actual speech playback onset, with `source` equal to `browser`,
   `generated`, or `custom`;
 - `stall`: a finished wait for the next prepared scene, with `durationMs` and
@@ -468,8 +464,11 @@ resolver deadline (integer 1–120000 milliseconds, default 15000). The host sti
 provider cancellation, authorization and spend limits; a timeout does not prove the
 provider avoided a charge. `maxGeneratedVideos` continues to count attempted clips.
 
-`VideoChatProps.generatedVideoLabel` and `generatedVideoDescription` customize the
-existing generated-video Settings choice without changing server capabilities.
-`showRecoveryNotice` opts into a dismissible, fixed SDK media-fallback notice. It
-never displays arbitrary provider messages. All three default to existing behavior.
-These are additive members; no new entry points or exports are introduced.
+`VideoChatProps.showRecoveryNotice` opts into a dismissible, fixed SDK
+media-recovery notice; it never displays arbitrary provider messages.
+
+`VideoChatHandlerOptions.onDiagnostic` is an optional host-only observer for
+request, authoring and media phase timings with fixed recovery reason codes.
+It does not retain prompt, narration, query, asset URL or provider error text,
+and cannot affect response delivery. No new entry points or named exports are
+introduced; its additive signature is checked in the packed consumer contract.

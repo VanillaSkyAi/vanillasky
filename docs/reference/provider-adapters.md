@@ -96,8 +96,9 @@ stream-reconnect contract.
 
 Set `maxGeneratedVideos` on `createVideoChatHandler` to a nonnegative safe integer
 (default `5`). This is a per-response generation attempt limit, including
-failures. Default chat attempts generated footage before relevant stock. Use `0` to keep the configured full mode on
-stock footage. Stock lookup is independent of this limit. Retries inside your
+failures. AI mode uses authored chapter recovery after the allowance is reached;
+`0` skips all generated footage. Pexels mode searches stock independently and
+never consumes the generated-video allowance. Retries inside your
 provider callback can incur additional charges; bound those separately. Never
 copy an untrusted request value into this application-owned option.
 
