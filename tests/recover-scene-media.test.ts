@@ -18,7 +18,9 @@ describe("unusable photo recovery", () => {
     expect(recoverSceneMedia(graphic)).toEqual({ ...graphic, variables: { value: "2", label: "Completed steps" } });
   });
   it("does not invent fallback copy or change unknown customer templates", () => {
-    expect(recoverSceneMedia({ ...scene, variables: { mediaUrl: "broken.jpg" } })).toBeUndefined();
+    expect(recoverSceneMedia({ ...scene, variables: { mediaUrl: "broken.jpg" } })).toEqual({
+      ...scene, variables: { mediaType: "video", mediaUrl: "" },
+    });
     expect(recoverSceneMedia({ ...scene, templateId: "customerDiagram" })).toBeUndefined();
   });
 });
