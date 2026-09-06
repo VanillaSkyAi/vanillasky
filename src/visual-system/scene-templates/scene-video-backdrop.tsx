@@ -9,6 +9,8 @@ export interface SceneVideoBackdropProps {
   mediaPosition?: string;
   backgroundEffect?: string;
   progress: number;
+  /** Narration-led visible duration; muted or pitch-preserving footage may be gently retimed. */
+  sceneDuration?: number;
   beatIntensity?: number;
   isPlaying: boolean;
   muted?: boolean;
@@ -36,6 +38,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   mediaPosition = "center",
   backgroundEffect,
   progress,
+  sceneDuration,
   beatIntensity = 0,
   isPlaying,
   muted,
@@ -53,10 +56,31 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const resolvedPosition = resolveMediaPosition(mediaPosition);
   const bgTransform = getBackgroundTransform(backgroundEffect, progress, beatIntensity);
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>();
+  const [waitingKey, setWaitingKey] = useState<string>();
+  const [exhaustedKey, setExhaustedKey] = useState<string>();
+  const continuityReplay = useRef<string | undefined>(undefined);
   const videoRef = useRef<HTMLVideoElement>(null);
   const startedVideoUrl = useRef<string | undefined>(undefined);
   const startedPlaybackId = useRef<string | undefined>(undefined);
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
+
+  const fitDuration = (video: HTMLVideoElement) => {
+    // Allow a small decode-to-speech onset margin without changing narration.
+    video.playbackRate = (resolvedMuted || video.preservesPitch === true) && sceneDuration && Number.isFinite(video.duration) && video.duration > 0
+      ? Math.max(.75, Math.min(1, video.duration / (sceneDuration + .2))) : 1;
+  };
+  const continueMotion = (video: HTMLVideoElement) => {
+    if (!isPlaying) return;
+    // The planner supplies short shots as the normal coverage. A single replay
+    // bridges exceptional speech overrun/late delivery; never loop indefinitely.
+    if (continuityReplay.current === videoPresentationKey) {
+      setExhaustedKey(videoPresentationKey);
+      return;
+    }
+    continuityReplay.current = videoPresentationKey;
+    video.currentTime = 0;
+    void video.play().catch(() => setExhaustedKey(videoPresentationKey));
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -90,11 +114,12 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       return;
     }
     if (startedPlaybackId.current === playbackId) {
-      if (!video.ended) void video.play().catch(() => {});
+      if (video.ended) continueMotion(video);
+      else void video.play().catch(() => {});
       return;
     }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
-    video.playbackRate = 1;
+    fitDuration(video);
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
     video.play().catch(() => {});
     startedVideoUrl.current = mediaUrl;
@@ -165,6 +190,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
           }}
         />
       ))}
+      {(exhaustedKey === videoPresentationKey || waitingKey === videoPresentationKey) && <div
+        role="status" data-media-continuity={exhaustedKey === videoPresentationKey ? "exhausted" : "waiting"}
+        style={{ position: "absolute", inset: 0, zIndex: 3, background: "#000", color: "#bbb", display: "grid", placeContent: "center", font: "14px system-ui" }}
+      >{exhaustedKey === videoPresentationKey ? "Visual unavailable" : "Loading visual"}</div>}
       <video
         ref={videoRef}
         src={mediaUrl}
@@ -173,6 +202,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         loop={false}
         playsInline
         preload="auto"
+        onLoadedMetadata={event => fitDuration(event.currentTarget)}
+        onEnded={event => continueMotion(event.currentTarget)}
+        onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
+        onPlaying={() => setWaitingKey(undefined)}
         onLoadedData={(event) => {
           const video = event.currentTarget;
           const markPresented = () => {
@@ -189,7 +222,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onError={onError}
         data-media-position={mediaPosition}
         data-video-backdrop={persistent ? "persistent" : "scene"}
-        style={mediaStyle}
+        style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey || waitingKey === videoPresentationKey ? "hidden" : undefined }}
       />
     </>
   );

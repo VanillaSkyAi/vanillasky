@@ -301,3 +301,16 @@ it("accepts advancing muted audio as ready without reporting audible speech onse
   expect(onSpeechStart).not.toHaveBeenCalled();
   hook.unmount();
 });
+
+it("does not signal the scene boundary before the active narration actually ends", async () => {
+  const { useNarration } = await import("../src/player/use-narration");
+  let finish!: () => void;
+  const voice = { getCurrentTime: () => 4, speak: (_text: string, options: { onStart?: () => void }) => { options.onStart?.(); return new Promise<void>(resolve => { finish = resolve; }); } };
+  const { result, unmount } = renderHook(() => useNarration({ voice }));
+  const shot = scene("end", "Complete this sentence.");
+  act(() => result.current.onSceneChange(shot, 0));
+  expect(result.current.getTime(shot)).toBeLessThan(4);
+  await act(async () => { finish(); });
+  expect(result.current.speaking).toBe(false);
+  unmount();
+});

@@ -249,6 +249,10 @@ function SceneLayer({
           "--vanillasky-template-surface": externalVideoBackdrop !== false ? "transparent" : undefined,
         } as CSSProperties}
       >
+        {range.scene.templateId === "cinemaMedia" && !recoveryTitle && (mediaFailed || !String(range.scene.variables.mediaUrl || "").trim()) && <div
+          role="status" data-media-unavailable="true"
+          style={{ position: "absolute", inset: 0, zIndex: 2, display: "grid", placeContent: "center", color: "#bbb", font: "14px system-ui", background: "#000" }}
+        >Visual unavailable</div>}
         {template ? (
           <SceneBoundary key={range.scene.id} scene={range.scene} onFramePresented={onFramePresented}>
             <Suspense fallback={
@@ -560,6 +564,7 @@ export function VideoFrame({
                 mediaPosition={String(persistentVideoRange.scene.variables.mediaPosition || "center")}
                 backgroundEffect={persistentVideoRange.scene.backgroundEffect ?? config.style.defaultBackgroundEffect}
                 progress={persistentVideoRange.scene.id === active.scene.id ? rawProgress : 0}
+                sceneDuration={persistentVideoRange.end - persistentVideoRange.start}
                 isPlaying={persistentVideoRange.scene.id === active.scene.id && playing}
                 muted={mediaAudioMuted || persistentVideoRange.scene.id !== active.scene.id || !playing}
                 volume={mediaAudioVolume}

@@ -73,7 +73,14 @@ export function useNarration(options: NarrationOptions): Narration {
     if (!optionsRef.current.voice.getCurrentTime) return undefined;
     const time = currentRef.current ? optionsRef.current.voice.getCurrentTime() : undefined;
     if (currentRef.current && readyRef.current && time === undefined) return undefined;
-    if (time !== undefined && Number.isFinite(time)) clockRef.current = Math.min(group?.totalSeconds ?? Infinity, Math.max(group?.offsetSeconds ?? 0, time));
+    if (time !== undefined && Number.isFinite(time)) {
+      // Browsers may expose duration before dispatching ended. Keep the final
+      // audio frame inside its scene until speak resolves, so a cut cannot
+      // abort the still-active utterance at that boundary.
+      const end = group?.totalSeconds ?? scene.timing.fixedDuration ?? Infinity;
+      const limit = currentRef.current ? Math.max(0, end - .01) : end;
+      clockRef.current = Math.min(limit, Math.max(group?.offsetSeconds ?? 0, time));
+    }
     return clockRef.current;
   }, []);
   const isReady = useCallback(() => optionsRef.current.enabled === false || readyRef.current
