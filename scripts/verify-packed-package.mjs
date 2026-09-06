@@ -1073,32 +1073,50 @@ createRoot(document.getElementById("root")).render(mediaProbe
       userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
     });
     await iphonePage.addInitScript(() => {
-      globalThis.__packedMaxVideoCount = 0;
+      globalThis.__packedMediaProof = { maxCount: 0, duplicateScene: false, frames: [] };
+      let nextId = 0;
+      const observed = new WeakSet();
       const sample = () => {
-        globalThis.__packedMaxVideoCount = Math.max(
-          globalThis.__packedMaxVideoCount,
-          globalThis.document.querySelectorAll("video").length,
-        );
+        const videos = [...document.querySelectorAll("video")];
+        const proof = globalThis.__packedMediaProof;
+        proof.maxCount = Math.max(proof.maxCount, videos.length);
+        const scenes = videos.map(video => video.closest('[data-layer-scene-id]')?.getAttribute('data-layer-scene-id'));
+        if (scenes.filter(Boolean).length !== new Set(scenes.filter(Boolean)).size) proof.duplicateScene = true;
+        for (const video of videos) {
+          if (observed.has(video)) continue;
+          observed.add(video);
+          video.dataset.packedVideoId = String(++nextId);
+          const frame = (_now, metadata) => {
+            const layer = video.closest('[data-scene-layer]');
+            proof.frames.push({ id: video.dataset.packedVideoId, scene: layer?.getAttribute('data-layer-scene-id'),
+              layer: layer?.getAttribute('data-scene-layer'), time: metadata.mediaTime });
+            if (video.isConnected) video.requestVideoFrameCallback(frame);
+          };
+          video.requestVideoFrameCallback(frame);
+        }
       };
-      new globalThis.MutationObserver(sample).observe(globalThis.document, { childList: true, subtree: true });
+      new MutationObserver(sample).observe(document, { childList: true, subtree: true });
       sample();
     });
     await iphonePage.goto("http://127.0.0.1:4387/?media-probe=1");
     await iphonePage.locator('[data-scene-id="packed-media-one"]').waitFor({ timeout: 4_000 });
-    await iphonePage.waitForFunction(() => globalThis.document.querySelectorAll("video").length === 1);
-    const sourceVideo = iphonePage.locator("video");
-    await sourceVideo.evaluate((element) => { element.dataset.packedPersistentVideo = "true"; });
-    const activeSurface = iphonePage.locator('[data-scene-layer="active"] > div').first();
-    if (await activeSurface.evaluate((element) =>
-      element.ownerDocument.defaultView?.getComputedStyle(element).backgroundColor,
-    ) !== "rgba(0, 0, 0, 0)") {
-      throw new Error("Source-owned template occluded the player video plane");
-    }
-    await iphonePage.locator('[data-scene-id="packed-media-two"]').waitFor({ timeout: 4_000 });
-    if (await iphonePage.locator("video").count() !== 1
-      || await iphonePage.locator("video").getAttribute("data-packed-persistent-video") !== "true"
-      || await iphonePage.evaluate(() => globalThis.__packedMaxVideoCount) > 1) {
-      throw new Error("Source-owned template replaced or duplicated the player video plane");
+    const prepared = iphonePage.locator('[data-scene-layer="incoming"][data-layer-scene-id="packed-media-two"] video');
+    await prepared.waitFor({ state: "attached", timeout: 4_000 });
+    const preparedId = await prepared.getAttribute('data-packed-video-id');
+    if (!preparedId) throw new Error("Source-owned next video was not prepared before the cut");
+    await iphonePage.waitForFunction(() => {
+      const frames = globalThis.__packedMediaProof.frames;
+      return ['packed-media-one', 'packed-media-two'].every(scene => {
+        const active = frames.filter(frame => frame.scene === scene && frame.layer === 'active');
+        return active.length >= 2 && active.at(-1).time > active[0].time;
+      });
+    }, undefined, { timeout: 4_000 });
+    const proof = await iphonePage.evaluate(() => globalThis.__packedMediaProof);
+    const incomingFrames = proof.frames.filter(frame => frame.id === preparedId && frame.scene === 'packed-media-two' && frame.layer === 'incoming');
+    const activeFrames = proof.frames.filter(frame => frame.scene === 'packed-media-two' && frame.layer === 'active');
+    if (proof.maxCount > 2 || proof.duplicateScene || incomingFrames.length === 0
+      || activeFrames.some(frame => frame.id !== preparedId)) {
+      throw new Error("Source-owned media lost prepared identity, decoded frames, or active-plus-next bounds: " + JSON.stringify(proof));
     }
     await iphonePage.close();
   } finally {
