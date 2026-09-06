@@ -6,6 +6,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## 0.10.7
 
+- Keep an already-speaking paragraph uninterrupted across brief visual handoffs, while genuinely late footage still pauses narration until it can play.
+
 - Keep the final chapter visible through answer completion, including recovery from failed footage.
 - Derive recovery titles from authored titles or subject excerpts instead of a generic placeholder.
 
