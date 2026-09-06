@@ -130,6 +130,15 @@ export function VideoPlayerRuntime({
     }
   }, []);
   const playbackEndedRef = useRef(false);
+  let mediaPlaying = isPlaying;
+  // Decode the first frame before cueing narration. Once cued, do not spend
+  // the shot while the audio output is still waiting to start. The clock
+  // advances (and renders again) when the real narration onset arrives.
+  if (sceneIndexRef.current >= 0) {
+    try { mediaPlaying = isPlaying && narrationReady?.() !== false; }
+    catch { mediaPlaying = false; /* The clock reports callback failures. */ }
+  }
+
 
   stateRef.current = state;
   timeRef.current = currentTime;
@@ -563,7 +572,7 @@ export function VideoPlayerRuntime({
           time={showStartPoster ? posterTime : currentTime}
           width={dimensions.width}
           height={dimensions.height}
-          playing={isPlaying}
+          playing={mediaPlaying}
           mediaAudioMuted={!nativeMediaAudio || isMuted}
           mediaAudioVolume={nativeMediaVolume}
           style={{
