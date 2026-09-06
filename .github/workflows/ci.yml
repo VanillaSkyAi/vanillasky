@@ -250,9 +250,9 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2 --workers=1
+            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2 --workers=1 --fail-on-flaky-tests
             if [[ "${{ matrix.browser }}" == "chromium" && "${{ matrix.shard }}" == "1" ]]; then
-              npx playwright test --config dev/chat/playwright.config.ts
+              npx playwright test --config dev/chat/playwright.config.ts --fail-on-flaky-tests
             fi
           '
       - name: Preserve browser playback evidence

@@ -318,6 +318,7 @@ describe("release workflow", () => {
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
     expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(2);
+    expect(browserJob.match(/--fail-on-flaky-tests/g)).toHaveLength(2);
     expect(browserJob).toContain("browser: [chromium, firefox, webkit]");
     expect(browserJob).toContain("fail-fast: false");
     expect(browserJob).toContain("shard: [1, 2]");
