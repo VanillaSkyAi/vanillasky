@@ -56,8 +56,8 @@ async function differingPixelRatio(
 test("keeps frame and player templates on the same canonical canvas at thumbnail widths", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Focused pixel-geometry parity runs once in Chromium.");
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-  await expect(page.locator('[data-surface="player"] [data-status="complete"]')).toHaveCount(12);
-  await expect(page.locator('[data-surface="saved"] [data-status="complete"]')).toHaveCount(12);
+  await expect(page.locator('[data-surface="player"] [data-status="complete"]')).toHaveCount(8);
+  await expect(page.locator('[data-surface="saved"] [data-status="complete"]')).toHaveCount(8);
 
   for (const templateId of ["keyFigure", "editorialTimeline"]) {
     for (const width of [180, 380, 600, 960]) {
