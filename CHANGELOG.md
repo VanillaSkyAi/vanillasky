@@ -4,9 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
-- Reuse the first presented video frame at scene handoffs so a second readiness observation cannot briefly interrupt continuous narration.
-
 ## 0.10.7
+
+- Reuse the first presented video frame at scene handoffs so a second readiness observation cannot briefly interrupt continuous narration.
 
 - Keep an already-speaking paragraph uninterrupted across brief visual handoffs, while genuinely late footage still pauses narration until it can play.
 

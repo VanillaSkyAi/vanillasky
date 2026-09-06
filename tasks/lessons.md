@@ -14,3 +14,7 @@
   `tests/fixtures/nextjs-provider-app/package.json`. Run the unit release checks
   after the bump before starting the full consumer/browser CI matrix; focused
   playback tests do not check these version contracts.
+
+- Finish registry/catalog synchronization before browser verification starts.
+  Watched source changes trigger Vite HMR and invalidate an ongoing playback
+  trace; keep the candidate unchanged until the browser run finishes.
