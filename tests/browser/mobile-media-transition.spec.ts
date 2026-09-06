@@ -132,7 +132,7 @@ test("waits for real first and boundary frames without posters or a second iPhon
 
 test("holds the last actual clip frame while a longer scene continues", async ({ page }) => {
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html?longHold&diagnostics=off");
-  const heldClip = page.locator('video[src*="waterfall.mp4"]');
+  const heldClip = page.locator('video[src*="waterfall-hold.webm"]');
   // Start the clip-duration deadline after actual playback starts; browser startup
   // under parallel CI load is not part of the five-second asset duration.
   await expect.poll(() => heldClip.evaluate((video: HTMLVideoElement) => video.currentTime), { timeout: 8000 }).toBeGreaterThan(0);

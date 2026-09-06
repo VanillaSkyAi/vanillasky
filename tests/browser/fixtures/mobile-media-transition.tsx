@@ -4,6 +4,7 @@ import type { Video } from "../../../src/internal";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 import waterfallVideo from "./media-transition/waterfall.mp4?url";
+import waterfallHoldVideo from "./media-transition/waterfall-hold.webm?url";
 import tramVideo from "./media-transition/tram.mp4?url";
 import sunflowersVideo from "./media-transition/sunflowers.mp4?url";
 import waterfallPoster from "./media-transition/waterfall.jpg?url";
@@ -20,6 +21,9 @@ import sunflowersPoster from "./media-transition/sunflowers.jpg?url";
 // poster extracted from frame zero. New filenames also avoid an iPhone cache
 // hit from the first physical-device test set.
 
+// The long-hold probe uses a VP8 derivative of the same five-second waterfall.
+// Linux WebKit can stall native H264 decoding even in a bare video element;
+// all transition probes retain the original MP4 assets.
 const longHold = new URLSearchParams(location.search).has("longHold");
 
 type ProbeEntry = { at: number; kind: string; [key: string]: unknown };
@@ -44,7 +48,7 @@ const probeVideo: Video = {
       id: "first-video",
       templateId: "cinemaMedia",
       variables: {
-        mediaUrl: waterfallVideo,
+        mediaUrl: longHold ? waterfallHoldVideo : waterfallVideo,
         mediaType: "video",
         mediaPoster: waterfallPoster,
       },
