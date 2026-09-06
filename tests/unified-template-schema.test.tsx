@@ -38,7 +38,7 @@ describe("unified template JSON Schema contract", () => {
 
   it("migrates every built-in to that same schema-only metadata shape", () => {
     const catalog = listBuiltinTemplateMetadata();
-    expect(catalog).toHaveLength(8);
+    expect(catalog).toHaveLength(7);
     for (const template of catalog) {
       expect(template.schema, template.id).toMatchObject({
         type: "object",

@@ -22,17 +22,6 @@ export const GENERATED_BUILTIN_PLAYER_TEMPLATES = [
     "usesGlobalTransition": false
   },
   {
-    "id": "focusCards",
-    "defaults": {
-      "items": [
-        "Listen closely",
-        "Notice the pattern",
-        "Make room for change"
-      ]
-    },
-    "usesGlobalTransition": false
-  },
-  {
     "id": "editorialTimeline",
     "defaults": {
       "events": [
@@ -45,7 +34,10 @@ export const GENERATED_BUILTIN_PLAYER_TEMPLATES = [
         {
           "label": "Act"
         }
-      ]
+      ],
+      "mediaUrl": "",
+      "mediaType": "video",
+      "mediaPoster": ""
     },
     "usesGlobalTransition": false
   },
@@ -64,20 +56,31 @@ export const GENERATED_BUILTIN_PLAYER_TEMPLATES = [
     "id": "comparison",
     "defaults": {
       "leftText": "More distractions",
-      "rightText": "More room to think"
+      "rightText": "More room to think",
+      "mediaUrl": "",
+      "mediaType": "video",
+      "mediaPoster": ""
     },
     "usesGlobalTransition": false
   },
   {
     "id": "quote",
-    "defaults": {},
+    "defaults": {
+      "mediaUrl": "",
+      "mediaType": "video",
+      "mediaPoster": ""
+    },
     "usesGlobalTransition": false
   },
   {
     "id": "keyFigure",
-    "defaults": {},
+    "defaults": {
+      "mediaUrl": "",
+      "mediaType": "video",
+      "mediaPoster": ""
+    },
     "usesGlobalTransition": false
   }
 ] as const satisfies readonly PlayerTemplateData[];
 
-export const GENERATED_BUILTIN_VIDEO_BACKDROP_IDS: readonly string[] = ["cinemaMedia","mobileMessage"];
+export const GENERATED_BUILTIN_VIDEO_BACKDROP_IDS: readonly string[] = ["cinemaMedia","editorialTimeline","mobileMessage","comparison","quote","keyFigure"];

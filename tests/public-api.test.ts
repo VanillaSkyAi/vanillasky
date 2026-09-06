@@ -49,7 +49,7 @@ describe("public API", () => {
   it("exposes the serializable built-in catalog separately from authoring", async () => {
     const api = await import("../src/template-catalog");
     expect(Object.keys(api)).toEqual(["builtinTemplates"]);
-    expect(api.builtinTemplates).toHaveLength(8);
+    expect(api.builtinTemplates).toHaveLength(7);
   });
 
   it("exposes only the deterministic public test kit", async () => {

@@ -10,7 +10,7 @@ function markup(id: string, variables: Record<string, unknown>, progress: number
 }
 describe("cinematic semantic progress", () => {
   it("keeps authored motion independent of global fades", () => {
-    expect(BUILTIN_TEMPLATE_MANIFEST).toHaveLength(8);
+    expect(BUILTIN_TEMPLATE_MANIFEST).toHaveLength(7);
     for (const template of BUILTIN_TEMPLATE_MANIFEST) expect(template.usesGlobalTransition).toBe(false);
   });
   it.each([0, 0.2, 0.7, 1])("never invents an intermediate key figure at progress %s", progress => {
@@ -20,8 +20,7 @@ describe("cinematic semantic progress", () => {
   it.each([0, 0.2, 0.7, 1])("preserves a supplied zero at progress %s", progress => {
     expect(markup("keyFigure", {value: "0", label: "incidents"}, progress)).toContain(">0<");
   });
-  it("keeps the final focus point and timeline event through the exit", () => {
-    expect(markup("focusCards", {items: ["Listen", "Explore", "FINAL POINT"]}, 0.99)).toContain("FINAL POINT");
+  it("keeps the final timeline event through the exit", () => {
     expect(markup("editorialTimeline", {events: [{label: "Listen"}, {label: "Explore"}, {label: "FINAL EVENT"}]}, 0.99)).toContain("FINAL EVENT");
   });
   it("reveals a complete message without fabricated sender or timestamp", () => {

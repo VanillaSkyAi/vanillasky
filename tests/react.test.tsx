@@ -10,7 +10,7 @@ describe("React renderer", () => {
     const { createRenderTemplateRegistry } = await import("../src/visual-system/catalog/internal");
     const { getTemplate } = await import("../src/visual-system/scene-templates/registry");
     const opening = getTemplate("mobileMessage");
-    const cardList = getTemplate("focusCards");
+    const cardList = getTemplate("editorialTimeline");
     expect(opening).toBeDefined();
     expect(cardList).toBeDefined();
     if (!opening || !cardList) return;
@@ -28,15 +28,9 @@ describe("React renderer", () => {
         },
         {
           id: "cards",
-          templateId: "focusCards",
+          templateId: "editorialTimeline",
           variables: {
-            texts: "Daybreak access is gated",
-            items: [
-              "Blue: approved defensive work",
-              "Red: authorized engagements",
-              "Both need separate approval",
-            ],
-            itemEmojis: ["🔵", "🔴", "🔐"],
+            events: [{label:"Observe"},{label:"Understand"},{label:"Act"}],
           },
           timing: { fixedDuration: 5 },
         },
@@ -61,7 +55,7 @@ describe("React renderer", () => {
       kit,
     }));
     expect(atBoundary).toContain('data-layer-scene-id="cards"');
-    expect(atBoundary).toMatch(/data-template-item="cardList" style="[^"]*opacity:0(?:;|")/);
+    expect(atBoundary).toMatch(/data-template-item="steps" style="[^"]*opacity:0(?:;|")/);
   });
 
   it("crossfades only when the effective scene background media changes", async () => {

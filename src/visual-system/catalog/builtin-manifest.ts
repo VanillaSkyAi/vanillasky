@@ -65,38 +65,8 @@ export const BUILTIN_TEMPLATE_MANIFEST: readonly BuiltinTemplateManifestEntry[] 
   schema: BUILTIN_TEMPLATE_SCHEMAS.chapterTitle
 },
 {
-  "label": "Focus cards",
-  "description": "Two to four short phrases fade in sequentially on black; no boxes or heading.",
-  "usesGlobalTextEffect": false,
-  "usesGlobalTransition": false,
-  "usesGlobalBackgroundEffect": false,
-  "textCanvas": "tight",
-  "id": "focusCards",
-  "family": "Explainers",
-  "jobs": [
-    "setup",
-    "proof"
-  ],
-  "register": "card-led",
-  "useWhen": "Two to four short parallel points support an explanation. ",
-  "avoidWhen": "The points require an order, long paragraphs, numerical data or additional images to make sense.",
-  "minDuration": 4,
-  "preferredDuration": 5,
-  "timing": {
-    "contentFields": [
-      "items"
-    ],
-    "contentUnit": "items",
-    "revealSeconds": 2.4,
-    "holdSeconds": 1.8,
-    "exitSeconds": 0
-  }
-,
-  schema: BUILTIN_TEMPLATE_SCHEMAS.focusCards
-},
-{
   "label": "Timeline",
-  "description": "Three to five events on a fine continuous line on black; without dates.",
+  "description": "Three to five events on a fine continuous line over relevant media or black; without dates.",
   "usesGlobalTextEffect": false,
   "usesGlobalTransition": false,
   "usesGlobalBackgroundEffect": false,
@@ -156,7 +126,7 @@ export const BUILTIN_TEMPLATE_MANIFEST: readonly BuiltinTemplateManifestEntry[] 
 },
 {
   "label": "Comparison",
-  "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+  "description": "Two short statements with equal weight over relevant media or black, side by side or stacked in portrait.",
   "usesGlobalTextEffect": false,
   "usesGlobalTransition": false,
   "usesGlobalBackgroundEffect": false,
@@ -188,7 +158,7 @@ export const BUILTIN_TEMPLATE_MANIFEST: readonly BuiltinTemplateManifestEntry[] 
 },
 {
   "label": "Quote",
-  "description": "A short exact quotation with a legible attribution on black.",
+  "description": "A short exact quotation with a legible attribution over relevant media or black.",
   "usesGlobalTextEffect": false,
   "usesGlobalTransition": false,
   "usesGlobalBackgroundEffect": false,
@@ -218,7 +188,7 @@ export const BUILTIN_TEMPLATE_MANIFEST: readonly BuiltinTemplateManifestEntry[] 
 },
 {
   "label": "Key figure",
-  "description": "One supplied figure with one short label on black.",
+  "description": "One supplied figure with one short label over relevant media or black.",
   "usesGlobalTextEffect": false,
   "usesGlobalTransition": false,
   "usesGlobalBackgroundEffect": false,

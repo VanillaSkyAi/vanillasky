@@ -83,7 +83,7 @@ describe("packed package verification", () => {
     expect(script).toContain("VideoChatProps");
     expect(script).toContain("provider secret");
     expect(script).toContain('from "@vanillaskyai/video/templates/catalog"');
-    expect(script).toContain("builtinTemplates.length !== 8");
+    expect(script).toContain("builtinTemplates.length !== 7");
     expect(script).toContain("Packed template API accepted the removed duration alias");
     expect(script).toContain('"brand" in startEvent.data.style');
     expect(script).not.toContain("brandKit");
@@ -191,7 +191,7 @@ describe("packed package verification", () => {
 
     expect(script).toContain('[packedCli, "templates", "add", "--all"]');
     expect(script).toContain('[packedCli, "templates", "check"]');
-    expect(script).toContain("Checked 8 templates, 8 examples, and 96 deterministic renders.");
+    expect(script).toContain("Checked 7 templates, 7 examples, and 84 deterministic renders.");
   });
 
   it("copies, syncs, checks, strictly compiles, and previews the packaged custom references", () => {

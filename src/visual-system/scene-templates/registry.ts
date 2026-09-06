@@ -8,14 +8,13 @@
 import type { SceneTemplate, SceneTemplateMetadata } from "../catalog/types";
 import { MediaSceneTemplate } from "./cinema-media";
 import { TitleSceneTemplate } from "./chapter-title";
-import { CardsSceneTemplate } from "./focus-cards";
 import { TimelineSceneTemplate } from "./editorial-timeline";
 import { NotificationSceneTemplate } from "./mobile-message";
 import { ComparisonSceneTemplate } from "./comparison";
 import { QuoteSceneTemplate } from "./quote";
 import { KeyFigureSceneTemplate } from "./key-figure";
 import { BUILTIN_TEMPLATE_MANIFEST, type BuiltinTemplateId } from "../catalog/builtin-manifest";
-const components = {"cinemaMedia": MediaSceneTemplate, "chapterTitle": TitleSceneTemplate, "focusCards": CardsSceneTemplate, "editorialTimeline": TimelineSceneTemplate, "mobileMessage": NotificationSceneTemplate, "comparison": ComparisonSceneTemplate, "quote": QuoteSceneTemplate, "keyFigure": KeyFigureSceneTemplate} satisfies Record<BuiltinTemplateId, SceneTemplate["component"]>;
+const components = {"cinemaMedia": MediaSceneTemplate, "chapterTitle": TitleSceneTemplate, "editorialTimeline": TimelineSceneTemplate, "mobileMessage": NotificationSceneTemplate, "comparison": ComparisonSceneTemplate, "quote": QuoteSceneTemplate, "keyFigure": KeyFigureSceneTemplate} satisfies Record<BuiltinTemplateId, SceneTemplate["component"]>;
 
 const templates: readonly SceneTemplate[] = Object.freeze(
   BUILTIN_TEMPLATE_MANIFEST.map((metadata) => Object.freeze({

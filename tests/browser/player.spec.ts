@@ -59,7 +59,7 @@ test("keeps frame and player templates on the same canonical canvas at thumbnail
   await expect(page.locator('[data-surface="player"] [data-status="complete"]')).toHaveCount(12);
   await expect(page.locator('[data-surface="saved"] [data-status="complete"]')).toHaveCount(12);
 
-  for (const templateId of ["keyFigure", "editorialTimeline", "focusCards"]) {
+  for (const templateId of ["keyFigure", "editorialTimeline"]) {
     for (const width of [180, 380, 600, 960]) {
       for (const surface of ["frame", "player", "saved"]) {
         const fixture = page.locator(`[data-case="${templateId}-${surface}-${width}"]`);
@@ -271,11 +271,11 @@ test("keeps exact sourced content without synthetic count-ups at graphic cuts", 
   test.skip(browserName !== "chromium", "Semantic geometry runs once in Chromium.");
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
   for (const orientation of ["portrait","landscape"]) {
-    for (const id of ["keyFigure","focusCards","editorialTimeline"]) {
+    for (const id of ["keyFigure","editorialTimeline"]) {
       const fixture=page.locator(`[data-case="${orientation}-semantic-${id}"]`);
       await expect(fixture.locator('[data-scene-layer="incoming"]')).toHaveCount(0);
       await expect(fixture.locator('[data-transition-semantic="transient"]')).toHaveCount(0);
-      await expect(fixture).toContainText(id==="keyFigure" ? "128%" : id==="focusCards" ? "Source preserved" : "Final event");
+      await expect(fixture).toContainText(id==="keyFigure" ? "128%" : "Final event");
     }
   }
 });

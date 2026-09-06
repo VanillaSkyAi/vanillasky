@@ -4,6 +4,16 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+### Breaking
+
+- Remove `focusCards` from the built-in catalog and generated source templates, as requested. Existing callers must replace it with narration over `cinemaMedia`, or an appropriate comparison/timeline when supported by their content. Persisted videos using that ID must be regenerated before playback with the new catalog.
+
+### Changed
+
+- Opening narration advances into the first shot and body. Exact repeated introductory sentences are removed without additional model calls or startup waits.
+- Prefer relevant footage over repeated graphic scenes; use no more than one explanatory overlay in a typical thirty-second answer. Comparison, key figure, quote and timeline can now use optional host-resolved media with a contrast scrim and soft text shadows. Black remains the fallback; chapter titles stay black.
+
+
 ## 0.9.0
 
 - Continue video playback with subtitles when native browser speech cannot start, without weakening generated-audio readiness or counting paused time toward the fallback.

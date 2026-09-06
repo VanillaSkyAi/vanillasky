@@ -16,7 +16,7 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { previewTemplateSync, syncTemplates } from "../src/cli/sync";
 
-const EXPECTED_TEMPLATE_IDS = ["cinemaMedia","chapterTitle","focusCards","editorialTimeline","mobileMessage","comparison","quote","keyFigure"].sort();
+const EXPECTED_TEMPLATE_IDS = ["cinemaMedia","chapterTitle","editorialTimeline","mobileMessage","comparison","quote","keyFigure"].sort();
 
 function snapshotTree(root: string): string[] {
   return (readdirSync(root, { recursive: true }) as string[])
@@ -50,10 +50,9 @@ describe("customer-owned template registry", () => {
   it("installs the same schemas that describe reports",async()=>{
     const api=await import("../src/cli/registry");
     const cwd=mkdtempSync(join(tmpdir(),"vanillasky-described-schema-"));
-    api.addRegistryTemplates({cwd,names:["editorialTimeline","quote","focusCards","cinemaMedia"]});
+    api.addRegistryTemplates({cwd,names:["editorialTimeline","quote","cinemaMedia"]});
     expect(readFileSync(join(cwd,"vanillasky/templates/editorialTimeline.tsx"),"utf8")).toContain('"maxItems": 5');
     expect(readFileSync(join(cwd,"vanillasky/templates/quote.tsx"),"utf8")).toContain('"format": "grounded-quote"');
-    expect(readFileSync(join(cwd,"vanillasky/templates/focusCards.tsx"),"utf8")).toContain('"maxItems": 4');
     expect(readFileSync(join(cwd,"vanillasky/templates/cinemaMedia.tsx"),"utf8")).toContain('__vanillaskyExternalVideoBackdrop');
   });
 
@@ -65,7 +64,7 @@ describe("customer-owned template registry", () => {
     addRegistryTemplates({ cwd, names: ["keyFigure"] });
 
     const source = readFileSync(join(cwd, "vanillasky/templates/keyFigure.tsx"), "utf8");
-    expect(source).not.toContain('__vanillaskyExternalVideoBackdrop');
+    expect(source).toContain('__vanillaskyExternalVideoBackdrop');
     const definitionStart = source.indexOf("export const keyFigureTemplate = defineTemplate({\n")
       + "export const keyFigureTemplate = defineTemplate({\n".length;
     const componentStart = source.indexOf("  component: KeyFigureSceneTemplate,", definitionStart);

@@ -141,61 +141,8 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
     }
   },
   {
-    "label": "Focus cards",
-    "description": "Two to four short phrases fade in sequentially on black; no boxes or heading.",
-    "usesGlobalTextEffect": false,
-    "usesGlobalTransition": false,
-    "usesGlobalBackgroundEffect": false,
-    "textCanvas": "tight",
-    "id": "focusCards",
-    "family": "Explainers",
-    "jobs": [
-      "setup",
-      "proof"
-    ],
-    "register": "card-led",
-    "useWhen": "Two to four short parallel points support an explanation. ",
-    "avoidWhen": "The points require an order, long paragraphs, numerical data or additional images to make sense.",
-    "minDuration": 4,
-    "preferredDuration": 5,
-    "timing": {
-      "contentFields": [
-        "items"
-      ],
-      "contentUnit": "items",
-      "revealSeconds": 2.4,
-      "holdSeconds": 1.8,
-      "exitSeconds": 0
-    },
-    "schema": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 4,
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 55
-          },
-          "default": [
-            "Listen closely",
-            "Notice the pattern",
-            "Make room for change"
-          ],
-          "description": "2–4 parallel phrases, about 2–6 words each; no heading or numbering."
-        }
-      },
-      "required": [
-        "items"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
     "label": "Timeline",
-    "description": "Three to five events on a fine continuous line on black; without dates.",
+    "description": "Three to five events on a fine continuous line over relevant media or black; without dates.",
     "usesGlobalTextEffect": false,
     "usesGlobalTransition": false,
     "usesGlobalBackgroundEffect": false,
@@ -253,12 +200,59 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
             }
           ],
           "description": "3–5 ordered events or actions, each with one short label; no dates."
+        },
+        "mediaKeyword": {
+          "type": "string",
+          "format": "stock-media-keyword",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved photo or video URL.",
+          "default": ""
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "video"
+          ],
+          "default": "video",
+          "description": "Host-resolved asset kind."
+        },
+        "mediaPoster": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
+          "default": ""
+        },
+        "shotDirection": {
+          "type": "string",
+          "maxLength": 220,
+          "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+        },
+        "mediaSource": {
+          "type": "string",
+          "enum": [
+            "generate",
+            "stock"
+          ],
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
         }
       },
       "required": [
         "events"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-vanillasky": {
+        "allowsStockMedia": true
+      }
     }
   },
   {
@@ -359,7 +353,7 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
   },
   {
     "label": "Comparison",
-    "description": "Two short statements with equal weight on black, side by side or stacked in portrait.",
+    "description": "Two short statements with equal weight over relevant media or black, side by side or stacked in portrait.",
     "usesGlobalTextEffect": false,
     "usesGlobalTransition": false,
     "usesGlobalBackgroundEffect": false,
@@ -412,18 +406,65 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
           "maxLength": 60,
           "default": "More room to think",
           "description": "Second real alternative, parallel to the first."
+        },
+        "mediaKeyword": {
+          "type": "string",
+          "format": "stock-media-keyword",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved photo or video URL.",
+          "default": ""
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "video"
+          ],
+          "default": "video",
+          "description": "Host-resolved asset kind."
+        },
+        "mediaPoster": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
+          "default": ""
+        },
+        "shotDirection": {
+          "type": "string",
+          "maxLength": 220,
+          "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+        },
+        "mediaSource": {
+          "type": "string",
+          "enum": [
+            "generate",
+            "stock"
+          ],
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
         }
       },
       "required": [
         "leftText",
         "rightText"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-vanillasky": {
+        "allowsStockMedia": true
+      }
     }
   },
   {
     "label": "Quote",
-    "description": "A short exact quotation with a legible attribution on black.",
+    "description": "A short exact quotation with a legible attribution over relevant media or black.",
     "usesGlobalTextEffect": false,
     "usesGlobalTransition": false,
     "usesGlobalBackgroundEffect": false,
@@ -469,18 +510,65 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
             "Illustrative example"
           ],
           "description": "Grounded attribution belonging to these exact quoted words."
+        },
+        "mediaKeyword": {
+          "type": "string",
+          "format": "stock-media-keyword",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved photo or video URL.",
+          "default": ""
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "video"
+          ],
+          "default": "video",
+          "description": "Host-resolved asset kind."
+        },
+        "mediaPoster": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
+          "default": ""
+        },
+        "shotDirection": {
+          "type": "string",
+          "maxLength": 220,
+          "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+        },
+        "mediaSource": {
+          "type": "string",
+          "enum": [
+            "generate",
+            "stock"
+          ],
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
         }
       },
       "required": [
         "quote",
         "attribution"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "x-vanillasky": {
+        "allowsStockMedia": true
+      }
     }
   },
   {
     "label": "Key figure",
-    "description": "One supplied figure with one short label on black.",
+    "description": "One supplied figure with one short label over relevant media or black.",
     "usesGlobalTextEffect": false,
     "usesGlobalTransition": false,
     "usesGlobalBackgroundEffect": false,
@@ -526,6 +614,50 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
             "Illustrative example"
           ],
           "description": "Exactly one short label identifying the quantity and its context."
+        },
+        "mediaKeyword": {
+          "type": "string",
+          "format": "stock-media-keyword",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "2–8 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+          "examples": [
+            "Ocean waves breaking on a rocky shore"
+          ]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved photo or video URL.",
+          "default": ""
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "photo",
+            "video"
+          ],
+          "default": "video",
+          "description": "Host-resolved asset kind."
+        },
+        "mediaPoster": {
+          "type": "string",
+          "format": "uri",
+          "description": "Host-only approved poster URL for video decoding.",
+          "default": ""
+        },
+        "shotDirection": {
+          "type": "string",
+          "maxLength": 220,
+          "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+        },
+        "mediaSource": {
+          "type": "string",
+          "enum": [
+            "generate",
+            "stock"
+          ],
+          "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
         }
       },
       "required": [
@@ -534,7 +666,8 @@ export const GENERATED_BUILTIN_TEMPLATE_CATALOG = [
       ],
       "additionalProperties": false,
       "x-vanillasky": {
-        "requiresStat": true
+        "requiresStat": true,
+        "allowsStockMedia": true
       }
     }
   }

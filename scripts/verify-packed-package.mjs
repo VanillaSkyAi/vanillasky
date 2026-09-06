@@ -380,7 +380,7 @@ export const templates = createTemplateRegistry({ definitions: [] });
   rmSync(join(consumer, "vanillasky"), { recursive: true, force: true });
   execFileSync(process.execPath, [packedCli, "templates", "add", "--all"], { cwd: consumer, stdio: "inherit" });
   const catalogCheckOutput = execFileSync(process.execPath, [packedCli, "templates", "check"], { cwd: consumer, encoding: "utf8" });
-  const catalogSummary = "Checked 8 templates, 8 examples, and 96 deterministic renders.";
+  const catalogSummary = "Checked 7 templates, 7 examples, and 84 deterministic renders.";
   if (!catalogCheckOutput.includes(catalogSummary)) throw new Error(`Packed built-in catalog check failed:\n${catalogCheckOutput}`);
   rmSync(join(consumer, "vanillasky"), { recursive: true, force: true });
 
@@ -448,7 +448,7 @@ if (root.getVideoDuration(rootVideo) !== 4 || !Object.isFrozen(rootVideo)) {
 if (Object.keys(server).sort().join() !== "createServerTemplateRegistry,createVideoChatHandler") throw new Error("Unexpected server API");
 if (Object.keys(react).sort().join() !== "VideoChat,VideoError,VideoPlayer,createVideoChatVoice,useVideoChat") throw new Error("Unexpected React API");
 if (Object.keys(templates).sort().join() !== "createTemplateRegistry,defineTemplate") throw new Error("Unexpected template API");
-if (builtinTemplates.length !== 8) throw new Error("Unexpected built-in template manifest");
+if (builtinTemplates.length !== 7) throw new Error("Unexpected built-in template manifest");
 try {
   templates.defineTemplate({ id: "removedDuration", useWhen: "Never", schema: { type: "object", properties: {} }, duration: 2, component: () => null });
   throw new Error("Packed template API accepted the removed duration alias");

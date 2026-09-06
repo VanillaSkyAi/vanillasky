@@ -7,7 +7,7 @@ describe("acceptance template catalog", () => {
     if (!api?.loadAcceptanceKit) return;
 
     const kit = api.loadAcceptanceKit();
-    expect(kit.templates).toHaveLength(8);
+    expect(kit.templates).toHaveLength(7);
     expect(kit.capabilities.templates).toContain("mobileMessage");
     expect(kit.capabilities.templates).toContain("keyFigure");
     expect(kit.capabilities.templates).toContain("chapterTitle");

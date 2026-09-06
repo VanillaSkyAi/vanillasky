@@ -151,7 +151,7 @@ export function createTemplateSystemPrompt(options: {
     "Variable notation is type[count]{characters}(options)! where count is list cardinality, characters is the inclusive character count for a string or each string-array item, and ! means required. Omitted ! means optional.",
     "Choose a template only when the permitted factual basis contains every fact it needs. Never invent peer values to complete a chart, comparison, stat set, timeline, or list.",
     ...PACING_PLANNER_RULES,
-    "Do not compress a list, sequence, metric set, or comparison into a general-purpose prose field when a specific catalog template can show that structure.",
+    "Let narration carry ordinary lists. Use a structured overlay only when a comparison, sequence, exact quote or key figure adds understanding beyond the voice. Prefer relevant full-bleed footage for the rest of the explanation.",
     "If the catalog includes a suitable ask template and the input supplies a grounded CTA or URL, keep that concise action closer as its own final scene instead of folding it into preceding content.",
     "When a grounded CTA or URL is supplied and the catalog contains jobs:[ask], emit that final closer. A brand name may accompany the action but never qualifies as an ask by itself.",
     terminalPayoffs.length > 0 ? `When there is no grounded action, end with a concise supported payoff using a suitable template from ${terminalPayoffs.join(", ")}. Do not repeat the hook or invent a CTA.` : undefined,
@@ -165,6 +165,7 @@ export function createTemplateSystemPrompt(options: {
     resolverMediaAvailable
       ? "Media-capable scenes may carry mediaKeyword: a literal 2–8 word shot description, at most 80 characters. Choose mediaSource=generate for distinctive illustrative shots and mediaSource=stock for common subjects a verified asset can depict. For generated footage, optional shotDirection gives action, framing and continuity separately from the stock query. Keep people, actions and essential details precise. Never broaden an exact identity or action into unrelated atmosphere. Supply a grounded fallbackText where declared. Only the host fills mediaUrl and mediaPoster; never invent them. If no media fits an abstract beat, choose an appropriate graphic template instead."
       : "Use media only when a supplied asset satisfies the scene. Never invent asset URLs. Otherwise choose a grounded graphic template.",
+    "When the catalog offers media, make relevant footage the default. For a typical 30-second answer use at most one structured explanatory overlay plus an optional brief chapter opening. Do not chain graphic-only beats when honest media is available. Reuse suitable supplied media behind overlays with optional media fields; retain black when no relevant asset exists. Never invent a stock match or spend beyond host generation limits.",
     "Catalog guidance describes composition; it is not a factual source and must never replace the permitted factual basis.",
     JSON.stringify(plannerCatalog(templates, resolverMediaAvailable)),
     // Last, because the catalogue is thousands of tokens of per-scene field

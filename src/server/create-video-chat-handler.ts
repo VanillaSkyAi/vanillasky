@@ -1,3 +1,4 @@
+import {createOpeningContinuation} from './opening-continuity';
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
 import {
   VIDEO_PROTOCOL_VERSION,
@@ -399,6 +400,7 @@ function interceptOpeningPlan(
   options: {
     expectOpening: boolean;
     openingProvided: boolean;
+    openingLine?: string;
     requestId: string;
     generatedVideoAvailable: boolean;
     publish: OpeningChannel["publish"];
@@ -411,6 +413,19 @@ function interceptOpeningPlan(
   const textStream = (async function* () {
     let buffer = "";
     let decided = !options.expectOpening;
+    const continuation = createOpeningContinuation(options.openingLine);
+    const acceptOpening = (opening: OpeningSubject): string | undefined => {
+      if (!options.openingProvided) {
+        options.publish(opening.line ? opening : undefined);
+        continuation.remember(opening.line);
+      }
+      if (!options.generatedVideoAvailable || !opening.firstShot) return undefined;
+      const narration = continuation.narration(opening.firstShot.narration);
+      if (!narration) return undefined;
+      const text = continuation.copy(opening.firstShot.text, narration);
+      continuation.remember(narration);
+      return JSON.stringify(reservedFirstScene(options.requestId, {...opening.firstShot, text, narration}));
+    };
     try {
       for await (const delta of upstream) {
         if (typeof delta !== "string") throw new Error("The LLM adapter returned a non-text delta");
@@ -424,16 +439,15 @@ function interceptOpeningPlan(
             const opening = readOpeningPlanLine(line);
             decided = true;
             if (opening) {
-              if (!options.openingProvided) options.publish(opening.line ? opening : undefined);
-              if (options.generatedVideoAvailable && opening.firstShot) {
-                yield `${JSON.stringify(reservedFirstScene(options.requestId, opening.firstShot))}\n`;
-              }
+              const firstScene = acceptOpening(opening);
+              if (firstScene) yield `${firstScene}\n`;
               newline = buffer.indexOf("\n");
               continue;
             }
             options.publish(undefined);
           }
-          yield `${rawLine}\n`;
+          const continued = continuation.line(rawLine);
+          if (continued != null) yield `${continued}\n`;
           newline = buffer.indexOf("\n");
         }
       }
@@ -443,16 +457,16 @@ function interceptOpeningPlan(
           const opening = readOpeningPlanLine(line);
           decided = true;
           if (opening) {
-            if (!options.openingProvided) options.publish(opening.line ? opening : undefined);
-            if (options.generatedVideoAvailable && opening.firstShot) {
-              yield `${JSON.stringify(reservedFirstScene(options.requestId, opening.firstShot))}\n`;
-            }
+            const firstScene = acceptOpening(opening);
+            if (firstScene) yield `${firstScene}\n`;
           } else {
             options.publish(undefined);
-            yield buffer;
+            const continued = continuation.line(buffer);
+            if (continued != null) yield continued;
           }
         } else {
-          yield buffer;
+          const continued = continuation.line(buffer);
+          if (continued != null) yield continued;
         }
       }
     } finally {
@@ -658,6 +672,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     requestId: string,
     openingProvided: boolean,
     openingChannel: OpeningChannel,
+    openingLine?: string,
   ) => {
     const generatedVideoAvailable = generateVideo != null && maxGeneratedVideos > 0;
     let lifecycle: VideoGenerationLifecycleSink | undefined;
@@ -732,6 +747,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           return interceptOpeningPlan(videoOptions.streamText(context), {
             expectOpening: generatedVideoAvailable || !openingProvided,
             openingProvided,
+            openingLine,
             requestId,
             generatedVideoAvailable,
             publish: openingChannel.publish,
@@ -915,6 +931,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         requestId,
         input.opening != null,
         openingChannel,
+        input.opening,
       )(videoRequest);
       return streamVideoChatOpening(response, openingChannel.ready);
     }

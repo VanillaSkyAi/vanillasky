@@ -7,7 +7,7 @@ import {
   createBuiltinTemplateSystemPrompt,
 } from "../src/visual-system/catalog/catalog";
 
-const STABLE_TEMPLATE_IDS = ["cinemaMedia", "chapterTitle", "focusCards", "editorialTimeline", "mobileMessage", "comparison", "quote", "keyFigure"] as const;
+const STABLE_TEMPLATE_IDS = ["cinemaMedia", "chapterTitle",  "editorialTimeline", "mobileMessage", "comparison", "quote", "keyFigure"] as const;
 
 const BROWSE_FAMILIES = new Set([
   "Media & motion",
@@ -46,7 +46,7 @@ function expectValidDefault(
 describe("built-in template metadata", () => {
   it("keeps stable IDs and complete human and adaptive-timing metadata", () => {
     expect(BUILTIN_TEMPLATE_CATALOG.map(({ id }) => id)).toEqual(STABLE_TEMPLATE_IDS);
-    expect(new Set(BUILTIN_TEMPLATE_CATALOG.map(({ label }) => label)).size).toBe(8);
+    expect(new Set(BUILTIN_TEMPLATE_CATALOG.map(({ label }) => label)).size).toBe(7);
 
     for (const template of BUILTIN_TEMPLATE_CATALOG) {
       expect(template.label?.trim(), `${template.id}.label`).toBeTruthy();

@@ -52,7 +52,7 @@ explain with their own composition and motion. There is no brand-kit option.
 The host can provide a shared `generatedLook` description for media preparation.
 Custom source-owned templates can define their own visual language in code.
 Do not rely on old global brand, text-effect, or gradient controls to restyle
-the eight cinematic templates.
+the seven cinematic templates.
 
 ## Opening
 

@@ -34,18 +34,18 @@ function video(templateId: string): Video {
 
 describe("built-in template loading", () => {
   it("warms the same renderer state used by the player", async () => {
-    await preloadBuiltinTemplate("focusCards");
+    await preloadBuiltinTemplate("chapterTitle");
 
     const view = render(createElement(VideoFrame, {
       kit: BUILTIN_PLAYER_KIT,
-      config: video("focusCards"),
+      config: video("chapterTitle"),
       time: 0,
       width: 960,
       height: 540,
     }));
 
-    expect(view.container.querySelector('[data-template-loading="focusCards"]')).toBeNull();
-    expect(view.container.querySelector('[data-layer-template-id="focusCards"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-loading="chapterTitle"]')).toBeNull();
+    expect(view.container.querySelector('[data-layer-template-id="chapterTitle"]')).not.toBeNull();
   });
 
   it("keeps the player-owned black background visible while a cold renderer suspends", () => {
