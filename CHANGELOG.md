@@ -4,6 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Keep the final chapter visible through answer completion, including recovery from failed footage.
+- Derive recovery titles from authored titles or subject excerpts instead of a generic placeholder.
+
 - Let cold footage finish its bounded initial load before treating it as stalled. Require the actual new source to present a frame before narration starts, and keep source changes from cancelling their own native load.
 
 ## 0.10.6

@@ -1,4 +1,4 @@
-import { MountedSceneReadiness, PreparedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -445,7 +445,6 @@ export function VideoFrame({
         ? firstVideoRange
         : undefined
     : undefined;
-  const preparedReadinessRange = posterPreparationRange ?? (contiguousNext && sceneHasVideoBackdrop(contiguousNext) ? contiguousNext : undefined);
   const preparedPoster = posterPreparationRange && String(
     posterPreparationRange.scene.variables.mediaPoster || "",
   ) ? {
@@ -527,7 +526,6 @@ export function VideoFrame({
         fallback={activeMediaFailed}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
           ? () => markMediaFailed(sceneReadinessKey(active.scene)) : undefined} />
-      {preparedReadinessRange && <PreparedSceneReadiness scene={preparedReadinessRange.scene} />}
       <div
         data-video-canvas="true"
         style={{

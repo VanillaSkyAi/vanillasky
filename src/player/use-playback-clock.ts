@@ -12,7 +12,6 @@ interface PlaybackClockOptions {
   loopRef: { current: boolean };
   sceneIndexRef: { current: number };
   visualReadyRef?: { current: string | undefined };
-  posterBridgeKeysRef?: { current: Set<string> };
   callbacksRef: {
     current: {
       narrationReady?: () => boolean;
