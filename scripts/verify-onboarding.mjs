@@ -466,7 +466,7 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
   runCli(["templates", "create", "ownershipProof"]);
   const ownedTemplatePath = join(app, "vanillasky", "templates", "keyFigure.tsx");
   const ownedTemplate = readFileSync(ownedTemplatePath, "utf8");
-  const canonicalDescription = "One supplied figure with one short label on black.";
+  const canonicalDescription = "One supplied figure with one short label over relevant media or black.";
   const customerDescription = "A customer-owned acceptance edit for a personalized metric.";
   if (!ownedTemplate.includes(canonicalDescription)) throw new Error("Could not locate the copied template description to edit");
   writeFileSync(ownedTemplatePath, ownedTemplate.replace(canonicalDescription, customerDescription));
