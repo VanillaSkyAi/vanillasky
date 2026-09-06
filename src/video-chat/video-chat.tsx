@@ -7,6 +7,7 @@ import type { VideoChatSuggestion } from "./types.js";
 import { ChevronUp, Close, Gear, Mic, Replay, Send, Sound, Stop, Muted, Play, Plus, Sessions, Warning } from "./icons";
 import { useDismiss, useFocusTrap } from "./use-dismiss";
 import { Welcome } from "./welcome";
+import { OpeningChapter } from "./opening-chapter";
 import { Frame, SuggestionCards } from "./suggestion-cards";
 import { useVoiceInput } from "./use-voice-input";
 import { useImmersiveControls } from "./use-immersive-controls";
@@ -154,6 +155,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const current = chat.currentTurn;
   const shown = chat.shownTurn;
   const showing = chat.playerProps != null;
+  const [openingAsset, setOpeningAsset] = useState<{ key: string; state: "ready" | "failed" }>();
+  const openingAssetKey = `${shown?.id ?? ""}:${shown?.openingMedia?.url ?? ""}`;
+  const openingMediaFailed = openingAsset?.key === openingAssetKey && openingAsset.state === "failed";
+  const openingMediaReady = openingAsset?.key === openingAssetKey && openingAsset.state === "ready";
+  const openingChapter = !showing && Boolean(shown?.opening) && (!shown?.openingMedia || openingMediaFailed || !openingMediaReady);
+
   const waitingForPicture = chat.turns.length > 0 && !showing
     && (chat.status === "composing" || chat.status === "playing" || chat.status === "paused");
   const filmingStep = useFilmingStep(waitingForPicture, current?.id);
@@ -263,12 +270,15 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
       <div className="stage" style={{ background: "#000" }}>
         {!showing && <>
           <div className="ground" aria-hidden="true" />
-          {shown?.openingMedia && <>
-            <Frame media={shown.openingMedia} poster />
-            <div className="opening-wash" aria-hidden="true" />
+          {openingChapter && <OpeningChapter key={shown!.id} title={shown!.opening!} />}
+          {shown?.openingMedia && !openingMediaFailed && <>
+            <Frame key={openingAssetKey} media={shown.openingMedia} poster revealWhenReady
+              onReady={() => setOpeningAsset({key:openingAssetKey,state:"ready"})}
+              onError={() => setOpeningAsset({key:openingAssetKey,state:"failed"})} />
+            {openingMediaReady && <div className="opening-wash" aria-hidden="true" />}
           </>}
           {chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
-          {shown?.prompt && <div className="asked">
+          {shown?.prompt && !shown.opening && <div className="asked">
             <p className="asked-prompt">{shown.prompt}</p>
             {waitingForPicture && <p className="asked-step" aria-live="polite">{filmingStep}</p>}
           </div>}
@@ -341,7 +351,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
       <div className="panel-inner">
         <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
           <div className="caption-clip">
-            <div className="line-row" data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
+            <div className="line-row" data-opening-copy={openingChapter && line === shown?.opening && !captionsExpanded} data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
               {captionsOn && line && <div className="caption-actions">
@@ -350,7 +360,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
               </div>}
               {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : <p className="line" aria-live="polite">{line}</p>}
+              </div> : <p className="line" aria-live="polite">{openingChapter && line === shown?.opening ? "" : line}</p>}
             </div>
           </div>
         </div>

@@ -25,7 +25,10 @@ import type { VideoChatMedia, VideoChatSuggestion } from "./types.js";
  * that one video is worth more than a page of text. It is also four decoders
  * running for three pictures nobody is watching.
  */
-export function Frame({ media, poster, playing }: { media: VideoChatMedia | null; poster?: boolean; playing?: boolean }) {
+export function Frame({ media, poster, playing, onReady, onError, revealWhenReady = false }: {
+  media: VideoChatMedia | null; poster?: boolean; playing?: boolean;
+  onReady?: () => void; onError?: () => void; revealWhenReady?: boolean;
+}) {
   const video = useRef<HTMLVideoElement>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
 
@@ -37,14 +40,17 @@ export function Frame({ media, poster, playing }: { media: VideoChatMedia | null
   }, [playing]);
 
   if (!media) return null;
-  if (media.type === "image") return <img className="frame-media" src={media.url} alt="" />;
+  const ready = () => { setPlayingUrl(media.url); onReady?.(); };
+  const appearance = revealWhenReady ? { opacity: playingUrl === media.url ? 1 : 0, transition: "opacity 200ms ease" } : undefined;
+  if (media.type === "image") return <img className="frame-media" src={media.url} alt="" style={appearance} onLoad={ready} onError={onError} />;
   return <><video
     ref={video}
     className="frame-media"
     src={media.url}
     poster={poster ? media.posterUrl : undefined}
-    onPlaying={() => setPlayingUrl(media.url)}
-    onError={() => setPlayingUrl(null)}
+    style={appearance}
+    onPlaying={ready}
+    onError={() => { setPlayingUrl(null); onError?.(); }}
     autoPlay={playing !== false}
     muted
     loop
@@ -54,7 +60,7 @@ export function Frame({ media, poster, playing }: { media: VideoChatMedia | null
     // Decorative: it carries no information the words do not.
     aria-hidden="true"
   />
-    {poster && media.posterUrl && playingUrl !== media.url && <img className="frame-media frame-poster" src={media.posterUrl} alt="" />}
+    {poster && media.posterUrl && playingUrl !== media.url && <img className="frame-media frame-poster" src={media.posterUrl} alt="" onLoad={onReady} />}
   </>;
 }
 

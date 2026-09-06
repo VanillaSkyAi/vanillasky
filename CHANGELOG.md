@@ -4,6 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Show the spoken opening as a quiet chapter on black when opening media is absent or cannot load. Keep it readable until media or the film is ready, without another generation call.
+
+
 - Use equal spacing between Sessions, Settings, and Voice controls on mobile and desktop.
 
 - Package licensed, self-hosted Roboto fallback fonts for the fixed cinematic typography; remove unused promotional template primitives.

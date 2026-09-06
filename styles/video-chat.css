@@ -1124,3 +1124,14 @@
   top: 100%;
   height: 7px;
 }
+
+.vanillasky-video-chat .opening-chapter {
+  position: absolute;
+  inset: 0;
+  animation: vanillasky-video-chat-fade-in 800ms ease both;
+}
+.vanillasky-video-chat .line-row[data-opening-copy="true"] {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
