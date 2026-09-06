@@ -43,6 +43,10 @@ export function usePlaybackClock({
     let onsetWaitSeconds = 0;
     let clockWaitSeconds = 0;
     let lastNarrationTime: number | undefined;
+    let committedTime = timeRef.current;
+    let groupHandoff: { key: string; startedAt: number } | undefined;
+    let requestId = stateRef.current.requestId;
+    let runId = stateRef.current.runId;
     const failNarration = (error: Error, state: VideoState) => {
       setIsPlaying(false);
       try { void Promise.resolve(callbacksRef.current.onError?.(error, state)).catch(() => undefined); }
@@ -58,6 +62,11 @@ export function usePlaybackClock({
     const tick = (now: number) => {
       const current = stateRef.current;
       const config = current.config;
+      const externallySeeked = timeRef.current !== committedTime;
+      const replaced = current.requestId !== requestId || current.runId !== runId;
+      requestId = current.requestId; runId = current.runId;
+      if (externallySeeked || replaced) groupHandoff = undefined;
+      let deferGroupStall = false;
       const elapsed = Math.max(0, (now - previous) / 1000);
       let narrationReady = true;
       try { narrationReady = callbacksRef.current.narrationReady?.() !== false; }
@@ -90,6 +99,7 @@ export function usePlaybackClock({
           return;
         }
         clockWaitSeconds = narrationTime !== undefined && narrationTime === lastNarrationTime && narrationReady && !stalled ? clockWaitSeconds + elapsed : 0;
+        const audioMovedBackwards = narrationTime !== undefined && lastNarrationTime !== undefined && narrationTime < lastNarrationTime;
         lastNarrationTime = narrationTime;
         if (clockWaitSeconds >= 8) {
           failNarration(new Error("Narration audio clock did not advance within eight seconds"), current);
@@ -107,7 +117,24 @@ export function usePlaybackClock({
         }
         const target = ranges.find(range => nextTime >= range.start && nextTime < range.end) ?? ranges.at(-1);
         const waitingForVisual = Boolean(target && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(target.scene));
-        if (waitingForVisual && target) nextTime = target.start;
+        if (waitingForVisual && target) {
+          nextTime = target.start;
+          const fromGroup = cued?.scene.narrationGroup;
+          const toGroup = target.scene.narrationGroup;
+          const continuesParagraph = !externallySeeked && !replaced && !audioMovedBackwards && narrationReady
+            && narrationTime !== undefined && fromGroup && toGroup
+            && fromGroup.id === toGroup.id && fromGroup.text === toGroup.text
+            && target === ranges[sceneIndexRef.current + 1]
+            && narrationTime > fromGroup.offsetSeconds + .04;
+          if (continuesParagraph) {
+            const key = `${sceneReadinessKey(cued!.scene)}\0${sceneReadinessKey(target.scene)}\0${fromGroup!.id}\0${fromGroup!.text}`;
+            if (groupHandoff?.key !== key) groupHandoff = {key, startedAt:now};
+            // Real decoded-frame handoffs measured up to 148ms on WebKit.
+            // Keep an already-speaking paragraph continuous during that short
+            // commit; the visual clock and new scene cue still wait for a frame.
+            deferGroupStall = !stalled && now - groupHandoff.startedAt < 200;
+          } else groupHandoff = undefined;
+        } else groupHandoff = undefined;
         if (nextTime !== timeRef.current) {
           timeRef.current = nextTime;
           setCurrentTime(nextTime);
@@ -140,7 +167,8 @@ export function usePlaybackClock({
       }
       const duration = current.config ? getVideoDuration(current.config) : 0;
       const active = current.config ? resolveVideoTimeline(current.config).find(range => timeRef.current >= range.start && timeRef.current < range.end) : undefined;
-      reportStall(Boolean(active && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(active.scene)) || (!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration));
+      reportStall(Boolean(active && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(active.scene) && !deferGroupStall) || (!settled && Boolean(current.config?.scenes.length) && duration > 0 && timeRef.current >= duration));
+      committedTime = timeRef.current;
       if (!settled || looping || timeRef.current < duration) frame = requestAnimationFrame(tick);
       else setIsPlaying(false);
     };

@@ -13,6 +13,13 @@ import tram from "./media-transition/tram.mp4?url";
 import flowers from "./media-transition/sunflowers.mp4?url";
 const probe: Array<Record<string, unknown>> = [];
 Object.assign(window, { narrationProbe: probe });
+const nativeVideoFrame = HTMLVideoElement.prototype.requestVideoFrameCallback;
+if (nativeVideoFrame) HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) {
+  return nativeVideoFrame.call(this, (now, metadata) => {
+    if (probe.length < 500) probe.push({kind:"video-frame",source:new URL(this.currentSrc, location.href).pathname.split("/").at(-1),at:performance.now()});
+    callback(now, metadata);
+  });
+};
 const text = "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light.";
 const delayedOnset = new URLSearchParams(location.search).has("delayedOnset");
 let firstAudioPlay = true;
@@ -72,7 +79,7 @@ function App() {
       narrationReady={narration.isReady}
       narrationTime={narration.getTime}
       onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
-      onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0 }); narration.onSceneChange(scene, index); }}
+      onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0, at:performance.now() }); narration.onSceneChange(scene, index); }}
     />}</div></>;
 }
 createRoot(document.getElementById("root")!).render(<App />);
