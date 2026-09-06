@@ -43,6 +43,12 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await expect(page.getByRole("status")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("Some parts were simplified");
   await page.locator(".line-row").hover();
+  // A floated control must own its hit target above the full-frame scene.
+  await expect.poll(() => page.getByRole("button", { name: "Expand subtitles" }).evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    return hit === button || button.contains(hit);
+  })).toBe(true);
   await page.getByRole("button", { name: "Expand subtitles" }).click();
   await expect(page.getByRole("region", { name: "Expanded subtitles" })).toContainText("The Moon rotates once per orbit.");
   await expect(page.getByRole("region", { name: "Expanded subtitles" })).toContainText("One face stays toward Earth.");

@@ -1040,6 +1040,10 @@
   opacity: 0;
   pointer-events: none;
 }
+/* Native hover must keep controls interactive even between pointer events
+   and the idle timer's React update. Hidden pointer events otherwise expose
+   the underlying scene to WebKit's hit testing. */
+.vanillasky-video-chat .line-row:hover .caption-actions,
 .vanillasky-video-chat .line-row:focus-within .caption-actions,
 .vanillasky-video-chat .caption-actions:focus-within {
   opacity: 1;
@@ -1110,3 +1114,13 @@
 .vanillasky-video-chat .recovery-notice .round { flex: 0 0 44px; width: 44px; height: 44px; }
 
 .vanillasky-video-chat .session-new { margin-bottom: 20px; background: var(--vs-surface-hover); border-color: rgb(221 224 255 / 12%); }
+
+/* The floating toolbar and subtitle row share one uninterrupted hover target. */
+.vanillasky-video-chat .caption-actions::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 7px;
+}
