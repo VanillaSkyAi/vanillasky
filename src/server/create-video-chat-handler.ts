@@ -545,7 +545,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     generatedVideo: generateVideo != null,
     stockMedia: searchMedia != null,
     transcription: transcribe != null,
-    modes: ["cinematic", "pexels"],
+    modes: searchMedia ? ["cinematic", "pexels"] : ["cinematic"],
   };
   const welcomePrompts = (welcomeOptions?.prompts ?? DEFAULT_WELCOME_PROMPTS).slice(0, 4);
   const heroQuery = welcomeOptions?.heroQuery;

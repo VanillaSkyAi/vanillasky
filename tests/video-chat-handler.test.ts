@@ -216,7 +216,7 @@ describe("createVideoChatHandler", () => {
       generatedVideo: false,
       stockMedia: false,
       transcription: false,
-      modes: ["cinematic", "pexels"],
+      modes: ["cinematic"],
     });
 
     const speech = await handler(new Request("https://app.example/api/video-chat?action=speech", {

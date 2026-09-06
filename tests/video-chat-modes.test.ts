@@ -4,6 +4,12 @@ import { decodeVideoSse } from '../src/protocol/sse';
 import { chatShot, streamChatShots } from './helpers/chat-shot-fixture';
 
 describe('explicit footage modes', () => {
+  it.each([false, true])('advertises stock mode only when its resolver is configured (%s)', async configured => {
+    const handler = createVideoChatHandler({ authorize: 'none', generateText: async () => '', streamText: () => streamChatShots(),
+      ...(configured ? { searchMedia: async () => null } : {}) });
+    const response = await handler(new Request('https://app.example/?action=capabilities'));
+    expect(await response.json()).toMatchObject({ stockMedia: configured, modes: configured ? ['cinematic', 'pexels'] : ['cinematic'] });
+  });
   it.each(['cinematic', 'pexels'])('recovers %s to an authored chapter without crossing providers', async mode => {
     let generated=0, stock=0;
     const handler=createVideoChatHandler({authorize:'none',heartbeatMs:false,generateText:async()=>'',
