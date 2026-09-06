@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import React from "react";
-import { fireEvent, render } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 import { ExternalVideoBackdropProvider } from "../src/visual-system/scene-templates/external-video-backdrop";
 import { SceneVideoBackdrop } from "../src/visual-system/scene-templates/scene-video-backdrop";
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it("resumes paused footage, recovers its end once, and resets a deliberate replay", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -27,7 +28,7 @@ it("resumes paused footage, recovers its end once, and resets a deliberate repla
   vi.restoreAllMocks();
 });
 
-it("fits muted footage to narration, permits one continuity replay, then replaces the frozen frame", () => {
+it("fits muted footage to narration, keeps looping through a finite narration scene", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -41,10 +42,14 @@ it("fits muted footage to narration, permits one continuity replay, then replace
   fireEvent.ended(video);
   expect(video.currentTime).toBe(0);
   expect(play).toHaveBeenCalledTimes(2);
-  fireEvent.ended(video);
-  expect(view.getByRole("status").textContent).toBe("Visual unavailable");
-  expect(video.style.visibility).toBe("hidden");
-  expect(play).toHaveBeenCalledTimes(2);
+  for (let loop = 0; loop < 3; loop++) {
+    video.currentTime = 5;
+    fireEvent.ended(video);
+    expect(video.currentTime).toBe(0);
+  }
+  expect(view.queryByRole("status")).toBeNull();
+  expect(video.style.visibility).not.toBe("hidden");
+  expect(play).toHaveBeenCalledTimes(5);
   view.unmount(); vi.restoreAllMocks();
 });
 it("does not slow audible footage or restart it while the viewer pauses", () => {

@@ -179,6 +179,7 @@ export interface VideoFrameProps {
 
 interface SceneLayerProps {
   onFramePresented?: () => unknown;
+  onMediaError?: () => void;
   kit: PlayerTemplateRegistry;
   config: Video;
   range: VideoSceneRange;
@@ -199,6 +200,7 @@ interface SceneLayerProps {
 
 function SceneLayer({
   onFramePresented,
+  onMediaError,
   kit,
   config,
   range,
@@ -216,7 +218,8 @@ function SceneLayer({
   zIndex,
   externalVideoBackdrop,
 }: SceneLayerProps): ReactElement {
-  const mediaFailed = externalVideoBackdrop === "fallback";
+  const mediaFailed = externalVideoBackdrop === "fallback"
+    || (range.scene.templateId === "cinemaMedia" && !String(range.scene.variables.mediaUrl || "").trim());
   const recoveryTitle = mediaFailed && range.scene.templateId === "cinemaMedia"
     && typeof range.scene.variables.fallbackText === "string" ? range.scene.variables.fallbackText : undefined;
   const template = kit.getTemplate(recoveryTitle ? "chapterTitle" : range.scene.templateId);
@@ -228,6 +231,7 @@ function SceneLayer({
       audioMuted={mediaAudioMuted || !playing}
       audioVolume={mediaAudioVolume}
       preparingNarration={preparingNarration}
+      onMediaError={onMediaError}
     >
       <div
         data-scene-layer={layer}
@@ -600,6 +604,7 @@ export function VideoFrame({
               kit={kit}
               config={config}
               range={active}
+              onMediaError={() => markMediaFailed(sceneReadinessKey(active.scene))}
               progress={progress}
               motionProgress={motionProgress}
               width={canvas.width}
@@ -648,6 +653,7 @@ export function VideoFrame({
             kit={kit}
             config={config}
             range={active}
+            onMediaError={() => markMediaFailed(sceneReadinessKey(active.scene))}
             progress={progress}
             motionProgress={motionProgress}
             width={canvas.width}

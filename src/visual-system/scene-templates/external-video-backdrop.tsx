@@ -11,6 +11,7 @@ interface BackdropContextValue {
   audioMuted: boolean;
   audioVolume: number;
   preparingNarration?: boolean;
+  onMediaError?: () => void;
 }
 
 const DEFAULT: BackdropContextValue = { mode: false, audioMuted: true, audioVolume: 1 };
@@ -26,17 +27,19 @@ export function ExternalVideoBackdropProvider({
   audioMuted = true,
   audioVolume = 1,
   preparingNarration = false,
+  onMediaError,
   children,
 }: {
   mode: ExternalVideoBackdropMode;
   audioMuted?: boolean;
   audioVolume?: number;
   preparingNarration?: boolean;
+  onMediaError?: () => void;
   children: React.ReactNode;
 }) {
   const value = React.useMemo(
-    () => ({ mode, audioMuted, audioVolume, preparingNarration }),
-    [mode, audioMuted, audioVolume, preparingNarration],
+    () => ({ mode, audioMuted, audioVolume, preparingNarration, onMediaError }),
+    [mode, audioMuted, audioVolume, preparingNarration, onMediaError],
   );
   return (
     <BackdropContext.Provider value={value}>
@@ -57,4 +60,9 @@ export function useMediaAudio(): { muted: boolean; volume: number } {
 /** Internal first-frame priming state; an explicit viewer pause never sets it. */
 export function useNarrationPreroll(): boolean {
   return React.useContext(BackdropContext).preparingNarration === true;
+}
+
+/** Routes local decoder/playback failures to the scene-owned recovery surface. */
+export function useMediaFailure(): (() => void) | undefined {
+  return React.useContext(BackdropContext).onMediaError;
 }
