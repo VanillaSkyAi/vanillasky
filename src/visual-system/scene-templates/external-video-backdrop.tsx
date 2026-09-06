@@ -6,12 +6,14 @@ import React from "react";
 // and would never inherit the player's native media audio state.
 export type ExternalVideoBackdropMode = false | "pending" | "ready" | "fallback";
 
+export type MediaRecoveryReason = "decode-error" | "frame-readiness-timeout" | "stalled-media" | "playback-error";
+
 interface BackdropContextValue {
   mode: ExternalVideoBackdropMode;
   audioMuted: boolean;
   audioVolume: number;
   preparingNarration?: boolean;
-  onMediaError?: () => void;
+  onMediaError?: (reason?: MediaRecoveryReason) => void;
 }
 
 const DEFAULT: BackdropContextValue = { mode: false, audioMuted: true, audioVolume: 1 };
@@ -34,7 +36,7 @@ export function ExternalVideoBackdropProvider({
   audioMuted?: boolean;
   audioVolume?: number;
   preparingNarration?: boolean;
-  onMediaError?: () => void;
+  onMediaError?: (reason?: MediaRecoveryReason) => void;
   children: React.ReactNode;
 }) {
   const value = React.useMemo(
@@ -63,6 +65,6 @@ export function useNarrationPreroll(): boolean {
 }
 
 /** Routes local decoder/playback failures to the scene-owned recovery surface. */
-export function useMediaFailure(): (() => void) | undefined {
+export function useMediaFailure(): ((reason?: MediaRecoveryReason) => void) | undefined {
   return React.useContext(BackdropContext).onMediaError;
 }

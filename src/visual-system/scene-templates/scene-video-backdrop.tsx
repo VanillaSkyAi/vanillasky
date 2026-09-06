@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getBackgroundTransform } from "../backgrounds";
-import { useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
+import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 
 export interface SceneVideoBackdropProps {
@@ -58,11 +58,11 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
 
   const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying });
   presentationRef.current = { key: videoPresentationKey, playing: isPlaying };
-  const unavailable = () => {
+  const unavailable = (reason: MediaRecoveryReason = "playback-error") => {
     if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) {
       setExhaustedKey(videoPresentationKey);
       onError?.();
-      reportMediaFailure?.();
+      reportMediaFailure?.(reason);
     }
   };
   useEffect(() => {
@@ -105,7 +105,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // A seek can emit waiting without another playing event, even while frames
     // resume. Keep the decoder visible and observe motion directly. A real
     // stall gets the player's authored chapter instead of an endless spinner.
-    const fail = () => { if (!stopped) { stopped = true; unavailable(); } };
+    const fail = () => { if (!stopped) { stopped = true; unavailable(awaitingFirstFrame ? "frame-readiness-timeout" : "stalled-media"); } };
     // Initial network/decode work has the same bound as mounted readiness.
     // Only a source that has presented a frame can be judged as stalled motion.
     let deadline = setTimeout(fail, awaitingFirstFrame ? 8000 : 1000);
@@ -172,7 +172,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       return;
     }
     video.currentTime = 0;
-    void video.play().catch(unavailable);
+    void video.play().catch(() => unavailable());
   };
 
   useEffect(() => {
@@ -216,13 +216,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     if (startedPlaybackId.current === playbackId) {
       if (video.ended) continueMotion(video);
-      else void video.play().catch(unavailable);
+      else void video.play().catch(() => unavailable());
       return;
     }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
     fitDuration(video);
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
-    video.play().catch(unavailable);
+    video.play().catch(() => unavailable());
     startedVideoUrl.current = mediaUrl;
     startedPlaybackId.current = playbackId;
   }, [isPlaying, mediaUrl, playbackId, rewindPreroll]);

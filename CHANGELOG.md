@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Distinguish decode errors, frame-readiness timeouts and stalled footage in the local chat diagnostic log without retaining media URLs or user content.
+
 ## 0.10.8
 
 - Correct starter guidance for separate footage modes and remove obsolete planner logs that included raw model output.

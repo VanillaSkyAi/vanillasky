@@ -5,6 +5,7 @@ import {
   type ReactNode,
   Suspense,
   useState,
+  useRef,
   useCallback,
   useEffect,
   useSyncExternalStore,
@@ -25,7 +26,7 @@ import {
   limitsConcurrentVideoDecoders,
   resolveMediaType,
 } from "../visual-system/scene-templates/media-source.js";
-import { ExternalVideoBackdropProvider } from "../visual-system/scene-templates/external-video-backdrop.js";
+import { ExternalVideoBackdropProvider, type MediaRecoveryReason } from "../visual-system/scene-templates/external-video-backdrop.js";
 import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 
 function PresentedScene({ notify }: { notify?: () => unknown }): null {
@@ -175,7 +176,7 @@ export interface VideoFrameProps {
 
 interface SceneLayerProps {
   onFramePresented?: () => unknown;
-  onMediaError?: () => void;
+  onMediaError?: (reason?: MediaRecoveryReason) => void;
   kit: PlayerTemplateRegistry;
   config: Video;
   range: VideoSceneRange;
@@ -312,13 +313,21 @@ export function VideoFrame({
   className,
   style,
 }: VideoFrameProps): ReactElement {
+  const recoveryRoot = useRef<HTMLDivElement>(null);
+  const reportedFailures = useRef(new Set<string>());
   const [failedMedia, setFailedMedia] = useState<ReadonlySet<string>>(() => new Set());
-  const markMediaFailed = useCallback((key: string | undefined) => {
+  const markMediaFailed = useCallback((key: string | undefined, reason: MediaRecoveryReason = "playback-error") => {
     if (!key || !config.scenes.some(scene => sceneReadinessKey(scene) === key)) return;
+    if (!reportedFailures.current.has(key)) {
+      reportedFailures.current.add(key);
+      // Internal development signal: never include scene IDs, URLs or copy.
+      recoveryRoot.current?.dispatchEvent(new CustomEvent("vanillasky:media-recovery", { bubbles: true, detail: { reason: ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error"].includes(reason) ? reason : "playback-error" } }));
+    }
     setFailedMedia(previous => previous.has(key) ? previous : new Set([...previous, key]));
   }, [config.scenes]);
   useEffect(() => {
     const currentKeys = new Set(config.scenes.map(sceneReadinessKey));
+    for (const key of reportedFailures.current) if (!currentKeys.has(key)) reportedFailures.current.delete(key);
     setFailedMedia(previous => {
       const retained = new Set([...previous].filter(key => currentKeys.has(key)));
       return retained.size === previous.size ? previous : retained;
@@ -445,6 +454,7 @@ export function VideoFrame({
 
   return (
     <div
+      ref={recoveryRoot}
       onErrorCapture={(event) => {
         const target = event.target;
         if (!(target instanceof HTMLVideoElement || target instanceof HTMLImageElement)) return;
@@ -453,7 +463,7 @@ export function VideoFrame({
         const template = owner && kit.getTemplate(owner.scene.templateId);
         if (owner && template && supportsExternalVideoBackdrop(template)
           && target.getAttribute("src") === owner.scene.variables.mediaUrl) {
-          markMediaFailed(sceneReadinessKey(owner.scene));
+          markMediaFailed(sceneReadinessKey(owner.scene), "decode-error");
         }
       }}
       data-video-frame="ready"
@@ -472,7 +482,7 @@ export function VideoFrame({
       <MountedSceneReadiness scene={active.scene} playing={playing}
         fallback={activeMediaFailed}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
-          ? () => markMediaFailed(sceneReadinessKey(active.scene)) : undefined} />
+          ? () => markMediaFailed(sceneReadinessKey(active.scene), "frame-readiness-timeout") : undefined} />
       <div
         data-video-canvas="true"
         style={{
@@ -505,7 +515,7 @@ export function VideoFrame({
               kit={kit}
               config={config}
               range={active}
-              onMediaError={() => markMediaFailed(sceneReadinessKey(active.scene))}
+              onMediaError={reason => markMediaFailed(sceneReadinessKey(active.scene), reason)}
               progress={progress}
               motionProgress={motionProgress}
               width={canvas.width}
@@ -540,7 +550,7 @@ export function VideoFrame({
               opacity={blendProgress}
               interactive={false}
               zIndex={2}
-              onMediaError={() => markMediaFailed(sceneReadinessKey(contiguousNext.scene))}
+              onMediaError={reason => markMediaFailed(sceneReadinessKey(contiguousNext.scene), reason)}
               externalVideoBackdrop={failedMedia.has(sceneReadinessKey(contiguousNext.scene)) ? "fallback" : false}
             />,
           ]
@@ -551,7 +561,7 @@ export function VideoFrame({
             kit={kit}
             config={config}
             range={active}
-            onMediaError={() => markMediaFailed(sceneReadinessKey(active.scene))}
+            onMediaError={reason => markMediaFailed(sceneReadinessKey(active.scene), reason)}
             progress={progress}
             motionProgress={motionProgress}
             width={canvas.width}

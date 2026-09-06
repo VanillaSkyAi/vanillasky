@@ -1,5 +1,5 @@
 import type { VideoChatPlaybackMetric } from "../../src/video-chat/use-video-chat";
-export interface DiagnosticRow { phase: string; elapsedMs: number; durationMs?: number; status?: number }
+export interface DiagnosticRow { phase: string; elapsedMs: number; durationMs?: number; status?: number; reason?: string }
 const phases: Record<string, string> = {
   "response.start": "request accepted", "data.video-chat-opening": "opening authored",
   "data.video-chat-preparation": "shot authored", "scene.add": "scene prepared",
@@ -17,6 +17,16 @@ export function createChatDiagnostics(changed: (rows: DiagnosticRow[]) => void) 
     emit({phase, elapsedMs: Math.round(performance.now() - startedAt), ...extra}, run);
   return {
     rows: () => rows,
+    observeRecoveries(target: EventTarget) {
+      const observe = (event: Event) => {
+        const reason: unknown = (event as CustomEvent<{reason?: unknown}>).detail?.reason;
+        if (typeof reason === "string" && ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error"].includes(reason)) {
+          mark("media recovery", generation, {reason});
+        }
+      };
+      target.addEventListener("vanillasky:media-recovery", observe);
+      return () => target.removeEventListener("vanillasky:media-recovery", observe);
+    },
     dispose() {disposed = true; generation++; rows = [];},
     playback(metric: VideoChatPlaybackMetric) {
       const phase = {"first-frame": "body surface", "first-media-frame": "moving footage", "first-speech": "first speech", stall: "buffer pause"}[metric.type];

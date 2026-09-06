@@ -30,3 +30,17 @@ it("marks speech ready only when its complete body has arrived", async () => {
   release(); await speech.arrayBuffer();
   expect(diagnostics.rows().map(row => row.phase)).toContain("speech bytes ready");
 });
+
+it("keeps only recognized recovery reasons and detaches the harness listener", async () => {
+  const diagnostics = createChatDiagnostics(() => {});
+  const target = new EventTarget();
+  const detach = diagnostics.observeRecoveries(target);
+  await diagnostics.wrapFetch(async () => new Response(""))("http://localhost/?action=response");
+  target.dispatchEvent(new CustomEvent("vanillasky:media-recovery", {detail:{reason:"decode-error", url:"private", prompt:"private"}}));
+  target.dispatchEvent(new CustomEvent("vanillasky:media-recovery", {detail:{reason:"private provider error"}}));
+  expect(diagnostics.rows().filter(row => row.phase === "media recovery")).toEqual([{phase:"media recovery",reason:"decode-error",elapsedMs:expect.any(Number)}]);
+  expect(JSON.stringify(diagnostics.rows())).not.toContain("private");
+  detach();
+  target.dispatchEvent(new CustomEvent("vanillasky:media-recovery", {detail:{reason:"stalled-media"}}));
+  expect(diagnostics.rows().filter(row => row.phase === "media recovery")).toHaveLength(1);
+});
