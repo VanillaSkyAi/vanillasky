@@ -14,7 +14,7 @@ describe("acceptance fixture template contract", () => {
       "subtitle", "theme", "unit",
     ]);
 
-    expect(BUILTIN_TEMPLATE_CATALOG).toHaveLength(8);
+    expect(BUILTIN_TEMPLATE_CATALOG).toHaveLength(7);
     for (const template of BUILTIN_TEMPLATE_CATALOG) {
       const required = new Set(template.schema.required ?? []);
       for (const [name, field] of Object.entries(template.schema.properties)) {
@@ -67,14 +67,9 @@ describe("acceptance fixture template contract", () => {
   });
 
   it("lets the list templates carry the count the evidence supports", () => {
-    // A host with two supported facts must not be forced to invent a third:
-    // The maintainer acceptance guide treats any factual invention as a release blocker.
-    const cards = getTemplate("focusCards")?.schema;
-    expect(cards?.properties.items).toMatchObject({ minItems: 2, maxItems: 4 });
-    expect(Object.keys(cards?.properties ?? {})).toEqual(["items"]);
-    // Timeline requires three ordered events. Two supported points belong in cards.
+    expect(getTemplate("focusCards")).toBeUndefined();
     const timeline = getTemplate("editorialTimeline")?.schema;
     expect(timeline?.properties.events).toMatchObject({ minItems: 3, maxItems: 5 });
-    expect(Object.keys(timeline?.properties ?? {})).toEqual(["events"]);
+    expect(timeline?.required).toEqual(["events"]);
   });
 });

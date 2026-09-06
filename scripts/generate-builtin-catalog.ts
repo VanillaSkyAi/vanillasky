@@ -23,10 +23,6 @@ const templateModules = {
     "file": "chapter-title.tsx",
     "component": "TitleSceneTemplate"
   },
-  "focusCards": {
-    "file": "focus-cards.tsx",
-    "component": "CardsSceneTemplate"
-  },
   "editorialTimeline": {
     "file": "editorial-timeline.tsx",
     "component": "TimelineSceneTemplate"

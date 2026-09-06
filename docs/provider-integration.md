@@ -180,7 +180,7 @@ is intentionally substantial. It is stable for the same SDK version, template
 kit, media policy, and base prompt. Record input-token usage, keep the selected
 kit no broader than the product needs, and enable provider-side prompt caching
 where the chosen provider/model supports it. VanillaSky does not assume one
-provider's cache controls in its provider-neutral adapter. The cinematic catalog contains eight templates; use provider-reported token
+provider's cache controls in its provider-neutral adapter. The cinematic catalog contains seven templates; use provider-reported token
 usage as the authoritative measurement rather than a character estimate.
 
 Provider finish reasons `error` and `tool-calls` are terminal failures.

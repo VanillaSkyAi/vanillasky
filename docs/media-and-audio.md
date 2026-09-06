@@ -8,14 +8,14 @@ all credentials out of React and the browser bundle.
 
 ## One cinematic mode
 
-The director combines relevant footage and eight editorial templates. Graphics
+The director combines relevant footage and seven editorial templates. Graphics
 use black and white; footage carries atmosphere and concrete action. Each media
 scene declares `mediaSource: "stock"` or `"generate"`. Provider availability and
 host budgets constrain those choices. There is no all-stock or all-AI switch.
 
-The canonical templates are `cinemaMedia`, `chapterTitle`, `focusCards`,
+The canonical templates are `cinemaMedia`, `chapterTitle`,
 `editorialTimeline`, `mobileMessage`, `comparison`, `quote`, and `keyFigure`.
-Only `cinemaMedia` and `mobileMessage` accept media backgrounds. Full-bleed
+All except `chapterTitle` accept optional media backgrounds. Editorial overlays use soft text shadows and a dark contrast scrim over relevant media, and fall back to black. Use at most one explanatory overlay per typical thirty-second answer. Full-bleed
 footage has no headline; narration and subtitles carry the explanation.
 
 ## Reviewed stock

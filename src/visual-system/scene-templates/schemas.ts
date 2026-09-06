@@ -1,4 +1,4 @@
-/** Canonical contracts for the eight cinematic templates. */
+/** Canonical contracts for the seven cinematic templates. */
 import type { TemplateJsonSchema } from "../catalog/types";
 
 export const BUILTIN_TEMPLATE_SCHEMAS = {
@@ -82,31 +82,6 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
     ],
     "additionalProperties": false
   },
-  "focusCards": {
-    "type": "object",
-    "properties": {
-      "items": {
-        "type": "array",
-        "minItems": 2,
-        "maxItems": 4,
-        "items": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 55
-        },
-        "default": [
-          "Listen closely",
-          "Notice the pattern",
-          "Make room for change"
-        ],
-        "description": "2\u20134 parallel phrases, about 2\u20136 words each; no heading or numbering."
-      }
-    },
-    "required": [
-      "items"
-    ],
-    "additionalProperties": false
-  },
   "editorialTimeline": {
     "type": "object",
     "properties": {
@@ -140,12 +115,59 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
           }
         ],
         "description": "3\u20135 ordered events or actions, each with one short label; no dates."
+      },
+      "mediaKeyword": {
+        "type": "string",
+        "format": "stock-media-keyword",
+        "minLength": 1,
+        "maxLength": 80,
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+        "examples": [
+          "Ocean waves breaking on a rocky shore"
+        ]
+      },
+      "mediaUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved photo or video URL.",
+        "default": ""
+      },
+      "mediaType": {
+        "type": "string",
+        "enum": [
+          "photo",
+          "video"
+        ],
+        "default": "video",
+        "description": "Host-resolved asset kind."
+      },
+      "mediaPoster": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved poster URL for video decoding.",
+        "default": ""
+      },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+      },
+      "mediaSource": {
+        "type": "string",
+        "enum": [
+          "generate",
+          "stock"
+        ],
+        "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
       }
     },
     "required": [
       "events"
     ],
-    "additionalProperties": false
+    "additionalProperties": false,
+    "x-vanillasky": {
+      "allowsStockMedia": true
+    }
   },
   "mobileMessage": {
     "type": "object",
@@ -241,13 +263,60 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
         "maxLength": 60,
         "default": "More room to think",
         "description": "Second real alternative, parallel to the first."
+      },
+      "mediaKeyword": {
+        "type": "string",
+        "format": "stock-media-keyword",
+        "minLength": 1,
+        "maxLength": 80,
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+        "examples": [
+          "Ocean waves breaking on a rocky shore"
+        ]
+      },
+      "mediaUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved photo or video URL.",
+        "default": ""
+      },
+      "mediaType": {
+        "type": "string",
+        "enum": [
+          "photo",
+          "video"
+        ],
+        "default": "video",
+        "description": "Host-resolved asset kind."
+      },
+      "mediaPoster": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved poster URL for video decoding.",
+        "default": ""
+      },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+      },
+      "mediaSource": {
+        "type": "string",
+        "enum": [
+          "generate",
+          "stock"
+        ],
+        "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
       }
     },
     "required": [
       "leftText",
       "rightText"
     ],
-    "additionalProperties": false
+    "additionalProperties": false,
+    "x-vanillasky": {
+      "allowsStockMedia": true
+    }
   },
   "quote": {
     "type": "object",
@@ -270,13 +339,60 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
           "Illustrative example"
         ],
         "description": "Grounded attribution belonging to these exact quoted words."
+      },
+      "mediaKeyword": {
+        "type": "string",
+        "format": "stock-media-keyword",
+        "minLength": 1,
+        "maxLength": 80,
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+        "examples": [
+          "Ocean waves breaking on a rocky shore"
+        ]
+      },
+      "mediaUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved photo or video URL.",
+        "default": ""
+      },
+      "mediaType": {
+        "type": "string",
+        "enum": [
+          "photo",
+          "video"
+        ],
+        "default": "video",
+        "description": "Host-resolved asset kind."
+      },
+      "mediaPoster": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved poster URL for video decoding.",
+        "default": ""
+      },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+      },
+      "mediaSource": {
+        "type": "string",
+        "enum": [
+          "generate",
+          "stock"
+        ],
+        "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
       }
     },
     "required": [
       "quote",
       "attribution"
     ],
-    "additionalProperties": false
+    "additionalProperties": false,
+    "x-vanillasky": {
+      "allowsStockMedia": true
+    }
   },
   "keyFigure": {
     "type": "object",
@@ -299,6 +415,50 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
           "Illustrative example"
         ],
         "description": "Exactly one short label identifying the quantity and its context."
+      },
+      "mediaKeyword": {
+        "type": "string",
+        "format": "stock-media-keyword",
+        "minLength": 1,
+        "maxLength": 80,
+        "description": "2\u20138 word literal subject/action search intent, maximum 80 characters. Host resolves URLs.",
+        "examples": [
+          "Ocean waves breaking on a rocky shore"
+        ]
+      },
+      "mediaUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved photo or video URL.",
+        "default": ""
+      },
+      "mediaType": {
+        "type": "string",
+        "enum": [
+          "photo",
+          "video"
+        ],
+        "default": "video",
+        "description": "Host-resolved asset kind."
+      },
+      "mediaPoster": {
+        "type": "string",
+        "format": "uri",
+        "description": "Host-only approved poster URL for video decoding.",
+        "default": ""
+      },
+      "shotDirection": {
+        "type": "string",
+        "maxLength": 220,
+        "description": "Optional action, framing and continuity for generation. Preserve the subject; do not request rendered text."
+      },
+      "mediaSource": {
+        "type": "string",
+        "enum": [
+          "generate",
+          "stock"
+        ],
+        "description": "Generate distinctive illustrative shots; use approved stock for familiar observable subjects."
       }
     },
     "required": [
@@ -307,7 +467,8 @@ export const BUILTIN_TEMPLATE_SCHEMAS = {
     ],
     "additionalProperties": false,
     "x-vanillasky": {
-      "requiresStat": true
+      "requiresStat": true,
+      "allowsStockMedia": true
     }
   }
 } as const satisfies Record<string, TemplateJsonSchema>;

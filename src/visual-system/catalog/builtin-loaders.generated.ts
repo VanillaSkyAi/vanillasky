@@ -10,7 +10,6 @@ export type BuiltinTemplateModule = { default: ComponentType<SceneTemplateProps>
 export const GENERATED_BUILTIN_TEMPLATE_LOADERS = {
   "cinemaMedia": () => import("../scene-templates/cinema-media.js").then((module) => ({ default: module.MediaSceneTemplate })),
   "chapterTitle": () => import("../scene-templates/chapter-title.js").then((module) => ({ default: module.TitleSceneTemplate })),
-  "focusCards": () => import("../scene-templates/focus-cards.js").then((module) => ({ default: module.CardsSceneTemplate })),
   "editorialTimeline": () => import("../scene-templates/editorial-timeline.js").then((module) => ({ default: module.TimelineSceneTemplate })),
   "mobileMessage": () => import("../scene-templates/mobile-message.js").then((module) => ({ default: module.NotificationSceneTemplate })),
   "comparison": () => import("../scene-templates/comparison.js").then((module) => ({ default: module.ComparisonSceneTemplate })),

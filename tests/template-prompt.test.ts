@@ -138,15 +138,15 @@ describe("template-aware open prompt", () => {
     expect(catalog[0].variables).toHaveProperty("mediaUrl");
   });
 
-  it("keeps eight grounded templates bounded and fully described", async () => {
+  it("keeps seven grounded templates bounded and fully described", async () => {
     const {createTemplateSystemPrompt}=await import("../src/visual-system/catalog/internal");
     const {loadAcceptanceKit}=await import("../scripts/acceptance/catalog");
     const prompt=createTemplateSystemPrompt({kit:loadAcceptanceKit(),mediaResolverAvailable:true});
     const catalog=JSON.parse(prompt.trim().split("\n").at(-1)!);
-    expect(catalog).toHaveLength(8);
+    expect(catalog).toHaveLength(7);
     expect(prompt.length).toBeLessThan(22000);
     for(const entry of catalog){expect(entry.avoid).toBeTruthy();expect(entry.schema.properties).toBeTruthy();}
-    expect(catalog.find((entry:{id:string})=>entry.id==='keyFigure').variables).toEqual({value:'string{1..14}!',label:'string{1..50}!'});
+    expect(catalog.find((entry:{id:string})=>entry.id==='keyFigure').variables).toMatchObject({value:'string{1..14}!',label:'string{1..50}!'});
     expect(prompt).not.toContain('mediaType=gradient');
   });
   it("hides footage templates when no asset can satisfy their required fields", async () => {

@@ -8,7 +8,7 @@ import {addRegistryTemplates} from '../src/cli/registry';
 import {getTemplate,listTemplates} from '../src/visual-system/scene-templates/registry';
 import {ExternalVideoBackdropProvider} from '../src/visual-system/scene-templates/external-video-backdrop';
 import {TEST_VIDEO_STYLE} from './semantic-brand-fixture';
-const sample:Record<string,Record<string,unknown>>={cinemaMedia:{mediaKeyword:'Rocky coast',mediaUrl:'https://cdn.test/coast.mp4',mediaType:'video'},chapterTitle:{title:'The world beneath our feet'},focusCards:{items:['Listen closely','Notice the pattern','Make room for change']},editorialTimeline:{events:[{label:'Observe'},{label:'Understand'},{label:'Act'}]},mobileMessage:{mediaUrl:'https://cdn.test/coast.mp4',mediaType:'video',message:'Can we talk tomorrow?',app:'Messages'},comparison:{leftText:'More distractions',rightText:'Room to think'},quote:{quote:'Look closely. There is always more to see.',attribution:'A supplied speaker'},keyFigure:{value:'42%',label:'A supported measurement'}};
+const sample:Record<string,Record<string,unknown>>={cinemaMedia:{mediaKeyword:'Rocky coast',mediaUrl:'https://cdn.test/coast.mp4',mediaType:'video'},chapterTitle:{title:'The world beneath our feet'},editorialTimeline:{events:[{label:'Observe'},{label:'Understand'},{label:'Act'}]},mobileMessage:{mediaUrl:'https://cdn.test/coast.mp4',mediaType:'video',message:'Can we talk tomorrow?',app:'Messages'},comparison:{leftText:'More distractions',rightText:'Room to think'},quote:{quote:'Look closely. There is always more to see.',attribution:'A supplied speaker'},keyFigure:{value:'42%',label:'A supported measurement'}};
 function render(id:string,progress=.7,width=1080,height=1920,variables=sample[id]){
  const template=getTemplate(id)!;
  return renderToStaticMarkup(createElement(template.component,{variables,style:TEST_VIDEO_STYLE,progress,beatIntensity:0,width,height,safeZone:{top:100,left:60,right:60,bottom:Math.round(height*.18)},sceneDuration:template.preferredDuration,isPlaying:false}));
@@ -28,7 +28,7 @@ describe('eight cinematic templates',()=>{
  it('owns a single chapter fade and holds explanatory graphics steadily',()=>{
   expect(getTemplate('chapterTitle')!.usesGlobalTransition).toBe(false);
   expect(render('chapterTitle',0)).toContain('opacity:0');expect(render('chapterTitle',1)).toContain('opacity:0');expect(render('chapterTitle',.5)).toContain('opacity:1');
-  for(const id of ['focusCards','editorialTimeline','comparison','quote','keyFigure'])expect(render(id,.8)).toBe(render(id,1));
+  for(const id of ['editorialTimeline','comparison','quote','keyFigure'])expect(render(id,.8)).toBe(render(id,1));
  });
  it('shows exact evidence without a count-up, repeated label, or extra identity',()=>{
   const value=render('keyFigure',.12);expect(value).toContain('42%');expect(value.match(/A supported measurement/g)).toHaveLength(1);
@@ -37,7 +37,7 @@ describe('eight cinematic templates',()=>{
   expect(render('comparison')).not.toMatch(/>Before<|>After</);
  });
  it('keeps allowed long copy intact and respects explicit caption insets',()=>{
-  const cases:Record<string,Record<string,unknown>>={chapterTitle:{title:'A surprisingly long chapter about the hidden life of our oceans'},focusCards:{items:Array(4).fill('A longer but still permitted explanation of this point')},editorialTimeline:{events:Array.from({length:5},()=>({label:'A longer action in this ordered sequence'}))},quote:{quote:'The detail we notice changes the way we understand the whole story, and careful observation gives us another way to see what is possible.',attribution:'An attributed speaker with a longer role description'},comparison:{leftText:'The old approach leaves many important questions unanswered',rightText:'The new approach provides more room to understand the details'},keyFigure:{value:'123,456,789.01',label:'One supported quantity with its full context'}};
+  const cases:Record<string,Record<string,unknown>>={chapterTitle:{title:'A surprisingly long chapter about the hidden life of our oceans'},editorialTimeline:{events:Array.from({length:5},()=>({label:'A longer action in this ordered sequence'}))},quote:{quote:'The detail we notice changes the way we understand the whole story, and careful observation gives us another way to see what is possible.',attribution:'An attributed speaker with a longer role description'},comparison:{leftText:'The old approach leaves many important questions unanswered',rightText:'The new approach provides more room to understand the details'},keyFigure:{value:'123,456,789.01',label:'One supported quantity with its full context'}};
   for(const [id,variables] of Object.entries(cases))for(const [w,h] of [[1080,1920],[1920,1080]]){
    const html=render(id,.7,w,h,variables);expect(html).not.toMatch(/NaN|Infinity/);
    for(const value of Object.values(variables).filter(v=>typeof v==='string'))expect(html).toContain(value);

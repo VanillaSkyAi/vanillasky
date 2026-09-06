@@ -14,7 +14,6 @@ const widths = [180, 380, 600, 960];
 const scenes = {
   keyFigure: {value: "128%", label: "Faster deployment cycles"},
   editorialTimeline: {events: [{label: "Connect"}, {label: "Review"}, {label: "Publish"}]},
-  focusCards: {items: ["Instant updates", "Grounded messaging", "Ready motion"]},
 } as const;
 const transitionScenes: Video["scenes"] = [
  {id:"opening", templateId:"mobileMessage", variables:{app:"Messages",message:"The opening remains readable."},timing:{fixedDuration:5}},
@@ -22,7 +21,6 @@ const transitionScenes: Video["scenes"] = [
 ];
 const transientSemanticScenes = {
  keyFigure: {value:"128%",label:"Faster deployment cycles"},
- focusCards: {items:["Grounded explanation", "Source preserved"]},
  editorialTimeline: {events:[{label:"First"},{label:"Second"},{label:"Final event"}]},
 } as const;
 
