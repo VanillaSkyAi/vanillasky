@@ -573,6 +573,7 @@ export function VideoPlayerRuntime({
           width={dimensions.width}
           height={dimensions.height}
           playing={mediaPlaying}
+          preparingNarration={isPlaying && !mediaPlaying}
           mediaAudioMuted={!nativeMediaAudio || isMuted}
           mediaAudioVolume={nativeMediaVolume}
           style={{

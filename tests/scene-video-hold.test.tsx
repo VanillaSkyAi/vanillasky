@@ -2,6 +2,7 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { ExternalVideoBackdropProvider } from "../src/visual-system/scene-templates/external-video-backdrop";
 import { SceneVideoBackdrop } from "../src/visual-system/scene-templates/scene-video-backdrop";
 it("resumes paused footage, recovers its end once, and resets a deliberate replay", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
@@ -115,5 +116,22 @@ it("never repeats audible dialogue as a continuity bridge", () => {
   fireEvent.ended(view.container.querySelector("video")!);
   expect(play).toHaveBeenCalledTimes(1);
   expect(view.getByRole("status").textContent).toBe("Visual unavailable");
+  view.unmount(); vi.restoreAllMocks();
+});
+
+it("rewinds decoder preroll for narration onset, while leaving user pauses untouched", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const shot = (playing: boolean, preparingNarration: boolean) => <ExternalVideoBackdropProvider mode={false} preparingNarration={preparingNarration}><SceneVideoBackdrop mediaUrl="/shot.mp4" progress={0} isPlaying={playing} /></ExternalVideoBackdropProvider>;
+  const view = render(shot(true, false));
+  const video = view.container.querySelector("video")!;
+  video.currentTime = .2;
+  view.rerender(shot(false, true));
+  expect(video.currentTime).toBe(0);
+  view.rerender(shot(true, false));
+  video.currentTime = 3;
+  view.rerender(shot(false, false));
+  expect(video.currentTime).toBe(3);
   view.unmount(); vi.restoreAllMocks();
 });

@@ -170,6 +170,7 @@ export interface VideoFrameProps {
   width: number;
   height: number;
   playing?: boolean;
+  preparingNarration?: boolean;
   mediaAudioMuted?: boolean;
   mediaAudioVolume?: number;
   className?: string;
@@ -186,6 +187,7 @@ interface SceneLayerProps {
   width: number;
   height: number;
   playing: boolean;
+  preparingNarration: boolean;
   mediaAudioMuted: boolean;
   mediaAudioVolume: number;
   layer: "active" | "outgoing" | "incoming";
@@ -205,6 +207,7 @@ function SceneLayer({
   width,
   height,
   playing,
+  preparingNarration,
   mediaAudioMuted,
   mediaAudioVolume,
   layer,
@@ -224,6 +227,7 @@ function SceneLayer({
       mode={externalVideoBackdrop}
       audioMuted={mediaAudioMuted || !playing}
       audioVolume={mediaAudioVolume}
+      preparingNarration={preparingNarration}
     >
       <div
         data-scene-layer={layer}
@@ -302,6 +306,7 @@ export function VideoFrame({
   width,
   height,
   playing = false,
+  preparingNarration = false,
   mediaAudioMuted = true,
   mediaAudioVolume = 1,
   className,
@@ -566,6 +571,7 @@ export function VideoFrame({
                 progress={persistentVideoRange.scene.id === active.scene.id ? rawProgress : 0}
                 sceneDuration={persistentVideoRange.end - persistentVideoRange.start}
                 isPlaying={persistentVideoRange.scene.id === active.scene.id && playing}
+                preparingNarration={preparingNarration}
                 muted={mediaAudioMuted || persistentVideoRange.scene.id !== active.scene.id || !playing}
                 volume={mediaAudioVolume}
                 playbackId={persistentVideoRange.scene.id}
@@ -599,6 +605,7 @@ export function VideoFrame({
               width={canvas.width}
               height={canvas.height}
               playing={playing}
+              preparingNarration={preparingNarration}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
               // Only a blend makes this scene "outgoing". During a preroll it
@@ -622,6 +629,7 @@ export function VideoFrame({
               width={canvas.width}
               height={canvas.height}
               playing={false}
+              preparingNarration={false}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
               layer="incoming"
@@ -645,6 +653,7 @@ export function VideoFrame({
             width={canvas.width}
             height={canvas.height}
             playing={playing}
+            preparingNarration={preparingNarration}
             mediaAudioMuted={mediaAudioMuted}
             mediaAudioVolume={mediaAudioVolume}
             layer="active"

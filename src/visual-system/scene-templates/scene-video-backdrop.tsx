@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getBackgroundTransform } from "../backgrounds";
-import { useMediaAudio } from "./external-video-backdrop";
+import { useMediaAudio, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 
 export interface SceneVideoBackdropProps {
@@ -11,6 +11,8 @@ export interface SceneVideoBackdropProps {
   progress: number;
   /** Narration-led visible duration; muted or pitch-preserving footage may be gently retimed. */
   sceneDuration?: number;
+  /** Internal player-owned decoder priming, distinct from viewer pause. */
+  preparingNarration?: boolean;
   beatIntensity?: number;
   isPlaying: boolean;
   muted?: boolean;
@@ -39,6 +41,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   backgroundEffect,
   progress,
   sceneDuration,
+  preparingNarration = false,
   beatIntensity = 0,
   isPlaying,
   muted,
@@ -51,6 +54,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   onError,
 }) => {
   const inheritedAudio = useMediaAudio();
+  const inheritedPreroll = useNarrationPreroll();
+  const rewindPreroll = preparingNarration || inheritedPreroll;
   const resolvedMuted = muted ?? inheritedAudio.muted;
   const resolvedVolume = volume ?? inheritedAudio.volume;
   const resolvedPosition = resolveMediaPosition(mediaPosition);
@@ -122,6 +127,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (!video) return;
     if (!isPlaying) {
       video.pause();
+      if (rewindPreroll && video.currentTime > 0) video.currentTime = 0;
       return;
     }
     if (startedPlaybackId.current === playbackId) {
@@ -135,7 +141,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     video.play().catch(unavailable);
     startedVideoUrl.current = mediaUrl;
     startedPlaybackId.current = playbackId;
-  }, [isPlaying, mediaUrl, playbackId]);
+  }, [isPlaying, mediaUrl, playbackId, rewindPreroll]);
 
   const mediaStyle: React.CSSProperties = {
     position: "absolute",
