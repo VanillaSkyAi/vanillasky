@@ -1,5 +1,5 @@
 // Run on macOS with the already-installed Samantha voice and ffmpeg. No downloads.
-import { readFileSync, mkdtempSync, unlinkSync, rmdirSync } from 'node:fs';
+import { readFileSync, mkdtempSync, unlinkSync, rmdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,7 +17,7 @@ try {
     unlinkSync(input);
   }
 } finally {
-  try { unlinkSync(input); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  rmSync(input, { force: true });
   rmdirSync(temporary);
 }
 console.log(`Generated ${manifest.utterances.length} local spoken fixtures.`);
