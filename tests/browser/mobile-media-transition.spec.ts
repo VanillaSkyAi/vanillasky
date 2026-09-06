@@ -24,9 +24,22 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
   await expect(firstVideo).toHaveCount(1);
   await expect.poll(() => firstVideo.evaluate((video: HTMLVideoElement) => video.readyState)).toBeGreaterThanOrEqual(2);
   const videoIdBeforeCut = await firstVideo.getAttribute("data-probe-video-id");
-  await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.some(entry =>
-    entry.kind === "presented-frame" && entry.sceneId === "first-video" && Number(entry.mediaTime) > 1,
-  ) ?? false)).toBe(true);
+  const expectSustainedMotion = (sceneId: string) => expect.poll(() => page.evaluate(({ sceneId, videoId }) => {
+    const frames = (window.__mobileMediaTransitionProbe ?? []).filter(entry =>
+      entry.kind === "presented-frame" && entry.sceneId === sceneId && String(entry.videoId) === videoId,
+    );
+    let start = 0, previous = -1, increasing = 0;
+    for (const frame of frames) {
+      const time = Number(frame.mediaTime);
+      if (!Number.isFinite(time)) continue;
+      if (time <= previous) { start = time; increasing = 1; }
+      else { if (!increasing) start = time; increasing++; }
+      previous = time;
+      if (increasing >= 3 && time - start >= 1) return true;
+    }
+    return false;
+  }, { sceneId, videoId: videoIdBeforeCut })).toBe(true);
+  await expectSustainedMotion("first-video");
   const secondPoster = page.locator('img[src*="tram.jpg"]');
   await expect(secondPoster).toHaveCount(1);
   await expect(secondPoster).toHaveAttribute("data-video-poster-plane", "prepared");
@@ -47,11 +60,7 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
   expect(await videoAfterCut.getAttribute("data-probe-video-id")).toBe(videoIdBeforeCut);
   await expect(videoAfterCut).toHaveAttribute("src", new RegExp(`tram\\.${extension}`));
 
-  await expect.poll(() => page.evaluate(() =>
-    window.__mobileMediaTransitionProbe?.some((entry) =>
-      entry.kind === "presented-frame" && entry.sceneId === "second-video" && Number(entry.mediaTime) > 1,
-    ) ?? false,
-  )).toBe(true);
+  await expectSustainedMotion("second-video");
 
   await expect(page.locator('[data-video-frame="ready"]')).toHaveAttribute("data-scene-id", "third-video", { timeout: 8_000 });
   await expect(page.locator('[data-video-frame="ready"]')).toHaveAttribute("data-template-id", "cinemaMedia");
@@ -62,11 +71,7 @@ test("keeps the real media element across an iPhone video-to-video cut", async (
   )).toBe(true);
   expect(await page.locator("video").getAttribute("data-probe-video-id")).toBe(videoIdBeforeCut);
   await expect(page.locator("video")).toHaveAttribute("src", new RegExp(`sunflowers\\.${extension}`));
-  await expect.poll(() => page.evaluate(() =>
-    window.__mobileMediaTransitionProbe?.some((entry) =>
-      entry.kind === "presented-frame" && entry.sceneId === "third-video" && Number(entry.mediaTime) > 1,
-    ) ?? false,
-  )).toBe(true);
+  await expectSustainedMotion("third-video");
   const firstSceneFramesBeforeLoop = await page.evaluate(() =>
     window.__mobileMediaTransitionProbe?.filter((entry) =>
       entry.kind === "presented-frame" && entry.sceneId === "first-video",

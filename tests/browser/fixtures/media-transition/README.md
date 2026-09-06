@@ -41,7 +41,8 @@ The decoder-identity test uses `waterfall-hold.webm`, `tram.webm`, and
 `sunflowers.webm` on Linux WebKit only. The latter two are produced with the same
 command above, substituting the corresponding MP4 filename. The test still
 requires the same video element through every cut and a full loop, and now
-requires over one second of presented motion in each scene. Retained proof JSON
+requires at least three increasing presented-frame times spanning one second
+on the same scene and decoder. Retained proof JSON
 records the codec and platform. macOS WebKit continues using all original H264
 files; the MP4 sources are retained. A separate native fault-injection test stops
 frame delivery and verifies bounded chapter recovery without stopping the player.
