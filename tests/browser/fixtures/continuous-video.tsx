@@ -26,6 +26,12 @@ HTMLMediaElement.prototype.play = function () {
     this.addEventListener("playing", () => events.push("audio-playing"));
     this.addEventListener("error", () => events.push("audio-error"));
   }
+  if (this instanceof HTMLVideoElement && !this.dataset.observed) {
+    this.dataset.observed = "true";
+    for (const kind of ["waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
+      events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
+    });
+  }
   return nativePlay.call(this);
 };
 const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : audioUrl) });
@@ -41,14 +47,14 @@ function App() {
     await voice.prepare("Opening cue");
     await voice.speak("Opening cue", { signal: new AbortController().signal });
     const prepared = await voice.prepare(text);
-    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [{
-      id: "one", templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
+    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: (params.has("same-url") ? ["one", "two", "three"] : ["one"]).map(id => ({
+      id, templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
       timing: { fixedDuration: prepared.seconds }, narration: text,
-    }] });
+    })) });
     const sample = () => {
       const clip = document.querySelector("video");
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
       } else requestAnimationFrame(sample);
