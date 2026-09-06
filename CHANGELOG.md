@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Correct starter guidance for separate footage modes and remove obsolete planner logs that included raw model output.
+
 ## 0.10.7
 
 - Reuse the first presented video frame at scene handoffs so a second readiness observation cannot briefly interrupt continuous narration.

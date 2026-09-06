@@ -33,6 +33,15 @@ describe("video chat starter", () => {
     expect(environment).toContain("PEXELS_API_KEY=");
   });
 
+  it("describes isolated footage modes and keeps provider output out of starter logs", () => {
+    const readme = readFileSync(join(starterRoot, "README.md"), "utf8");
+    const server = readFileSync(join(starterRoot, "server.ts"), "utf8");
+    expect(readme).toContain("Each mode uses only its selected footage");
+    expect(readme).not.toMatch(/generated footage first, then|approved stock/);
+    expect(server).not.toMatch(/text\.(?:slice|match)\(/);
+    expect(server).not.toContain("asked for footage");
+  });
+
   it("starts without optional provider packages and keeps upgrades in separate adapters", () => {
     const manifest = JSON.parse(readFileSync(join(starterRoot, "package.json"), "utf8"));
     const server = readFileSync(join(starterRoot, "server.ts"), "utf8");

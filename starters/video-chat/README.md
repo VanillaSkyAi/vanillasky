@@ -49,15 +49,11 @@ call. A template introduction starts while footage prepares; body shots contain
 moving footage, narration and subtitles. Intent changes the visible actions and
 pacing, not the rendering pipeline.
 
-The SDK tries generated footage first, then relevant approved stock when the
-provider is unavailable, denied, or fails. Attempts, including failures, share
-the host's `maxGeneratedVideos` ceiling. A stock miss never broadens the subject
-automatically. If no relevant footage is available, narration and subtitles
-continue as authored chapter scenes.
-
 Choose AI video or Pexels in Settings. Each mode uses only its selected footage
-provider, and both use chapter scenes when footage cannot be prepared. The
-Pexels adapter searches the full catalog with bounded subject matching,
+provider, and both use chapter scenes when footage cannot be prepared. AI video
+attempts, including failures, share the host's `maxGeneratedVideos` ceiling.
+Exhausted allowance recovers directly to authored chapters without stock calls.
+The Pexels adapter searches the full catalog with bounded subject matching,
 orientation selection and caching; it no longer requires a reviewed index.
 Custom interfaces must display a prominent [Pexels](https://www.pexels.com) credit.
 
