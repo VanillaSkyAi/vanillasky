@@ -122,3 +122,26 @@ describe("video chat speech onset", () => {
     voice.dispose?.();
   });
 });
+
+describe("unavailable native browser speech", () => {
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  it("cancels unstarted speech after two active seconds without reporting audible onset", async () => {
+    vi.useFakeTimers();
+    let utterance: { onstart?: (() => void) | null } | undefined;
+    const cancel = vi.fn();
+    vi.stubGlobal("speechSynthesis", { speak: (value: typeof utterance) => { utterance = value; }, cancel, pause: vi.fn(), resume: vi.fn() });
+    vi.stubGlobal("SpeechSynthesisUtterance", class {});
+    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response(null, { status: 204 })) });
+    const onStart = vi.fn(); let failure: unknown;
+    const speaking = Promise.resolve(voice.speak("A browser cannot always speak this line.", { signal: new AbortController().signal, onStart })).catch(error => { failure = error; });
+    await vi.advanceTimersByTimeAsync(1750);
+    const lateStart = utterance?.onstart;
+    voice.pause(); await vi.advanceTimersByTimeAsync(10000);
+    expect(failure).toBeUndefined();
+    voice.resume(); await vi.advanceTimersByTimeAsync(250);
+    expect(failure).toBeInstanceOf(Error);
+    expect(cancel).toHaveBeenCalledOnce();
+    lateStart?.(); expect(onStart).not.toHaveBeenCalled();
+    await speaking; voice.dispose?.();
+  });
+});

@@ -959,7 +959,7 @@ describe("createVideoChatVoice", () => {
   it.each(["browser", "generated"])("settles %s speech when playback never reports completion", async (source) => {
     const { createVideoChatVoice } = await import("../src/react");
     vi.useFakeTimers();
-    vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
+    vi.stubGlobal("speechSynthesis", { speak: (utterance: { onstart?: () => void }) => utterance.onstart?.(), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
     vi.stubGlobal("SpeechSynthesisUtterance", class { constructor(public text: string) {} });
     vi.stubGlobal("Audio", class { play() { return Promise.resolve(); } pause() {} });
     vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:audio"), revokeObjectURL: vi.fn() }));
@@ -1211,5 +1211,35 @@ it("forwards the prepared audio clock through the actual chat player props", asy
     expect(chat.result.current.playerProps!.narrationTime?.(video.scenes[0])).toBe(1.5);
   } finally {
     clock.unmount(); chat.unmount(); vi.useRealTimers();
+  }
+});
+
+it("keeps received video playable with a warning when native browser speech never starts", async () => {
+  const { useVideoChat } = await import("../src/react");
+  const { usePlaybackClock } = await import("../src/player/use-playback-clock");
+  const { createVideoState } = await import("../src/protocol/state");
+  const cancel = vi.fn();
+  vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel, pause: vi.fn(), resume: vi.fn() });
+  vi.stubGlobal("SpeechSynthesisUtterance", class {});
+  const base = videoChatFetcher();
+  const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
+    ? Promise.resolve(responseStream("blocked-voice", [scene("one", "First", "A thought worth seeing.")], { line: "", keyword: "", fallbackKeyword: "" }))
+    : String(input).includes("action=speech") ? Promise.resolve(new Response(null, { status: 204 })) : base(input, init);
+  const chat = renderHook(() => useVideoChat({ templates: kit, fetcher }));
+  await act(async () => { await chat.result.current.ask("Show a thought"); });
+  const video = chat.result.current.currentTurn!.video!;
+  const timeRef = { current: 0 }; const onStop = vi.fn();
+  vi.useFakeTimers();
+  const clock = renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef, audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 }, callbacksRef: { current: chat.result.current.playerProps! }, setCurrentTime: vi.fn(), setIsPlaying: onStop }));
+  try {
+    await act(() => vi.advanceTimersByTimeAsync(3500));
+    expect(timeRef.current).toBeGreaterThan(1);
+    expect(cancel).toHaveBeenCalled();
+    expect(chat.result.current.error).toBeUndefined();
+    expect(chat.result.current.currentTurn!.video).toEqual(video);
+    expect(chat.result.current.warnings).toContain("Voice playback is unavailable. Continuing with subtitles.");
+    expect(chat.result.current.playerProps).toBeDefined();
+  } finally {
+    clock.unmount(); chat.unmount(); vi.useRealTimers(); vi.unstubAllGlobals();
   }
 });

@@ -436,7 +436,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 } {
   const optionsRef = useRef(options);
   optionsRef.current = options;
-  const voiceWarningRef = useRef<() => void>(() => undefined);
+  const voiceWarningRef = useRef<(message?: string) => void>(() => undefined);
   const ownedVoiceRef = useRef<VideoChatVoice | undefined>(undefined);
   if (!options.voice && !ownedVoiceRef.current) {
     ownedVoiceRef.current = createVideoChatVoice({
@@ -455,7 +455,14 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const narration = useNarration({ onSpeechStart: (source) => speechStartRef.current(source), voice: {
     supportsOffsets: voice.supportsOffsets,
     ...(voice.getCurrentTime ? { getCurrentTime: () => voice.getCurrentTime!() } : {}),
-    speak: (text, options) => unavailableVoiceLines.current.has(text) ? undefined : voice.speak(text, options),
+    speak: async (text, options) => {
+      if (unavailableVoiceLines.current.has(text)) return;
+      try { await voice.speak(text, options); }
+      catch (error) {
+        if (!options.signal.aborted) voiceWarningRef.current("Voice playback is unavailable. Continuing with subtitles.");
+        throw error;
+      }
+    },
   } });
   const narrationRef = useRef(narration);
   narrationRef.current = narration;
@@ -654,7 +661,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const warn = (message: string) => {
       if (isCurrent()) dispatch({ type: "warning", id, message });
     };
-    voiceWarningRef.current = () => warn("Using browser voice for this response.");
+    voiceWarningRef.current = (message = "Using browser voice for this response.") => warn(message);
     const flush = () => {
       if (!isCurrent()) return;
       let available = appended;
