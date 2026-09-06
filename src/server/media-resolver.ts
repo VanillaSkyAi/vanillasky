@@ -293,26 +293,39 @@ export function createMediaResolvingPlanner(options: {
       }
     };
 
-    const resolveOne = (part: VideoPlanPart, openingReady?: boolean) => resolvePartVariables({
-      part,
-      requestId: context.request.requestId,
-      templateId: part.type === "scene.add" ? part.scene.templateId : undefined,
-      input: context.request.input,
-      signal: context.signal,
-      templates: options.templates,
-      resolveMedia: options.resolveMedia,
-      approveUrl: options.approveUrl,
-      openingReady: openingReady ?? options.isOpeningReady(context.request.input),
-      claimBudget,
-      onFallback: () => getGenerationLifecycleSink(context)?.reportWarning?.({
-        code: "provider_warning", category: "provider",
-        message: "Some visuals use a simple background.", recoverable: true,
-      }),
-    });
+    const resolveOne = async (part: VideoPlanPart, openingReady?: boolean): Promise<VideoPlanPart | undefined> => {
+      try {
+        return await resolvePartVariables({
+          part,
+          requestId: context.request.requestId,
+          templateId: part.type === "scene.add" ? part.scene.templateId : undefined,
+          input: context.request.input,
+          signal: context.signal,
+          templates: options.templates,
+          resolveMedia: options.resolveMedia,
+          approveUrl: options.approveUrl,
+          openingReady: openingReady ?? options.isOpeningReady(context.request.input),
+          claimBudget,
+          onFallback: () => getGenerationLifecycleSink(context)?.reportWarning?.({
+            code: "provider_warning", category: "provider",
+            message: "Some visuals use a simple background.", recoverable: true,
+          }),
+        });
+      } catch (cause) {
+        // Resolution can make an otherwise valid scene unrepresentable. Apply
+        // the same host-owned drop policy as preflight without ending the queue.
+        if (context.signal.aborted || part.type !== "scene.add") throw cause;
+        const error = cause instanceof Error ? cause : new Error(String(cause));
+        if (!getGenerationLifecycleSink(context)?.rejectPart?.(error)) throw error;
+        return undefined;
+      }
+    };
 
     if (limit === 1) {
       for await (const part of options.planner(context)) {
-        if (preflight(part)) yield await resolveOne(part);
+        if (!preflight(part)) continue;
+        const resolved = await resolveOne(part);
+        if (resolved) yield resolved;
       }
       return;
     }
@@ -327,7 +340,7 @@ export function createMediaResolvingPlanner(options: {
     // the consumer used to withhold scene one until the planner had produced
     // `limit` parts, which turned concurrency into a startup delay.
     type SettledPart =
-      | { part: VideoPlanPart; cause?: never }
+      | { part: VideoPlanPart | undefined; cause?: never }
       | { part?: never; cause: unknown };
     const pending: Array<Promise<SettledPart>> = [];
     const iterator = options.planner(context)[Symbol.asyncIterator]();
@@ -383,7 +396,7 @@ export function createMediaResolvingPlanner(options: {
         pending.shift();
         notifyProducer();
         if ("cause" in result) throw result.cause;
-        yield result.part;
+        if (result.part) yield result.part;
       }
       await producer;
       if (producerError !== undefined) throw producerError;
