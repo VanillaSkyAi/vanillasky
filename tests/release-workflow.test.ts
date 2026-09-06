@@ -248,7 +248,7 @@ describe("release workflow", () => {
     const example = JSON.parse(readFileSync("starters/video-chat/package.json", "utf8"));
     const reactCompatibility = workflow
       .split("  react-compatibility:")[1]
-      .split("  browser-compatibility:")[0];
+      .split("  browser-gate:")[0];
 
     expect(manifest.devDependencies.react).toMatch(/^\^19\./);
     expect(manifest.devDependencies["react-dom"]).toMatch(/^\^19\./);
@@ -277,7 +277,8 @@ describe("release workflow", () => {
     const consumerAggregate = workflow.split("  consumer-compatibility:")[1].split("  provider-gate:")[0];
     const providerGate = workflow.split("  provider-gate:")[1].split("  provider-compatibility:")[0];
     const providerAggregate = workflow.split("  provider-compatibility:")[1].split("  node-compatibility:")[0];
-    const browserJob = workflow.split("  browser-compatibility:")[1];
+    const browserJob = workflow.split("  browser-gate:")[1]?.split("  browser-compatibility:")[0] ?? "";
+    const browserAggregate = workflow.split("  browser-compatibility:")[1];
 
     expect(consumerGate).toContain("gate: [public-api, packed-package, onboarding]");
     for (const gate of [consumerGate, providerGate]) {
@@ -304,7 +305,7 @@ describe("release workflow", () => {
     expect(providerAggregate).toContain("needs: provider-gate");
     expect(providerAggregate).toContain("needs.provider-gate.result");
 
-    for (const job of [consumerGate, providerGate, workflow.split("  node-compatibility:")[1].split("  react-compatibility:")[0], workflow.split("  react-compatibility:")[1].split("  browser-compatibility:")[0], browserJob]) {
+    for (const job of [consumerGate, providerGate, workflow.split("  node-compatibility:")[1].split("  react-compatibility:")[0], workflow.split("  react-compatibility:")[1].split("  browser-gate:")[0], browserJob]) {
       expect(job).toContain("if: github.event_name == 'pull_request'");
     }
     expect(workflow).toContain(
@@ -317,8 +318,18 @@ describe("release workflow", () => {
     expect(manifest.devDependencies["@playwright/test"]).toBe("1.62.0");
     expect(browserJob).not.toContain("playwright install");
     expect(workflow.match(/npx playwright test(?:\s|$)/g)).toHaveLength(2);
-    expect(workflow).not.toContain("matrix.browser");
-    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(9);
+    expect(browserJob).toContain("browser: [chromium, firefox, webkit]");
+    expect(browserJob).toContain("fail-fast: false");
+    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --workers=1");
+    expect(browserJob).toContain('if [[ "${{ matrix.browser }}" == "chromium" ]]; then');
+    expect(browserJob).toContain("name: browser-playback-evidence-${{ matrix.browser }}");
+    expect(browserJob).toContain("if: always()");
+    expect(browserAggregate).toContain("if: always() && github.event_name == 'pull_request'");
+    expect(browserAggregate).toContain("needs: browser-gate");
+    expect(browserAggregate).toContain("RESULT: ${{ needs.browser-gate.result }}");
+    expect(browserAggregate).toContain('if [[ "$RESULT" != "success" ]]; then');
+    expect(browserAggregate).toContain("exit 1");
+    expect(workflow.match(/timeout-minutes:/g)).toHaveLength(10);
   });
 
   it("enforces the live npm-latest public API comparison in pull-request CI", () => {

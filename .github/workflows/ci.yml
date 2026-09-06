@@ -215,7 +215,11 @@ jobs:
       - run: npm test -- tests/react.test.tsx tests/use-video-chat.test.tsx tests/video-chat-component.test.tsx tests/video-chat-voice-cancellation.test.tsx tests/player.test.tsx tests/template-kit.test.tsx tests/templates.test.tsx
       - run: npm run build
 
-  browser-compatibility:
+  browser-gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     container:
@@ -245,13 +249,31 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            npx playwright test
-            npx playwright test --config dev/chat/playwright.config.ts
+            npx playwright test --project=${{ matrix.browser }} --workers=1
+            if [[ "${{ matrix.browser }}" == "chromium" ]]; then
+              npx playwright test --config dev/chat/playwright.config.ts
+            fi
           '
       - name: Preserve browser playback evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: browser-playback-evidence
+          name: browser-playback-evidence-${{ matrix.browser }}
           path: test-results/
           retention-days: 3
+
+  # Keep branch protection stable while each browser has its own decoder and audio sink.
+  browser-compatibility:
+    if: always() && github.event_name == 'pull_request'
+    needs: browser-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every browser gate
+        env:
+          RESULT: ${{ needs.browser-gate.result }}
+        run: |
+          if [[ "$RESULT" != "success" ]]; then
+            echo "Browser compatibility failed: $RESULT" >&2
+            exit 1
+          fi
