@@ -24,13 +24,18 @@ window.Audio = function (src?: string) {
   if (delayedOnset) {
     const playNow = audio.play.bind(audio);
     audio.play = async () => {
-      if (firstAudioPlay) {
+      probe.push({ kind: "play-source", source: audio.src.split(":")[0], firstAudioPlay, at: performance.now() });
+      // The silent data cue only grants playback permission. Delay the first
+      // actual narration blob, so the fault cannot span a source replacement.
+      if (firstAudioPlay && audio.src.startsWith("blob:")) {
         firstAudioPlay = false;
         // Simulate decoder priming followed by a cold output stall.
+        probe.push({ kind: "cold-output-stall", source: "blob", at: performance.now() });
         Object.defineProperty(audio, "currentTime", { configurable: true, get: () => 0.05 });
         audio.dispatchEvent(new Event("playing"));
         await new Promise((resolve) => setTimeout(resolve, 1500));
         Reflect.deleteProperty(audio, "currentTime");
+        probe.push({ kind: "cold-output-release", at: performance.now() });
       }
       return playNow();
     };
@@ -40,7 +45,7 @@ window.Audio = function (src?: string) {
     probe.push({ kind: "play-rejected", message: String(error), readyState: audio.readyState });
     throw error;
   });
-  for (const kind of ["playing", "pause", "ended", "seeking", "error", "stalled", "waiting"]) audio.addEventListener(kind, () => probe.push({ kind, audioTime: audio.currentTime, readyState: audio.readyState, error: audio.error?.message, at: performance.now() }));
+  for (const kind of ["playing", "pause", "ended", "seeking", "error", "stalled", "waiting"]) audio.addEventListener(kind, () => probe.push({ kind: audio.src.startsWith("data:") ? `activation-${kind}` : kind, audioTime: audio.currentTime, readyState: audio.readyState, error: audio.error?.message, at: performance.now() }));
   probe.push({ kind: "audio-created" });
   return audio;
 } as unknown as typeof Audio;
