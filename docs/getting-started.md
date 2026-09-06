@@ -3,9 +3,10 @@
 # Getting started
 
 The fastest VanillaSky integration is the complete, general-purpose video chat.
-It starts with packaged templates and browser voice, then turns on optional
-speech and generated video when you install their adapters and add server keys.
-Stock media needs only its server key.
+It starts with a template introduction and browser voice. Add the video adapter
+and its server key for generated footage, plus reviewed stock for fallback.
+Without a media provider, the answer retains narration and subtitles with an
+unavailable-visual state. Generated speech is optional.
 
 ## Create the app
 
@@ -96,8 +97,9 @@ spoken hook from the response stream before the full plan is complete, holds its
 scene is ready, reaches its final frame, and leaves the composer ready for
 another turn. With stock media enabled, click a welcome or follow-up card and
 confirm its footage carries directly into that opening. With generated video
-enabled, confirm that relevant generated shots and editorial templates form one
-cinematic response, and the first shot continues the hook without repeating it.
+enabled, confirm that moving shots develop a complete answer with narration
+and subtitles, and that the first shot continues the hook without repeating it.
+Check that no finished clip freezes while narration continues.
 
 The generated local authorization accepts localhost only. Replace it with your
 real session check, rate limits, and usage policy before deploying.

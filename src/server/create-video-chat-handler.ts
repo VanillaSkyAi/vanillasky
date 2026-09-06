@@ -1,9 +1,7 @@
-import {createOpeningContinuation} from './opening-continuity';
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
 import {
   VIDEO_PROTOCOL_VERSION,
   type VideoOrientation,
-  type VideoPlanPart,
   type VideoScene,
   type VideoStyleOptions,
 } from "../protocol/types.js";
@@ -15,10 +13,8 @@ import type { ResolvedMedia } from "./media-resolver.js";
 import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from "./lifecycle.js";
 import { withDeadline } from "../video-chat/deadline.js";
 import { sanitizeVideoChatMedia } from "../video-chat/media.js";
-import {
-  type VideoChatFirstShot,
-} from "../video-chat/first-shot.js";
-import type { TextDeltaVideoSource } from "./model/text-stream.js";
+import { createVideoStreamHandler } from "./video-stream-handler.js";
+import { createChatShotPlanner } from "./chat-shot-planner.js";
 import {
   createNarrationUserPrompt,
   createVideoChatResponseInstructions,
@@ -163,12 +159,9 @@ interface OpeningSubject {
   line: string;
   keyword: string;
   fallbackKeyword?: string;
-  firstShot?: VideoChatFirstShot;
 }
 
-const VIDEO_CHAT_OPENING_PLAN_TYPE = "video-chat.opening";
 const VIDEO_CHAT_OPENING_EVENT_TYPE = "data.video-chat-opening" as const;
-const PROVIDER_CODE_FENCE = /^```(?:json|ndjson)?$/i;
 
 const DEFAULT_WELCOME_PROMPTS: readonly VideoChatWelcomePrompt[] = [
   {
@@ -296,85 +289,6 @@ function cleanGeneratedText(value: string): string {
   return value.trim().replace(/^["']|["']$/g, "");
 }
 
-function readGeneratedFirstShot(value: unknown): VideoChatFirstShot | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const shot = value as Record<string, unknown>;
-  const bounded = (field: unknown, maximum: number) => typeof field === "string"
-    ? [...field.trim()].slice(0, maximum).join("").trim()
-    : "";
-  const text = bounded(shot.text, 65);
-  const narration = bounded(shot.narration, 300);
-  const mediaKeyword = bounded(shot.mediaKeyword, 80).match(/\S+/gu)?.slice(0, 8).join(" ") ?? "";
-  const shotDirection = bounded(shot.shotDirection, 220);
-  return text && narration && mediaKeyword ? { text, narration, mediaKeyword, ...(shotDirection ? {shotDirection} : {}) } : undefined;
-}
-
-function boundedWords(value: unknown, maximum: number, characters: number): string {
-  if (typeof value !== "string") return "";
-  return value.trim().match(/\S+/gu)?.slice(0, maximum).join(" ").slice(0, characters).trim() ?? "";
-}
-
-function readOpeningPlanLine(line: string): OpeningSubject | undefined {
-  try {
-    const parsed = JSON.parse(line) as {
-      type?: unknown;
-      spokenHook?: unknown;
-      mediaKeyword?: unknown;
-      fallbackKeyword?: unknown;
-      firstShot?: unknown;
-    };
-    if (!parsed || parsed.type !== VIDEO_CHAT_OPENING_PLAN_TYPE) return undefined;
-    const firstShot = readGeneratedFirstShot(parsed.firstShot);
-    return {
-      line: boundedWords(parsed.spokenHook, 9, 300),
-      keyword: boundedWords(parsed.mediaKeyword, 4, 80),
-      ...(boundedWords(parsed.fallbackKeyword, 4, 80) ? { fallbackKeyword: boundedWords(parsed.fallbackKeyword, 4, 80) } : {}),
-      ...(firstShot ? { firstShot } : {}),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function reservedFirstScene(
-  requestId: string,
-  firstShot: VideoChatFirstShot,
-): Extract<VideoPlanPart, { type: "scene.add" }> {
-  return {
-    type: "scene.add",
-    scene: {
-      id: `${requestId}-first-shot`,
-      templateId: "cinemaMedia",
-      variables: {
-        fallbackText: firstShot.text,
-        mediaSource: "generate",
-        ...(firstShot.shotDirection ? {shotDirection: firstShot.shotDirection} : {}),
-        mediaType: "video",
-        mediaKeyword: firstShot.mediaKeyword,
-      },
-      timing: { fixedDuration: 5 },
-      narration: firstShot.narration,
-    },
-  };
-}
-
-function replaceTextStream(
-  source: ReturnType<VideoHandlerOptions["streamText"]>,
-  textStream: AsyncIterable<string>,
-): ReturnType<VideoHandlerOptions["streamText"]> {
-  const enriched = typeof source === "object" && source != null && "textStream" in source
-    ? source as TextDeltaVideoSource
-    : undefined;
-  if (!enriched) return textStream;
-  const wrapper: TextDeltaVideoSource = { textStream };
-  return new Proxy(wrapper, {
-    get(target, property, receiver) {
-      if (property === "textStream") return Reflect.get(target, property, receiver);
-      return Reflect.get(enriched, property, enriched);
-    },
-  });
-}
-
 interface OpeningChannel {
   ready: Promise<OpeningSubject | undefined>;
   publish(value: OpeningSubject | undefined): void;
@@ -393,87 +307,6 @@ function createOpeningChannel(initial?: OpeningSubject): OpeningChannel {
       resolve(value);
     },
   };
-}
-
-function interceptOpeningPlan(
-  source: ReturnType<VideoHandlerOptions["streamText"]>,
-  options: {
-    expectOpening: boolean;
-    openingProvided: boolean;
-    openingLine?: string;
-    requestId: string;
-    generatedVideoAvailable: boolean;
-    publish: OpeningChannel["publish"];
-  },
-): ReturnType<VideoHandlerOptions["streamText"]> {
-  const enriched = typeof source === "object" && source != null && "textStream" in source
-    ? source as TextDeltaVideoSource
-    : undefined;
-  const upstream = enriched?.textStream ?? source as AsyncIterable<string>;
-  const textStream = (async function* () {
-    let buffer = "";
-    let decided = !options.expectOpening;
-    const continuation = createOpeningContinuation(options.openingLine);
-    const acceptOpening = (opening: OpeningSubject): string | undefined => {
-      if (!options.openingProvided) {
-        options.publish(opening.line ? opening : undefined);
-        continuation.remember(opening.line);
-      }
-      if (!options.generatedVideoAvailable || !opening.firstShot) return undefined;
-      const narration = continuation.narration(opening.firstShot.narration);
-      if (!narration) return undefined;
-      const text = continuation.copy(opening.firstShot.text, narration);
-      continuation.remember(narration);
-      return JSON.stringify(reservedFirstScene(options.requestId, {...opening.firstShot, text, narration}));
-    };
-    try {
-      for await (const delta of upstream) {
-        if (typeof delta !== "string") throw new Error("The LLM adapter returned a non-text delta");
-        buffer += delta;
-        let newline = buffer.indexOf("\n");
-        while (newline >= 0) {
-          const rawLine = buffer.slice(0, newline);
-          buffer = buffer.slice(newline + 1);
-          const line = rawLine.trim();
-          if (!decided && line && !PROVIDER_CODE_FENCE.test(line)) {
-            const opening = readOpeningPlanLine(line);
-            decided = true;
-            if (opening) {
-              const firstScene = acceptOpening(opening);
-              if (firstScene) yield `${firstScene}\n`;
-              newline = buffer.indexOf("\n");
-              continue;
-            }
-            options.publish(undefined);
-          }
-          const continued = continuation.line(rawLine);
-          if (continued != null) yield `${continued}\n`;
-          newline = buffer.indexOf("\n");
-        }
-      }
-      if (buffer) {
-        const line = buffer.trim();
-        if (!decided && line && !PROVIDER_CODE_FENCE.test(line)) {
-          const opening = readOpeningPlanLine(line);
-          decided = true;
-          if (opening) {
-            const firstScene = acceptOpening(opening);
-            if (firstScene) yield `${firstScene}\n`;
-          } else {
-            options.publish(undefined);
-            const continued = continuation.line(buffer);
-            if (continued != null) yield continued;
-          }
-        } else {
-          const continued = continuation.line(buffer);
-          if (continued != null) yield continued;
-        }
-      }
-    } finally {
-      options.publish(undefined);
-    }
-  })();
-  return replaceTextStream(source, textStream);
 }
 
 function resequenceEvent(event: VideoEvent, sequence: number): VideoEvent {
@@ -677,17 +510,8 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     const generatedVideoAvailable = generateVideo != null && maxGeneratedVideos > 0;
     let lifecycle: VideoGenerationLifecycleSink | undefined;
     let generatedAttempts = 0;
-    // Exact bounded query + visual look only: no inferred semantic matches and
-    // no cross-response cache. One recovery reuse per completed clip URL.
-    const completedVideos = new Map<string, ResolvedMedia>();
-    const reusedUrls = new Set<string>();
     const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
       ? async (query, context) => {
-          const reuseKey = JSON.stringify([query, context.generatedLook ?? "", context.scene.variables.shotDirection ?? "", context.input.orientation ?? "landscape"]);
-          const remember = (media: ResolvedMedia | null) => {
-            if (media?.type === "video") completedVideos.set(reuseKey, media);
-            return media;
-          };
           const mediaContext: VideoChatMediaContext = {
             purpose: "response",
             orientation: context.input.orientation ?? "landscape",
@@ -715,11 +539,11 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
               return null;
             }
           };
-          if (generatedVideoAvailable && context.scene.variables.mediaSource === "generate") {
+          if (generatedVideoAvailable && (!options.templates || context.scene.variables.mediaSource === "generate")) {
             const generated = generatedAttempts < maxGeneratedVideos
               ? (generatedAttempts++, await attempt(generateVideo, generateVideoTimeoutMs))
               : null;
-            if (generated) return remember(generated);
+            if (generated?.type === "video") return generated;
             lifecycle?.reportWarning?.({
               code: "provider_warning",
               category: "provider",
@@ -728,45 +552,40 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
             });
           }
           const stock = await attempt(searchMedia, 3_000);
-          if (stock) return remember(stock);
-          if (generatedVideoAvailable) {
-            const previous = completedVideos.get(reuseKey);
-            if (previous && !reusedUrls.has(previous.url)) {
-              reusedUrls.add(previous.url);
-              return previous;
-            }
-          }
+          if (stock && (options.templates || stock.type === "video")) return stock;
           return null;
         }
       : undefined;
-    const handler = createVideoHandler({
-      ...videoOptions,
-      streamText: (context) => {
-        lifecycle = getGenerationLifecycleSink(context);
-        try {
-          return interceptOpeningPlan(videoOptions.streamText(context), {
-            expectOpening: generatedVideoAvailable || !openingProvided,
-            openingProvided,
-            openingLine,
-            requestId,
-            generatedVideoAvailable,
-            publish: openingChannel.publish,
-          });
-        } catch (cause) {
-          openingChannel.publish(undefined);
-          throw cause;
-        }
-      },
-      authorize: "none",
-      allowedOrigins,
-      allowCredentials,
-      maxBodyBytes,
-      mediaConcurrency,
-      basePrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos), instructions?.trim()]
-        .filter(Boolean)
-        .join("\n\nAPPLICATION GUIDANCE\n"),
-      narrate: true,
-      resolveMedia: resolveSelected,
+    if (options.templates) {
+      openingChannel.publish(undefined);
+      return createVideoHandler({
+        ...videoOptions,
+        authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
+        mediaConcurrency, resolveMedia: resolveSelected, narrate: true,
+        basePrompt: instructions,
+      });
+    }
+    const handler = createVideoStreamHandler({
+      heartbeatMs: videoOptions.heartbeatMs,
+      onError: videoOptions.onError,
+      onWarning: videoOptions.onWarning,
+      onComplete: videoOptions.onComplete,
+      invalidPartBehavior: videoOptions.invalidPartBehavior,
+      requireCloser: options.requireCloser ?? true,
+      generate: createChatShotPlanner({
+        streamText: (context) => {
+          lifecycle = getGenerationLifecycleSink(context);
+          return videoOptions.streamText(context);
+        },
+        includeRawProviderData: videoOptions.includeRawProviderData,
+        openingLine,
+        publishOpening: openingChannel.publish,
+        resolveMedia: resolveSelected,
+        mediaConcurrency,
+      }),
+      authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
+      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos), instructions?.trim()]
+        .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
     return handler;
   };

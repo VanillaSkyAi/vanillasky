@@ -300,6 +300,7 @@ export const SceneBackground: React.FC<SceneBackgroundProps> = ({
             mediaPosition={mediaPosition}
             backgroundEffect={backgroundEffect}
             progress={progress}
+            sceneDuration={sceneDuration}
             beatIntensity={beatIntensity}
             isPlaying={isPlaying}
             onReady={() => setMediaPaint("ready")}

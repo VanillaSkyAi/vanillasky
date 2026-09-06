@@ -25,9 +25,9 @@ describe('cinematic model-facing contract',()=>{
  });
  it('plans narration and early footage without forcing five scenes or an all-media slideshow',()=>{
   const prompt=createVideoChatResponseInstructions(true,false,2);
-  expect(prompt).toContain('firstShot');
+  expect(prompt).toContain('visible change');
   expect(prompt).toContain('narration');
-  expect(prompt).toContain('mediaSource');
+  expect(prompt).not.toContain('mediaSource');
   expect(prompt).not.toMatch(/exactly (?:five|5|four) (?:additional )?scenes|Use the media template for every/);
   expect(prompt).not.toContain('milestone');
   expect(prompt).not.toContain('broader real-world subject');

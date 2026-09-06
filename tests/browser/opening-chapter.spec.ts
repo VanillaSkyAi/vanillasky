@@ -12,12 +12,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       generateText: async () => "[]",
       searchMedia: async () => null,
       async *streamText() {
-        yield JSON.stringify({ type: "video-chat.opening", spokenHook: hook, mediaKeyword: "moon orbit" }) + "\n";
-        yield JSON.stringify({ type: "scene.add", scene: {
-          id: "body", templateId: "chapterTitle", variables: { title: "One familiar face" },
-          narration: "One face stays toward Earth.", timing: { fixedDuration: 4 },
-        } }) + "\n";
-        yield '{"type":"plan.complete"}\n';
+        yield JSON.stringify({ type: "answer", intent: "explanation", opening: hook, subject: "moon orbit", development: "Explain synchronous rotation.", visualDirection: "Simple generated illustration.", ending: { narration: "One face stays toward Earth.", subject: "moon orbit", action: "Show the same lunar face pointing toward Earth.", durationSec: 4, continuity: "cut" } }) + "\n";
       },
     });
     await page.route("**/api/video-chat?*", async route => {

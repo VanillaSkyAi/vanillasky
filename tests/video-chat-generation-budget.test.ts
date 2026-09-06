@@ -1,3 +1,4 @@
+import { chatShot, streamChatShots } from "./helpers/chat-shot-fixture";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server";
 import { decodeVideoSse } from "../src/protocol/sse";
@@ -12,11 +13,8 @@ async function run(budget: number | undefined, fail = false, queries = Array.fro
     generateText: async () => "unused",
     streamText: ({ systemPrompt }) => {
       brief = systemPrompt;
-      return (async function* () {
-        yield `${JSON.stringify({ type: "video-chat.opening", spokenHook: "Watch the ocean come alive today", mediaKeyword: "ocean", firstShot: { text: "Ocean waves", narration: "The ocean moves with a rhythm all of its own today.", mediaKeyword: queries[0] } })}\n`;
-        for (const [i, query] of queries.slice(1).entries()) yield `${JSON.stringify({ type: "scene.add", ...(i === queries.length - 2 ? { placement: "closer" } : {}), scene: { id: `shot-${i}`, templateId: "cinemaMedia", variables: { fallbackText: "Ocean", mediaType: "video", mediaSource: "generate", mediaKeyword: query }, narration: "A new wave brings another quiet moment to the shore today.", timing: { fixedDuration: 4 } } })}\n`;
-        yield '{"type":"plan.complete"}\n';
-      })();
+      return streamChatShots(queries.map((query, index) => chatShot(query, `This distinct wave reveals visual detail number ${index}.`)));
+
     },
     generateVideo: async () => { generated++; if (fail) throw new Error("private provider detail"); return { url: "https://media.example/generated.mp4", type: "video" }; },
     searchMedia: async () => { stock++; if (stockFails) return null; return { url: "https://media.example/stock.mp4", type: "video" }; },
@@ -38,10 +36,7 @@ describe("chat generation budget", () => {
     const handler = createVideoChatHandler({
       authorize: "none", heartbeatMs: false, generateVideoTimeoutMs: 20000,
       generateText: async () => "unused",
-      streamText: async function* () {
-        yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Watch the ocean come alive today", mediaKeyword: "ocean", firstShot: { text: "Ocean waves", narration: "The ocean moves with a rhythm all of its own today.", mediaKeyword: "ocean" } }) + "\n";
-        yield '{"type":"plan.complete"}\n';
-      },
+      streamText: () => streamChatShots([chatShot("ocean", "The surface bends into a rising wave.")]),
       generateVideo: async (_query, context) => { signal = context.signal; return new Promise<{ url: string; type: "video" }>((resolve) => { if (succeeds) setTimeout(() => resolve({ url: "https://media.example/slow.mp4", type: "video" }), 18000); }); },
       searchMedia: async () => ({ url: "https://media.example/stock.mp4", type: "video" }),
     });
@@ -54,7 +49,7 @@ describe("chat generation budget", () => {
     expect(signal!.aborted).toBe(true);
     expect(await result).toContain(succeeds ? "slow.mp4" : "stock.mp4");
   });
-  it("defaults to five attempts including the reserved shot while stock continues", async () => {
+  it("defaults to five attempts across uniform shots while stock continues", async () => {
     const result = await run(undefined);
     expect(result.generated).toBe(5);
     expect(result.stock).toBe(2);
@@ -65,21 +60,20 @@ describe("chat generation budget", () => {
     expect(result.generated).toBe(2);
     expect(result.stock).toBe(7);
     expect(JSON.stringify(result.events)).not.toContain("private provider detail");
-    expect(result.brief).toContain("2 generated-video attempts");
+    expect(result.brief).not.toContain("mediaSource");
   });
   it("supports zero paid attempts", async () => {
     const result = await run(0);
     expect(result.generated).toBe(0);
-    // With no generation capability there is no host-inserted generated first shot.
-    expect(result.stock).toBe(6);
+    expect(result.stock).toBe(7);
   });
-  it("reuses a completed exact-subject clip once when stock fails, never unrelated footage", async () => {
+  it("does not replay an earlier clip when stock fails", async () => {
     const result = await run(1, false, ["ocean waves", "ocean waves", "ocean waves", "desert dunes"], true, 1);
     const text = JSON.stringify(result.events);
-    // One generated shot plus one reuse; subsequent/unrelated shots recover to templates.
+    // Only the original shot uses its clip; other narration survives without invented footage.
     const scenes = result.events.filter((event) => event.type === "scene.add");
-    expect(scenes.filter((event) => JSON.stringify(event).includes("generated.mp4"))).toHaveLength(2);
-    expect(text).toContain('"templateId":"chapterTitle"');
+    expect(scenes.filter((event) => JSON.stringify(event).includes("generated.mp4"))).toHaveLength(1);
+    expect(text).not.toContain('"templateId":"chapterTitle"');
   });
   it.each([-1, 1.5, Infinity, NaN])("rejects invalid limit %s", (maxGeneratedVideos) => {
     expect(() => createVideoChatHandler({ authorize: "none", streamText: async function* () {}, generateText: async () => "", ...({ maxGeneratedVideos }) })).toThrow("maxGeneratedVideos");

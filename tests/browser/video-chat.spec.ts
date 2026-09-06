@@ -14,13 +14,10 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
     searchMedia: async () => { throw new Error("private-provider-detail"); },
     streamText: () => (async function* () {
       turn += 1;
-      yield JSON.stringify({ type: "video-chat.opening", spokenHook: "The Moon turns once around its orbit.", mediaKeyword: "moon" }) + "\n";
-      for (const [index, text] of (turn === 1 ? ["The Moon rotates once per orbit.", "One face stays toward Earth."] : ["Walk around a friend while facing them.", "You turn once during the trip."]).entries()) {
-        yield JSON.stringify({ type: "scene.add", ...(index === 1 ? { placement: "closer" } : {}), scene: {
-          id: `turn-${turn}-${index}`, templateId: "cinemaMedia", variables: { fallbackText: text, mediaKeyword: "moon orbit", mediaType: "video", mediaSource: "generate" }, narration: text, timing: { fixedDuration: 4 },
-        } }) + "\n";
-      }
-      yield '{"type":"plan.complete"}\n';
+      const lines = turn === 1 ? ["The Moon rotates once per orbit.", "One face stays toward Earth."] : ["Walk around a friend while facing them.", "You turn once during the trip."];
+      const shot = (narration: string) => ({ narration, subject: "moon orbit", action: "Show the Moon rotating around Earth.", durationSec: 4, continuity: "cut" });
+      yield JSON.stringify({ type: "answer", intent: "explanation", opening: "The Moon turns once around its orbit.", subject: "moon orbit", development: "Explain matching rotation and orbital periods.", visualDirection: "Clear generated orbital illustration.", ending: shot(lines[1]!) }) + "\n";
+      yield JSON.stringify({ type: "shot", ...shot(lines[0]!) }) + "\n";
     })(),
   });
   await page.route("**/api/video-chat?*", async (route) => {
@@ -37,10 +34,11 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "Expand subtitles" })).toBeVisible();
   if (recoveryNotice) {
-    await expect(page.getByRole("status")).toContainText("Some visuals were replaced");
+    await expect(page.locator(".recovery-notice [role=status]")).toContainText("Some visuals were replaced");
     await page.getByRole("button", { name: "Dismiss notice" }).click();
   }
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.locator(".recovery-notice [role=status]")).toHaveCount(0);
+  await expect(page.locator("[data-media-unavailable]")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Some parts were simplified");
   await page.locator(".line-row").hover();
   // A floated control must own its hit target above the full-frame scene.
@@ -58,7 +56,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests[1].conversation).toEqual([expect.objectContaining({ prompt: requests[0].prompt, response: expect.stringContaining("The Moon rotates once per orbit.") })]);
-  await expect(page.locator('[data-video-frame="ready"]')).toHaveAttribute("data-scene-id", /^turn-2-/);
+  await expect(page.locator('[data-video-frame="ready"]')).toHaveAttribute("data-scene-id", /-shot-/);
   await expect(page.getByRole("button", { name: "Play again", exact: true, includeHidden: true })).toHaveCount(1, { timeout: 12_000 });
   await page.locator(".vanillasky-video-chat").hover();
   await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible();
@@ -68,7 +66,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await expect(page.getByRole("region", { name: "Expanded subtitles" })).toContainText("You turn once during the trip.");
   expect(await page.locator("body").innerText()).not.toContain("private-provider-detail");
   if (recoveryNotice) {
-    await expect(page.getByRole("status")).toContainText("Some visuals were replaced");
+    await expect(page.locator(".recovery-notice [role=status]")).toContainText("Some visuals were replaced");
     const dismiss = await page.getByRole("button", { name: "Dismiss notice" }).boundingBox();
     expect(dismiss!.height).toBeGreaterThanOrEqual(44);
     expect(dismiss!.width).toBeGreaterThanOrEqual(44);
@@ -84,15 +82,13 @@ test("plays posterless intro footage through the hook, then replaces it with the
     authorize: "none", heartbeatMs: false,
     generateText: async () => "[]",
     streamText: async function* () {
-      yield JSON.stringify({ type: "video-chat.opening", spokenHook: "A waterfall starts our short journey.", mediaKeyword: "waterfall", fallbackKeyword: "river" }) + "\n";
-      yield JSON.stringify({ type: "scene.add", placement: "closer", scene: { id: "body", templateId: "chapterTitle", variables: { title: "Water flows downhill" }, narration: "Water keeps moving through the landscape.", timing: { fixedDuration: 4 } } }) + "\n";
-      yield '{"type":"plan.complete"}\n';
+      yield JSON.stringify({ type: "answer", intent: "explanation", opening: "A waterfall starts our short journey.", subject: "waterfall", development: "Explain water flowing downhill.", visualDirection: "Natural waterfall footage.", ending: { narration: "Water keeps moving through the landscape.", subject: "waterfall", action: "Follow water flowing downstream.", durationSec: 4, continuity: "continue" } }) + "\n";
     },
   });
   await page.route("**/api/video-chat?*", async route => {
     const request = route.request();
     if (request.url().includes("action=opening-media")) {
-      expect(request.postDataJSON()).toMatchObject({ keyword: "waterfall", fallbackKeyword: "river" });
+      expect(request.postDataJSON()).toMatchObject({ keyword: "waterfall" });
       return route.fulfill({ json: { media: { url: "http://127.0.0.1:4274/tests/browser/fixtures/media-transition/waterfall.mp4", type: "video" } } });
     }
     const response = await handler(new Request(request.url(), { method: request.method(), ...(request.postData() ? { body: request.postData(), headers: { "content-type": "application/json" } } : {}) }));

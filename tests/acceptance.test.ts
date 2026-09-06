@@ -11,7 +11,7 @@ describe("chat acceptance gates", () => {
       if (entry.event.type === "data.video-chat-opening") entry.elapsedMs = 500;
       if (entry.event.type === "scene.add") {
         entry.elapsedMs = 2_000;
-        entry.event.data.scene.variables.title = "Invented claim";
+        entry.event.data.scene.narration = "Invented claim";
       }
       if (entry.event.type === "response.complete") entry.event.data.snapshot.scenes.pop();
     }

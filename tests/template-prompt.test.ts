@@ -19,7 +19,7 @@ describe("template-aware open prompt", () => {
     expect(assembled).toContain("comedy");
     expect(assembled).toContain("practical");
     expect(assembled).toContain("paraphrase");
-    expect(assembled).toContain("At most 2 generated-video attempts");
+    expect(assembled).toContain("Each clip has at most five seconds");
     expect(VIDEO_CHAT_SUGGESTIONS_PROMPT).toContain("already answered");
     expect(VIDEO_CHAT_SUGGESTIONS_PROMPT).toContain("paraphrase");
   });

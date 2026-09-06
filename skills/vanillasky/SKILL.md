@@ -31,7 +31,10 @@ the complete experience works.
    ```
 
    The base capability is `templates + browser voice`; `ANTHROPIC_API_KEY` is
-   the only required key. No optional provider packages are installed. For a
+   the only required key. Templates provide the immediate introduction; add the
+   video adapter for moving body footage, with reviewed stock as fallback.
+   Without media, narration and subtitles remain available. No optional
+   provider packages are installed. For a
    requested upgrade, run `npx vanillasky providers add speech` for xAI speech
    or `npx vanillasky providers add video` for FAL video and transcription.
    Add `XAI_API_KEY` or `FAL_KEY` locally, then restart the server. Stock needs

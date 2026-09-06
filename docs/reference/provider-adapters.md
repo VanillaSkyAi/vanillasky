@@ -69,7 +69,9 @@ VanillaSky or its protocol. The same boundary also accepts a self-hosted model
 or a provider-native async text stream when it is not represented in the AI
 SDK. VanillaSky has no model allowlist.
 
-The provider must emit NDJSON text: one complete VanillaSky plan part per line.
+The provider must emit NDJSON text matching the supplied prompt: one complete
+object per line. Default chat planning uses an answer brief and shot descriptions;
+the SDK translates them into validated scene events.
 The SDK buffers arbitrary text chunks until a newline, parses the completed
 object, validates it, and only then forwards it to the motion runtime. Do not
 replace that per-line validator with whole-response structured output: motion
@@ -93,8 +95,8 @@ stream-reconnect contract.
 ## Generated-video budget
 
 Set `maxGeneratedVideos` on `createVideoChatHandler` to a nonnegative safe integer
-(default `5`). This is a per-response attempt limit for full mode, including the
-reserved first shot and failures. Use `0` to keep the configured full mode on
+(default `5`). This is a per-response generation attempt limit, including
+failures. Default chat attempts generated footage before relevant stock. Use `0` to keep the configured full mode on
 stock footage. Stock lookup is independent of this limit. Retries inside your
 provider callback can incur additional charges; bound those separately. Never
 copy an untrusted request value into this application-owned option.

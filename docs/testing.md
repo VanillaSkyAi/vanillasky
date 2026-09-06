@@ -7,12 +7,15 @@ no network request, and needs no model key.
 ## Test the chat route with Vitest
 
 Pass `createMockVideoPlanner()` to the same `createVideoChatHandler` used by the
-application. A standard `Request` exercises parsing, validation, pacing, the
+application, using an explicit template registry for the structured composition
+fixtures. Default AI-first chat tests should instead return an authored answer
+brief and shot descriptions matching the supplied planning prompt. A standard
+`Request` exercises parsing, validation, pacing, the
 opening extension, and SSE without starting an HTTP server.
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { createVideoChatHandler } from "@vanillaskyai/video/server";
+import { createVideoChatHandler, createServerTemplateRegistry } from "@vanillaskyai/video/server";
 import { createMockVideoPlanner } from "@vanillaskyai/video/test";
 
 describe("POST /api/video-chat", () => {
@@ -20,6 +23,7 @@ describe("POST /api/video-chat", () => {
     const handle = createVideoChatHandler({
       authorize: "none", // Only acceptable because this handler stays in process.
       heartbeatMs: false,
+      templates: createServerTemplateRegistry({ templates: [] }),
       streamText: createMockVideoPlanner(),
       generateText: async ({ task }) => task === "suggestions"
         ? JSON.stringify({ suggestions: [] })
@@ -43,6 +47,7 @@ describe("POST /api/video-chat", () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain('"type":"data.video-chat-opening"');
+    expect(body).toContain('"type":"scene.add"');
     expect(body).toContain('"type":"response.complete"');
   });
 });

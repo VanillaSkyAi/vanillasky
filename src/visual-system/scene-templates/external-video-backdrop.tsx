@@ -10,6 +10,7 @@ interface BackdropContextValue {
   mode: ExternalVideoBackdropMode;
   audioMuted: boolean;
   audioVolume: number;
+  preparingNarration?: boolean;
 }
 
 const DEFAULT: BackdropContextValue = { mode: false, audioMuted: true, audioVolume: 1 };
@@ -24,16 +25,18 @@ export function ExternalVideoBackdropProvider({
   mode,
   audioMuted = true,
   audioVolume = 1,
+  preparingNarration = false,
   children,
 }: {
   mode: ExternalVideoBackdropMode;
   audioMuted?: boolean;
   audioVolume?: number;
+  preparingNarration?: boolean;
   children: React.ReactNode;
 }) {
   const value = React.useMemo(
-    () => ({ mode, audioMuted, audioVolume }),
-    [mode, audioMuted, audioVolume],
+    () => ({ mode, audioMuted, audioVolume, preparingNarration }),
+    [mode, audioMuted, audioVolume, preparingNarration],
   );
   return (
     <BackdropContext.Provider value={value}>
@@ -49,4 +52,9 @@ export function useExternalVideoBackdrop(): ExternalVideoBackdropMode {
 export function useMediaAudio(): { muted: boolean; volume: number } {
   const { audioMuted, audioVolume } = React.useContext(BackdropContext);
   return { muted: audioMuted, volume: audioVolume };
+}
+
+/** Internal first-frame priming state; an explicit viewer pause never sets it. */
+export function useNarrationPreroll(): boolean {
+  return React.useContext(BackdropContext).preparingNarration === true;
 }

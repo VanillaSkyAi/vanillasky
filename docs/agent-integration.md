@@ -22,8 +22,9 @@ npm run dev
 ```
 
 Init generates the thin application-owned shell around the SDK's complete
-`VideoChat` experience and runs doctor automatically. The default uses packaged
-templates + browser voice and installs no optional provider packages.
+`VideoChat` experience and runs doctor automatically. The baseline uses an immediate introduction and browser voice, and installs
+no optional provider packages. Add the video adapter for moving video answers;
+without a media provider, narration and subtitles remain available.
 `ANTHROPIC_API_KEY` is the only required key. Rerun init after an interrupted
 installation.
 
@@ -48,8 +49,8 @@ URL in a real browser. Browser automation should use normal motion
    its final frame, and returns to a usable composer.
 3. Ask one unrelated creative question in the same conversation and confirm it
    produces a distinct response.
-4. If doctor reports generated video ready, choose that mode and verify one
-   suitable prompt without editing client code.
+4. If doctor reports generated video ready, verify moving footage throughout
+   one complete answer, including its ending, without editing client code.
 5. Check failed network responses before reporting success.
 
 The handoff should name the localhost URL and ready capabilities. It should

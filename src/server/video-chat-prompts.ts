@@ -1,29 +1,29 @@
 import type { VideoScene } from "../protocol/types.js";
 
-/** Small early shot plus an ordered, narrated hybrid plan. Providers remain host-owned. */
+/** One finite creative plan. Technical composition stays runtime-owned. */
 export function createVideoChatResponseInstructions(
   generatedVideoAvailable: boolean,
   openingAlreadyProvided = false,
   maxGeneratedVideos = 5,
 ): string {
  return [
-  "Respond as a coherent short film: establish, develop, then land a useful or emotional payoff. Match the user's requested form.",
-  generatedVideoAvailable
-   ? 'First emit one host-consumed opening JSON object: {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"literal subject","firstShot":{"text":"short grounded fallback","narration":"a natural spoken beat advancing the hook","mediaKeyword":"2-8 concrete words","shotDirection":"optional framing and action"}}. Include firstShot only when a distinctive illustrative shot serves the story; omit it for an abstract explanation best opened with graphics. When present, the host inserts it once and begins generation immediately; do not emit it again.'
-   : openingAlreadyProvided ? "Start directly with scene.add; the opening has already been supplied."
-   : 'First emit {"type":"video-chat.opening","spokenHook":"6-9 words","mediaKeyword":"literal subject"}. This is host-consumed, not a scene.',
-  openingAlreadyProvided ? "Preserve the supplied opening exactly; continue it without repeating its words or claim." : undefined,
-  "The spokenHook is already heard before the first scene. Start firstShot.narration with the next fact, cause, action or consequence; never restate the hook. The first ordinary scene must then advance beyond firstShot rather than repeat its narration or opening claim. If firstShot is omitted, that first scene must advance the hook directly. firstShot.text, fallbackText and chapter titles must also express that new beat, not reuse the hook or prior shot copy; write a concise visual anchor of roughly 2–6 words within the schema budget, never a full narration sentence, clipped statistic or qualifying clause.",
-  "The optional firstShot has five seconds of footage: give its narration one brief sentence of roughly 8–10 spoken words that fits that budget. Carry further explanation, actions or dialogue in later scenes instead of squeezing the answer into the first shot. This limit applies only to firstShot; pace later narration to its own scene.",
-  "Continue with only as many scenes as the story and duration need. Never pad to a fixed count. Every emitted scene carries narration beside variables and timing; no additional narration request should be needed.",
-  "Make most of the film relevant footage: use full-bleed media for action, subjects and atmosphere, with graphics only to clarify a specific relationship or piece of evidence. Maintain consistent setting, lighting and subject while varying shot scale. Avoid unrelated cinematic montages.",
-  "Use the installed catalog: ordered events, comparison, exact quote, one key figure, chapter or a message only when its narrative job fits. For an ordinary explanation, roughly one graphic-led explanatory beat per 30 seconds is a starting point, plus a brief chapter opening when needed. Let other intents use the visual form they need. Do not place graphic beats consecutively unless no honest relevant media is available. Give media-capable graphics a relevant background when it supports the meaning; keep black when no matching media exists. Do not force every template into a video or use lists of bullets.",
-  `At most ${generatedVideoAvailable ? maxGeneratedVideos : 0} generated-video attempts are available. Media scenes choose mediaSource=generate for distinctive illustrative shots or mediaSource=stock for generic verified imagery. A stock miss is not permission to broaden essential details. Do not spend generation on every scene.`,
-  "Each mediaKeyword is a literal filmable subject/action, 2–8 words, maximum 80 characters. Use optional shotDirection for action, camera framing and continuity; it does not change the literal stock subject. Supply a short grounded fallbackText when the schema declares it: one useful visual anchor, not a second explanation competing with narration or a promise of footage. It must still make sense when the media is absent. Do not put visible headline text over full-bleed footage.",
-  "No invented quotations, attribution, statistics, personal evidence or URLs. Creative stories may be invented when requested; do not present generated illustration as historical evidence.",
-  'Emit exactly one final placement:"closer" scene using a catalog template with a suitable payoff or ask job. It should land the meaning, not recap the whole answer. Prefer the final relevant action or visual reveal with narration; a closer does not require a black chapter card.',
-  "Every scene needs timing, even an empty object. Narration preserves the requested form and tone, uses natural sentence lengths, and does not read every on-screen word back. Finish with plan.complete.",
- ].filter((line): line is string=>line!=null).join("\n");
+  "Write a complete, intentful video answer as newline-delimited JSON. Match the user's form and tone; mixed intents can combine directions.",
+  'First write one brief: {"type":"answer","intent":"explanation|story|comedy|imagination|practical","opening":"a short inviting spoken introduction of 6–9 words","subject":"literal visual subject","development":"the essential development of this answer","visualDirection":"consistent subjects, appearance and visual approach","ending":{"narration":"the authored payoff","subject":"literal subject","action":"visible action or change","durationSec":5,"continuity":"cut|continue"}}.',
+  'Then stream each developing shot on its own line: {"type":"shot","narration":"the exact spoken beat","subject":"2–8 literal filmable words, at most 80 characters","action":"concrete subject, action or visible change and useful framing","durationSec":5,"continuity":"cut|continue"}.',
+  `The host permits at most ${generatedVideoAvailable ? maxGeneratedVideos : 0} generated-video attempts for this response. ${generatedVideoAvailable ? "Generated footage is preferred." : "Generated footage is unavailable."} Relevant stock is the fallback and may only depict a literal filmable subject; some requested visuals may be unavailable. Preserve the complete answer rather than shortening it to fit credits. The host selects providers; do not make source choices.`,
+  "For a very short answer whose ending alone fulfills the request, development may be empty and no developing shots are needed. Otherwise, develop the essential content before the ending.",
+  "The brief's ending is saved and played after your developing shots. Do not repeat it as a shot. Stop writing after the last developing shot. No technical events, identifiers, template choices, media providers, URLs or extra fields.",
+  "Every shot uses moving footage with separate narration and subtitles. Generated footage is silent: do not ask its subjects to speak or render words. No headline cards or on-screen explanatory text.",
+  "Each clip has at most five seconds. Write spoken beats that fit naturally, usually 8–10 words per five-second shot. Split longer ideas across purposeful shots, preserving facts and qualifiers. Never truncate a claim to meet a word target. Use only the shots needed within the total duration, including the ending; do not pad to a fixed count.",
+  "Identify the full answer and its ending before developing shots. Each action must support what is said: camera movement alone is not progression. Vary scale, viewpoint and meaningful details while keeping subjects consistent.",
+  "Explanations: clarify the actual causal mechanism, separating physical cause from a metaphor. Generated cutaways and animation illustrate ideas; they are not factual evidence. Preserve uncertainty, quantities and conditions; never invent evidence or quotations.",
+  "Stories: portray characters making choices and experiencing consequences; use consistent character descriptions and an earned resolution, not a promised next scene.",
+  "Comedy: establish the premise, time the visual or spoken reveal, allow a reaction beat, and stop on the payoff without explaining the joke.",
+  "Imagination: make the impossible action concrete, establish the world's internal rules and keep its imagery consistent. Do not replace imagination with an explanation of it.",
+  "Practical answers: show usable actions in their necessary order, with framing that makes the method and result visible. Preserve essential steps and relevant safety conditions.",
+  openingAlreadyProvided ? "The supplied opening has already been spoken. Preserve it and begin the body with new content." : "The brief opening is spoken during preparation. The first body shot must develop it rather than repeat its words or claim.",
+  "Use continuity=continue when the same subject/action should remain coherent; choose cut for a purposeful new view. Describe recurring subjects consistently. Never assume a different angle or generated depiction proves a factual claim.",
+ ].join("\n");
 }
 export const VIDEO_CHAT_NARRATION_PROMPT = [
   "You narrate a short video response, one scene at a time.",

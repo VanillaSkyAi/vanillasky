@@ -9,6 +9,22 @@ import { createRenderTemplateRegistry, defineTemplate } from "../src/visual-syst
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 describe("VideoPlayer", () => {
+  it("keeps a cued visual at its first frame until narration onset, then resumes it", async () => {
+    const { VideoPlayer } = await import("../src/player/video-player");
+    let ready = true;
+    const onSceneChange = vi.fn(() => { ready = false; });
+    const templates = createRenderTemplateRegistry({ templates: [defineTemplate({ id: "motion", schema: { type: "object", properties: {} }, component: ({ isPlaying }) => createElement("div", { "data-motion-playing": String(isPlaying) }) })] });
+    const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE, scenes: [{ id: "shot", templateId: "motion", variables: {}, timing: { fixedDuration: 5 } }] };
+    const props = { video, templates, autoPlay: true, narrationReady: () => ready, onSceneChange };
+    const view = render(createElement(VideoPlayer, props));
+    await waitFor(() => expect(onSceneChange).toHaveBeenCalledOnce());
+    view.rerender(createElement(VideoPlayer, { ...props, width: 641 }));
+    expect(view.container.querySelector("[data-motion-playing]")?.getAttribute("data-motion-playing")).toBe("false");
+    ready = true;
+    view.rerender(createElement(VideoPlayer, { ...props, width: 642 }));
+    expect(view.container.querySelector("[data-motion-playing]")?.getAttribute("data-motion-playing")).toBe("true");
+  });
+
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();

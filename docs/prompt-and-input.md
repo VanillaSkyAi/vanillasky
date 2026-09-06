@@ -55,7 +55,7 @@ viewer prompt separate from these trusted server-side instructions.
 
 ## What reaches the model
 
-`createVideoChatHandler` builds the trusted template catalog, video rules,
+`createVideoChatHandler` builds the shot-planning instructions, video rules,
 conversation context, and application guidance. Your provider adapter receives
 two complete strings:
 
@@ -68,9 +68,9 @@ streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
 });
 ```
 
-Pass both strings unchanged. The system prompt describes the installed
-templates, schema limits, pacing, narration, opening contract, and safe media
-fields. The user prompt contains the current request, bounded prior turns,
+Pass both strings unchanged. The system prompt describes the internal answer
+brief and shot format, pacing, narration, opening contract, and safe media
+directions. The user prompt contains the current request, bounded prior turns,
 orientation, visual mode, and whether an opening was already spoken.
 
 Provider credentials and raw media URLs never belong in either prompt. Media
@@ -79,19 +79,27 @@ output has been parsed.
 
 ## One stream, one answer
 
-The planner first emits a 6–9 word spoken hook and a media keyword, then keeps
-streaming complete scenes. It is not a separate hook call followed by a second
-planning call. This keeps the opening consistent with the scenes that follow
-and lets the first playable scene arrive without waiting for the complete plan.
+The planner streams an answer brief containing the opening, creative direction,
+and ending, followed by narrated shot descriptions. One model request serves
+both suggested and typed prompts; a suggestion may already supply its opening.
+There is no separate classification or first-shot planning request.
+
+The runtime assigns scene IDs, uses the footage renderer, resolves media, and
+finalizes the response when planning ends. The model does not choose body
+layouts, media providers, or lifecycle events. Narration and visible action are
+planned together: explanations show mechanisms, stories develop consequences,
+comedy times its reveal, imaginative requests depict their invented world, and
+practical answers demonstrate usable steps. These are directions, not fixed
+scene counts or one universal story structure.
 
 Every `scene.add` is validated before the browser receives it. The model never
-returns React, HTML, CSS, or executable JavaScript. Accepted scenes are
-immutable; invalid scenes are reported through safe warnings and omitted.
+returns React, HTML, CSS, or executable JavaScript. Invalid planning content
+produces safe diagnostics. A media failure does not delete valid narration.
 
-In template mode, the planner can choose any trusted template and request stock
-media through `searchMedia`. In full mode, it plans a complete generated-video
-answer and `generateVideo` resolves every visual beat. There is no mixed
-"generate a few clips" mode.
+Generated footage is preferred within the host's allowance. Relevant stock is
+fallback. If neither is available, retain narration and subtitles and report
+unavailable visuals. Handlers configured with an explicit custom `templates` registry continue to
+support the trusted catalog and its existing structured planner contract.
 
 ## Grounding
 
@@ -110,7 +118,8 @@ Check these boundaries in order:
 3. Does the provider pass `systemPrompt` and `userPrompt` unchanged?
 4. Is extended reasoning delaying the first streamed object?
 5. Do `onWarning` and `onComplete` show rejected scenes or a length limit?
-6. Does the trusted registry contain a suitable template for the requested answer?
+6. Do the planned actions develop the answer, and does its ending resolve the request?
+7. Does resolved footage actually play for the spoken duration?
 
 Log request IDs, safe warning codes, provider finish reasons, model IDs, and
 token usage. Never log credentials or expose raw provider errors in the video.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCEPTANCE_FIXTURES, replayParts } from "../scripts/acceptance/fixtures";
+import { runChatAcceptance } from "../scripts/acceptance/journey";
 import { getTemplate } from "../src/visual-system/scene-templates/registry";
 
 describe("acceptance fixture template contract", () => {
@@ -43,10 +43,12 @@ describe("acceptance fixture template contract", () => {
     }
   });
 
-  it("provides every required variable declared by each bundled template", () => {
-    for (const fixture of ACCEPTANCE_FIXTURES) {
-      for (const part of replayParts(fixture)) {
-        if (part.type !== "scene.add") continue;
+  it("validates nonempty runtime scenes against the bundled footage template", async () => {
+    for (const fixture of await runChatAcceptance()) {
+      const scenes = fixture.events.flatMap(({ event }) => event.type === "scene.add" ? [event.data] : []);
+      expect(scenes.length, fixture.id).toBeGreaterThan(0);
+      for (const part of scenes) {
+        expect(part.scene.templateId).toBe("cinemaMedia");
 
         const template = getTemplate(part.scene.templateId);
         expect(template, `${fixture.id}: unknown template ${part.scene.templateId}`).toBeDefined();

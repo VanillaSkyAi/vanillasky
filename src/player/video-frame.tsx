@@ -170,6 +170,7 @@ export interface VideoFrameProps {
   width: number;
   height: number;
   playing?: boolean;
+  preparingNarration?: boolean;
   mediaAudioMuted?: boolean;
   mediaAudioVolume?: number;
   className?: string;
@@ -186,6 +187,7 @@ interface SceneLayerProps {
   width: number;
   height: number;
   playing: boolean;
+  preparingNarration: boolean;
   mediaAudioMuted: boolean;
   mediaAudioVolume: number;
   layer: "active" | "outgoing" | "incoming";
@@ -205,6 +207,7 @@ function SceneLayer({
   width,
   height,
   playing,
+  preparingNarration,
   mediaAudioMuted,
   mediaAudioVolume,
   layer,
@@ -224,6 +227,7 @@ function SceneLayer({
       mode={externalVideoBackdrop}
       audioMuted={mediaAudioMuted || !playing}
       audioVolume={mediaAudioVolume}
+      preparingNarration={preparingNarration}
     >
       <div
         data-scene-layer={layer}
@@ -249,6 +253,10 @@ function SceneLayer({
           "--vanillasky-template-surface": externalVideoBackdrop !== false ? "transparent" : undefined,
         } as CSSProperties}
       >
+        {range.scene.templateId === "cinemaMedia" && !recoveryTitle && (mediaFailed || !String(range.scene.variables.mediaUrl || "").trim()) && <div
+          role="status" data-media-unavailable="true"
+          style={{ position: "absolute", inset: 0, zIndex: 2, display: "grid", placeContent: "center", color: "#bbb", font: "14px system-ui", background: "#000" }}
+        >Visual unavailable</div>}
         {template ? (
           <SceneBoundary key={range.scene.id} scene={range.scene} onFramePresented={onFramePresented}>
             <Suspense fallback={
@@ -298,6 +306,7 @@ export function VideoFrame({
   width,
   height,
   playing = false,
+  preparingNarration = false,
   mediaAudioMuted = true,
   mediaAudioVolume = 1,
   className,
@@ -560,7 +569,9 @@ export function VideoFrame({
                 mediaPosition={String(persistentVideoRange.scene.variables.mediaPosition || "center")}
                 backgroundEffect={persistentVideoRange.scene.backgroundEffect ?? config.style.defaultBackgroundEffect}
                 progress={persistentVideoRange.scene.id === active.scene.id ? rawProgress : 0}
+                sceneDuration={persistentVideoRange.end - persistentVideoRange.start}
                 isPlaying={persistentVideoRange.scene.id === active.scene.id && playing}
+                preparingNarration={preparingNarration}
                 muted={mediaAudioMuted || persistentVideoRange.scene.id !== active.scene.id || !playing}
                 volume={mediaAudioVolume}
                 playbackId={persistentVideoRange.scene.id}
@@ -594,6 +605,7 @@ export function VideoFrame({
               width={canvas.width}
               height={canvas.height}
               playing={playing}
+              preparingNarration={preparingNarration}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
               // Only a blend makes this scene "outgoing". During a preroll it
@@ -617,6 +629,7 @@ export function VideoFrame({
               width={canvas.width}
               height={canvas.height}
               playing={false}
+              preparingNarration={false}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
               layer="incoming"
@@ -640,6 +653,7 @@ export function VideoFrame({
             width={canvas.width}
             height={canvas.height}
             playing={playing}
+            preparingNarration={preparingNarration}
             mediaAudioMuted={mediaAudioMuted}
             mediaAudioVolume={mediaAudioVolume}
             layer="active"

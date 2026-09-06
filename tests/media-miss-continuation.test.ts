@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
+import { createVideoHandler } from "../src/server/create-video-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
 import type { VideoGenerationSummary } from "../src/server/lifecycle";
 
 async function run(mediaConcurrency: number, invalidPartBehavior: "drop" | "fail", fallbackText?: string) {
   let summary: VideoGenerationSummary | undefined;
   const errors: string[] = [];
-  const handler = createVideoChatHandler({
+  const handler = createVideoHandler({
     authorize: "none", heartbeatMs: false, mediaConcurrency, invalidPartBehavior,
-    generateText: () => "", generateVideo: () => ({ type: "video", url: "https://media.example/seed.mp4" }),
-    searchMedia: () => null,
+    resolveMedia: query => query === "robot planting seed" ? { type: "video", url: "https://media.example/seed.mp4" } : null,
     onComplete: value => { summary = value; },
     onError: error => { errors.push(error.message); },
     streamText: async function* () {
-      yield JSON.stringify({ type: "video-chat.opening", spokenHook: "Watch a new garden come alive.", mediaKeyword: "garden sunrise",
-        firstShot: { text: "Seeds take root", narration: "A robot plants a seed beside the garden wall.", mediaKeyword: "robot planting seed" } }) + "\n";
+      yield JSON.stringify({type:"scene.add",scene:{id:"fixture-first-shot",templateId:"cinemaMedia",variables:{mediaKeyword:"robot planting seed",mediaType:"video",fallbackText:"Seeds take root"},narration:"A robot plants a seed beside the garden wall.",timing:{fixedDuration:5}}}) + "\n";
       yield JSON.stringify({ type: "scene.add", scene: { id: "missing-media", templateId: "cinemaMedia", variables: {
         mediaKeyword: "robot watering seed", mediaSource: "stock", mediaType: "video", ...(fallbackText ? { fallbackText } : {}),
       }, timing: { fixedDuration: 5 }, narration: "The seed needs water before its first leaves can unfurl." } }) + "\n";
@@ -26,7 +24,7 @@ async function run(mediaConcurrency: number, invalidPartBehavior: "drop" | "fail
     },
   });
   const response = await handler(new Request("https://app.example/api?action=response", {
-    method: "POST", body: JSON.stringify({ prompt: "Tell a story about a robot garden" }),
+    method: "POST", body: JSON.stringify({ protocolVersion:"0.6", requestId:"fixture", input:{input:"Tell a story about a robot garden",opening:false,knowledgeMode:"general"} }),
   }));
   const events = [];
   for await (const event of decodeVideoSse(response.body!)) events.push(event);
