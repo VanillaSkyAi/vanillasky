@@ -26,9 +26,11 @@ window.Audio = function (src?: string) {
     audio.play = async () => {
       if (firstAudioPlay) {
         firstAudioPlay = false;
-        // A cold native output can announce playing before its clock advances.
+        // Simulate decoder priming followed by a cold output stall.
+        Object.defineProperty(audio, "currentTime", { configurable: true, get: () => 0.05 });
         audio.dispatchEvent(new Event("playing"));
         await new Promise((resolve) => setTimeout(resolve, 1500));
+        Reflect.deleteProperty(audio, "currentTime");
       }
       return playNow();
     };
@@ -63,6 +65,7 @@ function App() {
     <div style={{ width: 360 }}>{video && <VideoPlayer key={run} video={video} autoPlay controls={false}
       onError={(error) => { narration.interrupt(); probe.push({ kind: "player-error", message: String(error) }); }}
       narrationReady={narration.isReady}
+      narrationTime={narration.getTime}
       onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
       onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0 }); narration.onSceneChange(scene, index); }}
     />}</div></>;

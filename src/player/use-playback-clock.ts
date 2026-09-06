@@ -16,6 +16,7 @@ interface PlaybackClockOptions {
   callbacksRef: {
     current: {
       narrationReady?: () => boolean;
+      narrationTime?: (scene: VideoScene) => number | undefined;
       onError?: (error: Error, state: VideoState) => void;
       onStallChange?: (stalled: boolean) => unknown;
       onSceneChange?: (scene: VideoScene, index: number) => void;
@@ -42,6 +43,8 @@ export function usePlaybackClock({
     if (!isPlaying) return;
     let stalled = false;
     let onsetWaitSeconds = 0;
+    let clockWaitSeconds = 0;
+    let lastNarrationTime: number | undefined;
     const failNarration = (error: Error, state: VideoState) => {
       setIsPlaying(false);
       try { void Promise.resolve(callbacksRef.current.onError?.(error, state)).catch(() => undefined); }
@@ -76,7 +79,27 @@ export function usePlaybackClock({
       let wrapped = false;
       if (config?.scenes.length) {
         const duration = getVideoDuration(config);
-        const raw = timeRef.current + delta;
+        const ranges = resolveVideoTimeline(config);
+        const cued = ranges[sceneIndexRef.current];
+        let narrationTime: number | undefined;
+        try { narrationTime = cued ? callbacksRef.current.narrationTime?.(cued.scene) : undefined; }
+        catch (cause) {
+          failNarration(cause instanceof Error ? cause : new Error("Narration clock failed"), current);
+          return;
+        }
+        if (narrationTime !== undefined && (!Number.isFinite(narrationTime) || narrationTime < 0)) {
+          failNarration(new Error("Narration clock must return finite nonnegative seconds"), current);
+          return;
+        }
+        clockWaitSeconds = narrationTime !== undefined && narrationTime === lastNarrationTime && narrationReady && !stalled ? clockWaitSeconds + elapsed : 0;
+        lastNarrationTime = narrationTime;
+        if (clockWaitSeconds >= 8) {
+          failNarration(new Error("Narration audio clock did not advance within eight seconds"), current);
+          return;
+        }
+        const raw = narrationTime !== undefined && cued
+          ? cued.start - (cued.scene.narrationGroup?.offsetSeconds ?? 0) + narrationTime
+          : timeRef.current + delta;
         let nextTime: number;
         if (looping && duration > 0 && raw >= duration) {
           nextTime = raw % duration;
@@ -84,7 +107,6 @@ export function usePlaybackClock({
         } else {
           nextTime = Math.min(raw, duration);
         }
-        const ranges = resolveVideoTimeline(config);
         const target = ranges.find(range => nextTime >= range.start && nextTime < range.end) ?? ranges.at(-1);
         const waitingForVisual = Boolean(target && visualReadyRef && visualReadyRef.current !== sceneReadinessKey(target.scene) && !posterBridgeKeysRef?.current.has(sceneReadinessKey(target.scene)));
         if (waitingForVisual && target) nextTime = target.start;

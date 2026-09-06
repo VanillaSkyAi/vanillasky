@@ -41,6 +41,8 @@ interface VideoPlayerSharedProps {
   controls?: boolean;
   /** Optional synchronous onset handshake from useNarration.isReady. Does not pause audio or prevent the first scene cue. */
   narrationReady?: () => boolean;
+  /** Active audio time: paragraph-relative for a narration group, scene-relative otherwise. Undefined resumes the normal clock. */
+  narrationTime?: (scene: VideoScene) => number | undefined;
   /**
    * Hold the playhead where it is, and release it again.
    *

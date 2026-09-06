@@ -62,3 +62,49 @@ it("stops on a throwing readiness getter and isolates error observers", async ()
   expect(error).toHaveBeenCalledOnce();
   hook.unmount();
 });
+
+it("uses actual narration time across cold output stalls, visual cuts, pause, and authored tails", async () => {
+  vi.useFakeTimers();
+  let audioTime: number | undefined = 0;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [0, 1].map(index => ({ id: String(index), templateId: "chapterTitle", variables: { title: "A shot" }, timing: { fixedDuration: 3 }, narrationGroup: { id: "g", text: "One. Two.", offsetSeconds: index * 3, durationSeconds: 3, totalSeconds: 6 } })) };
+  const timeRef = { current: 0 };
+  const change = vi.fn(); const error = vi.fn(); const stall = vi.fn();
+  const visualReadyRef = { current: sceneReadinessKey(video.scenes[0]) };
+  const options = { stateRef: { current: { ...createVideoState(), status: "complete" as const, config: video } }, timeRef, visualReadyRef, audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 }, callbacksRef: { current: { narrationTime: () => audioTime, onSceneChange: change, onError: error, onStallChange: stall } }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() };
+  const hook = renderHook(({ isPlaying }) => usePlaybackClock({ ...options, isPlaying }), { initialProps: { isPlaying: true } });
+  await act(() => vi.advanceTimersByTimeAsync(100));
+  audioTime = 0.05;
+  await act(() => vi.advanceTimersByTimeAsync(2500));
+  expect(timeRef.current).toBe(0.05); expect(change).toHaveBeenCalledOnce();
+  audioTime = 3.1;
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  expect(timeRef.current).toBe(3); expect(change).toHaveBeenCalledOnce();
+  expect(stall).toHaveBeenCalledWith(true);
+  await act(() => vi.advanceTimersByTimeAsync(2000)); expect(error).not.toHaveBeenCalled();
+  visualReadyRef.current = sceneReadinessKey(video.scenes[1]);
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  expect(timeRef.current).toBe(3.1); expect(change).toHaveBeenCalledTimes(2);
+  expect(stall).toHaveBeenCalledWith(false);
+  hook.rerender({ isPlaying: false });
+  await act(() => vi.advanceTimersByTimeAsync(10000));
+  expect(error).not.toHaveBeenCalled();
+  hook.rerender({ isPlaying: true });
+  audioTime = 4;
+  await act(() => vi.advanceTimersByTimeAsync(50)); expect(timeRef.current).toBe(4);
+  audioTime = undefined;
+  await act(() => vi.advanceTimersByTimeAsync(100)); expect(timeRef.current).toBeGreaterThan(4.08);
+  audioTime = 4.2;
+  await act(() => vi.advanceTimersByTimeAsync(8200)); expect(error).toHaveBeenCalledOnce();
+});
+
+it("keeps an ordinary narrated scene on its audio clock and runs its tail after speech", async () => {
+  vi.useFakeTimers();
+  let audioTime: number | undefined = 0.05;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [{ id: "one", templateId: "chapterTitle", variables: { title: "A shot" }, narration: "A short thought.", timing: { fixedDuration: 6 } }] };
+  const timeRef = { current: 0 };
+  renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef, audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 }, callbacksRef: { current: { narrationTime: () => audioTime, onSceneChange: vi.fn() } }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() }));
+  await act(() => vi.advanceTimersByTimeAsync(2500)); expect(timeRef.current).toBe(0.05);
+  audioTime = 2; await act(() => vi.advanceTimersByTimeAsync(50)); expect(timeRef.current).toBe(2);
+  audioTime = undefined; await act(() => vi.advanceTimersByTimeAsync(100));
+  expect(timeRef.current).toBeGreaterThan(2.08); expect(timeRef.current).toBeLessThan(2.12);
+});

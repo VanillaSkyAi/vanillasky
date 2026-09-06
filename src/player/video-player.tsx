@@ -67,6 +67,7 @@ export function VideoPlayerRuntime({
   onError,
   onSceneChange,
   narrationReady,
+  narrationTime,
   onFramePresented,
   onMediaFramePresented,
   onStallChange,
@@ -108,7 +109,7 @@ export function VideoPlayerRuntime({
   const timeRef = useRef(currentTime);
   const audioRef = useRef<HTMLAudioElement>(null);
   const introStartedAtRef = useRef<number | null>(autoStartGeneration ? performance.now() : null);
-  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
+  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
   const mediaFrameReportedRef = useRef(false);
@@ -132,7 +133,7 @@ export function VideoPlayerRuntime({
 
   stateRef.current = state;
   timeRef.current = currentTime;
-  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
+  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
   loopRef.current = loop;
 
   const reportFramePresented = useMemo(() => {

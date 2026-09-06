@@ -192,6 +192,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
 
   return {
     supportsOffsets: true,
+    getCurrentTime: () => sounding?.currentTime,
     async prepare(text, preparation = {}) {
       const line = await load(text, preparation.signal);
       return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}) };

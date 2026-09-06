@@ -1078,6 +1078,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     paused: state.status === "paused",
     controls: false,
     narrationReady: narration.isReady,
+    narrationTime: narration.getTime,
     orientation: shownTurn?.fixedOrientation ? shownTurn.orientation : "auto" as const,
     onFramePresented: () => {
       const timing = firstFrameRef.current;
