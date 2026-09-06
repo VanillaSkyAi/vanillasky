@@ -4,7 +4,7 @@ Run `npm ci --no-audit`, then `npm run dev:chat`. The localhost HMR surface rend
 
 Offline answers are deterministic for explanation, story, comedy, imagination, practical steps and golf. They use local waterfall footage and a recorded timing cue, **not narration that matches the displayed script**. This harness is for loading, playback, controls and recovery. It cannot prove generated answer quality. Conditions cover ready, delayed footage, missing media, decode failure, speech failure, exhausted video allowance and request throttling. Browser speech may be used in the speech-failure condition.
 
-The toolbar labels source and fixture identity and reports first-body-frame time. The normal SDK metrics callbacks remain available for deeper investigation. Local fixtures never fetch external footage or invoke a paid model. Mode boundaries, provider deadlines and host admission remain covered by their dedicated server and host suites.
+The toolbar labels source and fixture identity. It separates the first body surface from the first decoded moving-footage frame; the former is a renderer paint opportunity and can precede decode. Its bounded safe phase log records browser request/stream arrival phases, speech response completion, first speech, footage and buffer pauses. No prompts, narration, scene IDs or provider bodies are retained. Media start/end/skip reasons come from the handler’s separate host-only `onDiagnostic` callback, shown in the local terminal for offline fixtures; live hosts own that callback themselves. Stream arrival is not the server’s exact authorship timestamp. Local fixtures never fetch external footage or invoke a paid model. Mode boundaries, provider deadlines and host admission remain covered by their dedicated server and host suites.
 
 ## Optional live host
 
@@ -12,7 +12,7 @@ Set `VANILLASKY_CHAT_LIVE_ENDPOINT` to an application-owned video-chat endpoint 
 
 ## Fast checks
 
-`npm run check:chat` runs the harness/unit recovery cases, checks harness TypeScript and runs one Chromium recording with short footage looping under actual audio. Install Chromium once with `npx playwright install chromium`. The target is under a minute on a warm machine; the command reports its measured duration. It does not replace release checks or claim browser-wide/live-provider coverage.
+`npm run check:chat` runs the harness/unit recovery cases, checks harness TypeScript and runs one Chromium recording with short footage looping under actual audio. Install Chromium once with `npx playwright install chromium`. The harness smoke additionally records submit-to-visible-chapter paint opportunity with a 200 ms warm-UI target. This is a browser animation-frame opportunity, not a physical display measurement. The target for the complete command is under a minute on a warm machine; the command reports its measured duration. It does not replace release checks or claim browser-wide/live-provider coverage.
 
 ## One candidate for release verification
 

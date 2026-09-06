@@ -32,6 +32,11 @@ export function createOfflineChatHandler(options: FixtureOptions, origin = "http
   };
   const handler = createVideoChatHandler({
     authorize: "none", heartbeatMs: false,
+    ...{onDiagnostic: (event: {phase: string; elapsedMs: number; durationMs?: number; reason?: string}) => {
+      // Host-only provider phases; never log request IDs, copy, queries or errors.
+      console.info("[chat fixture]", JSON.stringify({phase: event.phase, elapsedMs: event.elapsedMs,
+        ...(event.durationMs !== undefined ? {durationMs: event.durationMs} : {}), ...(event.reason ? {reason: event.reason} : {})}));
+    }},
     maxGeneratedVideos: options.scenario === "allowance" ? 0 : 5,
     generateVideo: media, searchMedia: media,
     welcome: {heroQuery: "local flowing water", prompts: [{prompt: "Try the selected fixture"}]},
