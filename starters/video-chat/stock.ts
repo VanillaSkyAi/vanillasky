@@ -8,6 +8,8 @@ interface StockVideo {
 interface PexelsVideo {
   url?: string;
   image?: string;
+  title?: unknown;
+  tags?: unknown;
   video_files?: { link?: string; width?: number; height?: number; file_type?: string }[];
 }
 const cache = new Map<string, { expires: number; media: StockVideo | null }>();
@@ -21,7 +23,7 @@ function pexelsUrl(value: unknown): value is string {
   } catch { return false; }
 }
 
-/** Full catalog search. Metadata establishes subject relevance, not factual proof.
+/** Full catalog search. Available metadata ranks subject relevance, not factual proof.
  * Applications using this adapter must display a prominent link to Pexels.
  * https://www.pexels.com/api/documentation/#guidelines
  */
@@ -41,13 +43,18 @@ export async function findStockFootage(query: string, orientation: VideoOrientat
   if (!response.ok) return null;
   const result = await response.json() as { videos?: PexelsVideo[] };
   signal.throwIfAborted();
-  let selected: StockVideo | null = null, bestScore = 0;
+  let selected: StockVideo | null = null, bestScore = -1;
   for (const video of (Array.isArray(result.videos) ? result.videos : []).slice(0, 12)) {
     if (!pexelsUrl(video.url)) continue;
-    const subject = words(new URL(video.url).pathname);
+    const slug = new URL(video.url).pathname.replace(/^\/video\//, "");
+    const title = typeof video.title === "string" ? video.title : "";
+    const tags = Array.isArray(video.tags) ? video.tags.filter((tag): tag is string => typeof tag === "string").join(" ") : "";
+    const subject = words(`${slug} ${title} ${tags}`).filter(token => !/^\d+$/.test(token));
     const matches = tokens.filter(token => subject.includes(token)).length;
-    // Require a majority of the literal query, never accept search rank alone.
-    if (matches < Math.ceil(tokens.length * 0.6)) continue;
+    // The documented Video resource can have only a numeric page URL and no
+    // editorial metadata. Preserve provider search order for unknown relevance;
+    // positive overlap ranks above it, while explicitly unrelated copy is skipped.
+    if (subject.length > 0 && matches === 0) continue;
     const files = (Array.isArray(video.video_files) ? video.video_files : []).filter(file =>
       file.file_type === "video/mp4" && pexelsUrl(file.link)
       && Number.isFinite(file.width) && Number.isFinite(file.height)

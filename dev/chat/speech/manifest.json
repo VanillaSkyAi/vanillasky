@@ -1,0 +1,115 @@
+{
+  "source": "Locally synthesized offline fixture speech; no provider recordings.",
+  "voice": "Samantha",
+  "wordsPerMinute": 170,
+  "utterances": [
+    {
+      "intent": "explanation",
+      "beat": "opening",
+      "text": "Wind gives ocean waves their energy.",
+      "file": "explanation-opening.mp3"
+    },
+    {
+      "intent": "explanation",
+      "beat": "body",
+      "text": "Wind transfers energy to the surface water.",
+      "file": "explanation-body.mp3"
+    },
+    {
+      "intent": "explanation",
+      "beat": "ending",
+      "text": "The wave carries that energy toward the shore.",
+      "file": "explanation-ending.mp3"
+    },
+    {
+      "intent": "story",
+      "beat": "opening",
+      "text": "A robot discovers one surviving seed.",
+      "file": "story-opening.mp3"
+    },
+    {
+      "intent": "story",
+      "beat": "body",
+      "text": "The robot plants its seed beside an empty house.",
+      "file": "story-body.mp3"
+    },
+    {
+      "intent": "story",
+      "beat": "ending",
+      "text": "Its neighbours arrive to share the new garden.",
+      "file": "story-ending.mp3"
+    },
+    {
+      "intent": "comedy",
+      "beat": "opening",
+      "text": "A duck applies for a desk job.",
+      "file": "comedy-opening.mp3"
+    },
+    {
+      "intent": "comedy",
+      "beat": "body",
+      "text": "The interviewer asks the duck for its bill.",
+      "file": "comedy-body.mp3"
+    },
+    {
+      "intent": "comedy",
+      "beat": "ending",
+      "text": "The duck submits an invoice for the interview.",
+      "file": "comedy-ending.mp3"
+    },
+    {
+      "intent": "imagination",
+      "beat": "opening",
+      "text": "Imagine a city built inside a teacup.",
+      "file": "imagination-opening.mp3"
+    },
+    {
+      "intent": "imagination",
+      "beat": "body",
+      "text": "Tiny ferries cross a lake of jasmine tea.",
+      "file": "imagination-body.mp3"
+    },
+    {
+      "intent": "imagination",
+      "beat": "ending",
+      "text": "At sunset, a sugar moon lights the harbour.",
+      "file": "imagination-ending.mp3"
+    },
+    {
+      "intent": "practical",
+      "beat": "opening",
+      "text": "Make room for one clear next step.",
+      "file": "practical-opening.mp3"
+    },
+    {
+      "intent": "practical",
+      "beat": "body",
+      "text": "Write down the task you can finish today.",
+      "file": "practical-body.mp3"
+    },
+    {
+      "intent": "practical",
+      "beat": "ending",
+      "text": "Set a short timer and begin that task.",
+      "file": "practical-ending.mp3"
+    },
+    {
+      "intent": "golf",
+      "beat": "opening",
+      "text": "Let the club move through the ball.",
+      "file": "golf-opening.mp3"
+    },
+    {
+      "intent": "golf",
+      "beat": "body",
+      "text": "Set a balanced stance and turn through the swing.",
+      "file": "golf-body.mp3"
+    },
+    {
+      "intent": "golf",
+      "beat": "ending",
+      "text": "Finish balanced, facing where you want the ball to go.",
+      "file": "golf-ending.mp3"
+    }
+  ]
+}

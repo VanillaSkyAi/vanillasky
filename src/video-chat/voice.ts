@@ -4,6 +4,8 @@ import { withDeadline } from "./deadline.js";
 const DEFAULT_MAX_CACHED_LINES = 60;
 const SPEECH_PREPARATION_TIMEOUT_MS = 3_000;
 const FALLBACK_BITS_PER_SECOND = 128_000;
+// 25ms of silent PCM, played unmuted to retain Safari permission on this sink.
+const ACTIVATION_AUDIO = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YZABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 let sharedContext: AudioContext | undefined;
 
@@ -208,6 +210,14 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     },
     resume() {
       held = false;
+      // Ask/replay/resume already enter here synchronously from their gesture.
+      // Prime only a fresh sink; never replace current speech or prime on timers.
+      if (!disposed && !silent && !generatedElement && globalThis.navigator?.userActivation?.isActive) {
+        const element = generatedElement = new Audio();
+        element.src = ACTIVATION_AUDIO;
+        try { void element.play().catch(() => undefined); }
+        catch { /* Actual speech retains the existing fallback behavior. */ }
+      }
       if (sounding) { const fail = playbackFailure; void sounding.play().catch(() => { if (!held) fail?.(); }); }
       if (!silent) globalThis.speechSynthesis?.resume();
     },

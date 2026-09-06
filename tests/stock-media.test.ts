@@ -21,4 +21,35 @@ describe('Pexels starter search',()=>{
   vi.stubEnv('PEXELS_API_KEY','');const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);
   expect(await findStockFootage('ocean wave','landscape',new AbortController().signal)).toBeNull();expect(fetcher).not.toHaveBeenCalled();
  });
+ it('accepts the documented numeric video URL without requiring editorial metadata',async()=>{
+  // Pexels Video Resource: numeric URL, empty tags, no title.
+  const resource={...video(2499611,'',720,1280),url:'https://www.pexels.com/video/2499611/',tags:[]};
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>Response.json({videos:[resource,video(50,'',720,1280)]}));
+  expect(await findStockFootage('forest sunlight','portrait',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/2499611.mp4'});
+ });
+ it('ranks positive metadata above unknown search relevance without a majority threshold',async()=>{
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>Response.json({videos:[
+   {...video(51,''),url:'https://www.pexels.com/video/51/'},video(52,'ocean'),video(53,'cat')
+  ]}));
+  expect(await findStockFootage('breaking ocean wave foam','landscape',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/52.mp4'});
+ });
+ it('rejects explicitly unrelated metadata even when its URL is numeric',async()=>{
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>Response.json({videos:[
+   {...video(54,''),url:'https://www.pexels.com/video/54/',title:'A resting cat',tags:['kitten']}
+  ]}));
+  expect(await findStockFootage('mountain skiing','landscape',new AbortController().signal)).toBeNull();
+ });
+
+ it('keeps URL and rendition validation when relevance is unknown',async()=>{
+  const numeric={...video(61,''),url:'https://www.pexels.com/video/61/'};
+  vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>Response.json({videos:[
+   {...numeric,url:'https://pexels.com.example/video/61/'},
+   {...numeric,video_files:[{link:'https://example.com/clip.mp4',width:1280,height:720,file_type:'video/mp4'}]},
+   {...numeric,video_files:[{link:'https://videos.pexels.com/tiny.mp4',width:320,height:180,file_type:'video/mp4'}]},
+   {...video(62,'',720,1280),url:'https://www.pexels.com/video/62/'},
+   {...video(63,''),url:'https://www.pexels.com/video/63/'}
+  ]}));
+  expect(await findStockFootage('city lights','landscape',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/63.mp4'});
+ });
+
 });

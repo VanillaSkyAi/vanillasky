@@ -8,8 +8,14 @@ for (const delayedOnset of [false, true]) test(`one prerecorded paragraph surviv
   await page.getByText("Play prerecorded paragraph").click();
   try {
     await expect.poll(() => page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string }> }).narrationProbe.filter((event) => event.kind === "ended").length), { timeout: 15000 }).toBe(1);
-    const probe = await page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string; index?: number; audioTime?: number }> }).narrationProbe);
+    const probe = await page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string; index?: number; audioTime?: number; source?: string; at?: number }> }).narrationProbe);
     expect(probe.filter((event) => event.kind === "audio-created")).toHaveLength(1);
+    const stall = probe.find((event) => event.kind === "cold-output-stall");
+    if (delayedOnset) {
+      expect(stall?.source).toBe("blob");
+      const released = probe.find((event) => event.kind === "cold-output-release");
+      expect(released!.at! - stall!.at!).toBeGreaterThanOrEqual(1400);
+    } else expect(stall).toBeUndefined();
     expect(probe.filter((event) => event.kind === "pause" && event.audioTime! < 6)).toHaveLength(0);
     const cuts = probe.filter((event) => event.kind === "cut");
     expect(cuts.map((event) => event.index)).toEqual([0, 1, 2]);
