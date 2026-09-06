@@ -270,10 +270,13 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         sounding = element;
         await new Promise<void>((resolve) => {
           let finished = false;
+          let onsetTimer: ReturnType<typeof setTimeout> | undefined;
+          const initialTime = offsetSeconds ?? 0;
           const finish = () => {
             if (finished) return;
             finished = true;
             clearWatchdog();
+            clearTimeout(onsetTimer);
             signal.removeEventListener("abort", stop);
             speechStops.delete(stop);
             element.onplaying = null;
@@ -293,7 +296,16 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
           speechStops.add(stop);
           playbackFailure = fail;
-          element.onplaying = () => { if (!finished) notifyStart("generated"); };
+          // A native playing event may precede a working audio sink. Wait for
+          // the actual media clock to advance beyond its seek position; a tiny
+          // decoder priming increment alone is not audible onset evidence.
+          const observeClock = () => {
+            clearTimeout(onsetTimer);
+            if (finished || started) return;
+            if (!held && element.currentTime >= initialTime + 0.04) notifyStart("generated");
+            if (!started) onsetTimer = setTimeout(observeClock, 16);
+          };
+          element.onplaying = observeClock;
           element.onended = finish;
           element.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });

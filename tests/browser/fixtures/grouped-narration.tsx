@@ -24,7 +24,12 @@ window.Audio = function (src?: string) {
   if (delayedOnset) {
     const playNow = audio.play.bind(audio);
     audio.play = async () => {
-      if (firstAudioPlay) { firstAudioPlay = false; await new Promise((resolve) => setTimeout(resolve, 1500)); }
+      if (firstAudioPlay) {
+        firstAudioPlay = false;
+        // A cold native output can announce playing before its clock advances.
+        audio.dispatchEvent(new Event("playing"));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
       return playNow();
     };
   }
