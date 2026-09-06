@@ -27,9 +27,11 @@ test("offline HMR harness plays through the actual local handler without externa
   const openingPaintOpportunityMs = await page.evaluate(() => (window as unknown as {openingPaintOpportunityMs: number}).openingPaintOpportunityMs);
   await info.attach("opening-paint-opportunity", {body: JSON.stringify({openingPaintOpportunityMs}), contentType: "application/json"});
   expect(openingPaintOpportunityMs).toBeLessThan(200);
+  await page.screenshot({path: info.outputPath("immediate-chapter.png")});
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible({timeout: 12000});
   await expect(page.getByText(/Body surface:/)).toBeVisible();
   await expect(page.getByText(/Moving footage:/)).toBeVisible();
+  await page.screenshot({path: info.outputPath("prepared-footage.png")});
   expect(external).toEqual([]);
   expect(errors).toEqual([]);
 });
