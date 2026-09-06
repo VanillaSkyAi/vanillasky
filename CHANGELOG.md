@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.3
+
 - Remove the implicit documentary visual style from the chat interface; preserve explicitly supplied application styles and let the answer direct its own look.
 - Default chat now plans an answer brief and narrated shots, with an immediate introduction followed by AI-first footage and relevant stock fallback. Creative direction adapts to the request; the model no longer chooses body templates, media sources, scene IDs, or completion commands. Explicit custom template registries retain their existing composition contract.
 - Reserve the answer's ending before streaming body shots, retain valid narration when visuals are unavailable, and skip exact repeated opening or ending lines before requesting media.
