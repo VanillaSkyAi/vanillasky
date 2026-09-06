@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.6
+
 - Accept valid Pexels search results without descriptive URL slugs. Rank available matching metadata above unknown relevance, without requiring most query words to appear in the slug.
 
 ## 0.10.5
