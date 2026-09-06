@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Keep generated narration playing in Safari after a delayed opening-to-body handoff by reusing the permitted audio element; isolate late playback failures from subsequent lines.
+
 ## 0.10.1
 
 - Continue narration through failed built-in media using the authored fallback or the existing graphic on black. Keep the recovery anchor after URL resolution, and observe actual mounted images for photo readiness.

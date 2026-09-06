@@ -72,6 +72,10 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   const lines = new Map<string, PreparedLine>();
   const pendingLoads = new Set<AbortController>();
   let sounding: HTMLAudioElement | undefined;
+  // Safari's playback permission belongs to the media element. Keep the sink
+  // that played the opening when later lines arrive after user activation expires.
+  let generatedElement: HTMLAudioElement | undefined;
+  let stopGenerated: (() => void) | undefined;
   let browserFinish: (() => void) | undefined;
   let held = false;
   let silent = false;
@@ -204,7 +208,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     },
     resume() {
       held = false;
-      if (sounding) void sounding.play().catch(() => playbackFailure?.());
+      if (sounding) { const fail = playbackFailure; void sounding.play().catch(() => { if (!held) fail?.(); }); }
       if (!silent) globalThis.speechSynthesis?.resume();
     },
     setMuted(muted) {
@@ -282,9 +286,11 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
 
       let playbackFailed = false;
       try {
-        const element = new Audio(line.src);
+        stopGenerated?.();
+        const element = generatedElement ??= new Audio();
+        element.src = line.src;
         element.muted = silent;
-        if (offsetSeconds !== undefined) element.currentTime = offsetSeconds;
+        element.currentTime = offsetSeconds ?? 0;
         sounding = element;
         await new Promise<void>((resolve) => {
           let finished = false;
@@ -300,6 +306,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             element.onplaying = null;
             element.onended = null;
             element.onerror = null;
+            if (stopGenerated === stop) stopGenerated = undefined;
             if (sounding === element) {
               sounding = undefined;
               playbackFailure = undefined;
@@ -307,10 +314,12 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             resolve();
           };
           const stop = () => {
+            if (finished) return;
             element.pause();
             finish();
           };
-          const fail = () => { playbackFailed = true; stop(); };
+          const fail = () => { if (!finished) { playbackFailed = true; stop(); } };
+          stopGenerated = stop;
           const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
           speechStops.add(stop);
           playbackFailure = fail;
@@ -328,7 +337,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           element.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });
           try {
-            if (!held) void element.play().catch(fail);
+            if (!held) void element.play().catch(() => { if (!held) fail(); });
           } catch {
             fail();
           }
@@ -354,6 +363,12 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       speechStops.clear();
       sounding?.pause();
       sounding = undefined;
+      // Release the decoder only when the voice is disposed, not between lines.
+      generatedElement?.pause();
+      generatedElement?.removeAttribute?.("src");
+      generatedElement?.load?.();
+      generatedElement = undefined;
+      stopGenerated = undefined;
       stopBrowser();
       for (const line of lines.values()) {
         if (line.source === "generated") URL.revokeObjectURL(line.src);
