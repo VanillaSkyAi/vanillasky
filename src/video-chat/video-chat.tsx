@@ -3,15 +3,16 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { VideoOrientation } from "../protocol/types.js";
 import { VideoPlayer } from "../player/video-player.js";
 import { useVideoChatSession, type UseVideoChatOptions, type VideoChatTurn } from "./use-video-chat.js";
-import type { VideoChatSuggestion } from "./types.js";
+import type { VideoChatSuggestion, VideoChatMode } from "./types.js";
 import { ChevronUp, Close, Gear, Mic, Replay, Send, Sound, Stop, Muted, Play, Plus, Sessions, Warning } from "./icons";
 import { useDismiss, useFocusTrap } from "./use-dismiss";
 import { Welcome } from "./welcome";
 import { OpeningChapter } from "./opening-chapter";
-import { Frame, SuggestionCards } from "./suggestion-cards";
+import { SuggestionCards } from "./suggestion-cards";
 import { useVoiceInput } from "./use-voice-input";
 import { useImmersiveControls } from "./use-immersive-controls";
 import { Logo } from "./logo";
+import { visualModes } from "./modes";
 const DESKTOP_WIDTH = 900;
 
 type Status = "idle" | "drawing" | "narrating" | "paused" | "ended";
@@ -30,24 +31,6 @@ function useViewportOrientation(): VideoOrientation {
     return () => query.removeEventListener("change", update);
   }, []);
   return portrait ? "portrait" : "landscape";
-}
-
-const STEPS = [
-  "Rolling camera…",
-  "Framing the shots…",
-  "Filming your response…",
-  "Still filming…",
-];
-
-function useFilmingStep(active: boolean, key: unknown): string {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    setStep(0);
-    const stepper = window.setInterval(() => setStep((current) => current + 1), 3000);
-    return () => window.clearInterval(stepper);
-  }, [active, key]);
-  return STEPS[Math.min(step, STEPS.length - 1)]!;
 }
 
 function Waveform({ active, listening }: { active: boolean; listening?: boolean }) {
@@ -71,6 +54,7 @@ export interface VideoChatProps {
 export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryNotice = false }: VideoChatProps) {
   const [dismissedNoticeTurn, setDismissedNoticeTurn] = useState<string>();
   const [draft, setDraft] = useState("");
+  const [selectedMode, setSelectedMode] = useState<VideoChatMode>();
   const [savedSessions, setSavedSessions] = useState<Array<{ id: string; turns: readonly VideoChatTurn[] }>>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -87,6 +71,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const { chat, restoreSession } = useVideoChatSession({
     ...options,
     orientation: sessionOrientation,
+    mode: selectedMode ?? options.mode,
   });
 
   const instanceId = useId();
@@ -126,7 +111,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     resumeAfterInput.current = false;
     inputRef.current?.blur();
     void chat.ask(prompt, typeof value === "string" ? undefined : {
-      openingMedia: value.media,
       opening: value.opening,
     });
   }, [chat, listen]);
@@ -151,18 +135,10 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     inputRef.current?.blur();
   }, [chat, listen]);
 
-  const current = chat.currentTurn;
   const shown = chat.shownTurn;
   const showing = chat.playerProps != null;
-  const [openingAsset, setOpeningAsset] = useState<{ key: string; state: "ready" | "failed" }>();
-  const openingAssetKey = `${shown?.id ?? ""}:${shown?.openingMedia?.url ?? ""}`;
-  const openingMediaFailed = openingAsset?.key === openingAssetKey && openingAsset.state === "failed";
-  const openingMediaReady = openingAsset?.key === openingAssetKey && openingAsset.state === "ready";
-  const openingChapter = !showing && Boolean(shown?.opening) && (!shown?.openingMedia || openingMediaFailed || !openingMediaReady);
-
-  const waitingForPicture = chat.turns.length > 0 && !showing
-    && (chat.status === "composing" || chat.status === "playing" || chat.status === "paused");
-  const filmingStep = useFilmingStep(waitingForPicture, current?.id);
+  const openingChapter = !showing && Boolean(shown?.prompt);
+  const openingTitle = shown?.opening ?? shown?.prompt ?? "";
   const status: Status = chat.turns.length === 0 ? "idle"
     : chat.status === "composing" ? "drawing"
     : chat.status === "playing" ? "narrating"
@@ -231,7 +207,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     onKeyDownCapture={controls.reveal}
   >
     <header className="chrome" {...controlEvents}>
-      <div className="session-brand"><Logo /></div>
+      <div className="session-brand"><Logo />{(shown?.mode ?? selectedMode ?? options.mode) === "pexels" && <a className="media-credit" href="https://www.pexels.com" target="_blank" rel="noopener noreferrer">Videos by Pexels</a>}</div>
       <div className="group">
         <button
           ref={historyButtonRef}
@@ -268,19 +244,8 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     <div className="stage-area">
       <div className="stage" style={{ background: "#000" }}>
         {!showing && <>
-          <div className="ground" aria-hidden="true" />
-          {openingChapter && <OpeningChapter key={shown!.id} title={shown!.opening!} />}
-          {shown?.openingMedia && !openingMediaFailed && <>
-            <Frame key={openingAssetKey} media={shown.openingMedia} poster revealWhenReady
-              onReady={() => setOpeningAsset({key:openingAssetKey,state:"ready"})}
-              onError={() => setOpeningAsset({key:openingAssetKey,state:"failed"})} />
-            {openingMediaReady && <div className="opening-wash" aria-hidden="true" />}
-          </>}
+          {openingChapter && <OpeningChapter key={shown!.id} title={openingTitle.length > 120 ? `${openingTitle.slice(0, 117).trimEnd()}…` : openingTitle} />}
           {chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
-          {shown?.prompt && !shown.opening && <div className="asked">
-            <p className="asked-prompt">{shown.prompt}</p>
-            {waitingForPicture && <p className="asked-step" aria-live="polite">{filmingStep}</p>}
-          </div>}
         </>}
         {chat.playerProps && <div className="player-fit" style={{ width: stageOrientation === "portrait" ? "min(100cqw, 56.25cqh)" : "min(100cqw, 177.7778cqh)" }}><VideoPlayer
           key={chat.playerKey}
@@ -332,6 +297,13 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
         aria-modal="true"
       >
         <div className="popover-heading"><h2>Settings</h2><button type="button" className="round" aria-label="Close settings" onClick={closeSettings}><Close /></button></div>
+        <fieldset className="playback-options"><legend>Video source</legend>
+          {visualModes.filter((mode) => chat.availableModes.includes(mode.id)).map((mode) =>
+            <label className="switch-row" key={mode.id}><span><strong>{mode.label}</strong><small>{mode.note}</small></span><input
+              type="radio" name={`${instanceId}-source`} value={mode.id}
+              checked={(selectedMode ?? options.mode ?? "cinematic") === mode.id}
+              onChange={() => setSelectedMode(mode.id)} /></label>)}
+        </fieldset>
         <fieldset className="playback-options"><legend>Watching</legend>
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
           <label className="switch-row"><span><strong>Keep controls visible</strong><small>Keep the input bar on screen</small></span><input type="checkbox" role="switch" checked={alwaysShowControls} onChange={(event) => setAlwaysShowControls(event.target.checked)} /></label>

@@ -116,6 +116,19 @@ provider-neutral text-delta escape hatch.
 
 ### Handler contract
 
+The chat contract includes two footage modes: `"cinematic"` (labelled AI video)
+and `"pexels"`. AI mode does not fall back to stock; either mode recovers missing
+footage to an authored chapter. Existing `"cinematic"` requests remain valid.
+`generatedClipDurationSec?: number` on the handler defaults to 5 and accepts 2–20;
+it must match the host adapter's requested duration. `VideoChatTurn.mode` is
+optional so older in-memory saved turns remain readable.
+
+A declared `data.video-chat-preparation` extension carries
+`{ sceneId: string, narration: string }` before media resolves. It permits bounded
+speech preparation, not playback of an unvalidated scene. The client limits
+speech preparation to two concurrent jobs and reuses it when `scene.add` arrives.
+The six public exports, persisted video schema and protocol version are unchanged.
+
 `createVideoChatHandler` is the opinionated general-purpose video-chat route.
 Mount it once and use its bounded `action` query parameter for capabilities,
 responses, opening media, narration, suggestions, speech,

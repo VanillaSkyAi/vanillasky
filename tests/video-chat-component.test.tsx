@@ -134,7 +134,7 @@ describe("VideoChat", () => {
       voice: { prepare: async () => ({ seconds: 1 }), speak: async () => {}, pause() {}, resume() {}, setMuted() {} },
     }} />);
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    expect((await screen.findByRole("status")).textContent).toContain("The conversation limit has been reached. Please try again later.");
+    expect((await screen.findByRole("status")).textContent).toContain("Too many requests right now. Please try again shortly.");
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Prompt" }).closest(".panel")?.getAttribute("data-input-visible")).toBe("true"));
     expect(document.body.textContent).not.toContain("private quota details");
   });
@@ -194,8 +194,9 @@ describe("VideoChat", () => {
     }} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    await waitFor(() => expect(container.querySelector(".stage video")?.getAttribute("src"))
-      .toBe("https://media.example/surreal-story.mp4"));
+    await waitFor(() => expect(container.querySelector("[data-opening-chapter]")?.textContent)
+      .toBe("Tonight, the impossible feels close enough to touch."));
+    expect(container.querySelector(".stage video")).toBeNull();
     await waitFor(() => expect(requests).toContainEqual({
       action: "response",
       body: expect.objectContaining({

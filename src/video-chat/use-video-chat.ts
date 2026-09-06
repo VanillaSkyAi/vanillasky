@@ -53,6 +53,8 @@ export interface VideoChatTurn {
   orientation: VideoOrientation;
   /** Generated footage keeps the orientation it was created in. */
   fixedOrientation: boolean;
+  /** Footage source selected for this answer; omitted in older saved turns. */
+  mode?: VideoChatMode;
   video?: Video;
   suggestions: readonly VideoChatSuggestion[];
 }
@@ -403,7 +405,7 @@ function errorFrom(cause: unknown): VideoError {
 
 async function responseError(response: Response): Promise<VideoError> {
   return new VideoError(response.status === 429
-    ? "The conversation limit has been reached. Please try again later."
+    ? "Too many requests right now. Please try again shortly."
     : "Video chat could not produce a playable response", {
     code: "http_error", status: response.status, recoverable: false,
   });
@@ -620,7 +622,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       throw new VideoError("timeoutMs must be positive", { code: "invalid_option" });
     }
     const timeout = setTimeout(() => controller.abort(new DOMException("Video chat timed out", "TimeoutError")), timeoutMs);
-    const mode = "cinematic" as const;
+    const mode = currentOptions.mode ?? "cinematic";
     const orientation = currentOptions.orientation ?? "landscape";
     const id = (currentOptions.createTurnId ?? defaultTurnId)();
     const conversation = conversationFor(stateRef.current.turns);
@@ -634,6 +636,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       completed: false,
       orientation,
       fixedOrientation: true,
+      mode,
       suggestions: [],
       ...(openingMedia ? { openingMedia } : {}),
     };
@@ -708,30 +711,34 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     };
     flushRef.current = flush;
 
-    const resolveOpeningMedia = async (keyword: string, fallbackKeyword?: string) => {
-      try {
-        const response = await request("opening-media", {
-          method: "POST",
-          body: JSON.stringify({ keyword, ...(fallbackKeyword ? { fallbackKeyword } : {}), orientation }),
-        }, openingController.signal);
-        if (!response.ok || !isOpeningCurrent() || timeline) return;
-        const payload = await response.json() as { media?: unknown };
-        const media = sanitizeVideoChatMedia(payload.media);
-        if (media && isOpeningCurrent() && !timeline) dispatch({ type: "opening-media", id, media });
-      } catch {
-        // Stock footage is an enhancement; the black ground remains usable.
-      }
-    };
-
-    const prepareSpeech = async (text: string, signal: AbortSignal) => {
-      try {
-        return currentOptions.voice
-          ? await withDeadline((child) => voiceRef.current.prepare(text, { signal: child }), 3_000, signal)
-          : await voiceRef.current.prepare(text, { signal });
-      } catch (cause) {
-        if (currentOptions.voice && !signal.aborted && isCurrent()) unavailableVoiceLines.current.add(text);
-        throw cause;
-      }
+    // The response stream holds one host admission slot. Two speech jobs leave
+    // room for user actions and prevent a batch of ready scenes from flooding it.
+    const speechLoads = new Map<string, Promise<Awaited<ReturnType<VideoChatVoice["prepare"]>>>>();
+    const speechLanes: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()];
+    let nextSpeechLane = 0;
+    let customVoiceFailed = false;
+    const prepareSpeech = (text: string, signal: AbortSignal) => {
+      const cached = speechLoads.get(text);
+      if (cached) return cached;
+      const lane = nextSpeechLane++ % speechLanes.length;
+      const prepared = speechLanes[lane]!.then(async () => {
+        signal.throwIfAborted();
+        try {
+          if (customVoiceFailed) throw new Error("Voice preparation did not respond");
+          return currentOptions.voice
+            ? await withDeadline((child) => voiceRef.current.prepare(text, { signal: child }), 3_000, signal)
+            : await voiceRef.current.prepare(text, { signal });
+        } catch (cause) {
+          if (currentOptions.voice && !signal.aborted && isCurrent()) {
+            unavailableVoiceLines.current.add(text);
+            if (cause instanceof DOMException && cause.name === "TimeoutError") customVoiceFailed = true;
+          }
+          throw cause;
+        }
+      });
+      speechLoads.set(text, prepared);
+      speechLanes[lane] = prepared.catch(() => undefined);
+      return prepared;
     };
 
     const speakOpening = async (text: string) => {
@@ -789,14 +796,20 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               ? MEDIA_RECOVERY_NOTICE
               : "Some parts were simplified so the response could continue.");
           }
+          if (event.type === "data.video-chat-preparation") {
+            const data = event.data as { sceneId?: unknown; narration?: unknown } | undefined;
+            if (data && typeof data.sceneId === "string" && data.sceneId.length <= 200
+              && typeof data.narration === "string" && data.narration.trim() && data.narration.length <= 2_000
+              && speechLoads.size < 32) {
+              void prepareSpeech(data.narration.trim(), controller.signal).catch(() => undefined);
+            }
+            continue;
+          }
           if (event.type === "data.video-chat-opening") {
             const payload = event.data && typeof event.data === "object" && !Array.isArray(event.data)
               ? event.data as { line?: unknown; keyword?: unknown; fallbackKeyword?: unknown }
               : {};
             const line = typeof payload.line === "string" ? payload.line.trim().slice(0, 300) : "";
-            const keyword = typeof payload.keyword === "string" ? payload.keyword.trim().slice(0, 80) : "";
-            const fallbackKeyword = typeof payload.fallbackKeyword === "string" ? payload.fallbackKeyword.trim().slice(0, 80) : undefined;
-            if (!openingMedia && keyword) void resolveOpeningMedia(keyword, fallbackKeyword);
             if (!openingRequested && line) {
               spokenHook = line;
               lines.push(line);

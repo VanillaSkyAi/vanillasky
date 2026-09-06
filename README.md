@@ -26,9 +26,8 @@ npm run dev
 ```
 
 Open the reported localhost URL. One text key gives you the chat, an immediate introduction, and browser voice.
-Add the video adapter for generated footage and optional stock for fallback.
-Without a media provider, answers retain narration and subtitles with an
-unavailable-visual state. If installation is interrupted, rerun the init command.
+Add the video adapter for AI footage, or a Pexels key for the lower-cost stock mode.
+Without footage, authored chapter scenes carry the narration and subtitles. If installation is interrupted, rerun the init command.
 
 Optional upgrades keep the same client:
 
@@ -36,7 +35,7 @@ Optional upgrades keep the same client:
 | --- | --- | --- |
 | Generated speech | `npx vanillasky providers add speech` | `XAI_API_KEY` |
 | Generated video and voice transcription | `npx vanillasky providers add video` | `FAL_KEY` |
-| Stock media, including opening backgrounds | No install needed | `PEXELS_API_KEY` |
+| Pexels video search | No install needed | `PEXELS_API_KEY` |
 
 Run the selected command, add its key to `.env.local`, and restart the server.
 Only selected provider packages are installed. `npx vanillasky doctor` reports
@@ -84,10 +83,14 @@ both boundaries.
 ## An immediate intro, then moving footage
 
 The default chat uses a template introduction while its first shot prepares,
-then generated footage with narration and subtitles. Relevant stock is the
-fallback when generation is unavailable or fails. The planner adapts its
+then footage with narration and subtitles. Choose AI video or Pexels in Settings.
+AI mode never substitutes stock, and Pexels mode never calls the AI-video provider.
+Missing or late footage becomes a useful chapter scene. The planner adapts its
 visible actions and spoken beats to explanations, stories, comedy, imagination,
 and practical requests. It does not choose body templates.
+
+Speech and footage prepare together. Silent clips loop through the remaining
+narration when necessary, and every answer preserves its intended ending.
 
 Packaged templates remain available for custom compositions and source ownership.
 
@@ -95,7 +98,7 @@ Copy template source only when you want to own and edit it:
 
 ```bash
 npm install --save-dev tsx
-npx vanillasky templates add bigNumber
+npx vanillasky templates add chapterTitle
 ```
 
 That compiler is needed only for source-owned templates. See
@@ -118,6 +121,7 @@ MP4/WebM export remains application-owned.
 | Add media or voice | [Media and voice](docs/media-and-audio.md) |
 | Persist and replay results | [Performance measurements](docs/performance.md) · [Persistence and replay](docs/persistence.md) |
 | Test routes and streams | [Test integrations](docs/testing.md) |
+| Iterate on SDK chat | [Development](docs/development.md): `dev:chat`, `check:chat`, `verify:release` |
 | Deploy securely | [Production](docs/production.md) · [Security](docs/security.md) |
 | Inspect the API contract | [Public API](PUBLIC-API.md) · [Protocol](docs/reference/protocol.md) |
 

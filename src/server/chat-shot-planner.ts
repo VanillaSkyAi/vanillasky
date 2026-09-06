@@ -2,6 +2,7 @@ import type { VideoGenerationContext, VideoPlanPart, VideoPlanner, VideoScene } 
 import { createTextDeltaVideoPlanner, type TextDeltaVideoPlannerOptions, type TextDeltaVideoSource } from "./model/text-stream.js";
 import { attachGenerationLifecycleSink, getGenerationLifecycleSink } from "./lifecycle.js";
 import { continueAfterOpening } from "./opening-continuity.js";
+import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver } from "./media-resolver.js";
 
 interface Shot {
@@ -170,7 +171,7 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
       input: context.request.input, requestId: context.request.requestId, scene: part.scene, templateId: "cinemaMedia", preferredType: "video", generatedLook: context.request.input.style?.generatedLook, signal: context.signal,
     });
     context.signal.throwIfAborted();
-    if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: "A visual could not be prepared; the authored chapter continues.", recoverable: true });
+    if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });
     const title = part.scene.variables.fallbackText;
     const scene: VideoScene = media
       ? { ...part.scene, variables: { fallbackText: title, mediaType: media.type === "image" ? "photo" : "video", mediaUrl: media.url, ...(media.posterUrl ? { mediaPoster: media.posterUrl } : {}) } }

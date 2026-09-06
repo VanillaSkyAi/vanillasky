@@ -98,7 +98,10 @@ describe("documented examples", () => {
 
     expect(guide).toContain("searchMedia");
     expect(guide).toContain("generateVideo");
-    expect(guide).toMatch(/generated footage first.*relevant stock/is);
+    expect(guide).toContain('mode: "cinematic"');
+    expect(guide).toContain('mode: "pexels"');
+    expect(guide).toContain("Each mode uses only its selected media provider");
+    expect(guide).toContain("authored chapter with complete narration");
     expect(guide).toMatch(/retains.*narration.*subtitles/is);
     expect(guide).toMatch(/maxRetries:\s*0/);
     // Generation must stay app-owned: neither a runtime nor a peer requirement.

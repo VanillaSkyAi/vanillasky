@@ -38,7 +38,8 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
     await page.getByRole("button", { name: "Dismiss notice" }).click();
   }
   await expect(page.locator(".recovery-notice [role=status]")).toHaveCount(0);
-  await expect(page.locator("[data-media-unavailable]")).toBeVisible();
+  await expect(page.locator("[data-media-unavailable]")).toHaveCount(0);
+  await expect(page.locator('[data-video-frame="ready"] [data-template="title"]').first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Some parts were simplified");
   await page.locator(".line-row").hover();
   // A floated control must own its hit target above the full-frame scene.
@@ -75,7 +76,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
 });
 
 
-test("plays posterless intro footage through the hook, then replaces it with the ready body", async ({ page }) => {
+test("plays a chapter through the hook, then replaces it with the ready body", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   const handler = createVideoChatHandler({
@@ -97,10 +98,10 @@ test("plays posterless intro footage through the hook, then replaces it with the
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/video-chat.html?hold-opening");
   await page.getByRole("textbox", { name: "Prompt" }).fill("Explain a waterfall");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
-  const intro = page.locator(".stage > video.frame-media");
+  const intro = page.locator("[data-opening-chapter]");
   await expect(intro).toBeVisible();
-  await expect.poll(() => intro.evaluate((node: HTMLVideoElement) => node.currentTime)).toBeGreaterThan(0);
-  expect(await intro.getAttribute("poster")).toBeNull();
+  await expect(intro).toHaveText("A waterfall starts our short journey.");
+  await expect(page.locator(".ground, .asked, .stage > video.frame-media")).toHaveCount(0);
   await expect(page.locator('[data-video-frame="ready"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Finish opening" }).click();
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();

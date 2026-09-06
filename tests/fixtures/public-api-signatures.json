@@ -192,7 +192,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatHandlerOptions extends Pick<VideoHandlerOptions, \"templates\" | \"streamText\" | \"includeRawProviderData\" | \"mediaConcurrency\" | \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatMediaResolver;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
+          "interface VideoChatHandlerOptions extends Pick<VideoHandlerOptions, \"templates\" | \"streamText\" | \"includeRawProviderData\" | \"mediaConcurrency\" | \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatMediaResolver;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    generatedClipDurationSec?: number;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
         ]
       },
       "VideoChatMode": {
@@ -200,7 +200,7 @@
           "type"
         ],
         "declaration": [
-          "type VideoChatMode = \"cinematic\";"
+          "type VideoChatMode = \"cinematic\" | \"pexels\";"
         ]
       },
       "VideoChatWelcomeOptions": {
@@ -409,7 +409,7 @@
           "type"
         ],
         "declaration": [
-          "type VideoChatMode = \"cinematic\";"
+          "type VideoChatMode = \"cinematic\" | \"pexels\";"
         ]
       },
       "VideoChatPlaybackMetric": {
@@ -457,7 +457,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatTurn {\n    id: string;\n    prompt: string;\n    completed: boolean;\n    opening?: string;\n    warnings?: readonly string[];\n    openingMedia?: VideoChatMedia;\n    orientation: VideoOrientation;\n    fixedOrientation: boolean;\n    video?: Video;\n    suggestions: readonly VideoChatSuggestion[];\n}"
+          "interface VideoChatTurn {\n    id: string;\n    prompt: string;\n    completed: boolean;\n    opening?: string;\n    warnings?: readonly string[];\n    openingMedia?: VideoChatMedia;\n    orientation: VideoOrientation;\n    fixedOrientation: boolean;\n    mode?: VideoChatMode;\n    video?: Video;\n    suggestions: readonly VideoChatSuggestion[];\n}"
         ]
       },
       "VideoChatVoice": {

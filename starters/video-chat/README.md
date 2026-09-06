@@ -53,21 +53,19 @@ The SDK tries generated footage first, then relevant approved stock when the
 provider is unavailable, denied, or fails. Attempts, including failures, share
 the host's `maxGeneratedVideos` ceiling. A stock miss never broadens the subject
 automatically. If no relevant footage is available, narration and subtitles
-continue with an unavailable-visual state.
+continue as authored chapter scenes.
 
-Plan narration that fits the provider's five-second clips. Playback measures
-speech and prepares upcoming media before cuts. Verify full answers, including
-longer-than-expected speech and late or failed footage; a finished clip must not
-freeze while the answer keeps speaking.
+Choose AI video or Pexels in Settings. Each mode uses only its selected footage
+provider, and both use chapter scenes when footage cannot be prepared. The
+Pexels adapter searches the full catalog with bounded subject matching,
+orientation selection and caching; it no longer requires a reviewed index.
+Custom interfaces must display a prominent [Pexels](https://www.pexels.com) credit.
 
-## Reviewed stock
-
-The starter's `approvedStock` index in `stock.ts` is deliberately empty. Add an
-asset only after inspecting its content, poster and allowed orientations. List
-literal matching queries and a reviewed description. Add those available
-queries to your host instructions so the planner can choose them when relevant.
-An unreviewed query returns `null` without a network search or unrelated result.
-The host owns licensing, storage, clip rendition and retention.
+Speech and video prepare together. Keep `generatedClipDurationSec` aligned with
+the duration actually requested by the video adapter (five seconds by default).
+The planner writes natural short beats; measured speech controls scene timing.
+Silent footage loops through any remaining narration. Cancellation stops pending
+work and playback, and failed media becomes the authored chapter.
 
 The provider names its own model. Override the tested defaults with
 `ANTHROPIC_PLANNER_MODEL`, `ANTHROPIC_NARRATION_MODEL`, or `FAL_VIDEO_MODEL`

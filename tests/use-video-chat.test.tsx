@@ -481,7 +481,7 @@ describe("useVideoChat", () => {
     await waitFor(() => expect(result.current.playerProps?.stream).toBeDefined());
   });
 
-  it("resolves a typed prompt's hook keyword into its elastic opening footage", async () => {
+  it("uses the authored opening without issuing an extra media request", async () => {
     const { useVideoChat } = await import("../src/react");
     const requests: Array<{ action: string | null; body?: unknown }> = [];
     let finishOpening!: () => void;
@@ -499,14 +499,9 @@ describe("useVideoChat", () => {
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Take me somewhere unexpected"); });
 
-    await waitFor(() => expect(result.current.currentTurn?.openingMedia).toEqual({
-      url: "https://media.example/opening.mp4",
-      type: "video",
-    }));
-    expect(requests).toContainEqual({
-      action: "opening-media",
-      body: { keyword: "unexpected story opening", fallbackKeyword: "night sky", orientation: "landscape" },
-    });
+    await waitFor(() => expect(result.current.currentTurn?.opening).toBe("Let us begin somewhere unexpected."));
+    expect(result.current.currentTurn?.openingMedia).toBeUndefined();
+    expect(requests.some(({ action }) => action === "opening-media")).toBe(false);
     expect(result.current.playerProps).toBeUndefined();
 
     finishOpening();
@@ -884,7 +879,7 @@ describe("useVideoChat", () => {
     expect(result.current.status).toBe("error");
     expect(result.current.error?.status).toBe(status);
     expect(result.current.error?.message).not.toContain("private provider details");
-    if (status === 429) expect(result.current.error?.message).toBe("The conversation limit has been reached. Please try again later.");
+    if (status === 429) expect(result.current.error?.message).toBe("Too many requests right now. Please try again shortly.");
   });
 
   it("warns when the default voice recovers a speech provider failure", async () => {
