@@ -22,10 +22,13 @@ player. Read the [security guide](security.md) for the complete controls.
 
 ## Cinematic direction and providers
 
-One cinematic mode combines footage and editorial graphics according to the
-story. Keep templates available as grounded fallbacks. Add `searchMedia` for
-reviewed stock and `generateVideo` for selected illustrative shots. The planner
-sets `mediaSource` per media scene; the host enforces the generation budget.
+Default chat uses a template introduction during preparation, then generated
+footage with narration and subtitles. Add `generateVideo` for these shots and
+`searchMedia` for relevant stock fallback. The runtime selects media within the
+host generation budget; the model supplies narration and visible actions.
+If both sources miss, valid narration remains available with an explicit visual
+unavailability state. Explicit custom template registries keep their existing
+composition and fallback contracts.
 A stock candidate must match the subject, action and permitted crop. Return
 `null` for uncertainty rather than broadening an essential detail.
 
