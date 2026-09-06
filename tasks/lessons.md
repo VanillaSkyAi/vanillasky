@@ -23,3 +23,8 @@
   must start when the element mounts; a loadeddata handler alone cannot establish
   whether later waiting is initial decoding or a genuine playback stall. Validate
   with actual presented frames, then a frozen decoder and the unchanged recovery bound.
+
+- When a runtime DOM contract changes, audit verification scripts as well as
+  tests: exact packed-consumer playback assertions also live under scripts/.
+  Replace obsolete architecture assertions with the intended behavior and retain
+  real-frame, identity, lifecycle and bounded-resource coverage.
