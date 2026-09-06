@@ -135,10 +135,14 @@ test("holds the last actual clip frame while a longer scene continues", async ({
   // Start the clip-duration deadline after actual playback starts; browser startup
   // under parallel CI load is not part of the five-second asset duration.
   await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime), { timeout: 8000 }).toBeGreaterThan(0);
-  await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => ({
-    ended: video.ended, time: video.currentTime, duration: video.duration,
-    paused: video.paused, readyState: video.readyState, src: video.currentSrc,
-  })), { timeout: 8000 }).toMatchObject({ ended: true });
+  // The contract is a stable final frame. Media engines can differ in when
+  // they dispatch ended for a file whose last sample precedes its duration.
+  await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) =>
+    Number.isFinite(video.duration) && video.duration - video.currentTime <= 1 / 30 + 0.002
+      ? "final-frame"
+      : JSON.stringify({ ended: video.ended, time: video.currentTime, duration: video.duration,
+        paused: video.paused, readyState: video.readyState, src: video.currentSrc }),
+  ), { timeout: 8000 }).toBe("final-frame");
   const before = await page.locator("video").evaluate((video: HTMLVideoElement) => ({ time: video.currentTime, duration: video.duration, loop: video.loop }));
   expect(before.loop).toBe(false);
   await page.waitForTimeout(600);
