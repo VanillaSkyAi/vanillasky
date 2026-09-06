@@ -79,6 +79,50 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       reportMediaFailure?.();
     }
   };
+  useEffect(() => {
+    if (!isPlaying || waitingKey !== videoPresentationKey) {
+      if (waitingKey) setWaitingKey(undefined);
+      return;
+    }
+    const video = videoRef.current;
+    if (!video) return;
+    let previousTime = video.currentTime;
+    let forwardFrames = 0;
+    let stopped = false;
+    let frame: number | undefined;
+    let poll: ReturnType<typeof setTimeout> | undefined;
+    const observe = (_now?: number, metadata?: VideoFrameCallbackMetadata) => {
+      if (stopped) return;
+      const time = metadata?.mediaTime ?? video.currentTime;
+      if (video.seeking || time < previousTime) forwardFrames = 0;
+      else if (time > previousTime + .001) forwardFrames++;
+      previousTime = time;
+      // One seek frame is not resumed motion. Require consecutive forward
+      // observations before releasing the original bounded stall deadline.
+      if (forwardFrames >= 2) {
+        stopped = true;
+        clearTimeout(deadline);
+        setWaitingKey(undefined);
+        return;
+      }
+      if (video.requestVideoFrameCallback) frame = video.requestVideoFrameCallback(observe);
+      else poll = setTimeout(observe, 50);
+    };
+    // A seek can emit waiting without another playing event, even while frames
+    // resume. Keep the decoder visible and observe motion directly. A real
+    // stall gets the player's authored chapter instead of an endless spinner.
+    const deadline = setTimeout(() => {
+      if (!stopped) { stopped = true; unavailable(); }
+    }, 1000);
+    observe();
+    return () => {
+      stopped = true;
+      clearTimeout(deadline);
+      clearTimeout(poll);
+      if (frame !== undefined) video.cancelVideoFrameCallback?.(frame);
+    };
+  }, [waitingKey, videoPresentationKey, isPlaying]);
+
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     // Allow a small decode-to-speech onset margin without changing narration.
     video.playbackRate = (resolvedMuted || video.preservesPitch === true) && sceneDuration && Number.isFinite(video.duration) && video.duration > 0
@@ -208,10 +252,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
           }}
         />
       ))}
-      {(exhaustedKey === videoPresentationKey || waitingKey === videoPresentationKey) && <div
-        role="status" data-media-continuity={exhaustedKey === videoPresentationKey ? "exhausted" : "waiting"}
+      {exhaustedKey === videoPresentationKey && <div
+        role="status" data-media-continuity="exhausted"
         style={{ position: "absolute", inset: 0, zIndex: 3, background: "#000", color: "#bbb", display: "grid", placeContent: "center", font: "14px system-ui" }}
-      >{exhaustedKey === videoPresentationKey ? "Visual unavailable" : "Loading visual"}</div>}
+      >Visual unavailable</div>}
       <video
         ref={videoRef}
         src={mediaUrl}
@@ -223,7 +267,6 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
-        onPlaying={() => setWaitingKey(undefined)}
         onLoadedData={(event) => {
           const video = event.currentTarget;
           const markPresented = () => {
@@ -240,7 +283,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onError={onError}
         data-media-position={mediaPosition}
         data-video-backdrop={persistent ? "persistent" : "scene"}
-        style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey || waitingKey === videoPresentationKey ? "hidden" : undefined }}
+        style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey ? "hidden" : undefined }}
       />
     </>
   );

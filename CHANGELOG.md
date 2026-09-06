@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.5
+
+- Keep footage visible when native playback reports waiting without another playing event. Observe resumed motion directly and recover to the authored chapter after one second without progress, preserving narration.
+
 ## 0.10.4
 
 - Show the canonical chapter immediately after submitting a prompt; remove the separate gradient loading placeholder and opening stock requests.

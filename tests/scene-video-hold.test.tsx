@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ExternalVideoBackdropProvider } from "../src/visual-system/scene-templates/external-video-backdrop";
 import { SceneVideoBackdrop } from "../src/visual-system/scene-templates/scene-video-backdrop";
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 it("resumes paused footage, recovers its end once, and resets a deliberate replay", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -139,4 +139,101 @@ it("rewinds decoder preroll for narration onset, while leaving user pauses untou
   view.rerender(shot(false, false));
   expect(video.currentTime).toBe(3);
   view.unmount(); vi.restoreAllMocks();
+});
+
+
+it("keeps the decoder visible while waiting and recovers motion without a playing event", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/same.mp4" progress={.3} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  video.currentTime = 1;
+  fireEvent.waiting(video);
+  expect(video.style.visibility).not.toBe("hidden");
+  expect(view.queryByRole("status")).toBeNull();
+  video.currentTime = 1.2;
+  const { act } = await import("@testing-library/react");
+  await act(async () => vi.advanceTimersByTime(60));
+  video.currentTime = 1.4;
+  await act(async () => vi.advanceTimersByTime(1040));
+  expect(onError).not.toHaveBeenCalled();
+  view.unmount(); vi.useRealTimers();
+});
+
+it("bounds a stalled decoder and cancels waiting recovery when paused or replaced", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/same.mp4", progress: .3, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  const { act } = await import("@testing-library/react");
+  fireEvent.waiting(video);
+  view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
+  await act(async () => vi.advanceTimersByTime(1100));
+  expect(onError).not.toHaveBeenCalled();
+  view.rerender(<SceneVideoBackdrop {...props} />);
+  fireEvent.waiting(video);
+  view.rerender(<SceneVideoBackdrop {...props} playbackId="next" />);
+  await act(async () => vi.advanceTimersByTime(1100));
+  expect(onError).not.toHaveBeenCalled();
+  fireEvent.waiting(video);
+  await act(async () => vi.advanceTimersByTime(1100));
+  expect(onError).toHaveBeenCalledOnce();
+  view.unmount(); vi.useRealTimers();
+});
+
+
+it("cancels waiting frame callbacks from a replaced presentation", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/same.mp4", progress: .3, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} playbackId="first" />);
+  const video = view.container.querySelector("video")!;
+  let callback!: () => void;
+  const cancel = vi.fn();
+  Object.defineProperty(video, "requestVideoFrameCallback", { value: (next: () => void) => { callback = next; return 7; } });
+  Object.defineProperty(video, "cancelVideoFrameCallback", { value: cancel });
+  fireEvent.waiting(video);
+  view.rerender(<SceneVideoBackdrop {...props} playbackId="second" />);
+  expect(cancel).toHaveBeenCalledWith(7);
+  const { act } = await import("@testing-library/react");
+  await act(async () => { callback(); vi.advanceTimersByTime(1100); });
+  expect(onError).not.toHaveBeenCalled();
+  view.unmount(); vi.useRealTimers();
+});
+
+
+for (const resumed of [false, true]) it(`requires two forward presented frames after a backwards seek: ${resumed ? "resumed" : "stalled"}`, async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/same.mp4" progress={.5} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  let callback!: (now: number, metadata: VideoFrameCallbackMetadata) => void;
+  Object.defineProperty(video, "requestVideoFrameCallback", { value: (next: typeof callback) => { callback = next; return 1; } });
+  Object.defineProperty(video, "cancelVideoFrameCallback", { value: vi.fn() });
+  video.currentTime = 3;
+  fireEvent.waiting(video);
+  const { act } = await import("@testing-library/react");
+  await act(async () => {
+    video.currentTime = 0;
+    callback(0, { mediaTime: 0 } as VideoFrameCallbackMetadata);
+    video.currentTime = .04;
+    callback(40, { mediaTime: .04 } as VideoFrameCallbackMetadata);
+    if (resumed) callback(80, { mediaTime: .08 } as VideoFrameCallbackMetadata);
+    vi.advanceTimersByTime(1100);
+  });
+  expect(onError).toHaveBeenCalledTimes(resumed ? 0 : 1);
+  view.unmount(); vi.useRealTimers();
 });

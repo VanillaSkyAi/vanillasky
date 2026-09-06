@@ -48,3 +48,25 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
     throw error;
   } finally { await context.close(); }
 });
+
+
+for (const waiting of [false, true]) test(`three narrated scenes reuse one persistent video source${waiting ? " after waiting" : ""}`, async ({ browser, browserName }, info) => {
+  test.setTimeout(70000);
+  const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}) });
+  try {
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?same-url${process.platform === "linux" && browserName === "webkit" ? "&webm" : ""}`);
+    await page.getByRole("button").click();
+    if (waiting) {
+      await page.waitForFunction(() => document.querySelector('[data-video-frame]')?.getAttribute('data-scene-id') === "three" && (document.querySelector("video")?.currentTime ?? 0) > .5);
+      await page.evaluate(() => document.querySelector("video")?.dispatchEvent(new Event("waiting")));
+    }
+    await page.waitForFunction(() => document.body.dataset.proofComplete === "true", undefined, { timeout: 60000 });
+    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { samples: { scene: string; time: number; paused: boolean; hidden: boolean }[]; events: string[] } }).continuityProof);
+    await writeFile(info.outputPath("same-url-proof.json"), JSON.stringify(proof));
+    for (const id of ["one", "two", "three"]) {
+      expect(proof.samples.some(sample => sample.scene === id && sample.time > 1 && !sample.paused && !sample.hidden), id).toBe(true);
+    }
+    expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(4);
+  } finally { await context.close(); }
+});
