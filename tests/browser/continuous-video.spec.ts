@@ -1,13 +1,22 @@
 import { writeFile } from "node:fs/promises";
 import { devices, expect, test } from "@playwright/test";
 
-type MotionSample = {at: number; time: number; frameFingerprint?: number | null; paused: boolean; hidden: boolean};
+type MotionSample = {at: number; time: number; frameFingerprint?: number | null; presentedMediaTime?: number | null; presentedFrames?: number; paused: boolean; hidden: boolean};
 function maximumMotionStall(samples: MotionSample[]) {
   let lastFingerprint: number | null | undefined, lastAdvance: number | undefined, maximum = 0;
+  let previous: MotionSample | undefined;
   for (const sample of samples) {
-    if (lastAdvance === undefined || sample.paused || sample.hidden || (sample.frameFingerprint != null && sample.frameFingerprint !== lastFingerprint)) lastAdvance = sample.at;
+    // Linux WebKit can present moving frames while drawImage returns a stale
+    // texture. Require both new presented frames and forward media time; the
+    // ordinary currentTime clock alone remains insufficient evidence.
+    const presentedAdvance = previous?.presentedMediaTime != null
+      && sample.presentedMediaTime != null
+      && sample.presentedMediaTime > previous.presentedMediaTime
+      && (sample.presentedFrames ?? 0) > (previous.presentedFrames ?? 0);
+    if (lastAdvance === undefined || sample.paused || sample.hidden || presentedAdvance || (sample.frameFingerprint != null && sample.frameFingerprint !== lastFingerprint)) lastAdvance = sample.at;
     else maximum = Math.max(maximum, sample.at - lastAdvance);
     lastFingerprint = sample.frameFingerprint;
+    previous = sample;
   }
   return maximum;
 }
@@ -16,6 +25,9 @@ test("motion proof rejects frozen pixels despite an advancing media clock", () =
   expect(maximumMotionStall(frozen)).toBe(600);
   expect(maximumMotionStall(frozen.map((sample,index)=>({...sample,time:1.5,frameFingerprint:index})))).toBe(0);
   expect(maximumMotionStall(frozen.map(sample=>({...sample,paused:true})))).toBe(0);
+  expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: index, presentedMediaTime: index * .1 })))).toBe(0);
+  expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: index, presentedMediaTime: 0 })))).toBe(600);
+  expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: 1, presentedMediaTime: index * .1 })))).toBe(600);
 });
 
 for (const mode of ["normal", "short", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {

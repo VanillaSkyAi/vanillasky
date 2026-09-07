@@ -97,10 +97,28 @@ function App() {
       for (let index = 0; index < data.length; index++) hash = Math.imul(hash ^ data[index]!, 16777619);
       return hash >>> 0;
     };
+    let presentedMediaTime: number | null = null;
+    let presentedFrames = 0;
+    let observedClip: HTMLVideoElement | null = null;
+    const observeFrames = (clip: HTMLVideoElement) => {
+      const presented: VideoFrameRequestCallback = (_now, metadata) => {
+        if (clip !== observedClip || !clip.isConnected) return;
+        presentedMediaTime = metadata.mediaTime;
+        presentedFrames = metadata.presentedFrames;
+        if (document.body.dataset.proofComplete !== "true") clip.requestVideoFrameCallback(presented);
+      };
+      clip.requestVideoFrameCallback(presented);
+    };
     const sample = () => {
       const clip = document.querySelector<HTMLVideoElement>('[data-scene-layer="active"] video');
+      if (clip !== observedClip) {
+        observedClip = clip;
+        presentedMediaTime = null;
+        presentedFrames = 0;
+        if (clip && typeof clip.requestVideoFrameCallback === "function") observeFrames(clip);
+      }
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ frameFingerprint:fingerprint(clip), mediaDuration:Number.isFinite(clip?.duration) ? clip!.duration : 0, narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ presentedMediaTime, presentedFrames, frameFingerprint:fingerprint(clip), mediaDuration:Number.isFinite(clip?.duration) ? clip!.duration : 0, narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
       } else requestAnimationFrame(sample);
