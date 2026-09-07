@@ -124,7 +124,7 @@ it("retains a readable canonical chapter while the next video is still partial",
 });
 
 it("promotes a pending clip proven by native frame advancement even when readiness stays at two", async () => {
-  const { view, incoming, displayed } = fixture();
+  const { view, incoming, displayed, report } = fixture();
   let present: VideoFrameRequestCallback | undefined;
   incoming.requestVideoFrameCallback = callback => { present = callback; return 1; };
   incoming.cancelVideoFrameCallback = vi.fn();
@@ -135,4 +135,5 @@ it("promotes a pending clip proven by native frame advancement even when readine
   }
   expect(displayed()).toBe("second");
   expect(view.container.querySelector('[data-scene-layer="active"] video')).toBe(incoming);
+  expect(report).toHaveBeenCalledWith("second\0https://example.com/second.mp4", undefined, true);
 });

@@ -1,4 +1,4 @@
-import { MountedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, sceneReadinessKey, type MountedVideoProof } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -316,6 +316,7 @@ export function VideoFrame({
   const recoveryRoot = useRef<HTMLDivElement>(null);
   const displayedKey = useRef<string | undefined>(undefined);
   const displayedWasPlaying = useRef(false);
+  const handoffProof = useRef<MountedVideoProof | undefined>(undefined);
   const confirmedHandoff = useRef<string | undefined>(undefined);
   const [preparedMedia, setPreparedMedia] = useState<ReadonlySet<string>>(() => new Set());
   // Reconfirmation must render even when a previously ready source lost data.
@@ -351,7 +352,10 @@ export function VideoFrame({
   const targetIndex = foundIndex >= 0 ? foundIndex : afterEnd ? timeline.length - 1 : -1;
   const target = timeline[targetIndex];
   const targetKey = target ? sceneReadinessKey(target.scene) : undefined;
-  if (confirmedHandoff.current !== targetKey) confirmedHandoff.current = undefined;
+  if (confirmedHandoff.current !== targetKey || !(playing || preparingNarration)) {
+    confirmedHandoff.current = undefined;
+    handoffProof.current = undefined;
+  }
   const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
   const previous = timeline[previousIndex];
   const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && mediaAudioMuted
@@ -521,16 +525,17 @@ export function VideoFrame({
     >
       <MountedSceneReadiness scene={active.scene} playing={playing && !handoffPending}
         fallback={activeMediaFailed}
+        preparedProof={confirmedHandoff.current === sceneReadinessKey(active.scene) ? handoffProof.current : undefined}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
           ? () => markMediaFailed(sceneReadinessKey(active.scene), "frame-readiness-timeout") : undefined} />
       {mountingNext && contiguousNext && preparingNext && <MountedSceneReadiness
         scene={contiguousNext.scene} playing={playing || preparingNarration} observeIncoming
         timeoutMs={handoffPending ? 8000 : null}
-        onReady={() => {
+        onReady={proof => {
           const key = sceneReadinessKey(contiguousNext.scene);
           // Fresh target proof may be sustained motion at readyState two.
           // Do not veto it with the earlier cached future-data snapshot.
-          if (handoffPending) confirmedHandoff.current = key;
+          if (handoffPending) { confirmedHandoff.current = key; handoffProof.current = proof; }
           markPrepared(key);
         }}
         onFailure={() => markMediaFailed(sceneReadinessKey(contiguousNext.scene), "frame-readiness-timeout")}

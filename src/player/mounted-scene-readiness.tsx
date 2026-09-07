@@ -4,17 +4,21 @@ import type { VideoScene } from "../protocol/types.js";
 export const MountedReadinessContext = createContext<((key: string, error?: Error, actualVideoFrame?: boolean) => void) | undefined>(undefined);
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
+export interface MountedVideoProof { consume: (video: HTMLVideoElement) => boolean }
+
 /** Observes the real mounted surface, never a detached decoder or speculative URL. */
 export function MountedSceneReadiness({
   scene, playing, fallback = false, onFailure, onReady,
-  observeIncoming = false, timeoutMs = 8000,
+  observeIncoming = false, timeoutMs = 8000, preparedProof,
 }: {
   scene: VideoScene;
   playing: boolean;
   fallback?: boolean;
   onFailure?: () => void;
   /** Preparation reports locally; only the promoted scene cues narration. */
-  onReady?: () => void;
+  onReady?: (proof?: MountedVideoProof) => void;
+  /** One-use proof from this same node immediately before promotion. */
+  preparedProof?: MountedVideoProof;
   observeIncoming?: boolean;
   /** Early preparation has no scene deadline; the pending cut gets eight seconds. */
   timeoutMs?: number | null;
@@ -35,9 +39,32 @@ export function MountedSceneReadiness({
     let presented: HTMLVideoElement | undefined;
     let previousMediaTime: number | undefined;
     let forwardFrames = 0;
+    let motionRevision = 0;
     const root = marker.current?.closest('[data-video-frame]');
     const start = performance.now();
-    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback); if (error && onFailureRef.current) onFailureRef.current(); else if (onReadyRef.current && !error) onReadyRef.current(); else report?.(key, error, actualVideoFrame); } };
+    const finish = (error?: Error, actualVideoFrame = false) => {
+      if (stopped) return;
+      stopped = true;
+      if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
+      if (error && onFailureRef.current) onFailureRef.current();
+      else if (onReadyRef.current && !error) {
+        const video = presented;
+        const mediaTime = video?.currentTime ?? 0;
+        const confirmedAt = performance.now();
+        const source = video?.currentSrc;
+        const revision = motionRevision;
+        let consumed = false;
+        onReadyRef.current(actualVideoFrame && video ? { consume: candidate => {
+          const valid = !consumed && candidate === video && video.isConnected
+            && motionRevision === revision && !video.paused && !video.seeking
+            && video.currentSrc === source && video.currentSrc === video.src
+            && performance.now() - confirmedAt <= 200
+            && video.currentTime >= mediaTime && video.currentTime - mediaTime <= .2;
+          consumed = true;
+          return valid;
+        }} : undefined);
+      } else report?.(key, error, actualVideoFrame);
+    };
     const check = () => {
       if (stopped) return;
       if (fallback && root?.querySelector("[data-scene-fallback]") && !root.querySelector("[data-template-loading]") && document.fonts?.status !== "loading") { finish(); return; }
@@ -52,6 +79,7 @@ export function MountedSceneReadiness({
         if (isVideo) {
           const video = layer.querySelector('video');
           if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            if (preparedProof?.consume(video)) { finish(undefined, true); return; }
             if (observed !== video) { previousMediaTime = undefined; forwardFrames = 0; }
             // Some native decoders sample HAVE_CURRENT_DATA throughout moving
             // playback. Two actual forward frames also prove playable media.
@@ -96,7 +124,7 @@ export function MountedSceneReadiness({
       check();
     };
     const resetMotion = (event: Event) => {
-      if (event.target === observed) { previousMediaTime = undefined; forwardFrames = 0; }
+      if (event.target === observed) { motionRevision++; previousMediaTime = undefined; forwardFrames = 0; }
     };
     for (const type of ["pause", "waiting", "seeking"]) root?.addEventListener(type, resetMotion, true);
     root?.addEventListener("vanillasky:video-frame-presented", onPresented);
@@ -108,6 +136,6 @@ export function MountedSceneReadiness({
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
       if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
     };
-  }, [key, report, scene, playing, fallback, observeIncoming, timeoutMs]);
+  }, [key, report, scene, playing, fallback, observeIncoming, timeoutMs, preparedProof]);
   return <span ref={marker} hidden />;
 }

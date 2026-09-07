@@ -177,3 +177,38 @@ it.each([0, .04])("a backwards or repeated frame at %s does not count as continu
   frame(reset + .08);
   expect(report).toHaveBeenCalledOnce();
 });
+
+
+it.each(["none", "forward", "pause", "waiting", "seeking", "rewind", "source", "replacement", "expired", "jump"])("transfers same-node preparation proof once and rejects %s invalidation", async fault => {
+  vi.useFakeTimers();
+  const prepared = vi.fn();
+  const view = render(<div data-video-frame="ready">
+    <MountedSceneReadiness scene={scene} playing observeIncoming onReady={prepared} />
+    <div data-scene-layer="incoming" data-layer-scene-id={scene.id}><video src={String(scene.variables.mediaUrl)} /></div>
+  </div>);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, {
+    currentSrc: { configurable: true, value: video.src },
+    readyState: { configurable: true, value: 2 },
+    paused: { configurable: true, value: false },
+  });
+  let present: VideoFrameRequestCallback | undefined;
+  video.requestVideoFrameCallback = callback => { present = callback; return 1; };
+  video.cancelVideoFrameCallback = vi.fn();
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  for (const time of [0, .04, .08]) {
+    video.currentTime = time;
+    act(() => present?.(time * 1000, { mediaTime: time } as VideoFrameCallbackMetadata));
+  }
+  expect(prepared).toHaveBeenCalledOnce();
+  const proof = prepared.mock.calls[0][0];
+  expect(proof).toBeDefined();
+  if (["pause", "waiting", "seeking"].includes(fault)) video.dispatchEvent(new Event(fault));
+  if (fault === "forward") video.currentTime += .04;
+  if (fault === "expired") await act(() => vi.advanceTimersByTimeAsync(201));
+  if (fault === "jump") video.currentTime += 2;
+  if (fault === "rewind") video.currentTime = 0;
+  if (fault === "source") Object.defineProperty(video, "currentSrc", { value: "https://example.com/replaced.mp4" });
+  expect(proof.consume(fault === "replacement" ? document.createElement("video") : video)).toBe(fault === "none" || fault === "forward");
+  expect(proof.consume(video)).toBe(false);
+});
