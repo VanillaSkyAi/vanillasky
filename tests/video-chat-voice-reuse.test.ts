@@ -84,3 +84,29 @@ it('ignores a rejected play promise from an aborted line after the next line sta
   await next;
   voice.dispose?.();
 });
+
+it('ignores a superseded same-line play rejection after pause and resume', async () => {
+  vi.useFakeTimers();
+  let rejectInitial!: (error: Error) => void;
+  const element = { src: '', currentTime: 0, muted: false, onended: null as (() => void) | null,
+    pause: vi.fn(), play: vi.fn().mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectInitial = reject; })).mockResolvedValue(undefined),
+    removeAttribute: vi.fn(), load: vi.fn() };
+  vi.stubGlobal('Audio', function () { return element; });
+  vi.stubGlobal('AudioContext', class { decodeAudioData() { return Promise.resolve({ duration: 6 }); } });
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:current-line');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const fallback = vi.fn();
+  const voice = createVideoChatVoice({ fetcher: async () => new Response(new Uint8Array([1])), onFallback: fallback });
+  const speaking = voice.speak('Keep this complete line.', { signal: new AbortController().signal });
+  const observed = Promise.resolve(speaking).catch(() => undefined);
+  await vi.advanceTimersByTimeAsync(0);
+  voice.pause();
+  voice.resume();
+  rejectInitial(new DOMException('Playback interrupted by pause', 'AbortError'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fallback).not.toHaveBeenCalled();
+  expect(revoke).not.toHaveBeenCalled();
+  element.onended?.();
+  await observed;
+  voice.dispose?.();
+});
