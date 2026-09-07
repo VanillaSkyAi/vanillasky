@@ -154,6 +154,7 @@ it("keeps the decoder visible while waiting and recovers motion without a playin
   const view = render(<SceneVideoBackdrop mediaUrl="/same.mp4" progress={.3} isPlaying onError={onError} />);
   const video = view.container.querySelector("video")!;
   video.currentTime = 1;
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   expect(video.style.visibility).not.toBe("hidden");
@@ -177,17 +178,20 @@ it("bounds a stalled decoder and cancels waiting recovery when paused or replace
   const view = render(<SceneVideoBackdrop {...props} />);
   const video = view.container.querySelector("video")!;
   const { act } = await import("@testing-library/react");
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
   await act(async () => vi.advanceTimersByTime(1100));
   expect(onError).not.toHaveBeenCalled();
   view.rerender(<SceneVideoBackdrop {...props} />);
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   view.rerender(<SceneVideoBackdrop {...props} playbackId="next" />);
   await act(async () => vi.advanceTimersByTime(1100));
   expect(onError).not.toHaveBeenCalled();
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   await act(async () => vi.advanceTimersByTime(1100));
@@ -209,6 +213,7 @@ it("cancels waiting frame callbacks from a replaced presentation", async () => {
   const cancel = vi.fn();
   Object.defineProperty(video, "requestVideoFrameCallback", { value: (next: () => void) => { callback = next; return 7; } });
   Object.defineProperty(video, "cancelVideoFrameCallback", { value: cancel });
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   view.rerender(<SceneVideoBackdrop {...props} playbackId="second" />);
@@ -232,6 +237,7 @@ for (const resumed of [false, true]) it(`requires two forward presented frames a
   Object.defineProperty(video, "requestVideoFrameCallback", { value: (next: typeof callback) => { callback = next; return 1; } });
   Object.defineProperty(video, "cancelVideoFrameCallback", { value: vi.fn() });
   video.currentTime = 3;
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   fireEvent.waiting(video);
   const { act } = await import("@testing-library/react");
@@ -260,20 +266,21 @@ it("allows cold startup before enforcing the presented source's stall deadline",
   fireEvent.waiting(video);
   await act(async () => vi.advanceTimersByTime(1500));
   expect(onError).not.toHaveBeenCalled();
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   await act(async () => vi.advanceTimersByTime(1100));
   expect(onError).toHaveBeenCalledOnce();
   view.unmount(); vi.useRealTimers();
 });
 
-it("lets a persistent decoder adopt its new source without tearing down the new load", () => {
+it("lets a mounted decoder adopt its new source without tearing down the new load", () => {
   const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
-  const view = render(<SceneVideoBackdrop mediaUrl="/first.mp4" playbackId="first" progress={0} isPlaying persistent />);
+  const view = render(<SceneVideoBackdrop mediaUrl="/first.mp4" playbackId="first" progress={0} isPlaying />);
   const video = view.container.querySelector("video")!;
   load.mockClear();
-  view.rerender(<SceneVideoBackdrop mediaUrl="/second.mp4" playbackId="second" progress={0} isPlaying persistent />);
+  view.rerender(<SceneVideoBackdrop mediaUrl="/second.mp4" playbackId="second" progress={0} isPlaying />);
   expect(view.container.querySelector("video")).toBe(video);
   expect(video.getAttribute("src")).toBe("/second.mp4");
   expect(load).not.toHaveBeenCalled();
@@ -299,10 +306,66 @@ it("keeps the short stall bound when a new scene reuses an already presented sou
   const props = {mediaUrl: "/same.mp4", progress: 0, isPlaying: true, onError};
   const view = render(<SceneVideoBackdrop {...props} playbackId="one" />);
   const video = view.container.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA });
   fireEvent.loadedData(video);
   view.rerender(<SceneVideoBackdrop {...props} playbackId="two" />);
   fireEvent.waiting(video);
   const { act } = await import("@testing-library/react");
   await act(async () => vi.advanceTimersByTime(1100));
   expect(onError).toHaveBeenCalledOnce();
+});
+
+
+it("observes an already loaded mounted frame without a new loadeddata event", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA);
+  let present: VideoFrameRequestCallback | undefined;
+  Object.defineProperty(HTMLVideoElement.prototype, "requestVideoFrameCallback", { configurable: true, value: (callback: VideoFrameRequestCallback) => { present = callback; return 17; } });
+  const cancel = vi.fn();
+  Object.defineProperty(HTMLVideoElement.prototype, "cancelVideoFrameCallback", { configurable: true, value: cancel });
+  const onReady = vi.fn(), onError = vi.fn();
+  const { act } = await import("@testing-library/react");
+  try {
+    const view = render(<SceneVideoBackdrop mediaUrl="/cached.mp4" progress={0} isPlaying onReady={onReady} onError={onError} />);
+    expect(present).toBeDefined();
+    expect(onReady).not.toHaveBeenCalled();
+    act(() => present?.(0, { mediaTime: .5 } as VideoFrameCallbackMetadata));
+    expect(onReady).toHaveBeenCalledOnce();
+    fireEvent.waiting(view.container.querySelector("video")!);
+    await act(async () => vi.advanceTimersByTime(1100));
+    expect(onError).toHaveBeenCalledOnce();
+    view.unmount();
+    const next = render(<SceneVideoBackdrop mediaUrl="/next.mp4" progress={0} isPlaying onReady={onReady} />);
+    const stale = present;
+    next.unmount();
+    expect(cancel).toHaveBeenCalledWith(17);
+    act(() => stale?.(0, {} as VideoFrameCallbackMetadata));
+    expect(onReady).toHaveBeenCalledOnce();
+  } finally {
+    Reflect.deleteProperty(HTMLVideoElement.prototype, "requestVideoFrameCallback");
+    Reflect.deleteProperty(HTMLVideoElement.prototype, "cancelVideoFrameCallback");
+  }
+});
+
+for (const event of ["play", "playing"] as const) it.each([false, true])(`reasserts the latest pause after a late native ${event} event (narration hold: %s)`, (preparingNarration) => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const props = { mediaUrl: "/late.mp4", progress: 0, isPlaying: true };
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} preparingNarration={preparingNarration} />);
+  pause.mockClear();
+  // Native playback can start after the earlier pause command has returned.
+  video.currentTime = .2;
+  fireEvent[event](video);
+  expect(pause).toHaveBeenCalledOnce();
+  expect(video.currentTime).toBe(preparingNarration ? 0 : .2);
+  view.rerender(<SceneVideoBackdrop {...props} />);
+  pause.mockClear();
+  fireEvent[event](video);
+  expect(pause).not.toHaveBeenCalled();
 });

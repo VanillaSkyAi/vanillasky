@@ -37,10 +37,8 @@ function warmImage(url: string): void {
 
 /**
  * Only one video is fetched at a time, and its element is torn down the moment
- * the first frame is available. Holding several decoders open is what exhausts
- * iOS Safari's media memory — the same hazard SceneBackground guards against
- * when it unmounts. One warm element, released immediately, keeps the bytes
- * without keeping the decoder.
+ * the first frame is available. Releasing the warmer bounds its memory use
+ * rather than keeping a decoder alive for every future scene.
  */
 let videoWarmInFlight = false;
 
@@ -82,9 +80,9 @@ export function preloadSceneMedia(variables: Record<string, unknown>): void {
     // The poster is what paints the first frame, so it comes first and is
     // never blocked behind the stream warm.
     warmImage(String(variables.mediaPoster || ""));
-    // The real scene element is the only useful decode proof on Mobile
-    // WebKit. A detached warmer can overlap that active decoder and recreate
-    // the renderer crash this path exists to avoid.
+    // Mobile preparation owns the active and immediate-next mounted videos.
+    // A detached warmer would add another resource outside that bound and
+    // cannot supply the prepared element that must survive the cut.
     if (limitsConcurrentVideoDecoders()) return;
     warmVideo(mediaUrl);
     return;

@@ -37,17 +37,38 @@ for (const delayedOnset of [false, true]) test(`one prerecorded paragraph surviv
 });
 
 test('a cold grouped visual pauses the paragraph after its bounded handoff window', async ({browser,browserName}, info) => {
-  test.skip(browserName !== 'webkit', 'Exercises the single-decoder handoff.');
+  test.skip(browserName !== 'webkit', 'Exercises bounded mobile preparation.');
   const context=await browser.newContext({...devices['iPhone 13']});
   const page=await context.newPage();
+  let releaseMedia = () => {};
   try {
-    await page.route('**/tram.mp4',async route=>{await new Promise(resolve=>setTimeout(resolve,1500));await route.continue();});
+    const mediaGate = new Promise<void>(resolve => { releaseMedia = resolve; });
+    const requests: {range?:string;at:number}[] = [];
+    await page.route('**/tram.mp4',async route=>{
+      requests.push({range:route.request().headers()['range'],at:Date.now()});
+      await mediaGate;
+      await route.continue();
+    });
     await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html');
     await page.getByText('Play prerecorded paragraph').click();
+    // Preparation starts during the outgoing scene. Keep all Range responses
+    // blocked until 1.5s after the real visual boundary, not request start.
+    await page.waitForFunction(()=>document.querySelector('[data-video-frame]')?.getAttribute('data-scene-id')==='1',null,{timeout:8000});
+    await page.evaluate(async()=>{
+      const probe=(window as unknown as {narrationProbe:Array<{kind:string;at:number}>}).narrationProbe;
+      probe.push({kind:'cold-video-boundary',at:performance.now()});
+      await new Promise(resolve=>setTimeout(resolve,1500));
+      probe.push({kind:'cold-video-release',at:performance.now()});
+    });
+    releaseMedia();
     await page.waitForFunction(()=>(window as unknown as {narrationProbe:Array<{kind:string}>}).narrationProbe.some(event=>event.kind==='ended'),null,{timeout:15000});
     const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number}>}).narrationProbe);
     const pause=probe.find(event=>event.kind==='pause' && event.audioTime!>1 && event.audioTime!<4)!;
     expect(pause).toBeDefined();
+    const boundary=probe.find(event=>event.kind==='cold-video-boundary')!;
+    const released=probe.find(event=>event.kind==='cold-video-release')!;
+    expect(released.at-boundary.at).toBeGreaterThanOrEqual(1500);
+    expect(pause.at).toBeLessThan(released.at);
     const cut=probe.find(event=>event.kind==='cut' && event.index===1)!;
     const frame=probe.find(event=>event.kind==='video-frame' && event.source==='tram.mp4')!;
     expect(frame).toBeDefined();
@@ -56,6 +77,6 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     expect(probe.filter(event=>event.kind==='cut').map(event=>event.index)).toEqual([0,1,2]);
     expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(1);
     expect(probe.filter(event=>event.kind==='ended')).toHaveLength(1);
-    await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify(probe,null,2));
-  }finally{await context.close();}
+    await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify({requests,probe},null,2));
+  }finally{releaseMedia();await context.close();}
 });

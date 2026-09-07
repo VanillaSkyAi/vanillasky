@@ -1,16 +1,17 @@
 import { writeFile } from "node:fs/promises";
 import { devices, expect, test } from "@playwright/test";
-for (const mode of ["normal", "short", "audible", "missing", "unusable", "delayed"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
+for (const mode of ["normal", "short", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
   test.setTimeout(30000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}), recordVideo: { dir: info.outputPath("recording") } });
   const page = await context.newPage();
+  const delayed = mode.startsWith("delayed");
   const webm = process.platform === "linux" && browserName === "webkit";
   try {
-    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?${mode}${webm ? "&webm" : ""}`);
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?${mode.replace("-latePlay", "&latePlay")}${webm ? "&webm" : ""}`);
     await page.getByRole("button").click();
     // In-page observation does not refresh Safari's transient user activation.
     await page.waitForFunction(() => document.body.dataset.proofComplete === "true" && (window as unknown as { continuityProof: { events: string[] } }).continuityProof.events.filter(event => event === "audio-ended").length === 2, undefined, { timeout: 25000 });
-    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { events: string[]; samples: { at: number; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
+    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { phases: {kind: string; at: number}[]; events: string[]; samples: { at: number; narrationReady: boolean; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
     expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
     const active = proof.samples.filter(sample => !sample.playerEnded);
@@ -29,9 +30,29 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
     await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     // A native ended event and React paint may be separated by one frame.
     expect(maximumFrozenMs).toBeLessThan(100);
-    if (mode === "delayed") expect(active.filter(sample => sample.paused && sample.time >= 0 && sample.time < .3).length).toBeGreaterThan(20);
+    if (delayed) {
+      let heldSince: number | undefined, longestHoldMs = 0;
+      for (const sample of active) {
+        if (sample.paused && sample.time >= 0 && sample.time < .3) {
+          heldSince ??= sample.at;
+          longestHoldMs = Math.max(longestHoldMs, sample.at - heldSince);
+        } else heldSince = undefined;
+      }
+      const delayStart = proof.phases.find(phase => phase.kind === "speech-delay-start")!;
+      const delayEnd = proof.phases.find(phase => phase.kind === "speech-delay-end")!;
+      expect(delayEnd.at - delayStart.at).toBeGreaterThanOrEqual(1000);
+      if (mode === "delayed-latePlay") {
+        const late = proof.phases.find(phase => phase.kind === "late-native-start")!;
+        expect(late).toBeDefined();
+        expect(late.at).toBeGreaterThan(delayStart.at);
+        expect(late.at).toBeLessThan(delayEnd.at);
+        expect(active.find(sample => sample.at >= late.at)?.narrationReady).toBe(false);
+      }
+      // Measure time held, not a frame count that assumes a particular RAF rate.
+      expect(longestHoldMs).toBeGreaterThanOrEqual(800);
+    }
     if (mode === "audible") expect(active.some(sample => !sample.muted)).toBe(true);
-    if (mode === "normal" || mode === "audible" || mode === "delayed") {
+    if (mode === "normal" || mode === "audible" || delayed) {
       expect(active.some(sample => sample.rate >= .75 && sample.rate < 1)).toBe(true);
       expect(active.filter(sample => sample.status === "Visual unavailable")).toHaveLength(0);
       expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(0);

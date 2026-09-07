@@ -25,11 +25,6 @@ export const handleVideoChat = createVideoChatHandler({
         output_config: { effort: "medium" },
       },
     },
-    onFinish: ({ finishReason, text }) => {
-      if (finishReason !== "stop") console.warn(`[planner] ${finishReason}: ${text.slice(0, 300)}`);
-      const keyed = (text.match(/"mediaKeyword"/g) ?? []).length;
-      console.log(`[planner] ${(text.match(/"scene\.add"/g) ?? []).length} scenes, ${keyed} asked for footage`);
-    },
   }),
   generateText: async ({ systemPrompt, userPrompt, maxOutputTokens, signal }) => {
     const { text } = await generateText({

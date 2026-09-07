@@ -17,9 +17,11 @@ const params = new URLSearchParams(location.search);
 const clips = params.has("webm") ? { full: fullWebm, short: shortWebm, audible: audibleWebm } : { full, short, audible };
 const samples: Array<Record<string, number | string | boolean>> = [];
 const events: string[] = [];
-Object.assign(window, { continuityProof: { samples, events } });
+const phases: Array<Record<string, number | string | boolean>> = [];
+Object.assign(window, { continuityProof: { samples, events, phases } });
 const nativePlay = HTMLMediaElement.prototype.play;
 HTMLMediaElement.prototype.play = function () {
+  phases.push({kind:this instanceof HTMLAudioElement ? "audio-play-call" : "video-play-call",at:performance.now(),time:this.currentTime});
   if (this instanceof HTMLAudioElement && !this.dataset.observed) {
     this.dataset.observed = "true";
     this.addEventListener("ended", () => { events.push("audio-ended"); });
@@ -28,20 +30,46 @@ HTMLMediaElement.prototype.play = function () {
   }
   if (this instanceof HTMLVideoElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    for (const kind of ["waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
+    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
       events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
     });
   }
   return nativePlay.call(this);
 };
+let latePlayInjected = false;
+const nativePause = HTMLMediaElement.prototype.pause;
+HTMLMediaElement.prototype.pause = function () {
+  phases.push({kind:this instanceof HTMLAudioElement ? "audio-pause-call" : "video-pause-call",at:performance.now(),time:this.currentTime});
+  const result = nativePause.call(this);
+  if (params.has("latePlay") && this instanceof HTMLVideoElement && !latePlayInjected) {
+    latePlayInjected = true;
+    // Reproduce a native start arriving after the narrator requested a hold.
+    setTimeout(() => {
+      if (!this.isConnected) return;
+      phases.push({kind:"late-native-start",at:performance.now(),time:this.currentTime});
+      // Linux WebKit can advance after play/waiting without emitting playing.
+      // Exercise that event sequence on every engine, including local macOS.
+      const suppressPlaying = (event: Event) => event.stopImmediatePropagation();
+      this.addEventListener("playing", suppressPlaying, {capture:true});
+      void nativePlay.call(this)
+        .catch(() => phases.push({kind:"late-start-cancelled",at:performance.now()}))
+        .finally(() => this.removeEventListener("playing", suppressPlaying, {capture:true}));
+    }, 100);
+  }
+  return result;
+};
 const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : audioUrl) });
 const playbackVoice = { ...voice, speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
-  if (params.has("delayed")) await new Promise(resolve => setTimeout(resolve, 1000));
+  if (params.has("delayed")) {
+    phases.push({kind:"speech-delay-start",at:performance.now()});
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    phases.push({kind:"speech-delay-end",at:performance.now()});
+  }
   return voice.speak(line, options);
 } };
 function App() {
   const [video, setVideo] = useState<Video>();
-  const narration = useNarration({ voice: playbackVoice });
+  const narration = useNarration({ voice: playbackVoice, onSpeechStart: () => phases.push({kind:"speech-onset",at:performance.now()}) });
   async function start() {
     // Match chat: an immediate opening activates the reused audio element.
     await voice.prepare("Opening cue");
@@ -54,7 +82,7 @@ function App() {
     const sample = () => {
       const clip = document.querySelector("video");
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
       } else requestAnimationFrame(sample);

@@ -8,8 +8,7 @@ afterEach(() => {cleanup(); vi.useRealTimers();});
 function fixture(report: (key: string, error?: Error) => void, current = scene, playing = true) {
   return <MountedReadinessContext.Provider value={report}><div data-video-frame="ready">
     <MountedSceneReadiness scene={current} playing={playing} />
-    <div data-persistent-video-scene-id={current.id}><video src={String(current.variables.mediaUrl)} /></div>
-    <div data-scene-layer="active" />
+    <div data-scene-layer="active" data-layer-scene-id={current.id}><video src={String(current.variables.mediaUrl)} /></div>
   </div></MountedReadinessContext.Provider>;
 }
 describe("actual mounted media readiness", () => {

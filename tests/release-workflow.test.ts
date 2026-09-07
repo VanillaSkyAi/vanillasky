@@ -321,8 +321,8 @@ describe("release workflow", () => {
     expect(browserJob.match(/--fail-on-flaky-tests/g)).toHaveLength(2);
     expect(browserJob).toContain("browser: [chromium, firefox, webkit]");
     expect(browserJob).toContain("fail-fast: false");
-    expect(browserJob).toContain("shard: [1, 2]");
-    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2 --workers=1");
+    expect(browserJob).toContain("shard: [1, 2, 3]");
+    expect(browserJob).toContain("npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=1");
     expect(browserJob).toContain('if [[ "${{ matrix.browser }}" == "chromium" && "${{ matrix.shard }}" == "1" ]]; then');
     expect(browserJob).toContain("name: browser-playback-evidence-${{ matrix.browser }}-${{ matrix.shard }}");
     expect(browserJob).toContain("if: always()");
