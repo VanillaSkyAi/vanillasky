@@ -1,3 +1,4 @@
+import {orderWelcomeCards, welcomeVisitSeed} from "./welcome-cards.js";
 import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
 import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 import { recoverSceneMedia } from "../player/recover-scene-media.js";
@@ -562,7 +563,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         if (!response.ok) throw await responseError(response);
         return response.json() as Promise<VideoChatWelcome>;
       })
-      .then((value) => { if (mountedRef.current) dispatch({ type: "welcome", value }); })
+      .then((value) => { if (mountedRef.current) dispatch({ type: "welcome", value: {...value, cards: orderWelcomeCards(value.cards, welcomeVisitSeed())} }); })
       .catch(() => undefined);
     return () => {
       endTiming();

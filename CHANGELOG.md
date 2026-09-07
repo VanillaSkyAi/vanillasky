@@ -4,6 +4,11 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.22
+
+- Offer eight diverse homepage prompts with curated footage, a balanced fresh-page shuffle, and stable ordering when returning Home.
+- Browse four cards on desktop and two on mobile, with only the active card loading video.
+
 ## 0.10.21
 
 - Choose illustrated, realistic, or cinematic generated-video direction within the existing chat brief, with consistent treatment across shots and caller style overrides.

@@ -1,3 +1,4 @@
+import {WELCOME_CARDS} from "../video-chat/welcome-cards.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
 import {
   VIDEO_PROTOCOL_VERSION,
@@ -28,7 +29,6 @@ import type {
   VideoChatConversationTurn,
   VideoChatMode,
   VideoChatWelcomeOptions,
-  VideoChatWelcomePrompt,
 } from "../video-chat/types.js";
 
 export type {
@@ -175,28 +175,6 @@ interface OpeningSubject {
 
 const VIDEO_CHAT_OPENING_EVENT_TYPE = "data.video-chat-opening" as const;
 
-const DEFAULT_WELCOME_PROMPTS: readonly VideoChatWelcomePrompt[] = [
-  {
-    prompt: "Why does the Moon always show one face?",
-    opening: "The Moon turns, perfectly matching its orbit.",
-    mediaQuery: "full moon night sky",
-  },
-  {
-    prompt: "Tell me a tiny story about a robot growing a garden on Mars",
-    opening: "One patient robot is about to make Mars bloom.",
-    mediaQuery: "robot garden mars",
-  },
-  {
-    prompt: "Recommend a perfect rainy afternoon in Amsterdam",
-    opening: "Rain makes Amsterdam's best afternoons feel even warmer.",
-    mediaQuery: "Amsterdam rain cafe",
-  },
-  {
-    prompt: "Pitch a playful ad for a coffee mug that never spills",
-    opening: "This mug makes gravity look completely optional.",
-    mediaQuery: "coffee mug desk",
-  },
-];
 
 function jsonError(status: number, code: string, message: string, headers?: HeadersInit): Response {
   return Response.json({ error: { code, message } }, { status, headers });
@@ -547,7 +525,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     transcription: transcribe != null,
     modes: searchMedia ? ["cinematic", "pexels"] : ["cinematic"],
   };
-  const welcomePrompts = (welcomeOptions?.prompts ?? DEFAULT_WELCOME_PROMPTS).slice(0, 4);
+  const welcomePrompts = (welcomeOptions?.prompts ?? WELCOME_CARDS).slice(0, 8);
   const heroQuery = welcomeOptions?.heroQuery;
   let welcomeResponse: Record<string, unknown> | undefined;
   let requestSequence = 0;
@@ -754,7 +732,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         };
         const [hero, ...cards] = await Promise.all([
           heroQuery === undefined ? DEFAULT_WELCOME_HERO : resolve(heroQuery),
-          ...welcomePrompts.map((entry) => resolve(entry.mediaQuery)),
+          ...welcomePrompts.map((entry, index) => welcomeOptions?.prompts === undefined ? WELCOME_CARDS[index]?.media ?? null : resolve("mediaQuery" in entry ? entry.mediaQuery : undefined)),
         ]);
         return {
           cacheable: !failed,

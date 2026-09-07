@@ -430,11 +430,11 @@ describe("createVideoChatHandler", () => {
 
     const welcome = await handler(new Request("https://app.example/api/video-chat?action=welcome"));
     const welcomeBody = await welcome.json() as { hero: unknown; cards: Array<{ opening?: string }> };
-    expect(welcomeBody.cards).toHaveLength(4);
-    expect(welcomeBody.cards.every(({ opening }) => Boolean(opening))).toBe(true);
+    expect(welcomeBody.cards).toHaveLength(8);
+    expect(welcomeBody.cards.every(({ opening }) => opening === undefined)).toBe(true);
     expect(JSON.stringify(welcomeBody)).not.toContain("providerSecret");
     expect(tasks).toEqual(["suggestions"]);
-    expect(mediaPurposes).toEqual(["suggestion", "welcome", "welcome", "welcome", "welcome"]);
+    expect(mediaPurposes).toEqual(["suggestion"]);
   });
 
   it("cancels welcome media work with the request", async () => {

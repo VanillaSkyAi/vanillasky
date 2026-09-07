@@ -257,7 +257,11 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     onKeyDownCapture={controls.reveal}
   >
     <header className="chrome" {...controlEvents}>
-      <div className="session-brand"><a className="home-link" href="/" aria-label="Home"><Logo /></a></div>
+      <div className="session-brand"><a className="home-link" href="/" aria-label="Home" onClick={event => {
+        if (window.location.pathname !== "/" || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        newSession();
+      }}><Logo /></a></div>
       <div className="group">
         <button
           ref={historyButtonRef}
