@@ -358,12 +358,17 @@ export function VideoFrame({
   }
   const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
   const previous = timeline[previousIndex];
-  const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && mediaAudioMuted
-    && sceneHasVideoBackdrop(range) && supportsExternalVideoBackdrop(kit.getTemplate(range.scene.templateId)));
+  const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && (mediaAudioMuted || !sceneHasVideoBackdrop(range))
+    && sceneHasBackdrop(range) && supportsExternalVideoBackdrop(kit.getTemplate(range.scene.templateId)));
   const canRetain = (range: VideoSceneRange | undefined) => canPrepare(range) || range?.scene.templateId === "chapterTitle";
   const hasPlayableMedia = (range: VideoSceneRange | undefined) => {
     if (!range || !preparedMedia.has(sceneReadinessKey(range.scene))) return false;
     const layer = [...(recoveryRoot.current?.querySelectorAll('[data-layer-scene-id]') ?? [])].find(node => node.getAttribute('data-layer-scene-id') === range.scene.id);
+    if (!sceneHasVideoBackdrop(range)) {
+      const image = [...(layer?.querySelectorAll('img') ?? [])].find(element => element.getAttribute('src') === range.scene.variables.mediaUrl);
+      return Boolean(image && image.getAttribute('src') === range.scene.variables.mediaUrl
+        && image.complete && image.naturalWidth > 0);
+    }
     const video = layer?.querySelector('video');
     return Boolean(video && video.getAttribute('src') === range.scene.variables.mediaUrl
       && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
