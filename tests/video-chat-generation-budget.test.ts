@@ -49,6 +49,42 @@ describe("chat generation budget", () => {
     expect(signal!.aborted).toBe(true);
     expect(await result).toContain(succeeds ? "slow.mp4" : "chapterTitle");
   });
+  it.each([1, 2, 5])("instructs the model to budget its complete answer and ending for %s clips", async budget => {
+    const result = await run(budget);
+    expect(result.brief).toContain(`Plan at most ${budget} generated-video beats in total, including the saved ending`);
+    expect(result.brief).toContain(`Use at most ${budget - 1} developing shot records`);
+    expect(result.brief).not.toContain("Preserve the full answer rather than shortening it to fit credits");
+    // A model can still exceed its instruction: retain every authored beat,
+    // while the existing attempt cap and chapter recovery enforce spending.
+    expect(result.generated).toBe(budget);
+    expect(result.events.filter(event => event.type === "scene.add")).toHaveLength(7);
+  });
+  it("covers a concise five-beat plan including its ending without an allowance chapter tail", async () => {
+    const result = await run(5, false, ["audit records", "assemble advisers", "file disclosures", "meet investors", "launch public trading"]);
+    const scenes = result.events.filter(event => event.type === "scene.add");
+    expect(result.generated).toBe(5);
+    expect(result.stock).toBe(0);
+    expect(scenes).toHaveLength(5);
+    expect(JSON.stringify(scenes)).not.toContain('"templateId":"chapterTitle"');
+    expect(JSON.stringify(scenes.at(-1))).toContain("launch public trading");
+    expect(JSON.stringify(scenes.at(-1))).toContain("https://media.example/generated.mp4");
+    expect(scenes.map(event => event.data.scene.narration)).toEqual(Array.from({ length: 5 },
+      (_, index) => `This distinct wave reveals visual detail number ${index}.`));
+    expect(JSON.stringify(result.events)).not.toContain('"finishReason":"other"');
+  });
+  it("can deliver a complete single-beat answer from the saved ending", async () => {
+    const result = await run(1, false, ["ocean wave"]);
+    expect(result.brief).toContain("set development to an empty string, and emit no developing shot records");
+    expect(result.generated).toBe(1);
+    expect(result.events.filter(event => event.type === "scene.add")).toHaveLength(1);
+    expect(JSON.stringify(result.events)).not.toContain('"finishReason":"other"');
+  });
+  it("keeps a complete chapter answer when no generation is available", async () => {
+    const result = await run(0);
+    expect(result.brief).toContain("No generated-video attempts are available; plan a complete chapter-led answer");
+    expect(result.brief).not.toContain("Use at most -1");
+    expect(result.events.filter(event => event.type === "scene.add")).toHaveLength(7);
+  });
   it("defaults to five attempts across uniform shots while chapters continue", async () => {
     const result = await run(undefined);
     expect(result.generated).toBe(5);

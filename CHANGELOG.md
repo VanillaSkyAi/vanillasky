@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Plan concise AI answers around the configured video-attempt budget, including the ending, while retaining complete authored narration and chapter recovery.
+
 ## 0.10.12
 
 - Use query context to choose between equally relevant Pexels subject matches in the starter, while preserving subject, activity and equipment priority.

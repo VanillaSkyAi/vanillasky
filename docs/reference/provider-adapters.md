@@ -96,7 +96,10 @@ stream-reconnect contract.
 
 Set `maxGeneratedVideos` on `createVideoChatHandler` to a nonnegative safe integer
 (default `5`). This is a per-response generation attempt limit, including
-failures. AI mode uses authored chapter recovery after the allowance is reached;
+failures. The default AI planner is instructed to fit a concise, complete answer
+within that many visual beats, including the ending. This is model guidance, not
+a guaranteed shot count: already-authored content is retained if the model
+exceeds the budget. AI mode uses authored chapter recovery after the allowance is reached;
 `0` skips all generated footage. Pexels mode searches stock independently and
 never consumes the generated-video allowance. Retries inside your
 provider callback can incur additional charges; bound those separately. Never
