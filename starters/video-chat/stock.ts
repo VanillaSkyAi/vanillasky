@@ -53,53 +53,59 @@ export async function findStockFootage(query: string, orientation: VideoOrientat
   const normalized = query.trim().toLowerCase().replace(/\s+/g, " ");
   const tokens = words(normalized);
   const selection = selectionHint(rawSelection);
-  const key = JSON.stringify({version: 4, orientation, query: normalized, selection});
+  const key = JSON.stringify({version: 5, orientation, query: normalized, selection});
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey || !tokens.length || normalized.length > 80 || tokens.length > 8) return null;
   const existing = cache.get(key);
   if (existing && existing.expires > Date.now()) return existing.media;
-  const url = new URL("https://api.pexels.com/v1/videos/search");
-  url.search = new URLSearchParams({ query: normalized, per_page: "12", size: "medium" }).toString();
-  const response = await fetch(url, { headers: { Authorization: apiKey }, signal });
-  signal.throwIfAborted();
-  if (!response.ok) return null;
-  const result = await response.json() as { videos?: PexelsVideo[] };
-  signal.throwIfAborted();
-  let selected: StockVideo | null = null, bestScore = -1, bestOrientation = -1;
-  const matchesOrientation = (file: {width?: number; height?: number}) => orientation === "portrait"
-    ? file.height! > file.width! : file.width! >= file.height!;
-  for (const video of (Array.isArray(result.videos) ? result.videos : []).slice(0, 12)) {
-    if (!pexelsUrl(video.url)) continue;
-    const slug = new URL(video.url).pathname.replace(/^\/video\//, "");
-    const title = typeof video.title === "string" ? video.title : "";
-    const tags = Array.isArray(video.tags) ? video.tags.filter((tag): tag is string => typeof tag === "string").join(" ") : "";
-    const subject = words(`${slug} ${title} ${typeof video.description === "string" ? video.description : ""} ${tags}`).filter(token => !/^\d+$/.test(token)).map(wordForm);
-    let matches = tokens.filter(token => subject.includes(wordForm(token))).length;
-    if (selection && subject.length) {
-      const covers = (phrase: string) => terms(phrase).every(word => subject.includes(wordForm(word)));
-      if (!covers(selection.subject) || selection.exclude?.some(covers)) continue;
-      // Query context breaks equal hint matches without outweighing a hint.
-      const contextScore = matches / (tokens.length + 1);
-      matches = 2 + contextScore + Number(Boolean(selection.activity && covers(selection.activity)))
-        + Number(Boolean(selection.equipment && covers(selection.equipment)));
+  let selected: StockVideo | null = null;
+  // Reuse the caller's deadline signal; broadening never starts a new timeout.
+  const queries = [...new Set([normalized, ...(selection ? [selection.subject] : [])])];
+  for (const searchQuery of queries) {
+    signal.throwIfAborted();
+    const url = new URL("https://api.pexels.com/v1/videos/search");
+    url.search = new URLSearchParams({ query: searchQuery, per_page: "12", size: "medium" }).toString();
+    const response = await fetch(url, { headers: { Authorization: apiKey }, signal });
+    signal.throwIfAborted();
+    if (!response.ok) return null;
+    const result = await response.json() as { videos?: PexelsVideo[] };
+    signal.throwIfAborted();
+    let bestScore = -1, bestOrientation = -1;
+    const matchesOrientation = (file: {width?: number; height?: number}) => orientation === "portrait"
+      ? file.height! > file.width! : file.width! >= file.height!;
+    for (const video of (Array.isArray(result.videos) ? result.videos : []).slice(0, 12)) {
+      if (!pexelsUrl(video.url)) continue;
+      const slug = new URL(video.url).pathname.replace(/^\/video\//, "");
+      const title = typeof video.title === "string" ? video.title : "";
+      const tags = Array.isArray(video.tags) ? video.tags.filter((tag): tag is string => typeof tag === "string").join(" ") : "";
+      const subject = words(`${slug} ${title} ${typeof video.description === "string" ? video.description : ""} ${tags}`).filter(token => !/^\d+$/.test(token)).map(wordForm);
+      let matches = tokens.filter(token => subject.includes(wordForm(token))).length;
+      if (selection && subject.length) {
+        const covers = (phrase: string) => terms(phrase).every(word => subject.includes(wordForm(word)));
+        if (selection.exclude?.some(covers)) continue;
+        // Query context breaks equal hint matches without outweighing a hint.
+        const contextScore = matches / (tokens.length + 1);
+        matches = covers(selection.subject) ? 2 + contextScore + Number(Boolean(selection.activity && covers(selection.activity)))
+          + Number(Boolean(selection.equipment && covers(selection.equipment))) : 0;
+      }
+      // The documented Video resource can have only a numeric page URL and no
+      // editorial metadata. Preserve provider search order for unknown relevance;
+      // positive overlap ranks above provider-ranked illustrative alternatives.
+      const files = (Array.isArray(video.video_files) ? video.video_files : []).filter(file =>
+        file.file_type === "video/mp4" && pexelsUrl(file.link)
+        && Number.isFinite(file.width) && Number.isFinite(file.height)
+        && Math.min(file.width!, file.height!) >= 360,
+      ).sort((a, b) => Number(matchesOrientation(b)) - Number(matchesOrientation(a)) || Math.abs(Math.max(a.width!, a.height!) - 1280) - Math.abs(Math.max(b.width!, b.height!) - 1280));
+      const file = files[0];
+      if (!file) continue;
+      const orientationScore = Number(matchesOrientation(file));
+      // Prefer composition fit only when subject relevance is equal.
+      if (matches < bestScore || (matches === bestScore && orientationScore <= bestOrientation)) continue;
+      bestScore = matches;
+      bestOrientation = orientationScore;
+      selected = { url: file.link!, type: "video", ...(pexelsUrl(video.image) ? { posterUrl: video.image } : {}) };
     }
-    // The documented Video resource can have only a numeric page URL and no
-    // editorial metadata. Preserve provider search order for unknown relevance;
-    // positive overlap ranks above it, while explicitly unrelated copy is skipped.
-    if (subject.length > 0 && matches === 0) continue;
-    const files = (Array.isArray(video.video_files) ? video.video_files : []).filter(file =>
-      file.file_type === "video/mp4" && pexelsUrl(file.link)
-      && Number.isFinite(file.width) && Number.isFinite(file.height)
-      && Math.min(file.width!, file.height!) >= 360,
-    ).sort((a, b) => Number(matchesOrientation(b)) - Number(matchesOrientation(a)) || Math.abs(Math.max(a.width!, a.height!) - 1280) - Math.abs(Math.max(b.width!, b.height!) - 1280));
-    const file = files[0];
-    if (!file) continue;
-    const orientationScore = Number(matchesOrientation(file));
-    // Prefer composition fit only when subject relevance is equal.
-    if (matches < bestScore || (matches === bestScore && orientationScore <= bestOrientation)) continue;
-    bestScore = matches;
-    bestOrientation = orientationScore;
-    selected = { url: file.link!, type: "video", ...(pexelsUrl(video.image) ? { posterUrl: video.image } : {}) };
+    if (selected) break;
   }
   // Bounded process-local cache; no request signal or credentials are retained.
   if (cache.size >= 128) cache.delete(cache.keys().next().value!);

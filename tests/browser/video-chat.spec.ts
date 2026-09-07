@@ -61,8 +61,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await expect(page.getByRole("button", { name: "Play again", exact: true, includeHidden: true })).toHaveCount(1, { timeout: 12_000 });
   await page.locator(".vanillasky-video-chat").hover();
   await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible();
-  await page.locator(".line-row").hover();
-  await page.getByRole("button", { name: "Expand subtitles" }).click();
+  await page.getByRole("button", { name: "Show transcript", exact: true }).click();
   await expect(page.getByRole("region", { name: "Expanded subtitles" })).toContainText("Walk around a friend while facing them.");
   await expect(page.getByRole("region", { name: "Expanded subtitles" })).toContainText("You turn once during the trip.");
   expect(await page.locator("body").innerText()).not.toContain("private-provider-detail");

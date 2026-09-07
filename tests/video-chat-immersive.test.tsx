@@ -6,7 +6,7 @@ import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
 import { VideoChat } from "../src/video-chat/video-chat";
 
 const session = vi.hoisted(() => ({ current: {} as UseVideoChatResult }));
-vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => ({ chat: session.current, restoreSession: vi.fn() }) }));
+vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => ({ chat: session.current, restoreSession: vi.fn(), getCaptionProgress: () => undefined }) }));
 
 vi.mock("../src/player/video-player", () => ({ VideoPlayer: (props: { orientation?: string }) => <div data-testid="player" data-orientation={props.orientation} /> }));
 

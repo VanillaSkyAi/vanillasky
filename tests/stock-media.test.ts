@@ -33,11 +33,11 @@ describe('Pexels starter search',()=>{
   ]}));
   expect(await findStockFootage('breaking ocean wave foam','landscape',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/52.mp4'});
  });
- it('rejects explicitly unrelated metadata even when its URL is numeric',async()=>{
+ it('keeps weaker descriptive metadata as a provider-ranked illustration',async()=>{
   vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>Response.json({videos:[
    {...video(54,''),url:'https://www.pexels.com/video/54/',title:'A resting cat',tags:['kitten']}
   ]}));
-  expect(await findStockFootage('mountain skiing','landscape',new AbortController().signal)).toBeNull();
+  expect(await findStockFootage('mountain skiing','landscape',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/54.mp4'});
  });
 
  it('keeps URL and rendition validation when relevance is unknown',async()=>{
@@ -61,8 +61,8 @@ it('keeps essential subjects, exclusions and hint cache policies distinct',async
  expect(await findStockFootage('beach','landscape',signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/81.mp4'});
  expect(await findStockFootage('beach','landscape',signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/81.mp4'});
  expect(fetcher).toHaveBeenCalledTimes(1);
- expect(await findStockFootage('beach','landscape',signal,{subject:'cat'})).toBeNull();
- expect(await findStockFootage('beach','landscape',signal,{subject:'dog',exclude:['running']})).toBeNull();
+ expect(await findStockFootage('beach','landscape',signal,{subject:'cat'})).toMatchObject({url:'https://videos.pexels.com/80.mp4'});
+ expect(await findStockFootage('beach','landscape',signal,{subject:'dog',exclude:['running']})).toMatchObject({url:'https://videos.pexels.com/80.mp4'});
  expect(fetcher).toHaveBeenCalledTimes(3);
 });
 it('ranks subject and activity metadata before unknown without claiming depiction proof',async()=>{
@@ -74,9 +74,9 @@ it('ranks subject and activity metadata before unknown without claiming depictio
  expect(await findStockFootage('dog ocean','landscape',new AbortController().signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/85.mp4'});
 });
 
-it('keeps curly-apostrophe essential subjects restrictive',async()=>{
- vi.stubEnv('PEXELS_API_KEY','curly-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[video(90,'dog-toys-beach')]}));
- expect(await findStockFootage('toys beach','landscape',new AbortController().signal,{subject:'children’s toys'})).toBeNull();
+it('ranks curly-apostrophe essential subjects ahead of provider-only alternatives',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','curly-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[video(90,'dog-toys-beach'),video(91,'children-s-toys')]}));
+ expect(await findStockFootage('toys beach','landscape',new AbortController().signal,{subject:'children’s toys'})).toMatchObject({url:'https://videos.pexels.com/91.mp4'});
 });
 
 it('uses query setting to break equal subject matches', async () => {
@@ -109,9 +109,9 @@ it('preserves provider order when subject and query scores are equal', async () 
 it('matches simple plural subjects without confusing unrelated nouns or bypassing exclusions',async()=>{
  vi.stubEnv('PEXELS_API_KEY','plural-fixture');
  for(const [subject,slug,accepted] of [['dog','dogs-beach',true],['dogs','dog-beach',true],['ocean wave','ocean-waves',true],['grass','gras',false],['gas','ga',false],['new','news',false],['dog','man-beach',false]] as const) {
-  vi.stubGlobal('fetch',async()=>Response.json({videos:[video(920,slug)]}));
+  vi.stubGlobal('fetch',async()=>Response.json({videos:[video(920,slug),video(922,subject)]}));
   const result=await findStockFootage(`${subject} pluralfixture ${slug}`,'landscape',new AbortController().signal,{subject});
-  expect(Boolean(result),`${subject} against ${slug}`).toBe(accepted);
+  expect(result?.url,`${subject} against ${slug}`).toBe(`https://videos.pexels.com/${accepted ? 920 : 922}.mp4`);
  }
  vi.stubGlobal('fetch',async()=>Response.json({videos:[video(921,'dog-running')]}));
  expect(await findStockFootage('dog exclusionfixture','landscape',new AbortController().signal,{subject:'dog',exclude:['dogs running']})).toBeNull();
@@ -139,4 +139,42 @@ it('prefers orientation only among equally relevant subjects and ranks matching 
  resource.video_files.push({link:'https://videos.pexels.com/936-portrait.mp4',width:720,height:1440,file_type:'video/mp4'});
  vi.stubGlobal('fetch',async()=>Response.json({videos:[resource]}));
  expect(await findStockFootage('fox running','portrait',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/936-portrait.mp4'});
+});
+
+it('allows provider-ranked illustrative footage when metadata does not match the essential subject',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','generous-fixture');
+ const fetcher=vi.fn(async()=>Response.json({videos:[video(940,'sunlit-room')]}));vi.stubGlobal('fetch',fetcher);
+ expect(await findStockFootage('robot painting mural','landscape',new AbortController().signal,{subject:'robot'})).toMatchObject({url:'https://videos.pexels.com/940.mp4'});
+ expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it('tries one broader subject search only after no usable footage, retaining the same cancellation signal',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','broader-fixture');
+ const signal=new AbortController().signal;
+ const fetcher=vi.fn(async(input:unknown,init?:RequestInit)=>{
+  expect(init?.signal).toBe(signal);
+  const url=new URL(String(input)); expect(url.searchParams.get('per_page')).toBe('12');
+  return Response.json({videos:url.searchParams.get('query')==='turtle'?[video(941,'turtle')]:[]});
+ });vi.stubGlobal('fetch',fetcher);
+ expect(await findStockFootage('turtle reading beside lamp','portrait',signal,{subject:'turtle'})).toMatchObject({url:'https://videos.pexels.com/941.mp4'});
+ expect(fetcher.mock.calls.map(call=>new URL(String(call[0])).searchParams.get('query'))).toEqual(['turtle reading beside lamp','turtle']);
+});
+
+it('deduplicates broadening and never retries a cancelled or failed search',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','bounded-broadening');
+ let fetcher=vi.fn(async()=>Response.json({videos:[]}));vi.stubGlobal('fetch',fetcher);
+ expect(await findStockFootage('otter','landscape',new AbortController().signal,{subject:'otter'})).toBeNull();
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ const controller=new AbortController();
+ fetcher=vi.fn(async()=>{controller.abort();return Response.json({videos:[]});});vi.stubGlobal('fetch',fetcher);
+ await expect(findStockFootage('badger in snow','landscape',controller.signal,{subject:'badger'})).rejects.toThrow();
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ const failed=vi.fn(async()=>new Response('',{status:429}));vi.stubGlobal('fetch',failed);
+ expect(await findStockFootage('deer in rain','landscape',new AbortController().signal,{subject:'deer'})).toBeNull();
+ expect(failed).toHaveBeenCalledTimes(1);
+});
+it('keeps explicit contradictions and unsafe files excluded in both bounded searches',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','broadening-safety');
+ const fetcher=vi.fn(async()=>Response.json({videos:[video(950,'dog-running'),{...video(951,'dog-resting'),video_files:[{link:'https://untrusted.example/clip.mp4',width:1280,height:720,file_type:'video/mp4'}]}]}));vi.stubGlobal('fetch',fetcher);
+ expect(await findStockFootage('dog enjoying afternoon','landscape',new AbortController().signal,{subject:'dog',exclude:['running']})).toBeNull();
+ expect(fetcher).toHaveBeenCalledTimes(2);
 });
