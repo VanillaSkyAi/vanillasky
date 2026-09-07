@@ -84,7 +84,7 @@ test('fresh loads reshuffle balanced prompts while Home preserves this visit', a
   await page.getByRole('link', {name:'Home', exact:true}).click();
   await expect(page).toHaveURL(url);
   await expect(cards).toHaveCount(8);
-  expect(await page.evaluate(() => sessionStorage.getItem('test-home-click'))).toContain('\"prevented\":true');
+  expect(await page.evaluate(() => sessionStorage.getItem('test-home-click'))).toContain('"prevented":true');
   expect(await cards.allTextContents()).toEqual(first);
   expect(await page.evaluate(() => sessionStorage.getItem('test-homepage-visit'))).toBe('1');
   await page.reload({waitUntil:'domcontentloaded'});

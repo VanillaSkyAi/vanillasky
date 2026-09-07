@@ -157,8 +157,20 @@ missStock = false;
 const beforeWelcome = searched;
 const welcome = await (await handler(new Request("https://app.example/api?action=welcome"))).json();
 if (welcome.hero.url !== "https://videos.pexels.com/video-files/11335959/11335959-hd_1920_1080_30fps.mp4" || welcome.hero.type !== "video") throw new Error("Packed default cloud welcome drifted");
-// Welcome still resolves four suggestion cards, but not its curated hero.
-if (searched - beforeWelcome !== 4 || generated !== 0) throw new Error("Packed welcome changed response provider accounting");
+// Curated default media needs no provider search or generation.
+if (searched !== beforeWelcome || generated !== 0 || welcome.cards.length !== 8
+  || new Set(welcome.cards.map(card => card.prompt)).size !== 8
+  || welcome.cards.some(card => card.media?.type !== "video" || !card.media.posterUrl)) throw new Error("Packed curated welcome lost its eight ready cards or invoked a provider");
+const customQueries = [];
+const customWelcome = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateText: () => "", streamText: async function* () { yield ""; },
+  welcome: { prompts: [{prompt: "Explain ocean waves", mediaQuery: "ocean waves"}, {prompt: "Show a city at night", mediaQuery: "city lights"}] },
+  searchMedia: query => { customQueries.push(query); return {url: "https://media.example/custom.mp4", type: "video"}; },
+  generateVideo: () => { generated++; return null; },
+});
+const customCards = (await (await customWelcome(new Request("https://app.example/api?action=welcome"))).json()).cards;
+if (JSON.stringify(customQueries.sort()) !== JSON.stringify(["city lights", "ocean waves"]) || generated !== 0
+  || customCards.length !== 2 || customCards[0].prompt !== "Explain ocean waves" || customCards[1].prompt !== "Show a city at night"
+  || customCards.some(card => card.media?.url !== "https://media.example/custom.mp4")) throw new Error("Packed custom welcome query contract changed");
 `);
   execFileSync(process.execPath, [join(serverConsumer, "budget.mjs")], { cwd: serverConsumer, stdio: "inherit" });
   writeFileSync(join(serverConsumer, "root.mjs"), `
