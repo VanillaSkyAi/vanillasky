@@ -1066,6 +1066,8 @@
 }
 
 .vanillasky-video-chat .opening-chapter {
+  z-index: 2;
+  pointer-events: none;
   position: absolute;
   inset: 0;
   background: #000;

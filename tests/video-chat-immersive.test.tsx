@@ -169,7 +169,8 @@ it("shows the spoken opening as a held chapter when opening media is absent", ()
   expect(screen.getByRole("button", { name: "Expand subtitles" })).toBeTruthy();
   session.current = { ...session.current, playerProps: { video: { schemaVersion: "0.2", scenes: [], style: {} } } };
   rerender(<VideoChat />);
-  expect(container.querySelector('[data-opening-chapter]')).toBeNull();
+  expect(container.querySelector('[data-opening-chapter] [data-title-composition="centered"]')).toBe(title);
+  expect(screen.getByTestId("player")).toBeTruthy();
 });
 
 it.each(["video", "image"] as const)("keeps the chapter instead of mounting supplied opening %s media", (type) => {
