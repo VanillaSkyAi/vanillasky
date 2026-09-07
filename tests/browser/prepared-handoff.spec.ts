@@ -50,6 +50,7 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
         const held = events.filter(event => event.kind === 'frame' && event.scene === String(index - 1)
           && event.layer === 'active' && event.at >= priorEnd.at && event.at <= frames[0].at);
         expect(held.length).toBeGreaterThanOrEqual(3);
+        expect(held[0].at - priorEnd.at).toBeLessThanOrEqual(200);
         let advancing = 0;
         for (let frame = 1; frame < held.length; frame++) {
           expect(held[frame].at - held[frame - 1].at).toBeLessThanOrEqual(200);
