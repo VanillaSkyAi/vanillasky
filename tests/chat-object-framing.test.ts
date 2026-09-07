@@ -81,3 +81,33 @@ it("emits a pretty-printed first shot before the provider finishes, without a tr
   }
   expect(providerFinished).toBe(true);
 });
+
+it.each([1, 13, 10000])("rejects an unescaped newline without swallowing later valid records (chunks=%i)", async size => {
+  const malformed = '{"type":"shot","narration":"A broken line\n';
+  const result = await run(JSON.stringify(brief) + '\n' + malformed + JSON.stringify(shot) + '\n', size);
+  expect(result.errors.length).toBeGreaterThan(0);
+  expect(result.scenes.map(scene => scene.narration)).toEqual([shot.narration, ending.narration]);
+  expect(result.events.at(-1)).toMatchObject({type:"response.complete",data:{finishReason:"other"}});
+});
+
+it("applies the size limit to each record rather than a provider's whole chunk", async () => {
+  // Whitespace is legal JSON. Each record stays below 32KB while the batch exceeds it.
+  const padded = JSON.stringify(brief, null, 2).replace(/\n/g, '\n' + ' '.repeat(600));
+  expect(padded.length).toBeLessThan(32768);
+  const second = JSON.stringify(shot).replaceAll(',', ', ' + ' '.repeat(6000));
+  expect(second.length).toBeLessThan(32768);
+  const source = padded + '\n' + second;
+  expect(source.length).toBeGreaterThan(32768);
+  const result = await run(source);
+  expect(result.errors).toEqual([]);
+  expect(result.scenes.map(scene => scene.narration)).toEqual([shot.narration, ending.narration]);
+});
+
+it.each([
+  '["broken\n",' + JSON.stringify(brief) + ',' + JSON.stringify(shot) + ']',
+  '{"wrapper":"broken\n' + JSON.stringify(brief) + '\n' + JSON.stringify(shot) + '\n}',
+])("does not recover inner records from malformed initial containers", async source => {
+  const result = await run(source, 7);
+  expect(result.errors.length).toBeGreaterThan(0);
+  expect(result.scenes).toHaveLength(0);
+});
