@@ -428,3 +428,24 @@ it("keeps the short stall bound after actual motion observed at readiness two", 
   await act(async () => vi.advanceTimersByTime(1100));
   expect(onError).toHaveBeenCalledOnce();
 });
+
+it("uses native looping only for playing silent footage with a finite scene budget", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const props = {mediaUrl:"/short.mp4", progress:.3, isPlaying:true, muted:true, sceneDuration:6};
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  expect(video.loop).toBe(true);
+  view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
+  expect(video.loop).toBe(false);
+  expect(pause).toHaveBeenCalled();
+  view.rerender(<SceneVideoBackdrop {...props} muted={false} />);
+  expect(video.loop).toBe(false);
+  view.rerender(<SceneVideoBackdrop {...props} sceneDuration={Infinity} />);
+  expect(video.loop).toBe(false);
+  view.rerender(<SceneVideoBackdrop {...props} />);
+  expect(video.loop).toBe(true);
+  view.unmount();
+  expect(video.getAttribute("src")).toBeNull();
+});

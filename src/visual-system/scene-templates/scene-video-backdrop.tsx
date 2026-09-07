@@ -261,7 +261,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         src={mediaUrl}
         poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
         muted={resolvedMuted}
-        loop={false}
+        // Let the decoder repeat without an ended → script seek/play round trip.
+        // The finite scene clock still owns pause and disposal; never loop speech.
+        loop={resolvedMuted && isPlaying && Number.isFinite(sceneDuration) && Number(sceneDuration) > 0}
         playsInline
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
