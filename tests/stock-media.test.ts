@@ -73,3 +73,8 @@ it('ranks subject and activity metadata before unknown without claiming depictio
  vi.stubGlobal('fetch',async()=>Response.json({videos:[{...video(85,''),url:'https://www.pexels.com/video/85/'}]}));
  expect(await findStockFootage('dog ocean','landscape',new AbortController().signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/85.mp4'});
 });
+
+it('keeps curly-apostrophe essential subjects restrictive',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','curly-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[video(90,'dog-toys-beach')]}));
+ expect(await findStockFootage('toys beach','landscape',new AbortController().signal,{subject:'children’s toys'})).toBeNull();
+});

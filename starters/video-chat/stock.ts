@@ -20,7 +20,7 @@ const terms = (value: string) => words(value).filter(word => !ignored.has(word))
 function selectionHint(value: unknown) {
   const phrase = (input: unknown) => {
     if (typeof input !== 'string') return undefined;
-    const normalized = input.trim().toLowerCase().replace(/\s+/gu,' ');
+    const normalized = input.trim().toLowerCase().replace(/\s+/gu,' ').replaceAll('’', "'");
     return normalized.length <= 48 && /^[\p{L}\p{N} '-]+$/u.test(normalized) && words(normalized).length <= 4 && terms(normalized).length ? normalized : undefined;
   };
   const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {};
