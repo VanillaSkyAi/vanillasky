@@ -43,7 +43,23 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
         expect(prepared!.at).toBeLessThan(firstSurface!.at);
         const outgoing = events.filter(e=>e.kind==='frame' && e.scene===String(index-1) && e.at<=frames[0].at).at(-1)!;
         expect(frames[0].at-outgoing.at).toBeLessThanOrEqual(200);
-      } else if (index === 1) expect(gap).toBeGreaterThan(1000);
+      } else {
+        expect(gap).toBeLessThanOrEqual(200);
+        const priorEnd = events.filter(event => event.kind === 'ended')[index - 1];
+        expect(firstSurface!.at - priorEnd.at).toBeGreaterThan(1000);
+        const held = events.filter(event => event.kind === 'frame' && event.scene === String(index - 1)
+          && event.layer === 'active' && event.at >= priorEnd.at && event.at <= frames[0].at);
+        expect(held.length).toBeGreaterThanOrEqual(3);
+        let advancing = 0;
+        for (let frame = 1; frame < held.length; frame++) {
+          expect(held[frame].at - held[frame - 1].at).toBeLessThanOrEqual(200);
+          advancing += Math.max(0, held[frame].mediaTime - held[frame - 1].mediaTime);
+        }
+        expect(advancing).toBeGreaterThan(1);
+        expect(frames[0].at - held.at(-1)!.at).toBeLessThanOrEqual(200);
+        expect(events.filter(event => event.kind === 'surface' && event.at >= priorEnd.at
+          && event.at < firstSurface!.at).every(event => event.active === String(index - 1))).toBe(true);
+      }
       const cue = events.find(e=>e.kind==='cut' && e.index===index)!;
       expect(cue.at).toBeGreaterThanOrEqual(frames[0].at);
       const connected=events.find(e=>e.kind==='connected' && e.id===frames[0].id);

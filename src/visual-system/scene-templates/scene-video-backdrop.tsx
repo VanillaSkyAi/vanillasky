@@ -66,7 +66,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
   };
   useEffect(() => {
-    if (!isPlaying || waitingKey !== videoPresentationKey) {
+    // Hidden preparation is bounded by mounted readiness once its cut is due.
+    // It must not spend the next scene's stall deadline while still incoming.
+    if (!isPlaying || rewindPreroll || waitingKey !== videoPresentationKey) {
       if (waitingKey) setWaitingKey(undefined);
       return;
     }
@@ -118,7 +120,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       clearTimeout(poll);
       if (frame !== undefined) video.cancelVideoFrameCallback?.(frame);
     };
-  }, [waitingKey, videoPresentationKey, isPlaying]);
+  }, [waitingKey, videoPresentationKey, isPlaying, rewindPreroll]);
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;

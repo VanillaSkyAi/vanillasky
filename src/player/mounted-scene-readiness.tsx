@@ -5,14 +5,29 @@ export const MountedReadinessContext = createContext<((key: string, error?: Erro
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
 /** Observes the real mounted surface, never a detached decoder or speculative URL. */
-export function MountedSceneReadiness({ scene, playing, fallback = false, onFailure }: { scene: VideoScene; playing: boolean; fallback?: boolean; onFailure?: () => void }) {
+export function MountedSceneReadiness({
+  scene, playing, fallback = false, onFailure, onReady,
+  observeIncoming = false, timeoutMs = 8000,
+}: {
+  scene: VideoScene;
+  playing: boolean;
+  fallback?: boolean;
+  onFailure?: () => void;
+  /** Preparation reports locally; only the promoted scene cues narration. */
+  onReady?: () => void;
+  observeIncoming?: boolean;
+  /** Early preparation has no scene deadline; the pending cut gets eight seconds. */
+  timeoutMs?: number | null;
+}) {
   const marker = useRef<HTMLSpanElement>(null);
   const report = useContext(MountedReadinessContext);
   const key = sceneReadinessKey(scene);
   const onFailureRef = useRef(onFailure);
   onFailureRef.current = onFailure;
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   useEffect(() => {
-    if (!report || !playing) return;
+    if ((!report && !onReadyRef.current) || !playing) return;
     let stopped = false;
     let frame = 0;
     let callback: number | undefined;
@@ -20,11 +35,13 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
     let presented: HTMLVideoElement | undefined;
     const root = marker.current?.closest('[data-video-frame]');
     const start = performance.now();
-    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback); if (error && onFailureRef.current) onFailureRef.current(); else report(key, error, actualVideoFrame); } };
+    const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback); if (error && onFailureRef.current) onFailureRef.current(); else if (onReadyRef.current && !error) onReadyRef.current(); else report?.(key, error, actualVideoFrame); } };
     const check = () => {
       if (stopped) return;
       if (fallback && root?.querySelector("[data-scene-fallback]") && !root.querySelector("[data-template-loading]") && document.fonts?.status !== "loading") { finish(); return; }
-      const layer = root?.querySelector('[data-scene-layer="active"]');
+      const layer = observeIncoming
+        ? [...(root?.querySelectorAll('[data-layer-scene-id]') ?? [])].find(node => node.getAttribute('data-layer-scene-id') === scene.id)
+        : root?.querySelector('[data-scene-layer="active"]');
       const loading = layer?.querySelector('[data-template-loading]');
       const mediaUrl = String(scene.variables.mediaUrl || "");
       const isVideo = scene.variables.mediaType === "video" || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(mediaUrl);
@@ -50,7 +67,7 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
           if (image?.complete && image.naturalWidth > 0) { finish(); return; }
         }
       }
-      if (performance.now() - start >= 8_000) { finish(new Error("Scene media did not become ready")); return; }
+      if (timeoutMs !== null && performance.now() - start >= timeoutMs) { finish(new Error("Scene media did not become ready")); return; }
       frame = requestAnimationFrame(check);
     };
     // Built-in backdrops already observe their first presented frame. Reuse
@@ -68,12 +85,12 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
     };
     root?.addEventListener("vanillasky:video-frame-presented", onPresented);
     check();
-    const timeout = setTimeout(() => finish(new Error("Scene media did not become ready")), 8_000);
+    const timeout = timeoutMs === null ? undefined : setTimeout(() => finish(new Error("Scene media did not become ready")), timeoutMs);
     return () => {
       root?.removeEventListener("vanillasky:video-frame-presented", onPresented);
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
       if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
     };
-  }, [key, report, scene, playing, fallback]);
+  }, [key, report, scene, playing, fallback, observeIncoming, timeoutMs]);
   return <span ref={marker} hidden />;
 }
