@@ -1,18 +1,21 @@
 import { test, expect } from "@playwright/test";
 for (const size of [{name: "desktop", width: 1440, height: 900, columns: 4}, {name: "mobile", width: 390, height: 844, columns: 2}, {name: "landscape", width: 844, height: 390, columns: 2}, {name: "text-zoom", width: 390, height: 844, columns: 2}, {name: "narrow-embed", width: 1440, height: 900, columns: 2}]) {
-  test(`ending cards keep long labels readable at ${size.name}`, async ({ page }, testInfo) => {
+  test(`ending cards keep complete short prompts readable at ${size.name}`, async ({ page }, testInfo) => {
     await page.setViewportSize(size);
     await page.goto(`${testInfo.project.use.baseURL ?? "http://127.0.0.1:4274"}/tests/browser/fixtures/ending-cards.html`);
     if (size.name === "text-zoom") await page.addStyleTag({content: ".vanillasky-video-chat .card-prompt {font-size: 28px !important}"});
     if (size.name === "narrow-embed") await page.addStyleTag({content: ".vanillasky-video-chat {width:390px}"});
     const cards = page.locator(".ending .cards button");
     await expect(cards).toHaveCount(4);
+    const prompts = await cards.allTextContents();
+    expect(prompts.every(prompt => prompt.length <= 60 && prompt.trim().split(/\s+/).length <= 8)).toBe(true);
     const geometry = await cards.evaluateAll(elements => elements.map(element => {
       const box = element.getBoundingClientRect(), text = element.querySelector(".card-prompt")!.getBoundingClientRect();
       return {width: box.width, y: box.y, top: text.top - box.top, bottom: box.bottom - text.bottom};
     }));
-    if (size.name === "desktop") expect(geometry[0]!.width).toBeGreaterThan(280);
-    expect(new Set(geometry.map(item => Math.round(item.y))).size).toBe(4 / size.columns);
+    if (size.name === "desktop") expect(geometry[0]!.width).toBeLessThanOrEqual(260);
+    await expect(page.locator(".ending .cards")).toHaveCSS("display", "flex");
+    expect(new Set(geometry.map(item => Math.round(item.y))).size).toBe(1);
     for (const item of geometry) { expect(item.top).toBeGreaterThanOrEqual(0); expect(item.bottom).toBeGreaterThanOrEqual(-1); }
     for (const card of await cards.all()) {
       await card.scrollIntoViewIfNeeded();
@@ -37,6 +40,11 @@ for (const size of [{name: "desktop", width: 1440, height: 900, columns: 4}, {na
     expect(reachability.end).toBeLessThanOrEqual(reachability.bottom);
     expect(reachability.horizontalOverflow).toBeLessThanOrEqual(1);
     await page.screenshot({path: testInfo.outputPath(`${size.name}.png`)});
+    await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/ending-cards.html?welcome");
+    if (size.name === "text-zoom") await page.addStyleTag({content: ".vanillasky-video-chat .card-prompt {font-size: 28px !important}"});
+    if (size.name === "narrow-embed") await page.addStyleTag({content: ".vanillasky-video-chat {width:390px}"});
+    const welcomeWidths = await page.locator(".welcome .cards button").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width));
+    for (const [index, width] of welcomeWidths.entries()) expect(width).toBeCloseTo(geometry[index]!.width, 0);
   });
 }
 
