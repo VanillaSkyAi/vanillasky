@@ -7,7 +7,7 @@ for (const zoom of [1, 1.6]) {
     if (zoom !== 1) await page.addStyleTag({ content: `.vanillasky-video-chat .line { font-size: ${16 * zoom}px; }` });
     const line = page.locator('.line:not([aria-hidden])');
     await expect(line).toContainText('Sunflowers');
-    const fits = async () => expect(await line.evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight))).toBeLessThanOrEqual(2.02);
+    const fits = async () => expect.poll(() => line.evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight))).toBeLessThanOrEqual(2.02);
     await fits();
     const first = await line.textContent();
     await page.getByRole('button', { name: 'Middle' }).click();
@@ -31,9 +31,14 @@ test('prerecorded speech advances caption pages and a native audio pause holds t
   await page.addStyleTag({ content: '.vanillasky-video-chat .line { font-size: 25px; }' });
   const line = page.locator('.line:not([aria-hidden])');
   await expect(line).toContainText('First we see');
+  await expect.poll(() => line.evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight))).toBeLessThanOrEqual(2.02);
   const first = await line.textContent();
   await page.getByRole('button', { name: 'Play recording', exact: true }).click();
   await expect(line).toHaveAttribute('data-caption-timing', 'audio');
+  await expect.poll(() => page.evaluate(() => {
+    const state = (window as unknown as { captionNativeState: () => { time: number; duration: number; boundary: number } }).captionNativeState();
+    return Number.isFinite(state.duration) && state.time >= state.boundary;
+  }), { timeout: 10000 }).toBe(true);
   await expect(line).not.toHaveText(first!);
   await page.getByRole('button', { name: 'Pause recording', exact: true }).click();
   const paused = await line.textContent();
@@ -45,4 +50,10 @@ test('prerecorded speech advances caption pages and a native audio pause holds t
   await expect(line).toContainText('toward the light.');
   await expect(page.locator('body')).toHaveAttribute('data-audio-ended', 'true');
   await expect(line).toContainText('toward the light.');
+});
+
+
+test.afterEach(async ({ page }, testInfo) => {
+  const diagnostics = await page.evaluate(() => (window as unknown as {captionDiagnostics?: unknown[]}).captionDiagnostics).catch(() => undefined);
+  if (diagnostics) await testInfo.attach('caption-audio-evidence', { body: JSON.stringify(diagnostics), contentType: 'application/json' });
 });
