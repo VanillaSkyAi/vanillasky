@@ -20,6 +20,7 @@ describe('explicit footage modes', () => {
     expect(instructions).toContain('For beginners, explain an unavoidable technical term');
     expect(instructions).toContain('Qualify advice that depends on equipment, task or conditions');
     expect(instructions.includes('Stock queries must retain the essential subject')).toBe(mode === 'pexels');
+    expect(instructions.includes('Include stockSelection on every shot and the saved ending when the essential subject is known')).toBe(mode === 'pexels');
     expect(instructions).toContain('stop on the payoff without explaining the joke');
     const called = mode === 'pexels' ? search : generate;
     expect(called).toHaveBeenCalledOnce();
