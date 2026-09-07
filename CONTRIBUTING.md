@@ -3,6 +3,8 @@
 VanillaSky is an open-source voice-and-video chat SDK. Changes should preserve
 the versioned event protocol and keep external services behind explicit adapters.
 
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Local checks
 
 Use Node.js 22. Before opening a pull request, run:
