@@ -4,6 +4,11 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.17
+
+- Let video playback prepare without waiting for an optional poster, while retaining actual video-frame and narration readiness checks.
+- Guide shorter, useful spoken openings and compact streamed briefs, with clearer direct answers, comparisons, and narration-aligned actions.
+
 ## 0.10.16
 
 - Start the first fully prepared scene without waiting for an eight-second startup buffer, while preserving narration and visual readiness.

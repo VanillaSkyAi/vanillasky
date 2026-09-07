@@ -1,5 +1,5 @@
 /** Preflight never allocates a video decoder; the mounted player owns decoding. */
-export type PreparedSceneVisual = "graphic" | "image" | "poster-bridge" | "awaiting-video-frame";
+export type PreparedSceneVisual = "graphic" | "image" | "awaiting-video-frame";
 
 export async function prepareSceneMedia(
   variables: Record<string, unknown>,
@@ -9,9 +9,9 @@ export async function prepareSceneMedia(
   const url = typeof variables.mediaUrl === "string" ? variables.mediaUrl.trim() : "";
   if (!url || variables.mediaType === "gradient") return "graphic";
   const video = variables.mediaType === "video" || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(url);
-  const poster = typeof variables.mediaPoster === "string" ? variables.mediaPoster.trim() : "";
-  if (video && !poster) return "awaiting-video-frame";
-  let posterFailed = false;
+  // An optional poster cannot delay the real video. The existing media warmer
+  // can fetch it independently; mounted playback still requires an actual frame.
+  if (video) return "awaiting-video-frame";
   await new Promise<void>((resolve, reject) => {
     const image = new Image();
     let settled = false;
@@ -31,12 +31,8 @@ export async function prepareSceneMedia(
       void (image.decode ? image.decode() : Promise.resolve()).then(() => finish(), () => finish(new Error("Could not prepare scene image")));
     };
     image.onerror = () => finish(new Error("Could not prepare scene image"));
-    image.src = video ? poster : url;
+    image.src = url;
     if (image.complete && image.naturalWidth > 0) image.onload(new Event("load"));
-  }).catch((error: unknown) => {
-    // A broken optional poster does not invalidate a video that can still decode.
-    if (!video || signal.aborted) throw error;
-    posterFailed = true;
   });
-  return video ? posterFailed ? "awaiting-video-frame" : "poster-bridge" : "image";
+  return "image";
 }

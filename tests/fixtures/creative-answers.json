@@ -1,0 +1,172 @@
+[
+  {
+    "intent": "explanation",
+    "prompt": "Explain to a beginner how a bicycle turns pedalling into movement.",
+    "opening": "Pedals start a connected chain reaction.",
+    "subject": "bicycle drivetrain",
+    "development": "Follow force from pedals through the chain to the driven wheel.",
+    "visualDirection": "Consistent ordinary bicycle; moving close-ups illustrate the mechanism, not evidence.",
+    "beats": [
+      {
+        "title": "Start at the pedals",
+        "narration": "Pushing the pedals turns the front chainring.",
+        "subject": "bicycle pedals turning",
+        "action": "Close view of pedals and chainring turning together.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Follow the chain",
+        "narration": "The moving chain turns gears at the rear wheel.",
+        "subject": "bicycle chain rear gears",
+        "action": "Follow the chain moving onto the rear sprocket.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Meet the ground",
+        "narration": "The driven wheel pushes against the ground, moving you forward.",
+        "subject": "bicycle rear wheel riding",
+        "action": "Side view of a bicycle moving along level ground.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  },
+  {
+    "intent": "practical",
+    "prompt": "Show a beginner how to fold a sheet of paper in half neatly.",
+    "opening": "Match the edges before you crease.",
+    "subject": "hands folding paper",
+    "development": "Align opposite edges, hold them together, then press a crease.",
+    "visualDirection": "Close framing of the same hands and plain sheet; no tools needed.",
+    "beats": [
+      {
+        "title": "Bring the edges together",
+        "narration": "Bring one short edge over to meet the other.",
+        "subject": "hands folding paper",
+        "action": "Hands bring the short edges of a sheet together.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Check both corners",
+        "narration": "Adjust both corners until the edges line up.",
+        "subject": "hands aligning paper corners",
+        "action": "Close view of the aligned corners before pressing.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Press the fold",
+        "narration": "Hold the edges together and press along the fold.",
+        "subject": "hands creasing folded paper",
+        "action": "Hands press a straight crease; finish on aligned paper edges.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  },
+  {
+    "intent": "story",
+    "prompt": "Tell a tiny fictional story about a turtle returning a library book.",
+    "opening": "The turtle was one day late.",
+    "subject": "turtle carrying book",
+    "development": "A worried turtle makes the return and discovers a welcoming library.",
+    "visualDirection": "A small green turtle with a red book in a cosy illustrated town.",
+    "beats": [
+      {
+        "title": "One determined reader",
+        "narration": "He carried his book through the rain.",
+        "subject": "turtle carrying book rain",
+        "action": "The small green turtle shelters a red book while walking.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "An open door",
+        "narration": "At the library, he nearly turned back.",
+        "subject": "turtle library doorway",
+        "action": "The turtle hesitates at a warmly lit library entrance.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "A welcome return",
+        "narration": "The librarian smiled and saved him a dry seat.",
+        "subject": "turtle library reading",
+        "action": "The same turtle settles with his book beside a warm lamp.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  },
+  {
+    "intent": "comedy",
+    "prompt": "Tell a tiny joke about a robot caring for a cactus.",
+    "opening": "The robot took plant care seriously.",
+    "subject": "robot cactus",
+    "development": "A dutiful robot misunderstands the cactus rather than explaining gardening.",
+    "visualDirection": "One small box-shaped robot beside a potted cactus; dry comic timing.",
+    "beats": [
+      {
+        "title": "A careful inspection",
+        "narration": "It scanned every spike for signs of distress.",
+        "subject": "robot inspecting cactus",
+        "action": "The robot slowly inspects a small potted cactus.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "A generous offer",
+        "narration": "Then it offered the cactus a hug.",
+        "subject": "robot reaching cactus",
+        "action": "The robot opens its arms toward the cactus and pauses.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "A revised policy",
+        "narration": "Personal space became its highest priority.",
+        "subject": "robot backing from cactus",
+        "action": "The same robot carefully backs away from the cactus.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  },
+  {
+    "intent": "practical",
+    "prompt": "Compare two fictional bags: Trail holds 20 litres and weighs 400 grams; Metro holds 20 litres and weighs 800 grams. Which is lighter for the same capacity?",
+    "opening": "Equal capacity makes weight decisive.",
+    "subject": "two backpacks",
+    "development": "Compare identical capacity, then the supplied weights; finish with the requested choice.",
+    "visualDirection": "Two distinct backpacks shown consistently; narration carries supplied quantities, no invented features.",
+    "beats": [
+      {
+        "title": "The same capacity",
+        "narration": "Both Trail and Metro hold twenty litres.",
+        "subject": "two backpacks side by side",
+        "action": "Show two backpacks side by side at the same scale.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Different weights",
+        "narration": "Trail weighs four hundred grams; Metro weighs eight hundred.",
+        "subject": "backpacks on weighing scale",
+        "action": "Illustrative view of backpacks being weighed; no generated numbers.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "Choose the lighter bag",
+        "narration": "Choose Trail for equal capacity with less weight.",
+        "subject": "lightweight backpack carrying",
+        "action": "A person picks up the selected backpack.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  }
+]
