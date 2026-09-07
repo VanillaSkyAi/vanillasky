@@ -9,9 +9,9 @@ it("records safe stream phases and resets metrics for the next response", async 
   diagnostics.playback({type:"first-media-frame", elapsedMs:350, turnId:"private id", mode:"cinematic"});
   expect(JSON.stringify(snapshots)).not.toContain("private");
   expect(diagnostics.rows().map(row => row.phase)).toContain("shot authored");
-  expect(diagnostics.rows().find(row => row.phase === "moving footage")?.elapsedMs).toBe(350);
+  expect(diagnostics.rows().find(row => row.phase === "video decoded")?.elapsedMs).toBe(350);
   await fetcher("http://localhost/?action=response");
-  expect(diagnostics.rows().some(row => row.phase === "moving footage")).toBe(false);
+  expect(diagnostics.rows().some(row => row.phase === "video decoded")).toBe(false);
   diagnostics.dispose();
   diagnostics.playback({type:"first-frame", elapsedMs:900, turnId:"x", mode:"cinematic"});
   expect(diagnostics.rows()).toEqual([]);

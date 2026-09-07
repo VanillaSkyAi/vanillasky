@@ -66,7 +66,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
   };
   useEffect(() => {
-    if (!isPlaying || waitingKey !== videoPresentationKey) {
+    // Hidden preparation is bounded by mounted readiness once its cut is due.
+    // It must not spend the next scene's stall deadline while still incoming.
+    if (!isPlaying || rewindPreroll || waitingKey !== videoPresentationKey) {
       if (waitingKey) setWaitingKey(undefined);
       return;
     }
@@ -95,6 +97,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       // One seek frame is not resumed motion. Require consecutive forward
       // observations before releasing the original bounded stall deadline.
       if (forwardFrames >= 2) {
+        playableVideoUrl.current = mediaUrl;
         stopped = true;
         clearTimeout(deadline);
         setWaitingKey(undefined);
@@ -118,7 +121,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       clearTimeout(poll);
       if (frame !== undefined) video.cancelVideoFrameCallback?.(frame);
     };
-  }, [waitingKey, videoPresentationKey, isPlaying]);
+  }, [waitingKey, videoPresentationKey, isPlaying, rewindPreroll]);
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -213,7 +216,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (!video) return;
     if (!isPlaying) {
       video.pause();
-      if (rewindPreroll && video.currentTime > 0) video.currentTime = 0;
+      // Keep silent prepared data intact through narration startup. Seeking
+      // back a few milliseconds can trigger another cold Range request.
+      if (rewindPreroll && !resolvedMuted && video.currentTime > 0) video.currentTime = 0;
       return;
     }
     if (startedPlaybackId.current === playbackId) {
@@ -234,7 +239,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
     event.currentTarget.pause();
-    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+    if (rewindPreroll && !resolvedMuted && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
   };
 
   const mediaStyle: React.CSSProperties = {
@@ -258,7 +263,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         src={mediaUrl}
         poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
         muted={resolvedMuted}
-        loop={false}
+        // Let the decoder repeat without an ended → script seek/play round trip.
+        // The finite scene clock still owns pause and disposal; never loop speech.
+        loop={resolvedMuted && isPlaying && Number.isFinite(sceneDuration) && Number(sceneDuration) > 0}
         playsInline
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}

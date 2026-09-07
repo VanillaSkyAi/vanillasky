@@ -1,5 +1,23 @@
 import { writeFile } from "node:fs/promises";
 import { devices, expect, test } from "@playwright/test";
+
+type MotionSample = {at: number; time: number; frameFingerprint?: number | null; paused: boolean; hidden: boolean};
+function maximumMotionStall(samples: MotionSample[]) {
+  let lastFingerprint: number | null | undefined, lastAdvance: number | undefined, maximum = 0;
+  for (const sample of samples) {
+    if (lastAdvance === undefined || sample.paused || sample.hidden || (sample.frameFingerprint != null && sample.frameFingerprint !== lastFingerprint)) lastAdvance = sample.at;
+    else maximum = Math.max(maximum, sample.at - lastAdvance);
+    lastFingerprint = sample.frameFingerprint;
+  }
+  return maximum;
+}
+test("motion proof rejects frozen pixels despite an advancing media clock", () => {
+  const frozen = Array.from({length: 7}, (_, index) => ({at:100+index*100, time:index*.1, frameFingerprint:42, paused:false, hidden:false}));
+  expect(maximumMotionStall(frozen)).toBe(600);
+  expect(maximumMotionStall(frozen.map((sample,index)=>({...sample,time:1.5,frameFingerprint:index})))).toBe(0);
+  expect(maximumMotionStall(frozen.map(sample=>({...sample,paused:true})))).toBe(0);
+});
+
 for (const mode of ["normal", "short", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
   test.setTimeout(30000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}), recordVideo: { dir: info.outputPath("recording") } });
@@ -11,23 +29,21 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
     await page.getByRole("button").click();
     // In-page observation does not refresh Safari's transient user activation.
     await page.waitForFunction(() => document.body.dataset.proofComplete === "true" && (window as unknown as { continuityProof: { events: string[] } }).continuityProof.events.filter(event => event === "audio-ended").length === 2, undefined, { timeout: 25000 });
-    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { phases: {kind: string; at: number}[]; events: string[]; samples: { at: number; narrationReady: boolean; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
-    expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
-    expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
+    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { phases: {kind: string; at: number}[]; events: string[]; samples: { at: number; narrationReady: boolean; frameFingerprint: number | null; mediaDuration: number; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
     const active = proof.samples.filter(sample => !sample.playerEnded);
     let stalledAt = 0, maximumFrozenMs = 0;
     for (const sample of active) {
       if (sample.ended && !sample.hidden) { stalledAt ||= sample.at; maximumFrozenMs = Math.max(maximumFrozenMs, sample.at - stalledAt); }
       else stalledAt = 0;
     }
-    let lastMediaTime = -1, lastAdvance = 0, maximumMotionStallMs = 0;
-    for (const sample of active) {
-      if (sample.paused || sample.hidden || sample.time !== lastMediaTime) lastAdvance = sample.at;
-      else maximumMotionStallMs = Math.max(maximumMotionStallMs, sample.at - lastAdvance);
-      lastMediaTime = sample.time;
+    const maximumMotionStallMs = maximumMotionStall(active);
+    await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
+    expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
+    expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
+    if (!["missing", "unusable"].includes(mode)) {
+      expect(new Set(active.flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
     }
     expect(maximumMotionStallMs).toBeLessThan(500);
-    await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     // A native ended event and React paint may be separated by one frame.
     expect(maximumFrozenMs).toBeLessThan(100);
     if (delayed) {
@@ -58,7 +74,13 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
       expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(0);
     } else if (mode === "short") {
       expect(active.some(sample => sample.status === "Visual unavailable")).toBe(false);
-      expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5).length).toBeGreaterThan(2);
+      const clockResets = active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5).length;
+      const duration = active.find(sample => sample.mediaDuration > 0)?.mediaDuration ?? Infinity;
+      // Native WebKit can emit loop seeks at duration without resetting its
+      // exposed currentTime. Pixel continuity above independently proves motion.
+      const nativeLoops = proof.events.filter(event => event.startsWith("video:seeking:")
+        && Number(event.split(":")[2]) >= duration - .02).length;
+      expect(Math.max(clockResets, nativeLoops)).toBeGreaterThan(2);
     } else {
       expect(active.some(sample => sample.chapter === "Water keeps moving")).toBe(true);
       expect(active.some(sample => sample.status === "Visual unavailable")).toBe(false);

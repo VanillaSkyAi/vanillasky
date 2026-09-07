@@ -622,12 +622,14 @@ describe("VideoFrame transition ownership", () => {
       expect(view.container.querySelector("video")).toBe(firstVideo);
       expect(prepared).not.toBeNull();
       expect(view.container.querySelectorAll("video")).toHaveLength(2);
-      expect(play.mock.instances).not.toContain(prepared);
+      expect(play.mock.instances).toContain(prepared);
       view.rerender(element(2, false));
       expect(pause.mock.instances).toContain(firstVideo);
       expect(view.container.querySelector('[data-layer-scene-id="second-video"] video')).toBe(prepared);
       view.rerender(element(2));
       expect(play.mock.instances).toContain(firstVideo);
+      Object.defineProperties(prepared, { currentSrc: { configurable: true, value: prepared.src }, readyState: { configurable: true, value: 3 } });
+      act(() => prepared.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
       view.rerender(element(5));
       expect(view.container.querySelector("video")).toBe(prepared);
       expect(play.mock.instances).toContain(prepared);
@@ -644,6 +646,8 @@ describe("VideoFrame transition ownership", () => {
       expect(view.container.querySelector('[data-layer-scene-id="second-video"] video')).toBe(prepared);
       expect(pause.mock.instances).toContain(prepared);
       expect(view.container.querySelectorAll("video")).toHaveLength(2);
+      Object.defineProperties(prepared, { currentSrc: { configurable: true, value: prepared.src }, readyState: { configurable: true, value: 3 } });
+      act(() => prepared.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
       view.rerender(element(5));
       expect(view.container.querySelector("video")).toBe(prepared);
       expect(recreatedFirst.hasAttribute("src")).toBe(false);

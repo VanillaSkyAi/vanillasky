@@ -1,4 +1,4 @@
-import { MountedSceneReadiness, sceneReadinessKey } from "./mounted-scene-readiness.js";
+import { MountedSceneReadiness, sceneReadinessKey, type MountedVideoProof } from "./mounted-scene-readiness.js";
 import {
   createElement,
   Component,
@@ -314,6 +314,13 @@ export function VideoFrame({
   style,
 }: VideoFrameProps): ReactElement {
   const recoveryRoot = useRef<HTMLDivElement>(null);
+  const displayedKey = useRef<string | undefined>(undefined);
+  const displayedWasPlaying = useRef(false);
+  const handoffProof = useRef<MountedVideoProof | undefined>(undefined);
+  const confirmedHandoff = useRef<string | undefined>(undefined);
+  const [preparedMedia, setPreparedMedia] = useState<ReadonlySet<string>>(() => new Set());
+  // Reconfirmation must render even when a previously ready source lost data.
+  const markPrepared = useCallback((key: string) => setPreparedMedia(previous => new Set([...previous, key])), []);
   const reportedFailures = useRef(new Set<string>());
   const [failedMedia, setFailedMedia] = useState<ReadonlySet<string>>(() => new Set());
   const markMediaFailed = useCallback((key: string | undefined, reason: MediaRecoveryReason = "playback-error") => {
@@ -327,6 +334,10 @@ export function VideoFrame({
   }, [config.scenes]);
   useEffect(() => {
     const currentKeys = new Set(config.scenes.map(sceneReadinessKey));
+    setPreparedMedia(previous => {
+      const retained = new Set([...previous].filter(key => currentKeys.has(key)));
+      return retained.size === previous.size ? previous : retained;
+    });
     for (const key of reportedFailures.current) if (!currentKeys.has(key)) reportedFailures.current.delete(key);
     setFailedMedia(previous => {
       const retained = new Set([...previous].filter(key => currentKeys.has(key)));
@@ -338,8 +349,37 @@ export function VideoFrame({
   const lastRange = timeline.at(-1);
   const foundIndex = timeline.findIndex((range) => time >= range.start && time < range.end);
   const afterEnd = lastRange && time >= lastRange.end;
-  const activeIndex = foundIndex >= 0 ? foundIndex : afterEnd ? timeline.length - 1 : -1;
-  const active = activeIndex >= 0 ? timeline[activeIndex] : undefined;
+  const targetIndex = foundIndex >= 0 ? foundIndex : afterEnd ? timeline.length - 1 : -1;
+  const target = timeline[targetIndex];
+  const targetKey = target ? sceneReadinessKey(target.scene) : undefined;
+  if (confirmedHandoff.current !== targetKey || !(playing || preparingNarration)) {
+    confirmedHandoff.current = undefined;
+    handoffProof.current = undefined;
+  }
+  const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
+  const previous = timeline[previousIndex];
+  const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && mediaAudioMuted
+    && sceneHasVideoBackdrop(range) && supportsExternalVideoBackdrop(kit.getTemplate(range.scene.templateId)));
+  const canRetain = (range: VideoSceneRange | undefined) => canPrepare(range) || range?.scene.templateId === "chapterTitle";
+  const hasPlayableMedia = (range: VideoSceneRange | undefined) => {
+    if (!range || !preparedMedia.has(sceneReadinessKey(range.scene))) return false;
+    const layer = [...(recoveryRoot.current?.querySelectorAll('[data-layer-scene-id]') ?? [])].find(node => node.getAttribute('data-layer-scene-id') === range.scene.id);
+    const video = layer?.querySelector('video');
+    return Boolean(video && video.getAttribute('src') === range.scene.variables.mediaUrl
+      && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
+  };
+  // The visual clock waits at the new range's start while its decoder warms.
+  // Keep the committed outgoing surface until that target can actually play.
+  const handoffPending = Boolean(displayedWasPlaying.current && target && previous && targetIndex === previousIndex + 1
+    && time <= target.start + .001 && rangesAreContiguous(previous, target)
+    && canRetain(previous) && canPrepare(target)
+    && !failedMedia.has(sceneReadinessKey(target.scene)) && !hasPlayableMedia(target)
+    && confirmedHandoff.current !== targetKey);
+  const activeIndex = handoffPending ? previousIndex : targetIndex;
+  const active = timeline[activeIndex];
+  const displayKey = active ? sceneReadinessKey(active.scene) : undefined;
+  displayedWasPlaying.current = (displayedKey.current === displayKey && displayedWasPlaying.current) || playing || preparingNarration;
+  displayedKey.current = displayKey;
 
   if (!active) {
     return (
@@ -419,13 +459,16 @@ export function VideoFrame({
       sceneHasVideoBackdrop(contiguousNext),
   );
   const activeMediaFailed = failedMedia.has(sceneReadinessKey(active.scene));
-  const mountingNext = Boolean(
+  const preparingNext = canRetain(active) && canPrepare(contiguousNext);
+  const nextPlayable = hasPlayableMedia(contiguousNext);
+  const mountingNext = handoffPending || Boolean(
     contiguousNext && !decoderConstrainedTransition &&
       (boundedPreparation || time >= prerollStart) && time < blendEnd &&
       (eligibleNextTransition || prerollsNext || (boundedPreparation && sceneHasVideoBackdrop(contiguousNext))),
   );
   const previewingNext = Boolean(
-    eligibleNextTransition && time >= blendStart && time < blendEnd,
+    eligibleNextTransition && time >= blendStart && time < blendEnd
+      && (!preparingNext || nextPlayable),
   );
   // Zero until the blend window opens, so every frame before it is unchanged.
   const blendProgress = previewingNext && blendDuration > 0
@@ -444,7 +487,8 @@ export function VideoFrame({
   // Recovery uses the chapter's presentation even when the planned template
   // was footage. Keep its final readable pose through completion.
   const finalHold = presentsChapter ? .76 : activeTiming?.holdProgress;
-  const motionProgress = isFinalScene && finalHold !== undefined
+  const holdChapter = presentsChapter && preparingNext && !nextPlayable;
+  const motionProgress = (isFinalScene || holdChapter) && finalHold !== undefined
     ? Math.min(rawProgress, finalHold)
     : rawProgress;
   const canvas = getDimensions(config.orientation);
@@ -479,10 +523,23 @@ export function VideoFrame({
         ...style,
       }}
     >
-      <MountedSceneReadiness scene={active.scene} playing={playing}
+      <MountedSceneReadiness scene={active.scene} playing={playing && !handoffPending}
         fallback={activeMediaFailed}
+        preparedProof={confirmedHandoff.current === sceneReadinessKey(active.scene) ? handoffProof.current : undefined}
         onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
           ? () => markMediaFailed(sceneReadinessKey(active.scene), "frame-readiness-timeout") : undefined} />
+      {mountingNext && contiguousNext && preparingNext && <MountedSceneReadiness
+        scene={contiguousNext.scene} playing={playing || preparingNarration} observeIncoming
+        timeoutMs={handoffPending ? 8000 : null}
+        onReady={proof => {
+          const key = sceneReadinessKey(contiguousNext.scene);
+          // Fresh target proof may be sustained motion at readyState two.
+          // Do not veto it with the earlier cached future-data snapshot.
+          if (handoffPending) { confirmedHandoff.current = key; handoffProof.current = proof; }
+          markPrepared(key);
+        }}
+        onFailure={() => markMediaFailed(sceneReadinessKey(contiguousNext.scene), "frame-readiness-timeout")}
+      />}
       <div
         data-video-canvas="true"
         style={{
@@ -520,8 +577,8 @@ export function VideoFrame({
               motionProgress={motionProgress}
               width={canvas.width}
               height={canvas.height}
-              playing={playing}
-              preparingNarration={preparingNarration}
+              playing={handoffPending ? playing || preparingNarration : playing}
+              preparingNarration={handoffPending ? false : preparingNarration}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
               // Only a blend makes this scene "outgoing". During a preroll it
@@ -542,9 +599,9 @@ export function VideoFrame({
               motionProgress={0}
               width={canvas.width}
               height={canvas.height}
-              playing={false}
-              preparingNarration={false}
-              mediaAudioMuted={mediaAudioMuted}
+              playing={Boolean(preparingNext && (!preparedMedia.has(sceneReadinessKey(contiguousNext.scene)) || handoffPending) && (playing || preparingNarration))}
+              preparingNarration={preparingNext}
+              mediaAudioMuted={true}
               mediaAudioVolume={mediaAudioVolume}
               layer="incoming"
               opacity={blendProgress}

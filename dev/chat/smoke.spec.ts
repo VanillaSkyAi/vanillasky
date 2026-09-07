@@ -1,22 +1,30 @@
+import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 test("offline HMR harness plays through the actual local handler without external requests", async ({page}, info) => {
   const external: string[] = [], errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", async route => {
-    if (!route.request().url().startsWith("http://127.0.0.1:4281/")) {external.push(route.request().url()); await route.abort();}
+    const url = new URL(route.request().url());
+    // WebKit routes generated speech blobs; they remain local to this harness.
+    const local = url.origin === "http://127.0.0.1:4281" && ["http:", "blob:"].includes(url.protocol);
+    if (!local) {external.push(route.request().url()); await route.abort();}
     else await route.continue();
   });
   await page.addInitScript(() => {
     const durations: number[] = [];
-    Object.assign(window, {offlineSpeechDurations: durations});
+    const audioEvents: {type: string; code?: number; name?: string}[] = [];
+    Object.assign(window, {offlineSpeechDurations: durations, offlineAudioEvents: audioEvents});
     const observed = new WeakSet<HTMLAudioElement>();
     const play = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
       if (this instanceof HTMLAudioElement && !observed.has(this)) {
         observed.add(this);
         this.addEventListener("ended", () => durations.push(this.duration));
+        for (const type of ["playing", "ended", "error"]) this.addEventListener(type, () => audioEvents.push({type, code: this.error?.code}));
       }
-      return play.call(this);
+      const result = play.call(this);
+      if (this instanceof HTMLAudioElement) result.catch(error => audioEvents.push({type: "play-rejected", name: error.name}));
+      return result;
     };
   });
   await page.goto("http://127.0.0.1:4281/dev/chat/");
@@ -42,11 +50,22 @@ test("offline HMR harness plays through the actual local handler without externa
   expect(openingPaintOpportunityMs).toBeLessThan(200);
   await page.screenshot({path: info.outputPath("immediate-chapter.png")});
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible({timeout: 12000});
-  await expect(page.getByText(/Body surface:/)).toBeVisible();
-  await expect(page.getByText(/Moving footage:/)).toBeVisible();
+  await expect(page.getByText(/Body rendered:/)).toBeVisible();
+  await expect(page.getByText(/Video decoded:/)).toBeVisible();
+  // A decoded player can still be covered by the opening chapter.
+  await expect(page.locator("[data-opening-chapter]")).toHaveCount(0);
   await page.screenshot({path: info.outputPath("prepared-footage.png")});
   await expect(page.locator('[data-testid="video-player"][data-ended="true"]')).toBeVisible({timeout: 15000});
   const spokenDurations = await page.evaluate(() => (window as unknown as {offlineSpeechDurations: number[]}).offlineSpeechDurations);
+  const diagnostics = JSON.stringify({
+    externalOrigins: external.map(value => {const url = new URL(value); return {protocol: url.protocol, origin: url.origin};}),
+    errors,
+    phases: await page.locator(".dev-toolbar details li").allTextContents(),
+    audio: await page.evaluate(() => (window as unknown as {offlineAudioEvents: unknown[]}).offlineAudioEvents),
+  });
+  const diagnosticPath = info.outputPath("offline-audio-diagnostics.json");
+  await writeFile(diagnosticPath, diagnostics);
+  await info.attach("offline-audio-diagnostics", {path: diagnosticPath, contentType: "application/json"});
   const activationDurations = spokenDurations.filter(seconds => seconds <= 0.05);
   expect(activationDurations.length).toBeLessThanOrEqual(1);
   expect(spokenDurations.filter(seconds => seconds > 0.05)).toHaveLength(3);

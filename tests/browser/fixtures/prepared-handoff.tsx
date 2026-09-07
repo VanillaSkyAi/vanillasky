@@ -25,6 +25,20 @@ function observe() {
   for (const video of videos) {
     if (ids.has(video)) continue;
     const id = ++nextId; ids.set(video, id);
+    const recordState = (kind: string) => {
+      if (probe.length < 5000) probe.push({ kind, id, at: performance.now(),
+        scene: video.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id"),
+        layer: video.closest("[data-scene-layer]")?.getAttribute("data-scene-layer"),
+        mediaTime: video.currentTime, readyState: video.readyState, networkState: video.networkState,
+        paused: video.paused, seeking: video.seeking, playbackRate: video.playbackRate });
+    };
+    for (const kind of ["play", "playing", "pause", "waiting", "seeking", "seeked", "ended", "canplay", "error"])
+      video.addEventListener(kind, () => recordState(`video-${kind}`));
+    const nativePlay = video.play.bind(video);
+    const nativePause = video.pause.bind(video);
+    video.play = () => { recordState("video-play-request"); return nativePlay(); };
+    video.pause = () => { recordState("video-pause-request"); nativePause(); };
+
     const frame: VideoFrameRequestCallback = (_, metadata) => {
       if (probe.length < 5000) probe.push({ kind: "frame", id, source: video.currentSrc, scene: video.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id") ?? video.closest("[data-persistent-video-scene-id]")?.getAttribute("data-persistent-video-scene-id"), layer: video.closest("[data-scene-layer]")?.getAttribute("data-scene-layer") ?? "active", mediaTime: metadata.mediaTime, at: performance.now() });
       if (video.isConnected) video.requestVideoFrameCallback(frame);

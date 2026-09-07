@@ -137,7 +137,36 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
 
   const shown = chat.shownTurn;
   const showing = chat.playerProps != null;
-  const openingChapter = !showing && Boolean(shown?.prompt);
+  const handoffKey = `${shown?.id ?? ""}:${chat.playerKey}`;
+  const [presentedBody, setPresentedBody] = useState<string>();
+  const handoff = useRef({key: handoffKey, live: showing, active: false, frame: 0});
+  const handoffStopped = chat.status === "error" || chat.status === "cancelled";
+  const waitingForBody = showing && presentedBody !== handoffKey;
+  const openingChapter = Boolean(shown?.prompt) && (!showing || waitingForBody)
+    && chat.status !== "error" && chat.status !== "cancelled" && chat.status !== "ended";
+  useLayoutEffect(() => {
+    const current = {key: handoffKey, live: showing && !handoffStopped, active: openingChapter && showing, frame: 0};
+    handoff.current = current;
+    return () => {current.live = false; current.active = false; cancelAnimationFrame(current.frame);};
+  }, [handoffKey, openingChapter, showing, handoffStopped]);
+  const cueBody: NonNullable<NonNullable<typeof chat.playerProps>["onSceneChange"]> = (scene, index) => {
+    const current = handoff.current;
+    if (!current.live || current.key !== handoffKey) return;
+    chat.playerProps?.onSceneChange?.(scene, index);
+    if (!current.active) return;
+    cancelAnimationFrame(current.frame);
+    // The player cues only after its actual visual readiness gate. Keep the
+    // opening above that mounted player until the existing voice gate settles.
+    const reveal = () => {
+      if (!current.active || handoff.current !== current) return;
+      let ready = false;
+      try { ready = chat.playerProps?.narrationReady?.() !== false; }
+      catch { /* The player owns narration errors and its bounded deadline. */ }
+      if (ready) {current.active = false; setPresentedBody(handoffKey);}
+      else current.frame = requestAnimationFrame(reveal);
+    };
+    reveal();
+  };
   const openingTitle = shown?.opening ?? shown?.prompt ?? "";
   const status: Status = chat.turns.length === 0 ? "idle"
     : chat.status === "composing" ? "drawing"
@@ -243,13 +272,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
 
     <div className="stage-area">
       <div className="stage" style={{ background: "#000" }}>
-        {!showing && <>
-          {openingChapter && <OpeningChapter key={shown!.id} title={openingTitle.length > 120 ? `${openingTitle.slice(0, 117).trimEnd()}…` : openingTitle} />}
-          {chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
-        </>}
+        {openingChapter && <OpeningChapter key={shown!.id} title={openingTitle.length > 120 ? `${openingTitle.slice(0, 117).trimEnd()}…` : openingTitle} />}
+        {!showing && chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
         {chat.playerProps && <div className="player-fit" style={{ width: stageOrientation === "portrait" ? "min(100cqw, 56.25cqh)" : "min(100cqw, 177.7778cqh)" }}><VideoPlayer
           key={chat.playerKey}
           {...chat.playerProps}
+          onSceneChange={cueBody}
           templates={options.templates}
           orientation={stageOrientation}
           responsiveBreakpoint={DESKTOP_WIDTH}

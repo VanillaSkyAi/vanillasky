@@ -53,21 +53,46 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     await page.getByText('Play prerecorded paragraph').click();
     // Preparation starts during the outgoing scene. Keep all Range responses
     // blocked until 1.5s after the real visual boundary, not request start.
-    await page.waitForFunction(()=>document.querySelector('[data-video-frame]')?.getAttribute('data-scene-id')==='1',null,{timeout:8000});
+    await page.waitForFunction(() => {
+      const prepared = (window as unknown as {narrationProbe:Array<{kind:string;seconds?:number}>}).narrationProbe.find(event => event.kind === 'prepared');
+      const time = Number(document.querySelector('[data-testid="video-player"]')?.getAttribute('data-current-time'));
+      return prepared?.seconds !== undefined && time + .001 >= prepared.seconds / 3;
+    }, null, {timeout:8000});
+    await expect(page.locator('[data-video-frame]')).toHaveAttribute('data-scene-id', '0');
     await page.evaluate(async()=>{
-      const probe=(window as unknown as {narrationProbe:Array<{kind:string;at:number}>}).narrationProbe;
+      const probe=(window as unknown as {narrationProbe:Array<{kind:string;at:number;mediaTime?:number;scene?:string}>}).narrationProbe;
       probe.push({kind:'cold-video-boundary',at:performance.now()});
+      const outgoing = document.querySelector<HTMLVideoElement>('[data-scene-layer="active"] video')!;
+      let frame = 0;
+      const observe: VideoFrameRequestCallback = (_now, metadata) => {
+        probe.push({kind:'cold-outgoing-frame',at:performance.now(),mediaTime:metadata.mediaTime,
+          scene:outgoing.closest('[data-layer-scene-id]')?.getAttribute('data-layer-scene-id') ?? ''});
+        frame = outgoing.requestVideoFrameCallback(observe);
+      };
+      frame = outgoing.requestVideoFrameCallback(observe);
       await new Promise(resolve=>setTimeout(resolve,1500));
+      outgoing.cancelVideoFrameCallback(frame);
       probe.push({kind:'cold-video-release',at:performance.now()});
     });
     releaseMedia();
     await page.waitForFunction(()=>(window as unknown as {narrationProbe:Array<{kind:string}>}).narrationProbe.some(event=>event.kind==='ended'),null,{timeout:15000});
-    const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number}>}).narrationProbe);
+    const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number;mediaTime?:number;scene?:string}>}).narrationProbe);
     const pause=probe.find(event=>event.kind==='pause' && event.audioTime!>1 && event.audioTime!<4)!;
     expect(pause).toBeDefined();
     const boundary=probe.find(event=>event.kind==='cold-video-boundary')!;
     const released=probe.find(event=>event.kind==='cold-video-release')!;
     expect(released.at-boundary.at).toBeGreaterThanOrEqual(1500);
+    const held = probe.filter(event => event.kind === 'cold-outgoing-frame');
+    expect(held.length).toBeGreaterThanOrEqual(3);
+    expect(held.every(event => event.scene === '0')).toBe(true);
+    expect(held[0].at - boundary.at).toBeLessThanOrEqual(200);
+    expect(released.at - held.at(-1)!.at).toBeLessThanOrEqual(200);
+    let advanced = 0;
+    for (let index = 1; index < held.length; index++) {
+      expect(held[index].at - held[index - 1].at).toBeLessThanOrEqual(200);
+      advanced += Math.max(0, held[index].mediaTime! - held[index - 1].mediaTime!);
+    }
+    expect(advanced).toBeGreaterThan(1);
     expect(pause.at).toBeLessThan(released.at);
     const cut=probe.find(event=>event.kind==='cut' && event.index===1)!;
     const frame=probe.find(event=>event.kind==='video-frame' && event.source==='tram.mp4')!;
@@ -77,6 +102,7 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     expect(probe.filter(event=>event.kind==='cut').map(event=>event.index)).toEqual([0,1,2]);
     expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(1);
     expect(probe.filter(event=>event.kind==='ended')).toHaveLength(1);
+    expect(probe.find(event=>event.kind==='ended')!.audioTime).toBeGreaterThan(6.4);
     await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify({requests,probe},null,2));
   }finally{releaseMedia();await context.close();}
 });
