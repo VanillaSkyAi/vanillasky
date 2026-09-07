@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.14
+
+- Attach content-free record-shape diagnostics to rejected chat plans without accepting alternate formats or exposing model output.
+
 ## 0.10.13
 
 - Plan concise AI answers around the configured video-attempt budget, including the ending, while retaining complete authored narration and chapter recovery.
