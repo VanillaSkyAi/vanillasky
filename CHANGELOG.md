@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Forward bounded optional subject/activity hints to Pexels resolvers from the existing planning stream, without adding fields to emitted scenes or AI-video requests.
+
 - Clarify beginner instructions and condition-dependent advice, and retain essential subjects and activities in Pexels search planning.
 
 ## 0.10.8

@@ -657,6 +657,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       invalidPartBehavior: videoOptions.invalidPartBehavior,
       requireCloser: options.requireCloser ?? true,
       generate: createChatShotPlanner({
+        mode,
         streamText: (context) => {
           lifecycle = getGenerationLifecycleSink(context);
           return videoOptions.streamText(context);

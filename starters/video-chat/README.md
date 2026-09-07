@@ -66,3 +66,26 @@ work and playback, and failed media becomes the authored chapter.
 The provider names its own model. Override the tested defaults with
 `ANTHROPIC_PLANNER_MODEL`, `ANTHROPIC_NARRATION_MODEL`, or `FAL_VIDEO_MODEL`
 when needed.
+
+### Stock selection hints
+
+In Pexels mode, the same planning stream can supply an optional
+`scene.variables.stockSelection` to the application's media resolver:
+
+```ts
+{ subject: "cyclist", activity: "riding", equipment: "bicycle", exclude: ["motorcycle"] }
+```
+
+`subject` names the essential actor or object separately from the search query's
+setting. `activity`, `equipment` and `exclude` are optional. Each phrase has
+one to four words and at most 48 characters; `exclude` has at most three phrases.
+The SDK validates these fields, drops unknown keys and invalid optional values,
+and omits the whole hint when the essential subject is missing or invalid.
+It never guesses that subject from the first query word.
+
+Adapters can use this hint to prefer matching subjects and reject explicitly
+contradictory metadata while keeping the query broad enough for catalog search.
+Missing metadata remains uncertain, not proof of a match. The hint does not
+verify the depicted action or factual correctness. It is omitted from AI-video
+requests and removed before scenes are emitted or persisted; it adds no model
+request or public scene field.
