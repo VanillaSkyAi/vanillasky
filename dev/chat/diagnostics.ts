@@ -29,7 +29,7 @@ export function createChatDiagnostics(changed: (rows: DiagnosticRow[]) => void) 
     },
     dispose() {disposed = true; generation++; rows = [];},
     playback(metric: VideoChatPlaybackMetric) {
-      const phase = {"first-frame": "body surface", "first-media-frame": "moving footage", "first-speech": "first speech", stall: "buffer pause"}[metric.type];
+      const phase = {"first-frame": "body rendered", "first-media-frame": "video decoded", "first-speech": "first speech", stall: "buffer pause"}[metric.type];
       emit({phase, elapsedMs: metric.elapsedMs, ...(metric.type === "stall" ? {durationMs: metric.durationMs} : {})});
     },
     wrapFetch(fetcher: typeof fetch): typeof fetch {
