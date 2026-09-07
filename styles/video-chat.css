@@ -348,12 +348,15 @@
 
 .vanillasky-video-chat .ending-body {
   position: absolute;
-  inset: auto 0 0;
+  inset: 96px 0 180px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: clamp(0.5rem, 1.4cqh, 0.9rem);
-  padding: 0 clamp(1.25rem, 4cqw, 3.5rem) clamp(1.25rem, 4cqh, 2.5rem);
+  padding: 12px clamp(20px, 3.5cqw, 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  justify-content: safe flex-end;
   color: oklch(1 0 0);
 }
 
@@ -367,9 +370,13 @@
   text-shadow: 0 1px 3px oklch(0.14 0.05 265 / 70%);
 }
 
-.vanillasky-video-chat .ending .cards { margin-top: 0; }
-
-
+.vanillasky-video-chat .ending .cards {
+  margin-top: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex-shrink: 0;
+  overflow: visible;
+}
 
 .vanillasky-video-chat .ending .card-dots { align-self: flex-start; margin-left: -0.35rem; }
 
@@ -409,7 +416,6 @@
   color: var(--vs-fg);
   animation: vanillasky-video-chat-fade-in 320ms ease both;
 }
-
 
 @keyframes vanillasky-video-chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -600,7 +606,6 @@
 
 .vanillasky-video-chat .panel .error { pointer-events: auto; width: min(560px, 100%); background: var(--vs-bg); }
 
-
 .vanillasky-video-chat .welcome { background: var(--vs-media-ground); }
 
 .vanillasky-video-chat .welcome .frame-media { max-width: none; max-height: none; object-fit: cover; }
@@ -625,10 +630,6 @@
 
 .vanillasky-video-chat .card-dots { display: none; }
 
-.vanillasky-video-chat .ending-body { padding: 0 var(--vs-media-gutter) 190px; }
-
-.vanillasky-video-chat .ending .cards { margin-top: 0; }
-
 .vanillasky-video-chat .ending-label { font-size: 15px; margin-bottom: 6px; }
 
 @media (max-width: 700px) {
@@ -643,7 +644,6 @@
   .vanillasky-video-chat .cards { gap: 12px; width: calc(100% + 20px); max-width: calc(100% + 20px); padding: 12px 20px 12px 12px; }
   .vanillasky-video-chat .cards button { width: 172px; aspect-ratio: .95; }
   .vanillasky-video-chat .card-prompt { font-size: 14px; padding: 14px; }
-  .vanillasky-video-chat .ending-body { padding: 0 20px 190px; }
 
 }
 
@@ -651,7 +651,6 @@
   .vanillasky-video-chat .welcome-body { padding-top: 110px; padding-bottom: 118px; }
   .vanillasky-video-chat .welcome-title { font-size: clamp(32px, 4vw, 54px); }
   .vanillasky-video-chat .cards button { width: 160px; }
-  .vanillasky-video-chat .ending-body { padding-bottom: 160px; }
 }
 
 @media (max-height: 650px) and (max-width: 700px) {
@@ -708,8 +707,6 @@
 .vanillasky-video-chat .eyebrow { display: block; font-size: 10px; line-height: 1.5; letter-spacing: .12em; font-weight: 600; color: var(--vs-fg-muted); margin-bottom: 8px; }
 
 .vanillasky-video-chat .expanded-captions .eyebrow { color: var(--vs-media-muted); }
-
-
 
 .vanillasky-video-chat .dock-hint { position: absolute; inset: auto 0 7px; text-align: center; margin: 0; color: var(--vs-media-muted); font-size: 11px; line-height: 16px; }
 
@@ -783,7 +780,6 @@
 .vanillasky-video-chat .composer-meta { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 10px; color: var(--vs-media-muted); font-size: 12px; line-height: 1.5; }
 
 .vanillasky-video-chat .composer-meta:empty { display: none; }
-
 
 .vanillasky-video-chat .composer-meta .error { width: auto; }
 
@@ -922,7 +918,6 @@
 .vanillasky-video-chat .developer-links button { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-family: inherit; }
 .vanillasky-video-chat .developer-about p { margin: 0; padding: 2px 12px 12px; color: var(--vs-fg-muted); font-size: 12px; line-height: 1.6; }
 
-
 .vanillasky-video-chat .history { display: grid; gap: 4px; }
 
 .vanillasky-video-chat .history .section-label { padding-top: 8px; padding-bottom: 5px; }
@@ -942,7 +937,6 @@
 .vanillasky-video-chat .history-row .prompt { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; line-height: 1.4; letter-spacing: -.01em; text-wrap: pretty; }
 
 .vanillasky-video-chat .history-row small { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; color: #aeb2c7; }
-
 
 @media (max-width: 700px) {
   .vanillasky-video-chat .sheet-popover { right: 12px; width: min(360px, calc(100% - 24px)); max-height: calc(100dvh - 102px); padding: 16px; }
@@ -1028,7 +1022,6 @@
   }
 }
 
-
 /* Caption controls float outside the reading measure, so the complete cue
    keeps the same width when controls appear or disappear. */
 .vanillasky-video-chat .caption-actions {
@@ -1085,22 +1078,6 @@
 .vanillasky-video-chat .media-credit { color: var(--vs-fg); font-size: 11px; margin-left: 12px; text-underline-offset: 3px; }
 @keyframes vanillasky-chapter-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .vanillasky-video-chat .opening-chapter { animation: none; } }
-
-/* Follow-ups have room for their complete prompt; the welcome rail stays compact. */
-.vanillasky-video-chat .ending-body {
-  inset: 96px 0 180px;
-  padding: 12px clamp(20px, 3.5cqw, 56px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  justify-content: safe flex-end;
-}
-
-.vanillasky-video-chat .ending .cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  flex-shrink: 0;
-  overflow: visible;
-}
 
 .vanillasky-video-chat .ending .cards li { min-width: 0; }
 

@@ -12,7 +12,7 @@ test("reports speech onset, first presentation and controlled stream starvation 
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();
   await expect.poll(async () => (await metrics(page)).map((metric) => metric.type)).toEqual(expect.arrayContaining(["first-frame", "first-speech"]));
-  // Eight prepared seconds satisfy startup; exhaust them before releasing the next scene.
+  // Exhaust the first prepared scene before releasing the next scene.
   await page.waitForTimeout(9_000);
   await page.getByRole("button", { name: "Release scene" }).click();
   await expect.poll(async () => (await metrics(page)).filter((metric) => metric.type === "stall").length).toBe(1);
@@ -48,11 +48,11 @@ test("does not count a deliberate pause as stream starvation", async ({ page }) 
 });
 
 
-test("does not start an incomplete stream below the prepared-seconds cushion", async ({ page }) => {
+test("starts a short prepared scene while the next scene is still pending", async ({ page }) => {
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/video-chat-performance.html?shortBuffer");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await expect.poll(async () => (await metrics(page)).some((metric) => metric.type === "first-speech")).toBe(true);
-  await expect(page.locator('[data-video-frame="ready"]')).toHaveCount(0);
+  await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();
   await page.getByRole("button", { name: "Release scene" }).click();
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();
 });
