@@ -4,6 +4,11 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.18
+
+- Preserve later valid shots after a malformed body record containing an unescaped newline, while keeping malformed initial containers rejected. Bound unfinished JSON records independently of provider chunk sizes.
+- Keep the outgoing scene visible while a canonical image backdrop prepares or reaches its bounded chapter recovery.
+
 ## 0.10.17
 
 - Let video playback prepare without waiting for an optional poster, while retaining actual video-frame and narration readiness checks.

@@ -206,6 +206,16 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           for (; cursor < buffer.length; cursor++) {
             const character = buffer[cursor];
             if (quoted) {
+              // After a valid brief, a physical newline inside a top-level
+              // string is never valid JSON.
+              // Reject this record without consuming the following independent one.
+              // Nested/array values stay whole; never extract their inner records.
+              if ((character === "\n" || character === "\r") && brief && depth === 1 && buffer[0] === "{") {
+                const raw = buffer.slice(0, cursor + 1);
+                buffer = buffer.slice(cursor + 1);
+                cursor = depth = 0; quoted = escaped = false;
+                return raw;
+              }
               if (escaped) escaped = false;
               else if (character === "\\") escaped = true;
               else if (character === '"') quoted = false;
@@ -226,12 +236,19 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           for await (const delta of upstream) {
             context.signal.throwIfAborted();
             if (typeof delta !== "string") throw new Error("The LLM adapter returned a non-text delta");
-            buffer += delta;
-            if (buffer.length > 32_768) throw new Error("Chat plan line exceeds the bounded stream limit");
-            let raw = takeFrame();
-            while (raw !== undefined) {
-              try { const part = line(raw); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
-              raw = takeFrame();
+            // Provider chunk boundaries are arbitrary. Bound the unfinished
+            // record, not a chunk that can contain many complete records.
+            for (let offset = 0; offset < delta.length;) {
+              const capacity = 32_768 - buffer.length;
+              if (capacity <= 0) throw new Error("Chat plan line exceeds the bounded stream limit");
+              const piece = delta.slice(offset, offset + capacity);
+              buffer += piece;
+              offset += piece.length;
+              let raw = takeFrame();
+              while (raw !== undefined) {
+                try { const part = line(raw); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
+                raw = takeFrame();
+              }
             }
           }
           if (buffer.trim()) { try { const part = line(buffer); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
