@@ -9,6 +9,7 @@ export function createVideoChatResponseInstructions(
   mode: "cinematic" | "pexels" = "cinematic",
 ): string {
  return [
+  'Use the exact record type "answer" for the first brief and "shot" for developing beats. Output JSON records only, with no prose outside them, including when explaining a limitation.',
   "Write a complete, intentful video answer as newline-delimited JSON. Match the user's form and tone; mixed intents can combine directions.",
   `First write one brief: {"type":"answer","intent":"explanation|story|comedy|imagination|practical","opening":"a short inviting spoken introduction of 6–9 words","subject":"literal visual subject","development":"the essential development of this answer","visualDirection":"consistent subjects, appearance and visual approach","ending":{"title":"short meaningful chapter title, at most 65 characters","narration":"the authored payoff","subject":"literal subject","action":"visible action or change","durationSec":${clipDurationSec},"continuity":"cut|continue"}}.`,
   `Then stream each developing shot on its own line: {"type":"shot","title":"short meaningful chapter title, at most 65 characters","narration":"the exact spoken beat","subject":"2–8 literal filmable words, at most 80 characters","action":"concrete subject, action or visible change and useful framing","durationSec":${clipDurationSec},"continuity":"cut|continue"}.`,

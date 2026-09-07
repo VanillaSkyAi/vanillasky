@@ -18,6 +18,45 @@ async function run(options: { allowance?: number; miss?: boolean; parts?: unknow
  return { events, calls, errors, system, user, scenes: events.flatMap(e => e.type === "scene.add" ? [e.data.scene] : []) };
 }
 describe("AI-first chat answer plan", () => {
+ it.each(["fictional-brief-label", "imaginary-outline-label"])("recovers a fully valid first brief labeled %s without losing authored beats", async type => {
+  const shots = [shot, { ...shot, narration: "A small green shoot reaches toward the sun." }, { ...shot, narration: "Flowers fill the garden as neighbours gather." }];
+  const result = await run({ parts: [{ ...brief, type }, ...shots] });
+  expect(result.scenes.map(scene => scene.narration)).toEqual([...shots.map(scene => scene.narration), ending.narration]);
+  expect(result.scenes.every(scene => scene.templateId === "cinemaMedia")).toBe(true);
+  expect(result.calls).toHaveLength(4);
+  expect(result.errors).toEqual([]);
+  expect(result.events.at(-1)).toMatchObject({ type: "response.complete", data: { finishReason: "stop" } });
+ });
+ it.each([
+  { opening: undefined }, { subject: 42 }, { development: [] }, { visualDirection: "x".repeat(601) },
+  { opening: "x".repeat(301) }, { subject: "x".repeat(81) }, { development: "x".repeat(2001) },
+  { visualDirection: {} }, { ending: { ...ending, subject: 42 } }, { ending: { ...ending, action: "x".repeat(601) } },
+  { opening: " " }, { ending: null }, { ending: { ...ending, narration: "x".repeat(2001) } },
+  { ending: { ...ending, action: false } }, { ending: { ...ending, durationSec: "5" } },
+  { ending: { ...ending, continuity: "unknown" } }, { ending: { ...ending, title: "x".repeat(66) } },
+  { type: "shot" }, { type: undefined }, { type: 7 },
+ ])("does not recover a mislabeled first brief with invalid content %j", async invalid => {
+  const result = await run({ parts: [{ ...brief, type: "fictional-brief-label", ...invalid }, shot] });
+  expect(result.scenes).toEqual([]);
+  expect(result.calls).toEqual([]);
+  expect(result.errors).toContain("Chat shot arrived before its answer brief");
+ });
+ it("does not recover a later mislabeled brief after a rejected record", async () => {
+  const result = await run({ parts: [[], { ...brief, type: "fictional-brief-label" }, shot] });
+  expect(result.scenes).toEqual([]);
+  expect(result.calls).toEqual([]);
+ });
+ it("does not replace a canonical brief with a later mislabeled brief", async () => {
+  const result = await run({ parts: [brief, { ...brief, type: "fictional-brief-label", ending: { ...ending, narration: "Wrong ending." } }, shot] });
+  expect(result.scenes.map(scene => scene.narration)).toEqual([shot.narration, ending.narration]);
+  expect(result.errors).toContain("Chat plan requires an answer brief followed by shots");
+ });
+ it("recovers a complete single-ending brief with empty development", async () => {
+  const result = await run({ allowance: 1, parts: [{ ...brief, type: "fictional-brief-label", development: "" }] });
+  expect(result.scenes.map(scene => scene.narration)).toEqual([ending.narration]);
+  expect(result.calls).toHaveLength(1);
+  expect(result.errors).toEqual([]);
+ });
  it("streams a uniform footage body and its authored ending without model lifecycle commands", async () => {
   const result = await run();
   expect(result.scenes.map(s => s.narration)).toEqual([shot.narration, ending.narration]);
