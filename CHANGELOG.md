@@ -8,6 +8,7 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 - Keep the opening chapter visible until the first body visual and narration are ready, without mounting a second player or replaying the opening.
 - Keep outgoing silent footage moving, or a chapter readable, while the next clip becomes playable; retain bounded chapter recovery, pause/cancel behavior and two-video preparation.
+- Recognize sustained native video motion, reuse fresh readiness across scene promotion, and preserve prepared footage during narration holds instead of rewinding it. Let silent clips loop natively within their finite scene.
 
 ## 0.10.10
 
