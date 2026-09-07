@@ -53,19 +53,21 @@ export async function findStockFootage(query: string, orientation: VideoOrientat
   const normalized = query.trim().toLowerCase().replace(/\s+/g, " ");
   const tokens = words(normalized);
   const selection = selectionHint(rawSelection);
-  const key = JSON.stringify({version: 3, orientation, query: normalized, selection});
+  const key = JSON.stringify({version: 4, orientation, query: normalized, selection});
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey || !tokens.length || normalized.length > 80 || tokens.length > 8) return null;
   const existing = cache.get(key);
   if (existing && existing.expires > Date.now()) return existing.media;
   const url = new URL("https://api.pexels.com/v1/videos/search");
-  url.search = new URLSearchParams({ query: normalized, orientation, per_page: "12", size: "medium" }).toString();
+  url.search = new URLSearchParams({ query: normalized, per_page: "12", size: "medium" }).toString();
   const response = await fetch(url, { headers: { Authorization: apiKey }, signal });
   signal.throwIfAborted();
   if (!response.ok) return null;
   const result = await response.json() as { videos?: PexelsVideo[] };
   signal.throwIfAborted();
-  let selected: StockVideo | null = null, bestScore = -1;
+  let selected: StockVideo | null = null, bestScore = -1, bestOrientation = -1;
+  const matchesOrientation = (file: {width?: number; height?: number}) => orientation === "portrait"
+    ? file.height! > file.width! : file.width! >= file.height!;
   for (const video of (Array.isArray(result.videos) ? result.videos : []).slice(0, 12)) {
     if (!pexelsUrl(video.url)) continue;
     const slug = new URL(video.url).pathname.replace(/^\/video\//, "");
@@ -88,12 +90,15 @@ export async function findStockFootage(query: string, orientation: VideoOrientat
     const files = (Array.isArray(video.video_files) ? video.video_files : []).filter(file =>
       file.file_type === "video/mp4" && pexelsUrl(file.link)
       && Number.isFinite(file.width) && Number.isFinite(file.height)
-      && Math.min(file.width!, file.height!) >= 360
-      && (orientation === "portrait" ? file.height! > file.width! : file.width! >= file.height!),
-    ).sort((a, b) => Math.abs(Math.max(a.width!, a.height!) - 1280) - Math.abs(Math.max(b.width!, b.height!) - 1280));
+      && Math.min(file.width!, file.height!) >= 360,
+    ).sort((a, b) => Number(matchesOrientation(b)) - Number(matchesOrientation(a)) || Math.abs(Math.max(a.width!, a.height!) - 1280) - Math.abs(Math.max(b.width!, b.height!) - 1280));
     const file = files[0];
-    if (!file || matches <= bestScore) continue;
+    if (!file) continue;
+    const orientationScore = Number(matchesOrientation(file));
+    // Prefer composition fit only when subject relevance is equal.
+    if (matches < bestScore || (matches === bestScore && orientationScore <= bestOrientation)) continue;
     bestScore = matches;
+    bestOrientation = orientationScore;
     selected = { url: file.link!, type: "video", ...(pexelsUrl(video.image) ? { posterUrl: video.image } : {}) };
   }
   // Bounded process-local cache; no request signal or credentials are retained.

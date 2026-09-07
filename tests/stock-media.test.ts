@@ -12,9 +12,9 @@ describe('Pexels starter search',()=>{
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(String(fetcher.mock.calls[0]?.[0])).toContain('per_page=12');
  });
- it('declines unrelated subjects and unusable orientation instead of guessing',async()=>{
+ it('keeps the relevant subject when only a different orientation is available',async()=>{
   vi.stubEnv('PEXELS_API_KEY','fixture-key');vi.stubGlobal('fetch',async()=>new Response(JSON.stringify({videos:[video(3,'robot-garden',1280,720),video(4,'cat',720,1280)]})));
-  expect(await findStockFootage('robot garden','portrait',new AbortController().signal)).toBeNull();
+  expect(await findStockFootage('robot garden','portrait',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/3.mp4'});
  });
  it('honors cancellation and missing credentials',async()=>{
   await expect(findStockFootage('ocean wave','landscape',AbortSignal.abort())).rejects.toThrow();
@@ -115,4 +115,28 @@ it('matches simple plural subjects without confusing unrelated nouns or bypassin
  }
  vi.stubGlobal('fetch',async()=>Response.json({videos:[video(921,'dog-running')]}));
  expect(await findStockFootage('dog exclusionfixture','landscape',new AbortController().signal,{subject:'dog',exclude:['dogs running']})).toBeNull();
+});
+
+it('uses a relevant landscape clip for portrait when no portrait rendition exists, in one bounded search', async () => {
+ vi.stubEnv('PEXELS_API_KEY', 'orientation-fixture');
+ const fetcher = vi.fn(async (_input: unknown) => Response.json({videos:[video(930,'turtle-walking',1280,720),video(931,'cat-sitting',720,1280)]}));
+ vi.stubGlobal('fetch',fetcher);
+ expect(await findStockFootage('turtle walking','portrait',new AbortController().signal,{subject:'turtle'})).toMatchObject({url:'https://videos.pexels.com/930.mp4'});
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ const url = new URL(String(fetcher.mock.calls[0]?.[0]));
+ expect(url.searchParams.has('orientation')).toBe(false);
+ expect(url.searchParams.get('per_page')).toBe('12');
+});
+
+
+it('prefers orientation only among equally relevant subjects and ranks matching renditions first', async () => {
+ vi.stubEnv('PEXELS_API_KEY','orientation-ties');
+ vi.stubGlobal('fetch',async()=>Response.json({videos:[video(932,'rabbit-running',1280,720),video(933,'rabbit-running',720,1280)]}));
+ expect(await findStockFootage('rabbit running','portrait',new AbortController().signal,{subject:'rabbit'})).toMatchObject({url:'https://videos.pexels.com/933.mp4'});
+ vi.stubGlobal('fetch',async()=>Response.json({videos:[video(934,'horse-field',720,1280),video(935,'horse-running-field',1280,720)]}));
+ expect(await findStockFootage('horse running field','portrait',new AbortController().signal,{subject:'horse',activity:'running'})).toMatchObject({url:'https://videos.pexels.com/935.mp4'});
+ const resource=video(936,'fox-running');
+ resource.video_files.push({link:'https://videos.pexels.com/936-portrait.mp4',width:720,height:1440,file_type:'video/mp4'});
+ vi.stubGlobal('fetch',async()=>Response.json({videos:[resource]}));
+ expect(await findStockFootage('fox running','portrait',new AbortController().signal)).toMatchObject({url:'https://videos.pexels.com/936-portrait.mp4'});
 });
