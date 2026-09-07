@@ -124,7 +124,7 @@ export function MountedSceneReadiness({
       check();
     };
     const resetMotion = (event: Event) => {
-      if (event.target === observed) { motionRevision++; previousMediaTime = undefined; forwardFrames = 0; }
+      if (event.target === observed || event.target === presented) { motionRevision++; previousMediaTime = undefined; forwardFrames = 0; }
     };
     for (const type of ["pause", "waiting", "seeking"]) root?.addEventListener(type, resetMotion, true);
     root?.addEventListener("vanillasky:video-frame-presented", onPresented);

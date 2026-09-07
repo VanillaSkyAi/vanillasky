@@ -212,3 +212,24 @@ it.each(["none", "forward", "pause", "waiting", "seeking", "rewind", "source", "
   expect(proof.consume(fault === "replacement" ? document.createElement("video") : video)).toBe(fault === "none" || fault === "forward");
   expect(proof.consume(video)).toBe(false);
 });
+
+it("invalidates shared first-frame preparation proof when that node waits before promotion", async () => {
+  vi.useFakeTimers();
+  const prepared = vi.fn();
+  const view = render(<div data-video-frame="ready">
+    <MountedSceneReadiness scene={scene} playing observeIncoming onReady={prepared} />
+    <div data-scene-layer="incoming" data-layer-scene-id={scene.id}><video src={String(scene.variables.mediaUrl)} /></div>
+  </div>);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, {
+    currentSrc: { configurable: true, value: video.src },
+    readyState: { configurable: true, value: 3 },
+    paused: { configurable: true, value: false },
+  });
+  act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
+  expect(prepared).toHaveBeenCalledOnce();
+  const proof = prepared.mock.calls[0][0];
+  video.dispatchEvent(new Event("waiting"));
+  Object.defineProperty(video, "readyState", { configurable: true, value: 2 });
+  expect(proof.consume(video)).toBe(false);
+});
