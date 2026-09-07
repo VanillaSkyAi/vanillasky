@@ -51,7 +51,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [exhaustedKey, setExhaustedKey] = useState<string>();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const presentedVideoUrl = useRef<string | undefined>(undefined);
+  const playableVideoUrl = useRef<string | undefined>(undefined);
   const startedVideoUrl = useRef<string | undefined>(undefined);
   const startedPlaybackId = useRef<string | undefined>(undefined);
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
@@ -73,7 +73,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const video = videoRef.current;
     if (!video) return;
     const expectedSource = video.getAttribute("src") === mediaUrl ? video.src : undefined;
-    let awaitingFirstFrame = presentedVideoUrl.current !== mediaUrl || video.currentSrc !== expectedSource;
+    let awaitingPlayback = playableVideoUrl.current !== mediaUrl || video.currentSrc !== expectedSource;
     let previousTime = video.currentTime;
     let forwardFrames = 0;
     let stopped = false;
@@ -82,8 +82,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const observe = (_now?: number, metadata?: VideoFrameCallbackMetadata) => {
       if (stopped) return;
       const currentSource = video.currentSrc === expectedSource;
-      if (currentSource && awaitingFirstFrame && (metadata || presentedVideoUrl.current === mediaUrl)) {
-        awaitingFirstFrame = false;
+      if (currentSource && awaitingPlayback && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+        playableVideoUrl.current = mediaUrl;
+        awaitingPlayback = false;
         clearTimeout(deadline);
         deadline = setTimeout(fail, 1000);
       }
@@ -105,10 +106,11 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // A seek can emit waiting without another playing event, even while frames
     // resume. Keep the decoder visible and observe motion directly. A real
     // stall gets the player's authored chapter instead of an endless spinner.
-    const fail = () => { if (!stopped) { stopped = true; unavailable(awaitingFirstFrame ? "frame-readiness-timeout" : "stalled-media"); } };
+    const fail = () => { if (!stopped) { stopped = true; unavailable(awaitingPlayback ? "frame-readiness-timeout" : "stalled-media"); } };
     // Initial network/decode work has the same bound as mounted readiness.
-    // Only a source that has presented a frame can be judged as stalled motion.
-    let deadline = setTimeout(fail, awaitingFirstFrame ? 8000 : 1000);
+    // A decoded still with no future data is still cold, even after its first
+    // frame callback. Keep the short bound only after playback was available.
+    let deadline = setTimeout(fail, awaitingPlayback ? 8000 : 1000);
     observe();
     return () => {
       stopped = true;
@@ -128,7 +130,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const markPresented = () => {
       if (stopped || !video.isConnected || presentationRef.current.key !== videoPresentationKey
         || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return false;
-      presentedVideoUrl.current = mediaUrl;
+      if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) playableVideoUrl.current = mediaUrl;
       video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
       onReadyRef.current?.();
       setDecodedVideoUrl(mediaUrl);
@@ -262,7 +264,12 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
         onPlay={enforceRequestedPause}
-        onPlaying={enforceRequestedPause}
+        onPlaying={event => {
+          if (event.currentTarget.currentSrc === event.currentTarget.src
+            && event.currentTarget.getAttribute("src") === mediaUrl
+            && event.currentTarget.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) playableVideoUrl.current = mediaUrl;
+          enforceRequestedPause(event);
+        }}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
         onError={onError}
         data-media-position={mediaPosition}

@@ -32,11 +32,15 @@ export function MountedSceneReadiness({ scene, playing, fallback = false, onFail
         if (!mediaUrl || scene.variables.mediaType === "gradient") { finish(); return; }
         if (isVideo) {
           const video = layer.querySelector('video');
-          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= 2) {
+          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
             if (presented === video) { finish(undefined, true); return; }
             observed = video;
             if (video.requestVideoFrameCallback) {
-              callback = video.requestVideoFrameCallback(() => finish(undefined, true));
+              callback = video.requestVideoFrameCallback(() => {
+                callback = undefined;
+                presented = video;
+                check();
+              });
               return;
             }
             finish(undefined, true); return;
