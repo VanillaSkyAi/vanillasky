@@ -53,3 +53,28 @@ describe('Pexels starter search',()=>{
  });
 
 });
+
+it('keeps essential subjects, exclusions and hint cache policies distinct',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','hint-fixture');
+ const fetcher=vi.fn(async()=>Response.json({videos:[video(80,'man-beach'),video(81,'dog-running-beach')]}));vi.stubGlobal('fetch',fetcher);
+ const signal=new AbortController().signal;
+ expect(await findStockFootage('beach','landscape',signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/81.mp4'});
+ expect(await findStockFootage('beach','landscape',signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/81.mp4'});
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ expect(await findStockFootage('beach','landscape',signal,{subject:'cat'})).toBeNull();
+ expect(await findStockFootage('beach','landscape',signal,{subject:'dog',exclude:['running']})).toBeNull();
+ expect(fetcher).toHaveBeenCalledTimes(3);
+});
+it('ranks subject and activity metadata before unknown without claiming depiction proof',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','hint-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[
+  {...video(82,''),url:'https://www.pexels.com/video/82/'},video(83,'golfer-miniature-golf-putting'),video(84,'golfer-full-swing-golf-club')
+ ]}));
+ expect(await findStockFootage('golf swing','landscape',new AbortController().signal,{subject:'golfer',activity:'full swing',equipment:'golf club',exclude:['miniature golf','putting']})).toMatchObject({url:'https://videos.pexels.com/84.mp4'});
+ vi.stubGlobal('fetch',async()=>Response.json({videos:[{...video(85,''),url:'https://www.pexels.com/video/85/'}]}));
+ expect(await findStockFootage('dog ocean','landscape',new AbortController().signal,{subject:'dog'})).toMatchObject({url:'https://videos.pexels.com/85.mp4'});
+});
+
+it('keeps curly-apostrophe essential subjects restrictive',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','curly-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[video(90,'dog-toys-beach')]}));
+ expect(await findStockFootage('toys beach','landscape',new AbortController().signal,{subject:'children’s toys'})).toBeNull();
+});

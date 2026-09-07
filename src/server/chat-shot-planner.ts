@@ -5,6 +5,8 @@ import { continueAfterOpening } from "./opening-continuity.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver } from "./media-resolver.js";
 
+interface StockSelection { subject: string; activity?: string; equipment?: string; exclude?: string[] }
+
 interface Shot {
   narration: string;
   title: string;
@@ -12,6 +14,7 @@ interface Shot {
   action: string;
   durationSec: number;
   continuity: "cut" | "continue";
+  stockSelection?: StockSelection;
 }
 interface Brief {
   opening: string;
@@ -24,6 +27,22 @@ const object = (value: unknown): Record<string, unknown> | undefined => value &&
 function text(value: unknown, maximum: number): string {
   // Never truncate spoken content or turn a partial scientific claim into a fact.
   return typeof value === "string" && value.trim().length <= maximum ? value.trim() : "";
+}
+function readStockSelection(value: unknown): StockSelection | undefined {
+  const item = object(value);
+  const phrase = (candidate: unknown): string | undefined => {
+    if (typeof candidate !== "string") return;
+    const normalized = candidate.trim().replace(/\s+/gu, " ");
+    if (!normalized || normalized.length > 48 || !/^[\p{L}\p{N} '’-]+$/u.test(normalized)) return;
+    const words = normalized.match(/[\p{L}\p{N}]+/gu) ?? [];
+    return words.length >= 1 && words.length <= 4 ? normalized : undefined;
+  };
+  const subject = phrase(item?.subject);
+  if (!subject) return;
+  const activity = phrase(item?.activity), equipment = phrase(item?.equipment);
+  const exclude = Array.isArray(item?.exclude) && item.exclude.length <= 3
+    ? item.exclude.map(phrase).filter((value): value is string => value !== undefined) : [];
+  return {subject, ...(activity ? {activity} : {}), ...(equipment ? {equipment} : {}), ...(exclude.length ? {exclude} : {})};
 }
 function chapterSubject(subject: string): string {
   const normalized = subject.replace(/\s+/gu, " ");
@@ -42,6 +61,7 @@ function readShot(value: unknown, clipDurationSec: number, answerSubject = ""): 
   return {
     narration,
     title,
+    stockSelection: readStockSelection(item?.stockSelection),
     subject,
     action: text(item?.action, 600),
     durationSec: typeof item?.durationSec === "number" && Number.isFinite(item.durationSec) ? Math.min(clipDurationSec, Math.max(2, item.durationSec)) : clipDurationSec,
@@ -62,6 +82,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
   resolveMedia?: MediaResolver;
   mediaConcurrency: number;
   generatedClipDurationSec?: number;
+  mode?: "cinematic" | "pexels";
   prepareScene?: (scene: { sceneId: string; narration: string }) => void;
 }): VideoPlanner {
   const clipDurationSec = options.generatedClipDurationSec ?? 5;
@@ -94,7 +115,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           lastNarration = narration;
           return { type: "scene.add", ...(closer ? { placement: "closer" as const } : {}), scene: {
             id: `${context.request.requestId}-shot-${++index}`, templateId: "cinemaMedia",
-            variables: { fallbackText: shot.title, mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
+            variables: { ...(options.mode === "pexels" && shot.stockSelection ? {stockSelection: shot.stockSelection} : {}), fallbackText: shot.title, mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
               brief?.visualDirection,
               shot.action,
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",

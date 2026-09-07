@@ -37,7 +37,7 @@ export const handleVideoChat = createVideoChatHandler({
     return text;
   },
   searchMedia: process.env.PEXELS_API_KEY
-    ? (query, { orientation, signal }) => findStockFootage(query, orientation, signal)
+    ? (query, { orientation, signal, scene }) => findStockFootage(query, orientation, signal, scene?.variables.stockSelection)
     : undefined,
   ...providers,
   welcome: {

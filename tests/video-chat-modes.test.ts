@@ -4,6 +4,30 @@ import { decodeVideoSse } from '../src/protocol/sse';
 import { chatShot, streamChatShots } from './helpers/chat-shot-fixture';
 
 describe('explicit footage modes', () => {
+  it.each(['cinematic', 'pexels'] as const)('delivers audience-aware guidance and mode-specific stock planning in %s', async mode => {
+    let instructions = '';
+    const search = vi.fn(async (_query: string) => null);
+    const generate = vi.fn(async (_query: string) => null);
+    const ending = {title:'Enough ocean',narration:'He decided the ocean was a terrible idea.',subject:'dog playing ocean waves',action:'A dog backs away from the surf.',durationSec:5,continuity:'cut'};
+    const handler = createVideoChatHandler({authorize:'none',heartbeatMs:false,generateText:async()=>'',searchMedia:search,generateVideo:generate,
+      streamText:async function* (context) {
+        instructions = context.systemPrompt;
+        yield JSON.stringify({type:'answer',opening:'One dog is about to reconsider everything.',subject:'dog at ocean',development:'',visualDirection:'Playful observational comedy.',ending})+'\n';
+      },
+    });
+    const response = await handler(new Request('https://app.example/?action=response',{method:'POST',body:JSON.stringify({prompt:'Tell a tiny joke about a dog meeting the ocean.',mode})}));
+    const events=[];for await(const event of decodeVideoSse(response.body!))events.push(event);
+    expect(instructions).toContain('For beginners, explain an unavoidable technical term');
+    expect(instructions).toContain('Qualify advice that depends on equipment, task or conditions');
+    expect(instructions.includes('Stock queries must retain the essential subject')).toBe(mode === 'pexels');
+    expect(instructions.includes('Include stockSelection on every shot and the saved ending when the essential subject is known')).toBe(mode === 'pexels');
+    expect(instructions).toContain('stop on the payoff without explaining the joke');
+    const called = mode === 'pexels' ? search : generate;
+    expect(called).toHaveBeenCalledOnce();
+    expect(called.mock.calls[0]?.[0]).toBe(ending.subject);
+    expect(mode === 'pexels' ? generate : search).not.toHaveBeenCalled();
+    expect(events.filter(event=>event.type==='scene.add').map(event=>event.data.scene.narration)).toEqual([ending.narration]);
+  });
   it.each([false, true])('advertises stock mode only when its resolver is configured (%s)', async configured => {
     const handler = createVideoChatHandler({ authorize: 'none', generateText: async () => '', streamText: () => streamChatShots(),
       ...(configured ? { searchMedia: async () => null } : {}) });

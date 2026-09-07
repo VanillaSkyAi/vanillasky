@@ -4,6 +4,14 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.9
+
+- Use essential subject hints and explicit exclusions when selecting starter Pexels footage, and isolate cached selections by those hints. Metadata-free results remain unverified provider-ranked fallbacks.
+
+- Forward bounded optional subject/activity hints to Pexels resolvers from the existing planning stream, without adding fields to emitted scenes or AI-video requests.
+
+- Clarify beginner instructions and condition-dependent advice, and retain essential subjects and activities in Pexels search planning.
+
 ## 0.10.8
 
 - Reassert a requested pause if native video playback starts late, preserving footage during delayed narration and keeping viewer pauses in place.
