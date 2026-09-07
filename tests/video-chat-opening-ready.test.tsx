@@ -33,6 +33,8 @@ it.each([false,true])("keeps the same opening while one player prepares, includi
     await act(async () => {await new Promise(resolve=>setTimeout(resolve,40));});
   }
   expect(view.container.querySelector("[data-opening-chapter]")).toBeNull();
+  await act(async () => {fixture.player!.onSceneChange?.({...scene,id:"later"},1);});
+  expect(cue).toHaveBeenCalledTimes(2);
 });
 it.each(["error","cancelled"])("stops a waiting handoff on %s and ignores an old player cue", async status => {
   const view=setup();
@@ -53,16 +55,20 @@ it("invalidates a pending observer on replacement and unmount", async () => {
   vi.stubGlobal("cancelAnimationFrame",cancelled);
   const view=setup();
   let ready=false;
-  fixture.chat={...fixture.chat,status:"playing",playerKey:1,playerProps:{narrationReady:()=>ready}};
+  const oldCue=vi.fn();
+  fixture.chat={...fixture.chat,status:"playing",playerKey:1,playerProps:{onSceneChange:oldCue,narrationReady:()=>ready}};
   view.rerender(<VideoChat />);
   await act(async()=>{fixture.player!.onSceneChange?.({...scene,templateId:"cinemaMedia"},0);});
+  const stalePlayer=fixture.player!;
   const stale=callbacks.get(sequence)!;
   const oldId=sequence;
   fixture.chat={...fixture.chat,playerKey:2};
   view.rerender(<VideoChat />);
   expect(cancelled).toHaveBeenCalledWith(oldId);
   ready=true;
-  await act(async()=>{stale(20);});
+  oldCue.mockClear();
+  await act(async()=>{stale(20); stalePlayer.onSceneChange?.(scene,1);});
+  expect(oldCue).not.toHaveBeenCalled();
   expect(view.container.querySelector("[data-opening-chapter]")).not.toBeNull();
   ready=false;
   await act(async()=>{fixture.player!.onSceneChange?.(scene,0);});

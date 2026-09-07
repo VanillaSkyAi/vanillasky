@@ -139,19 +139,21 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const showing = chat.playerProps != null;
   const handoffKey = `${shown?.id ?? ""}:${chat.playerKey}`;
   const [presentedBody, setPresentedBody] = useState<string>();
-  const handoff = useRef({key: handoffKey, active: false, frame: 0});
+  const handoff = useRef({key: handoffKey, live: showing, active: false, frame: 0});
+  const handoffStopped = chat.status === "error" || chat.status === "cancelled";
   const waitingForBody = showing && presentedBody !== handoffKey;
   const openingChapter = Boolean(shown?.prompt) && (!showing || waitingForBody)
     && chat.status !== "error" && chat.status !== "cancelled" && chat.status !== "ended";
   useLayoutEffect(() => {
-    const current = {key: handoffKey, active: openingChapter && showing, frame: 0};
+    const current = {key: handoffKey, live: showing && !handoffStopped, active: openingChapter && showing, frame: 0};
     handoff.current = current;
-    return () => {current.active = false; cancelAnimationFrame(current.frame);};
-  }, [handoffKey, openingChapter, showing]);
+    return () => {current.live = false; current.active = false; cancelAnimationFrame(current.frame);};
+  }, [handoffKey, openingChapter, showing, handoffStopped]);
   const cueBody: NonNullable<NonNullable<typeof chat.playerProps>["onSceneChange"]> = (scene, index) => {
-    chat.playerProps?.onSceneChange?.(scene, index);
     const current = handoff.current;
-    if (!current.active || current.key !== handoffKey) return;
+    if (!current.live || current.key !== handoffKey) return;
+    chat.playerProps?.onSceneChange?.(scene, index);
+    if (!current.active) return;
     cancelAnimationFrame(current.frame);
     // The player cues only after its actual visual readiness gate. Keep the
     // opening above that mounted player until the existing voice gate settles.
