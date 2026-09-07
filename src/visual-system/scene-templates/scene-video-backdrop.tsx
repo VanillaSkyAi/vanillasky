@@ -216,7 +216,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (!video) return;
     if (!isPlaying) {
       video.pause();
-      if (rewindPreroll && video.currentTime > 0) video.currentTime = 0;
+      // Keep silent prepared data intact through narration startup. Seeking
+      // back a few milliseconds can trigger another cold Range request.
+      if (rewindPreroll && !resolvedMuted && video.currentTime > 0) video.currentTime = 0;
       return;
     }
     if (startedPlaybackId.current === playbackId) {
@@ -237,7 +239,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
     event.currentTarget.pause();
-    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+    if (rewindPreroll && !resolvedMuted && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
   };
 
   const mediaStyle: React.CSSProperties = {

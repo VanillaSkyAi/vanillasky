@@ -127,7 +127,7 @@ it("never repeats audible dialogue as a continuity bridge", () => {
   view.unmount(); vi.restoreAllMocks();
 });
 
-it("rewinds decoder preroll for narration onset, while leaving user pauses untouched", () => {
+it("preserves decoded silent footage through narration and viewer pauses", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -136,7 +136,7 @@ it("rewinds decoder preroll for narration onset, while leaving user pauses untou
   const video = view.container.querySelector("video")!;
   video.currentTime = .2;
   view.rerender(shot(false, true));
-  expect(video.currentTime).toBe(0);
+  expect(video.currentTime).toBe(.2);
   view.rerender(shot(true, false));
   video.currentTime = 3;
   view.rerender(shot(false, false));
@@ -363,7 +363,7 @@ for (const event of ["play", "playing"] as const) it.each([false, true])(`reasse
   video.currentTime = .2;
   fireEvent[event](video);
   expect(pause).toHaveBeenCalledOnce();
-  expect(video.currentTime).toBe(preparingNarration ? 0 : .2);
+  expect(video.currentTime).toBe(.2);
   view.rerender(<SceneVideoBackdrop {...props} />);
   pause.mockClear();
   fireEvent[event](video);
@@ -448,4 +448,17 @@ it("uses native looping only for playing silent footage with a finite scene budg
   expect(video.loop).toBe(true);
   view.unmount();
   expect(video.getAttribute("src")).toBeNull();
+});
+
+
+it("preserves audible preroll rewind while silent preparations retain their decoded position", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const props = { mediaUrl: "/dialogue.mp4", progress: 0, muted: false, preparingNarration: true };
+  const view = render(<SceneVideoBackdrop {...props} isPlaying />);
+  const video = view.container.querySelector("video")!;
+  video.currentTime = .04;
+  view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
+  expect(video.currentTime).toBe(0);
 });

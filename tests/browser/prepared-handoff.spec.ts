@@ -80,6 +80,9 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
           && event.at < firstSurface!.at).every(event => event.active === String(index - 1))).toBe(true);
       }
       const cue = events.find(e=>e.kind==='cut' && e.index===index)!;
+      const speechEnd = events.filter(event => event.kind === 'ended')[index];
+      expect(events.filter(event => event.kind === 'video-seeking' && event.id === frames[0].id
+        && event.at >= cue.at && event.at < speechEnd.at)).toHaveLength(0);
       // Promotion reuses the same node's already-presented incoming frame;
       // its first callback labelled active may occur after narration begins.
       const proof = events.filter(event => event.kind === 'frame'
