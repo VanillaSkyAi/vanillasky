@@ -144,6 +144,13 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const waitingForBody = showing && presentedBody !== handoffKey;
   const openingChapter = Boolean(shown?.prompt) && (!showing || waitingForBody)
     && chat.status !== "error" && chat.status !== "cancelled" && chat.status !== "ended";
+  const [preparingKey, setPreparingKey] = useState<string>();
+  useEffect(() => {
+    setPreparingKey(undefined);
+    if (!openingChapter || !shown?.opening || chat.speaking) return;
+    const timer = setTimeout(() => setPreparingKey(shown.id), 1000);
+    return () => clearTimeout(timer);
+  }, [openingChapter, shown?.opening, shown?.id, chat.speaking]);
   useLayoutEffect(() => {
     const current = {key: handoffKey, live: showing && !handoffStopped, active: openingChapter && showing, frame: 0};
     handoff.current = current;
@@ -236,7 +243,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     onKeyDownCapture={controls.reveal}
   >
     <header className="chrome" {...controlEvents}>
-      <div className="session-brand"><Logo />{(shown?.mode ?? selectedMode ?? options.mode) === "pexels" && <a className="media-credit" href="https://www.pexels.com" target="_blank" rel="noopener noreferrer">Videos by Pexels</a>}</div>
+      <div className="session-brand"><a className="home-link" href="/" aria-label="Home"><Logo /></a>{(shown?.mode ?? selectedMode ?? options.mode) === "pexels" && <a className="media-credit" href="https://www.pexels.com" target="_blank" rel="noopener noreferrer">Pexels</a>}</div>
       <div className="group">
         <button
           ref={historyButtonRef}
@@ -272,7 +279,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
 
     <div className="stage-area">
       <div className="stage" style={{ background: "#000" }}>
-        {openingChapter && <OpeningChapter key={shown!.id} title={openingTitle.length > 120 ? `${openingTitle.slice(0, 117).trimEnd()}…` : openingTitle} />}
+        {openingChapter && <OpeningChapter key={shown!.id} preparing={preparingKey === shown!.id && !chat.speaking} title={openingTitle.length > 120 ? `${openingTitle.slice(0, 117).trimEnd()}…` : openingTitle} />}
         {!showing && chat.turns.length === 0 && <Welcome data={chat.welcome} onAsk={ask} title={welcomeTitle} />}
         {chat.playerProps && <div className="player-fit" style={{ width: stageOrientation === "portrait" ? "min(100cqw, 56.25cqh)" : "min(100cqw, 177.7778cqh)" }}><VideoPlayer
           key={chat.playerKey}

@@ -16,6 +16,15 @@ describe("concise creative answer guidance", () => {
     expect(instructions).not.toContain("inviting spoken introduction");
   });
 
+  it("plans stock illustrations per beat without weakening practical subject requirements", () => {
+    const stock = createVideoChatResponseInstructions(false, false, 3, 5, "pexels");
+    expect(stock).toContain("Choose a separate stock subject for each beat");
+    expect(stock).toContain("relevant present-day evidence, objects, environments or analogous visible processes");
+    expect(stock).not.toMatch(/dinosaur|prehistoric|asteroid/i);
+    expect(stock).toContain("Do not use illustrative freedom to replace a required practical action");
+    expect(createVideoChatResponseInstructions(true)).not.toContain("Choose a separate stock subject for each beat");
+  });
+
   // Authored examples exercise the real protocol and recovery path, not a model.
   for (const example of cases) it.each(["cinematic", "pexels"] as const)(`${example.intent}: ${example.subject} fixture preserves its complete treatment in %s`, async mode => {
     const ending = example.beats.at(-1)!;

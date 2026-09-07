@@ -2,7 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { UseVideoChatOptions } from "../src/react";
 
@@ -61,6 +61,25 @@ describe("VideoChat", () => {
     expect(body.style?.generatedLook).toBe(generatedLook);
   });
 
+  it("announces preparation one second after opening speech finishes", async () => {
+    const { VideoChat } = await import("../src/react");
+    const base = chatFetcher();
+    let finishOpening = () => {};
+    render(<VideoChat options={{ fetcher: (input, init) => new URL(String(input), "https://app.example").searchParams.get("action") === "response"
+      ? new Promise<Response>(() => {}) : base(input, init),
+      voice: { prepare: async () => ({seconds: 1}), speak: () => new Promise<void>(resolve => { finishOpening = resolve; }),
+        pause() {}, resume() {}, setMuted() {} },
+    }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
+    await waitFor(() => expect(screen.getByText("Tonight, the impossible feels close enough to touch.")).toBeTruthy());
+    expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
+    await act(async () => { finishOpening(); });
+    expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 800)); });
+    expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
+    expect((await screen.findByRole("status", { name: "Video preparation" })).textContent).toContain("Preparing your video…");
+  });
+
   it("renders the complete general-purpose experience from the React entry", async () => {
     const { VideoChat } = await import("../src/react");
     const options: UseVideoChatOptions = { fetcher: chatFetcher() };
@@ -68,6 +87,7 @@ describe("VideoChat", () => {
     const { container } = render(<VideoChat options={options} className="customer-shell" />);
 
     expectTypeOf(VideoChat).toBeFunction();
+    expect(screen.getByRole("link", {name: "Home"}).getAttribute("href")).toBe("/");
     const root = container.querySelector(".vanillasky-video-chat");
     expect(root?.hasAttribute("data-theme")).toBe(false);
     expect(root?.classList.contains("customer-shell")).toBe(true);
