@@ -82,6 +82,26 @@ function readShot(value: unknown, clipDurationSec: number, answerSubject = ""): 
     continuity: item?.continuity === "continue" ? "continue" : "cut",
   };
 }
+/** Recover only a complete first brief; never infer missing authored content. */
+function recoverFirstBrief(part: Record<string, unknown> | undefined, clipDurationSec: number): Brief | undefined {
+  if (!part || typeof part.type !== "string" || !part.type.trim() || part.type === "answer" || part.type === "shot") return;
+  const bounded = (value: unknown, maximum: number, allowEmpty = false): value is string =>
+    typeof value === "string" && value.trim().length <= maximum && (allowEmpty || Boolean(value.trim()));
+  if (!["opening", "subject", "development", "visualDirection", "ending"].every(key => Object.hasOwn(part, key))
+    || !bounded(part.opening, 300) || !bounded(part.subject, 80)
+    || !bounded(part.development, 2_000, true) || !bounded(part.visualDirection, 600)) return;
+  const ending = object(part.ending);
+  if (!ending || !bounded(ending.narration, 2_000)
+    || !bounded(ending.subject, 80, true) || !bounded(ending.action, 600, true)
+    || (Object.hasOwn(ending, "title") && !bounded(ending.title, 65))
+    || typeof ending.durationSec !== "number" || !Number.isFinite(ending.durationSec)
+    || (ending.continuity !== "cut" && ending.continuity !== "continue")) return;
+  const subject = text(part.subject, 80);
+  // Preserve the regular shot contract: authored subject/title fallback and
+  // bounded duration normalization. Invalid content above is never defaulted.
+  return { opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
+    visualDirection: text(part.visualDirection, 600), ending: readShot(ending, clipDurationSec, subject) };
+}
 function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamText"]>, textStream: AsyncIterable<string>): ReturnType<TextDeltaVideoPlannerOptions["streamText"]> {
   if (!(typeof source === "object" && source != null && "textStream" in source)) return textStream;
   return new Proxy({ textStream } as TextDeltaVideoSource, {
@@ -116,7 +136,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
       const upstream = typeof source === "object" && source != null && "textStream" in source ? source.textStream : source;
       const translated = (async function* () {
         let brief: Brief | undefined, buffer = "", index = 0, bodyDuration = 0, lastNarration = "";
-        let firstBody = true;
+        let firstBody = true, recordsSeen = 0;
         const reject = (cause: unknown) => {
           incomplete.add(context);
           const error = cause instanceof Error ? cause : new Error(String(cause));
@@ -141,8 +161,15 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
         const line = (raw: string): VideoPlanPart | undefined => {
           const trimmed = raw.trim();
           if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
+          const firstRecord = recordsSeen++ === 0;
           const value: unknown = JSON.parse(trimmed);
           const part = object(value);
+          const recovered = firstRecord && !brief && index === 0 ? recoverFirstBrief(part, clipDurationSec) : undefined;
+          if (recovered) {
+            brief = recovered;
+            options.publishOpening({ line: brief.opening, keyword: brief.subject });
+            return;
+          }
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
             brief = { opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };

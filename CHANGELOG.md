@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.15
+
+- Recover a mislabeled first chat brief only when its complete authored content validates, preserving its shots and ending. Keep malformed JSON and incomplete or later records rejected.
+
 ## 0.10.14
 
 - Attach content-free record-shape diagnostics to rejected chat plans without accepting alternate formats or exposing model output.
