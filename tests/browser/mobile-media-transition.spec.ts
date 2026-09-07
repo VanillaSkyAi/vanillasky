@@ -172,9 +172,24 @@ test("cold replacement footage decodes before its narration cue without losing t
     expect(cue.readyState).toBeGreaterThanOrEqual(2);
     expect(firstFrame).toBeDefined();
     expect(cue.at).toBeGreaterThanOrEqual(firstFrame!.at);
-    const coldBoundary = events.find(event => event.kind === "animation-frame" && event.sceneId === "second-video");
+    const coldBoundary = events.find(event => event.kind === "animation-frame"
+      && Number.parseFloat(String(event.playerTime)) >= 4 && event.sceneId === "first-video");
+    const revealed = events.find(event => event.kind === "animation-frame" && event.sceneId === "second-video");
     expect(coldBoundary).toBeDefined();
+    expect(revealed).toBeDefined();
     expect(firstFrame!.at - coldBoundary!.at).toBeGreaterThan(200);
+    // The cold target must prepare behind moving outgoing footage, not become
+    // visible as a still while its data arrives. Decode alone is insufficient.
+    expect(revealed!.at).toBeGreaterThanOrEqual(firstFrame!.at);
+    const revealedVideos = revealed!.videos as {sceneId?: string; layer?: string; readyState?: number}[];
+    expect(revealedVideos.find(video => video.sceneId === "second-video" && video.layer === "active")?.readyState).toBeGreaterThanOrEqual(3);
+    const outgoing = events.filter(event => event.kind === "presented-frame" && event.sceneId === "first-video"
+      && event.layer === "active" && event.at >= coldBoundary!.at && event.at <= revealed!.at);
+    expect(outgoing.length).toBeGreaterThanOrEqual(3);
+    const observationTimes = [coldBoundary!.at, ...outgoing.map(event => event.at), revealed!.at];
+    expect(Math.max(...observationTimes.slice(1).map((at,index) => at - observationTimes[index]!))).toBeLessThanOrEqual(400);
+    const motion = outgoing.slice(1).reduce((seconds,event,index) => seconds + Math.max(0, Number(event.mediaTime) - Number(outgoing[index]!.mediaTime)),0);
+    expect(motion).toBeGreaterThan(.15);
     const prepared = events.find(event => event.kind === "connected" && event.sceneId === "second-video" && event.layer === "incoming");
     expect(prepared).toBeDefined();
     expect(String(cue.videoId)).toBe(String(prepared!.videoId));
@@ -184,7 +199,7 @@ test("cold replacement footage decodes before its narration cue without losing t
     await expect.poll(() => page.evaluate(() => (window.__mobileMediaTransitionProbe ?? []).filter(event => event.kind === "presented-frame" && event.sceneId === "second-video" && Number(event.mediaTime) > .5).length)).toBeGreaterThanOrEqual(3);
   } finally {
     const events = await page.evaluate(() => window.__mobileMediaTransitionProbe ?? []);
-    const cut = events.find(event => event.kind === "animation-frame" && event.sceneId === "second-video");
+    const cut = events.find(event => event.kind === "animation-frame" && Number.parseFloat(String(event.playerTime)) >= 4 && event.sceneId === "first-video");
     const frame = events.find(event => event.kind === "presented-frame" && event.sceneId === "second-video" && String(event.currentSrc).includes(secondFile));
     const proof = { codec, delayMs, requests, handoffWaitMs: cut && frame ? frame.at - cut.at : null, events };
     await writeFile(info.outputPath("cold-source-handoff.json"), JSON.stringify(proof));
