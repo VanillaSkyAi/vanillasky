@@ -567,6 +567,20 @@ describe("useVideoChat", () => {
     });
   });
 
+  it.each([['pexels', 'pexels'], ['unknown', 'cinematic']] as const)("records the host's resolved mode %s", async (resolved, expected) => {
+    const { useVideoChat } = await import("../src/react");
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = async (input, init) => {
+      if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return base(input, init);
+      const response = responseStream("resolved-mode", [scene("mode", "Mode", "Mode")]);
+      response.headers.set("x-vanillasky-resolved-video-mode", resolved);
+      return response;
+    };
+    const { result } = renderHook(() => useVideoChat({templates: kit, fetcher, voice: fakeVoice(), mode: "cinematic"}));
+    await act(async () => { await result.current.ask("Explain a topic"); });
+    expect(result.current.shownTurn?.mode).toBe(expected);
+  });
+
   it("preserves the requested mode while capabilities are still loading", async () => {
     const { useVideoChat } = await import("../src/react");
     let releaseCapabilities!: (response: Response) => void;

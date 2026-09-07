@@ -116,3 +116,13 @@ Grouped playback requires prepared speech with `supportsOffsets: true`. The gene
 For standalone playback, provide a synchronous `narrationReady` callback alongside your `onSceneChange` narration handler. Return false while a new grouped paragraph awaits actual audio onset, then true from the voice's `onStart` callback; also release readiness on completion, failure, or interruption. Abort pending narration from the player's `onError` handler. `VideoChat` wires this automatically through its internal narration hook. For grouped paragraphs, the voice must invoke `onStart` when audio actually begins, not when audio is prepared or `play()` is requested. The first visual cue starts narration, then the playhead waits for that onset without pausing the voice. A missing onset stops the player with an error after eight seconds of active waiting. For prepared audio, also provide `narrationTime(scene)` using the active voice's optional `getCurrentTime()`: return paragraph-relative seconds (including the seek offset) for a group, or scene-relative seconds otherwise. This makes the actual audio clock authoritative through cold-start delays and mid-speech stalls. Return `undefined` for silent scenes or unavailable clocks; after ordinary narration completes, release to wall time so the authored reading hold can finish. `VideoChat` coordinates these callbacks automatically. A clock that stops advancing for eight active seconds produces an error; visual-readiness holds and deliberate pauses do not consume that timeout. Voices without an observable playback clock retain wall-time playback.
 
 Readiness holds pause narration together with the picture. The same audio continues across adjacent group scenes; replay starts a new playback session. This preserves words through delayed media rather than promising uninterrupted playback on every network.
+
+### Host-resolved chat footage mode
+
+A chat host that changes the requested footage mode before planning may return
+`x-vanillasky-resolved-video-mode: pexels` or `cinematic` on a successful SSE
+response. The default chat client records that mode for the active turn and its
+playback metrics. Unknown values are ignored. Authorization, allowance checks
+and provider selection remain host-owned; the header never grants access or
+changes a spending limit. A mixed response that changes footage source partway
+through retains its initially resolved mode.
