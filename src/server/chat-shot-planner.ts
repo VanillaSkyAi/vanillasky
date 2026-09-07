@@ -24,6 +24,20 @@ interface Brief {
   ending?: Shot;
 }
 const object = (value: unknown): Record<string, unknown> | undefined => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+/** Closed structural evidence only: never retain model keys, values or text. */
+function planShapeError(value: unknown): Error {
+  const part = object(value);
+  const has = (key: string) => Boolean(part && Object.hasOwn(part, key));
+  const shape = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+  const discriminator = !has("type") ? "missing"
+    : part!.type === "answer" || part!.type === "shot" ? part!.type
+    : typeof part!.type === "string" ? "other-string" : "non-string";
+  return new Error("Chat plan requires an answer brief followed by shots", { cause: {
+    code: "chat_plan_shape", shape, discriminator,
+    fields: { opening: has("opening"), subject: has("subject"), development: has("development"),
+      visualDirection: has("visualDirection"), ending: has("ending") },
+  } });
+}
 function text(value: unknown, maximum: number): string {
   // Never truncate spoken content or turn a partial scientific claim into a fact.
   return typeof value === "string" && value.trim().length <= maximum ? value.trim() : "";
@@ -127,7 +141,8 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
         const line = (raw: string): VideoPlanPart | undefined => {
           const trimmed = raw.trim();
           if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
-          const part = object(JSON.parse(trimmed));
+          const value: unknown = JSON.parse(trimmed);
+          const part = object(value);
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
             brief = { opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
@@ -135,7 +150,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
             return;
           }
-          if (part?.type !== "shot") throw new Error("Chat plan requires an answer brief followed by shots");
+          if (part?.type !== "shot") throw planShapeError(value);
           if (!brief) throw new Error("Chat shot arrived before its answer brief");
           const shot = readShot(part, clipDurationSec, brief.subject);
           if (shot.narration === brief.ending?.narration) return;
