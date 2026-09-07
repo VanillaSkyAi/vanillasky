@@ -4,6 +4,12 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.19
+
+- Show a subtle preparation status while the first response scene is loading.
+- Use the same compact suggestion-card layout before and after answers, and link the logo to the homepage.
+- Plan relevant illustrative stock subjects per beat and prefer, rather than require, matching footage orientation in the starter.
+
 ## 0.10.18
 
 - Preserve later valid shots after a malformed body record containing an unescaped newline, while keeping malformed initial containers rejected. Bound unfinished JSON records independently of provider chunk sizes.
