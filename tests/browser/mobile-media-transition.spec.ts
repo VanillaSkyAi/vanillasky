@@ -182,7 +182,18 @@ test("cold replacement footage decodes before its narration cue without losing t
     // visible as a still while its data arrives. Decode alone is insufficient.
     expect(revealed!.at).toBeGreaterThanOrEqual(firstFrame!.at);
     const revealedVideos = revealed!.videos as {sceneId?: string; layer?: string; readyState?: number}[];
-    expect(revealedVideos.find(video => video.sceneId === "second-video" && video.layer === "active")?.readyState).toBeGreaterThanOrEqual(3);
+    const futureData = Number(revealedVideos.find(video => video.sceneId === "second-video" && video.layer === "active")?.readyState) >= 3;
+    const targetFrames = events.filter(event => event.kind === "presented-frame" && event.sceneId === "second-video"
+      && String(event.videoId) === String(cue.videoId) && String(event.currentSrc).includes(secondFile) && event.at <= revealed!.at);
+    let forwardFrames = 0;
+    for (let index = 1; index < targetFrames.length; index++) {
+      forwardFrames = Number(targetFrames[index]!.mediaTime) > Number(targetFrames[index - 1]!.mediaTime) + .001
+        ? forwardFrames + 1 : 0;
+    }
+    // Linux WebKit can remain at HAVE_CURRENT_DATA throughout real motion.
+    // Three consecutive presented frames (two forward steps) also prove that
+    // this same target was playable before reveal; one decoded still cannot.
+    expect(futureData || forwardFrames >= 2).toBe(true);
     const outgoing = events.filter(event => event.kind === "presented-frame" && event.sceneId === "first-video"
       && event.layer === "active" && event.at >= coldBoundary!.at && event.at <= revealed!.at);
     expect(outgoing.length).toBeGreaterThanOrEqual(3);
