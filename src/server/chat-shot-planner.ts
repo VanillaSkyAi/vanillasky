@@ -1,3 +1,4 @@
+import { compileVisualDirection, type AnswerIntent, type AnswerVisualStyle } from "./chat-visual-direction.js";
 import type { VideoGenerationContext, VideoPlanPart, VideoPlanner, VideoScene } from "../protocol/types.js";
 import { createTextDeltaVideoPlanner, type TextDeltaVideoPlannerOptions, type TextDeltaVideoSource } from "./model/text-stream.js";
 import { attachGenerationLifecycleSink, getGenerationLifecycleSink } from "./lifecycle.js";
@@ -17,6 +18,8 @@ interface Shot {
   stockSelection?: StockSelection;
 }
 interface Brief {
+  intent: AnswerIntent;
+  visualStyle: AnswerVisualStyle;
   opening: string;
   subject: string;
   visualDirection: string;
@@ -99,7 +102,7 @@ function recoverFirstBrief(part: Record<string, unknown> | undefined, clipDurati
   const subject = text(part.subject, 80);
   // Preserve the regular shot contract: authored subject/title fallback and
   // bounded duration normalization. Invalid content above is never defaulted.
-  return { opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
+  return { ...compileVisualDirection(part), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
     visualDirection: text(part.visualDirection, 600), ending: readShot(ending, clipDurationSec, subject) };
 }
 function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamText"]>, textStream: AsyncIterable<string>): ReturnType<TextDeltaVideoPlannerOptions["streamText"]> {
@@ -121,12 +124,14 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
 }): VideoPlanner {
   const clipDurationSec = options.generatedClipDurationSec ?? 5;
   const incomplete = new WeakSet<VideoGenerationContext>();
+  const generatedLooks = new WeakMap<VideoGenerationContext, string>();
   const planner = createTextDeltaVideoPlanner({
     includeRawProviderData: options.includeRawProviderData,
     streamText(context) {
       const providerContext = { ...context, userPrompt: [
         `Create a complete answer within ${context.request.input.maxDurationSec ?? 40} seconds. Each generated clip has at most ${clipDurationSec} seconds; give each spoken beat room to finish.`,
         `Orientation: ${context.request.input.orientation ?? "landscape"}.`,
+        ...(context.request.input.style?.generatedLook ? [`CALLER VISUAL DIRECTION (takes precedence over automatic style): ${context.request.input.style.generatedLook}`, "Preserve this requested visual language. The brief visualDirection must contain compatible subjects, setting and palette, never a contradictory rendering style."] : []),
         "USER REQUEST AND CONVERSATION", context.request.input.input,
       ].join("\n") };
       const sink = getGenerationLifecycleSink(context);
@@ -141,6 +146,10 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           incomplete.add(context);
           const error = cause instanceof Error ? cause : new Error(String(cause));
           if (!getGenerationLifecycleSink(context)?.rejectPart?.(error)) throw error;
+        };
+        const acceptDirection = (value: Brief) => {
+          const direction = compileVisualDirection(value, context.request.input.style?.generatedLook);
+          generatedLooks.set(context, direction.generatedLook);
         };
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {
           let narration = shot.narration;
@@ -167,12 +176,14 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           const recovered = firstRecord && !brief && index === 0 ? recoverFirstBrief(part, clipDurationSec) : undefined;
           if (recovered) {
             brief = recovered;
+            acceptDirection(brief);
             options.publishOpening({ line: brief.opening, keyword: brief.subject });
             return;
           }
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
-            brief = { opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
+            brief = { ...compileVisualDirection(part), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
+            acceptDirection(brief);
             if (part.ending) { try { brief.ending = readShot(part.ending, clipDurationSec, brief.subject); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
             return;
@@ -267,7 +278,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
   });
   return async function* (context) {
     let completed = false;
-    for await (const part of resolveShots(planner(context), context, options)) {
+    for await (const part of resolveShots(planner(context), context, options, () => options.mode === "pexels" ? context.request.input.style?.generatedLook : generatedLooks.get(context))) {
       if (part.type === "plan.complete") completed = true;
       yield part;
     }
@@ -279,7 +290,7 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
 }
 
 /** Resolve ahead with bounded work, but emit in narrative order. */
-async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: { resolveMedia?: MediaResolver; mediaConcurrency: number; prepareScene?: (scene: { sceneId: string; narration: string }) => void }): AsyncGenerator<VideoPlanPart> {
+async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: { resolveMedia?: MediaResolver; mediaConcurrency: number; prepareScene?: (scene: { sceneId: string; narration: string }) => void }, generatedLook: () => string | undefined): AsyncGenerator<VideoPlanPart> {
   type Result = { part: VideoPlanPart } | { error: unknown };
   const queue: Promise<Result>[] = [];
   const iterator = parts[Symbol.asyncIterator]();
@@ -292,7 +303,7 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     const { mediaKeyword } = part.scene.variables;
     let media;
     if (typeof mediaKeyword === "string" && mediaKeyword && options.resolveMedia) media = await options.resolveMedia(mediaKeyword, {
-      input: context.request.input, requestId: context.request.requestId, scene: part.scene, templateId: "cinemaMedia", preferredType: "video", generatedLook: context.request.input.style?.generatedLook, signal: context.signal,
+      input: context.request.input, requestId: context.request.requestId, scene: part.scene, templateId: "cinemaMedia", preferredType: "video", generatedLook: generatedLook() ?? context.request.input.style?.generatedLook, signal: context.signal,
     });
     context.signal.throwIfAborted();
     if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });

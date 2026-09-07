@@ -19,8 +19,8 @@ The chapter retains narration and subtitles for the whole beat.
 
 The starter performs bounded full-catalog Pexels video search with subject
 matching, orientation-aware renditions and a bounded cache. Add `PEXELS_API_KEY`
-on the server and choose Pexels in Settings. The SDK UI links to Pexels; custom
-interfaces must also display the attribution required by their media provider.
+on the server and choose Pexels in Settings. The default header has no Pexels
+link; the application owns any attribution required by its media provider.
 
 Applications can replace `searchMedia` with their own licensed catalog:
 
@@ -50,8 +50,42 @@ default chat displays an authored chapter while retaining the spoken answer. An 
 validation, and fallback contracts.
 
 For Pexels, keep `PEXELS_API_KEY` on the server, enforce a deadline, filter for
-orientation, and return only validated Pexels asset domains. Licensing,
+suitable renditions, and return only validated Pexels asset domains. Licensing,
 attribution, caching, MIME checks, and byte limits remain application-owned.
+
+## Automatic visual direction
+
+Default chat uses the existing answer brief to choose the requested form:
+explanation (including comparisons), practical instruction, story, comedy, or
+imagination. These shape the content and pacing; they do not change knowledge
+rules or provider allowances.
+
+The same brief selects one of three generated-video treatments:
+
+- **Illustrated:** clear drawn forms, consistent materials and a restrained palette;
+  the default for explanations.
+- **Realistic:** believable lighting, proportions and movement with useful framing;
+  the default for practical instruction.
+- **Cinematic:** deliberate composition, lighting and motivated camera movement;
+  the default for stories, comedy and imagined worlds.
+
+An explicit style request in the prompt takes priority over the default. The
+planner carries its response-specific subjects, palette and setting in the
+brief's visual direction. Every body shot and ending receives the same selected
+base treatment through `generatedLook`, alongside its individual `shotDirection`.
+Adapters must pass both to their video provider. An explicit
+`style.generatedLook` replaces the automatic base treatment.
+
+There is no separate classification call or image-generation stage. Selecting a
+look does not guarantee that independently generated clips preserve character
+identity. Evaluate actual footage for subject consistency, useful action,
+narration fit and completion; mocked responses only verify the integration.
+
+Pexels retains literal footage queries; these instructions cannot restyle stock
+assets. The opening chapter keeps its existing appearance. Automatic direction
+is generation-time guidance, not a new persisted style field; saved media keeps
+its rendered appearance and existing caller-supplied style persistence is
+unchanged. Custom template planning keeps its existing behavior.
 
 ## Generated shots
 
