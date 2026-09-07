@@ -15,7 +15,7 @@ import short from "./media-transition/waterfall-short.mp4?url";
 const text = "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light.";
 const params = new URLSearchParams(location.search);
 const clips = params.has("webm") ? { full: fullWebm, short: shortWebm, audible: audibleWebm } : { full, short, audible };
-const samples: Array<Record<string, number | string | boolean>> = [];
+const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
 const phases: Array<Record<string, number | string | boolean>> = [];
 Object.assign(window, { continuityProof: { samples, events, phases } });
@@ -79,10 +79,23 @@ function App() {
       id, templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
       timing: { fixedDuration: prepared.seconds }, narration: text,
     })) });
+    // Sample actual decoded pixels from this same-origin moving fixture. Native
+    // WebKit may pin currentTime at clip duration while native looping moves.
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 16;
+    const pixels = canvas.getContext("2d", {willReadFrequently:true})!;
+    const fingerprint = (clip: HTMLVideoElement | null): number | null => {
+      if (!clip || clip.readyState < 2 || !clip.videoWidth) return null;
+      pixels.drawImage(clip, 0, 0, 16, 16);
+      const data = pixels.getImageData(0, 0, 16, 16).data;
+      let hash = 2166136261;
+      for (let index = 0; index < data.length; index++) hash = Math.imul(hash ^ data[index]!, 16777619);
+      return hash >>> 0;
+    };
     const sample = () => {
-      const clip = document.querySelector("video");
+      const clip = document.querySelector<HTMLVideoElement>('[data-scene-layer="active"] video');
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ frameFingerprint:fingerprint(clip), mediaDuration:Number.isFinite(clip?.duration) ? clip!.duration : 0, narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
       } else requestAnimationFrame(sample);
