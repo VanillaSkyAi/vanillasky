@@ -19,7 +19,7 @@ describe("actual mounted media readiness", () => {
     let presented: VideoFrameRequestCallback | undefined;
     video.requestVideoFrameCallback = vi.fn(callback => {presented = callback; return 1;});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).not.toHaveBeenCalled();
-    Object.defineProperty(video, "readyState", {value: 2, configurable: true});
+    Object.defineProperty(video, "readyState", {value: 3, configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).not.toHaveBeenCalled();
     act(() => presented?.(0, {} as VideoFrameCallbackMetadata));
     expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
@@ -30,7 +30,7 @@ describe("actual mounted media readiness", () => {
     const video = view.container.querySelector("video")!;
     Object.defineProperties(video, {
       currentSrc: { value: video.src, configurable: true },
-      readyState: { value: 2, configurable: true },
+      readyState: { value: 3, configurable: true },
     });
     video.requestVideoFrameCallback = vi.fn(() => 1);
     video.cancelVideoFrameCallback = vi.fn();
@@ -46,7 +46,7 @@ describe("actual mounted media readiness", () => {
     const video = view.container.querySelector("video")!;
     Object.defineProperties(video, {
       currentSrc: { value: "https://example.com/old.mp4", configurable: true },
-      readyState: { value: 2, configurable: true },
+      readyState: { value: 3, configurable: true },
     });
     video.requestVideoFrameCallback = vi.fn(() => 1);
     const loading = document.createElement("div"); loading.setAttribute("data-template-loading", "");
@@ -67,13 +67,13 @@ describe("actual mounted media readiness", () => {
     vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
     const video = view.container.querySelector("video")!;
     Object.defineProperty(video, "currentSrc", {value: scene.variables.mediaUrl, configurable: true});
-    Object.defineProperty(video, "readyState", {value: 2, configurable: true});
+    Object.defineProperty(video, "readyState", {value: 3, configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(1);
     // React updates src before the native element resets readyState/currentSrc.
     view.rerender(fixture(report, {...scene, id: "second", variables: {...scene.variables, mediaUrl: "https://example.com/second.mp4"}}));
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(1);
     expect(view.container.querySelectorAll("video")).toHaveLength(1);
-    Object.defineProperty(video, "readyState", {value: 2, configurable: true});
+    Object.defineProperty(video, "readyState", {value: 3, configurable: true});
     Object.defineProperty(video, "currentSrc", {value: "https://example.com/second.mp4", configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).toHaveBeenCalledTimes(2);
   });
@@ -104,4 +104,16 @@ describe("actual mounted media readiness", () => {
     await act(() => vi.advanceTimersByTimeAsync(8000));
     expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
   });
+});
+
+it("retains a decoded first frame without cueing until future video data is available", async () => {
+  vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { currentSrc: {value: video.src}, readyState: {value: 2, configurable: true} });
+  act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", {bubbles: true})));
+  await act(() => vi.advanceTimersByTimeAsync(1500));
+  expect(report).not.toHaveBeenCalled();
+  Object.defineProperty(video, "readyState", {value: 3, configurable: true});
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
 });

@@ -12,7 +12,7 @@ it.each(["decode-error", "frame-readiness-timeout", "stalled-media"])("reports o
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(reason === "frame-readiness-timeout" ? 0 : 2);
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(reason === "frame-readiness-timeout" ? 0 : 3);
   vi.spyOn(HTMLMediaElement.prototype, "currentSrc", "get").mockImplementation(function (this: HTMLMediaElement) { return this.src; });
   const config: Video = {schemaVersion:"0.2",orientation:"portrait",style:{},scenes:[{id:"private-scene",templateId:"cinemaMedia",variables:{mediaUrl:"https://private.example/secret.mp4",mediaType:"video",fallbackText:"A useful chapter"},timing:{fixedDuration:12}}]};
   const view = render(<MountedReadinessContext.Provider value={vi.fn()}><VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} time={1} width={360} height={640} playing /></MountedReadinessContext.Provider>);

@@ -4,6 +4,12 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.10
+
+- Accept multiline streamed chat JSON objects without waiting for the entire answer, while retaining bounded parsing and strict scene validation.
+
+- Wait for a presented frame with playable future data before starting narration, retaining bounded cold startup and quick recovery for footage that stalls after playback was available.
+
 ## 0.10.9
 
 - Use essential subject hints and explicit exclusions when selecting starter Pexels footage, and isolate cached selections by those hints. Metadata-free results remain unverified provider-ranked fallbacks.
