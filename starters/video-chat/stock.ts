@@ -71,7 +71,9 @@ export async function findStockFootage(query: string, orientation: VideoOrientat
     if (selection && subject.length) {
       const covers = (phrase: string) => terms(phrase).every(word => subject.includes(word));
       if (!covers(selection.subject) || selection.exclude?.some(covers)) continue;
-      matches = 2 + Number(Boolean(selection.activity && covers(selection.activity)))
+      // Query context breaks equal hint matches without outweighing a hint.
+      const contextScore = matches / (tokens.length + 1);
+      matches = 2 + contextScore + Number(Boolean(selection.activity && covers(selection.activity)))
         + Number(Boolean(selection.equipment && covers(selection.equipment)));
     }
     // The documented Video resource can have only a numeric page URL and no

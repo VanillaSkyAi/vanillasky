@@ -78,3 +78,30 @@ it('keeps curly-apostrophe essential subjects restrictive',async()=>{
  vi.stubEnv('PEXELS_API_KEY','curly-fixture');vi.stubGlobal('fetch',async()=>Response.json({videos:[video(90,'dog-toys-beach')]}));
  expect(await findStockFootage('toys beach','landscape',new AbortController().signal,{subject:'children’s toys'})).toBeNull();
 });
+
+it('uses query setting to break equal subject matches', async () => {
+ vi.stubEnv('PEXELS_API_KEY', 'context-fixture');
+ vi.stubGlobal('fetch', async () => Response.json({ videos: [
+  video(101, 'dog-city-street'), video(102, 'dog-sandy-beach'),
+ ] }));
+ expect(await findStockFootage('dog sandy beach', 'landscape', new AbortController().signal, { subject: 'dog' }))
+  .toMatchObject({ url: 'https://videos.pexels.com/102.mp4' });
+});
+
+it('keeps stronger activity matches ahead of otherwise better query context', async () => {
+ vi.stubEnv('PEXELS_API_KEY', 'priority-fixture');
+ vi.stubGlobal('fetch', async () => Response.json({ videos: [
+  video(103, 'dog-sandy-beach-ocean'), video(104, 'dog-running-city'),
+ ] }));
+ expect(await findStockFootage('dog sandy beach ocean', 'landscape', new AbortController().signal,
+  { subject: 'dog', activity: 'running' })).toMatchObject({ url: 'https://videos.pexels.com/104.mp4' });
+});
+
+it('preserves provider order when subject and query scores are equal', async () => {
+ vi.stubEnv('PEXELS_API_KEY', 'order-fixture');
+ vi.stubGlobal('fetch', async () => Response.json({ videos: [
+  video(105, 'dog-running-beach'), video(106, 'beach-dog-running'),
+ ] }));
+ expect(await findStockFootage('running dog beach', 'landscape', new AbortController().signal,
+  { subject: 'dog', activity: 'running' })).toMatchObject({ url: 'https://videos.pexels.com/105.mp4' });
+});

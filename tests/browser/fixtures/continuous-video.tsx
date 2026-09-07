@@ -62,7 +62,12 @@ const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(S
 const playbackVoice = { ...voice, speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
   if (params.has("delayed")) {
     phases.push({kind:"speech-delay-start",at:performance.now()});
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const deadline = performance.now() + 1000;
+    // Browser timer delivery can precede its nominal delay by a clock tick.
+    // Establish the measured fault duration rather than assuming one timer did.
+    while (performance.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, Math.max(1, deadline - performance.now())));
+    }
     phases.push({kind:"speech-delay-end",at:performance.now()});
   }
   return voice.speak(line, options);

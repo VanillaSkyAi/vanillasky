@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.12
+
+- Use query context to choose between equally relevant Pexels subject matches in the starter, while preserving subject, activity and equipment priority.
+
 ## 0.10.11
 
 - Keep the opening chapter visible until the first body visual and narration are ready, without mounting a second player or replaying the opening.
