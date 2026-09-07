@@ -5,7 +5,8 @@ for (const fault of ['missing-video', 'hung-video', 'empty-video', 'missing-imag
     test.setTimeout(25000);
     await page.route(`**/${fault}.*`, route => fault.startsWith('hung') ? undefined : route.fulfill({ status: 404, body: '' }));
     const suffix = process.platform === 'linux' && browserName === 'webkit' ? '&webm' : '';
-    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/media-recovery.html?fault=${fault}${suffix}`);
+    // Hung media intentionally prevents load in Firefox; playback readiness is asserted below.
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/media-recovery.html?fault=${fault}${suffix}`, { waitUntil: 'domcontentloaded' });
     type Sample = { at: number; scene?: string; visible: boolean; fallback: boolean; videos: number; injected: boolean };
     const read = () => page.evaluate(() => (window as unknown as { recoverySamples: Sample[] }).recoverySamples);
     try {
