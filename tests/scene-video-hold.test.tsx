@@ -406,3 +406,25 @@ it("keeps the short stall bound after playable data falls back to a single frame
   await act(async () => vi.advanceTimersByTime(1000));
   expect(onError).toHaveBeenCalledOnce();
 });
+
+it("keeps the short stall bound after actual motion observed at readiness two", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/moving.mp4" progress={0} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { configurable: true, value: 2 });
+  fireEvent.loadedData(video);
+  fireEvent.waiting(video);
+  const { act } = await import("@testing-library/react");
+  video.currentTime = .04;
+  await act(async () => vi.advanceTimersByTime(50));
+  video.currentTime = .08;
+  await act(async () => vi.advanceTimersByTime(50));
+  expect(onError).not.toHaveBeenCalled();
+  fireEvent.waiting(video);
+  await act(async () => vi.advanceTimersByTime(1100));
+  expect(onError).toHaveBeenCalledOnce();
+});

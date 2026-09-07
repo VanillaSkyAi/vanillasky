@@ -33,6 +33,8 @@ export function MountedSceneReadiness({
     let callback: number | undefined;
     let observed: HTMLVideoElement | undefined;
     let presented: HTMLVideoElement | undefined;
+    let previousMediaTime: number | undefined;
+    let forwardFrames = 0;
     const root = marker.current?.closest('[data-video-frame]');
     const start = performance.now();
     const finish = (error?: Error, actualVideoFrame = false) => { if (!stopped) { stopped = true; if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback); if (error && onFailureRef.current) onFailureRef.current(); else if (onReadyRef.current && !error) onReadyRef.current(); else report?.(key, error, actualVideoFrame); } };
@@ -49,18 +51,28 @@ export function MountedSceneReadiness({
         if (!mediaUrl || scene.variables.mediaType === "gradient") { finish(); return; }
         if (isVideo) {
           const video = layer.querySelector('video');
-          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-            if (presented === video) { finish(undefined, true); return; }
+          if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            if (observed !== video) { previousMediaTime = undefined; forwardFrames = 0; }
+            // Some native decoders sample HAVE_CURRENT_DATA throughout moving
+            // playback. Two actual forward frames also prove playable media.
+            if (presented === video && (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA || forwardFrames >= 2)) { finish(undefined, true); return; }
             observed = video;
             if (video.requestVideoFrameCallback) {
-              callback = video.requestVideoFrameCallback(() => {
+              callback = video.requestVideoFrameCallback((_now, metadata) => {
                 callback = undefined;
-                presented = video;
+                if (stopped) return;
+                const sameSource = video.isConnected && video.getAttribute("src") === mediaUrl && video.currentSrc === video.src;
+                const mediaTime = metadata.mediaTime;
+                if (!sameSource || video.paused || video.seeking || !Number.isFinite(mediaTime)
+                  || (previousMediaTime !== undefined && mediaTime <= previousMediaTime + .001)) forwardFrames = 0;
+                else if (previousMediaTime !== undefined && mediaTime > previousMediaTime + .001) forwardFrames++;
+                previousMediaTime = sameSource && !video.paused && !video.seeking ? mediaTime : undefined;
+                if (sameSource) presented = video;
                 check();
               });
               return;
             }
-            finish(undefined, true); return;
+            if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) { finish(undefined, true); return; }
           }
         } else {
           const image = [...(layer.querySelectorAll('img') ?? [])].find(element => element.getAttribute('src') === mediaUrl);
@@ -83,11 +95,16 @@ export function MountedSceneReadiness({
       callback = undefined;
       check();
     };
+    const resetMotion = (event: Event) => {
+      if (event.target === observed) { previousMediaTime = undefined; forwardFrames = 0; }
+    };
+    for (const type of ["pause", "waiting", "seeking"]) root?.addEventListener(type, resetMotion, true);
     root?.addEventListener("vanillasky:video-frame-presented", onPresented);
     check();
     const timeout = timeoutMs === null ? undefined : setTimeout(() => finish(new Error("Scene media did not become ready")), timeoutMs);
     return () => {
       root?.removeEventListener("vanillasky:video-frame-presented", onPresented);
+      for (const type of ["pause", "waiting", "seeking"]) root?.removeEventListener(type, resetMotion, true);
       stopped = true; clearTimeout(timeout); cancelAnimationFrame(frame);
       if (callback !== undefined) observed?.cancelVideoFrameCallback?.(callback);
     };

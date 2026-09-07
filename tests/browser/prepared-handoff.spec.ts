@@ -1,7 +1,7 @@
 import { devices, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 type Probe = { kind: string; at: number; sources: number; active: string; scene: string; layer: string; mediaTime: number; id: number; audioTime: number; index: number; source: string };
-const fixtureUrl = `http://127.0.0.1:4274/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" ? "?webm" : ""}`;
+const fixtureUrl = `http://127.0.0.1:4274/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`;
 const readProbe = () => (window as unknown as { narrationProbe: Probe[] }).narrationProbe;
 for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delayMs}ms requests while all paragraphs finish`, async ({ browser, browserName }, info) => {
   test.skip(browserName !== 'webkit', 'Checks bounded mobile preparation.');
@@ -33,7 +33,10 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
       const firstSurface=events.find(e=>e.kind==='surface' && e.active===String(index));
       const frames=events.filter(e=>e.kind==='frame' && e.scene===String(index) && e.layer==='active');
       expect(frames.length).toBeGreaterThanOrEqual(3);
-      expect(frames.at(-1)!.mediaTime-frames[0].mediaTime).toBeGreaterThan(1);
+      const advancedSeconds = frames.slice(1).reduce((total, frame, position) =>
+        total + Math.max(0, frame.mediaTime - frames[position].mediaTime), 0);
+      expect(advancedSeconds).toBeGreaterThan(1);
+      expect(frames.slice(1).filter((frame, position) => frame.mediaTime > frames[position].mediaTime).length).toBeGreaterThanOrEqual(3);
       const gap = frames[0].at-firstSurface!.at;
       if (delayMs === 1500) {
         expect(gap).toBeLessThanOrEqual(200);

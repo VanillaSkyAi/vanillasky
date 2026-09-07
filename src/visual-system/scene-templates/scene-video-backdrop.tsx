@@ -97,6 +97,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       // One seek frame is not resumed motion. Require consecutive forward
       // observations before releasing the original bounded stall deadline.
       if (forwardFrames >= 2) {
+        playableVideoUrl.current = mediaUrl;
         stopped = true;
         clearTimeout(deadline);
         setWaitingKey(undefined);

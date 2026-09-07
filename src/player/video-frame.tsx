@@ -316,6 +316,7 @@ export function VideoFrame({
   const recoveryRoot = useRef<HTMLDivElement>(null);
   const displayedKey = useRef<string | undefined>(undefined);
   const displayedWasPlaying = useRef(false);
+  const confirmedHandoff = useRef<string | undefined>(undefined);
   const [preparedMedia, setPreparedMedia] = useState<ReadonlySet<string>>(() => new Set());
   // Reconfirmation must render even when a previously ready source lost data.
   const markPrepared = useCallback((key: string) => setPreparedMedia(previous => new Set([...previous, key])), []);
@@ -349,6 +350,8 @@ export function VideoFrame({
   const afterEnd = lastRange && time >= lastRange.end;
   const targetIndex = foundIndex >= 0 ? foundIndex : afterEnd ? timeline.length - 1 : -1;
   const target = timeline[targetIndex];
+  const targetKey = target ? sceneReadinessKey(target.scene) : undefined;
+  if (confirmedHandoff.current !== targetKey) confirmedHandoff.current = undefined;
   const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
   const previous = timeline[previousIndex];
   const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && mediaAudioMuted
@@ -366,7 +369,8 @@ export function VideoFrame({
   const handoffPending = Boolean(displayedWasPlaying.current && target && previous && targetIndex === previousIndex + 1
     && time <= target.start + .001 && rangesAreContiguous(previous, target)
     && canRetain(previous) && canPrepare(target)
-    && !failedMedia.has(sceneReadinessKey(target.scene)) && !hasPlayableMedia(target));
+    && !failedMedia.has(sceneReadinessKey(target.scene)) && !hasPlayableMedia(target)
+    && confirmedHandoff.current !== targetKey);
   const activeIndex = handoffPending ? previousIndex : targetIndex;
   const active = timeline[activeIndex];
   const displayKey = active ? sceneReadinessKey(active.scene) : undefined;
@@ -522,7 +526,13 @@ export function VideoFrame({
       {mountingNext && contiguousNext && preparingNext && <MountedSceneReadiness
         scene={contiguousNext.scene} playing={playing || preparingNarration} observeIncoming
         timeoutMs={handoffPending ? 8000 : null}
-        onReady={() => markPrepared(sceneReadinessKey(contiguousNext.scene))}
+        onReady={() => {
+          const key = sceneReadinessKey(contiguousNext.scene);
+          // Fresh target proof may be sustained motion at readyState two.
+          // Do not veto it with the earlier cached future-data snapshot.
+          if (handoffPending) confirmedHandoff.current = key;
+          markPrepared(key);
+        }}
         onFailure={() => markMediaFailed(sceneReadinessKey(contiguousNext.scene), "frame-readiness-timeout")}
       />}
       <div
@@ -584,7 +594,7 @@ export function VideoFrame({
               motionProgress={0}
               width={canvas.width}
               height={canvas.height}
-              playing={Boolean(preparingNext && !nextPlayable && (playing || preparingNarration))}
+              playing={Boolean(preparingNext && (!preparedMedia.has(sceneReadinessKey(contiguousNext.scene)) || handoffPending) && (playing || preparingNarration))}
               preparingNarration={preparingNext}
               mediaAudioMuted={true}
               mediaAudioVolume={mediaAudioVolume}

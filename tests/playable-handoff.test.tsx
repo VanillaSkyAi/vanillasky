@@ -122,3 +122,17 @@ it("retains a readable canonical chapter while the next video is still partial",
   expect(view.container.textContent).toContain("A useful opening");
   expect(view.container.querySelectorAll("video")).toHaveLength(1);
 });
+
+it("promotes a pending clip proven by native frame advancement even when readiness stays at two", async () => {
+  const { view, incoming, displayed } = fixture();
+  let present: VideoFrameRequestCallback | undefined;
+  incoming.requestVideoFrameCallback = callback => { present = callback; return 1; };
+  incoming.cancelVideoFrameCallback = vi.fn();
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  for (const time of [0, .04, .08]) {
+    incoming.currentTime = time;
+    act(() => present?.(time * 1000, { mediaTime: time } as VideoFrameCallbackMetadata));
+  }
+  expect(displayed()).toBe("second");
+  expect(view.container.querySelector('[data-scene-layer="active"] video')).toBe(incoming);
+});
