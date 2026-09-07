@@ -30,3 +30,5 @@
   real-frame, identity, lifecycle and bounded-resource coverage.
 
 - Welcome and follow-up suggestions share one card treatment. Fix label length or shared responsive sizing instead of introducing a separate oversized ending layout. Show preparation feedback only after the opening voice has finished and the requested quiet interval has elapsed; never extend playback waiting to display it.
+
+- Generalize planner guidance from reported examples. Keep topic-specific cases in evaluation fixtures rather than adding the latest failing user prompt to production system instructions.

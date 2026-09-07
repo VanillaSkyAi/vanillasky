@@ -19,8 +19,8 @@ describe("concise creative answer guidance", () => {
   it("plans stock illustrations per beat without weakening practical subject requirements", () => {
     const stock = createVideoChatResponseInstructions(false, false, 3, 5, "pexels");
     expect(stock).toContain("Choose a separate stock subject for each beat");
-    expect(stock).toContain("museum skeletons or fossils");
-    expect(stock).toContain("modern birds");
+    expect(stock).toContain("relevant present-day evidence, objects, environments or analogous visible processes");
+    expect(stock).not.toMatch(/dinosaur|prehistoric|asteroid/i);
     expect(stock).toContain("Do not use illustrative freedom to replace a required practical action");
     expect(createVideoChatResponseInstructions(true)).not.toContain("Choose a separate stock subject for each beat");
   });
