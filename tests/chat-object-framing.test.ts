@@ -111,3 +111,10 @@ it.each([
   expect(result.errors.length).toBeGreaterThan(0);
   expect(result.scenes).toHaveLength(0);
 });
+
+it("preserves escaped line breaks and braces inside valid narration", async () => {
+  const multiline = {...shot, narration:'One line.\nAnother says "{keep this}".'};
+  const result = await run(JSON.stringify(brief) + '\r\n' + JSON.stringify(multiline), 1);
+  expect(result.errors).toEqual([]);
+  expect(result.scenes.map(scene => scene.narration)).toEqual([multiline.narration, ending.narration]);
+});
