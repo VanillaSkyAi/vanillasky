@@ -1,8 +1,9 @@
+import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
 import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 import { recoverSceneMedia } from "../player/recover-scene-media.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import { decodeVideoSse } from "../protocol/sse.js";
@@ -159,6 +160,7 @@ interface SessionState {
 type SessionAction =
   | { type: "capabilities"; value: VideoChatCapabilities }
   | { type: "welcome"; value: VideoChatWelcome }
+  | { type: "resolved-mode"; id: string; mode: VideoChatMode }
   | { type: "start"; turn: VideoChatTurn }
   | { type: "opening-start"; id: string; line: string }
   | { type: "opening-media"; id: string; media: VideoChatMedia }
@@ -205,6 +207,9 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case "capabilities": return { ...state, capabilities: action.value };
     case "welcome": return { ...state, welcome: action.value };
+    case "resolved-mode":
+      if (state.turns.at(-1)?.id !== action.id) return state;
+      return { ...state, turns: replaceTurn(state.turns, action.id, turn => ({ ...turn, mode: action.mode })) };
     case "start": return {
       ...state,
       turns: [...state.turns, action.turn],
@@ -437,6 +442,7 @@ export function useVideoChat(options: UseVideoChatOptions = {}): UseVideoChatRes
 export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   chat: UseVideoChatResult;
   restoreSession(turns: readonly VideoChatTurn[]): void;
+  getCaptionProgress(): CaptionProgress | undefined;
 } {
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -451,7 +457,10 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       onFallback: () => voiceWarningRef.current(),
     });
   }
-  const voice = options.voice ?? ownedVoiceRef.current!;
+  const rawVoice = options.voice ?? ownedVoiceRef.current!;
+  const captionVoice = useMemo(() => createCaptionVoice(rawVoice), [rawVoice]);
+  useEffect(() => () => captionVoice.reset(), [captionVoice]);
+  const voice = captionVoice.voice;
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
   const unavailableVoiceLines = useRef(new Set<string>());
@@ -622,7 +631,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       throw new VideoError("timeoutMs must be positive", { code: "invalid_option" });
     }
     const timeout = setTimeout(() => controller.abort(new DOMException("Video chat timed out", "TimeoutError")), timeoutMs);
-    const mode = currentOptions.mode ?? "cinematic";
+    let mode = currentOptions.mode ?? "cinematic";
     const orientation = currentOptions.orientation ?? "landscape";
     const id = (currentOptions.createTurnId ?? defaultTurnId)();
     const conversation = conversationFor(stateRef.current.turns);
@@ -778,6 +787,13 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       if (!response.ok) throw await responseError(response);
       if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
         throw new VideoError("Video chat endpoint did not return a video stream", { code: "invalid_response" });
+      }
+
+      const resolvedMode = response.headers.get("x-vanillasky-resolved-video-mode");
+      if (isCurrent() && (resolvedMode === "pexels" || resolvedMode === "cinematic")) {
+        mode = resolvedMode;
+        dispatch({ type: "resolved-mode", id, mode });
+        if (firstFrameRef.current?.turnId === id) firstFrameRef.current.mode = mode;
       }
 
       const planned: VideoScene[] = [];
@@ -1185,5 +1201,5 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     playerKey: state.playerKey,
     playerProps,
   };
-  return { chat, restoreSession };
+  return { chat, restoreSession, getCaptionProgress: captionVoice.getCaptionProgress };
 }
