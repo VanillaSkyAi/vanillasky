@@ -350,7 +350,7 @@ it("observes an already loaded mounted frame without a new loadeddata event", as
   }
 });
 
-it.each([false, true])("reasserts the latest pause after a late native playing event (narration hold: %s)", (preparingNarration) => {
+for (const event of ["play", "playing"] as const) it.each([false, true])(`reasserts the latest pause after a late native ${event} event (narration hold: %s)`, (preparingNarration) => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -361,11 +361,11 @@ it.each([false, true])("reasserts the latest pause after a late native playing e
   pause.mockClear();
   // Native playback can start after the earlier pause command has returned.
   video.currentTime = .2;
-  fireEvent.playing(video);
+  fireEvent[event](video);
   expect(pause).toHaveBeenCalledOnce();
   expect(video.currentTime).toBe(preparingNarration ? 0 : .2);
   view.rerender(<SceneVideoBackdrop {...props} />);
   pause.mockClear();
-  fireEvent.playing(video);
+  fireEvent[event](video);
   expect(pause).not.toHaveBeenCalled();
 });

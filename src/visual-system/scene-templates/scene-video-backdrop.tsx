@@ -227,6 +227,14 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     startedPlaybackId.current = playbackId;
   }, [isPlaying, mediaUrl, playbackId, rewindPreroll]);
 
+  const enforceRequestedPause = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    // WebKit may enter playback without a playing event while seeking or
+    // waiting. Both native start events must honor the latest requested hold.
+    if (presentationRef.current.playing) return;
+    event.currentTarget.pause();
+    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+  };
+
   const mediaStyle: React.CSSProperties = {
     position: "absolute",
     inset: 0,
@@ -253,13 +261,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
-        onPlaying={event => {
-          // A native start may arrive after pause() returned. The latest
-          // requested state still owns playback, including narration holds.
-          if (presentationRef.current.playing) return;
-          event.currentTarget.pause();
-          if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
-        }}
+        onPlay={enforceRequestedPause}
+        onPlaying={enforceRequestedPause}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
         onError={onError}
         data-media-position={mediaPosition}

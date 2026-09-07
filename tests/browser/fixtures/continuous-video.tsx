@@ -30,7 +30,7 @@ HTMLMediaElement.prototype.play = function () {
   }
   if (this instanceof HTMLVideoElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    for (const kind of ["waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
+    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
       events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
     });
   }
@@ -47,7 +47,13 @@ HTMLMediaElement.prototype.pause = function () {
     setTimeout(() => {
       if (!this.isConnected) return;
       phases.push({kind:"late-native-start",at:performance.now(),time:this.currentTime});
-      void nativePlay.call(this).catch(() => phases.push({kind:"late-start-cancelled",at:performance.now()}));
+      // Linux WebKit can advance after play/waiting without emitting playing.
+      // Exercise that event sequence on every engine, including local macOS.
+      const suppressPlaying = (event: Event) => event.stopImmediatePropagation();
+      this.addEventListener("playing", suppressPlaying, {capture:true});
+      void nativePlay.call(this)
+        .catch(() => phases.push({kind:"late-start-cancelled",at:performance.now()}))
+        .finally(() => this.removeEventListener("playing", suppressPlaying, {capture:true}));
     }, 100);
   }
   return result;
