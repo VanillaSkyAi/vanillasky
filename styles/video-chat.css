@@ -369,7 +369,7 @@
 
 .vanillasky-video-chat .ending .cards { margin-top: 0; }
 
-.vanillasky-video-chat .ending .cards button { width: clamp(8rem, 15.5cqw, 12rem); }
+
 
 .vanillasky-video-chat .ending .card-dots { align-self: flex-start; margin-left: -0.35rem; }
 
@@ -644,7 +644,7 @@
   .vanillasky-video-chat .cards button { width: 172px; aspect-ratio: .95; }
   .vanillasky-video-chat .card-prompt { font-size: 14px; padding: 14px; }
   .vanillasky-video-chat .ending-body { padding: 0 20px 190px; }
-  .vanillasky-video-chat .ending .cards button { width: 165px; aspect-ratio: 1.15; }
+
 }
 
 @media (max-height: 650px) and (min-width: 701px) {
@@ -1085,3 +1085,48 @@
 .vanillasky-video-chat .media-credit { color: var(--vs-fg); font-size: 11px; margin-left: 12px; text-underline-offset: 3px; }
 @keyframes vanillasky-chapter-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .vanillasky-video-chat .opening-chapter { animation: none; } }
+
+/* Follow-ups have room for their complete prompt; the welcome rail stays compact. */
+.vanillasky-video-chat .ending-body {
+  inset: 96px 0 180px;
+  padding: 12px var(--vs-media-gutter);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  justify-content: safe flex-end;
+}
+
+.vanillasky-video-chat .ending .cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.vanillasky-video-chat .ending .cards li { min-width: 0; }
+
+.vanillasky-video-chat .ending .cards button {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  aspect-ratio: auto;
+}
+
+.vanillasky-video-chat .ending .card-prompt {
+  position: relative;
+  inset: auto;
+  overflow-wrap: anywhere;
+  font-size: clamp(14px, 1.2vw, 18px);
+  line-height: 1.4;
+}
+
+@media (min-width: 1200px) {
+  .vanillasky-video-chat .ending .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .vanillasky-video-chat .ending .cards button { min-height: 210px; }
+}
+
+@media (max-height: 650px) {
+  .vanillasky-video-chat .ending-body { inset-block: 80px 180px; }
+}
