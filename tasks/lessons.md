@@ -34,3 +34,5 @@
 - Generalize planner guidance from reported examples. Keep topic-specific cases in evaluation fixtures rather than adding the latest failing user prompt to production system instructions.
 
 - Requests for less caption text may mean progressive display, not shorter narration. Preserve full speech and transcript; disclose approximate timing when provider word timestamps are absent.
+
+- For automatic visual direction, reuse the default chat brief and verify the active shot-planner path. Keep intent separate from appearance, preserve caller overrides, and check downstream provider prompt-length limits before combining style and shot instructions. Do not claim mocked media proves generated visual quality.

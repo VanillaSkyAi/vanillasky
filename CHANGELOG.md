@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.21
+
+- Choose illustrated, realistic, or cinematic generated-video direction within the existing chat brief, with consistent treatment across shots and caller style overrides.
+
 ## 0.10.20
 
 - Collapse completed-response subtitles to an expandable transcript and remove the Pexels header link.
