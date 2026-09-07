@@ -9,6 +9,7 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 - Collapse completed-response subtitles to an expandable transcript and remove the Pexels header link.
 - Present narration in compact, progressive caption pages while preserving the complete spoken text.
 - Reflect host-resolved footage mode when a response falls back to stock.
+- Prefer close stock matches while allowing provider-ranked illustrative results and one bounded broader search when no usable footage is found.
 
 ## 0.10.19
 
