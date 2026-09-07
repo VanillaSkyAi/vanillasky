@@ -28,3 +28,5 @@
   tests: exact packed-consumer playback assertions also live under scripts/.
   Replace obsolete architecture assertions with the intended behavior and retain
   real-frame, identity, lifecycle and bounded-resource coverage.
+
+- Welcome and follow-up suggestions share one card treatment. Fix label length or shared responsive sizing instead of introducing a separate oversized ending layout. Show preparation feedback only after the opening voice has finished and the requested quiet interval has elapsed; never extend playback waiting to display it.
