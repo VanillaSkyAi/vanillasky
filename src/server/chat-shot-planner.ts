@@ -145,17 +145,51 @@ export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & {
           bodyDuration += shot.durationSec;
           return scenePart(shot);
         };
+        let cursor = 0, depth = 0, quoted = false, escaped = false;
+        const takeFrame = (): string | undefined => {
+          if (cursor === 0) {
+            buffer = buffer.trimStart();
+            if (!buffer) return;
+            if (buffer[0] !== "{" && buffer[0] !== "[") {
+              const newline = buffer.indexOf("\n");
+              if (newline < 0) return;
+              const raw = buffer.slice(0, newline);
+              buffer = buffer.slice(newline + 1);
+              return raw;
+            }
+          }
+          // Frame complete JSON containers, not physical lines. Arrays remain
+          // whole so semantic validation rejects them instead of extracting
+          // their nested objects. Each character is scanned once across deltas.
+          for (; cursor < buffer.length; cursor++) {
+            const character = buffer[cursor];
+            if (quoted) {
+              if (escaped) escaped = false;
+              else if (character === "\\") escaped = true;
+              else if (character === '"') quoted = false;
+            } else if (character === '"') quoted = true;
+            else if (character === "{" || character === "[") depth++;
+            else if (character === "}" || character === "]") {
+              depth--;
+              if (depth === 0) {
+                const raw = buffer.slice(0, cursor + 1);
+                buffer = buffer.slice(cursor + 1);
+                cursor = 0;
+                return raw;
+              }
+            }
+          }
+        };
         try {
           for await (const delta of upstream) {
             context.signal.throwIfAborted();
             if (typeof delta !== "string") throw new Error("The LLM adapter returned a non-text delta");
             buffer += delta;
             if (buffer.length > 32_768) throw new Error("Chat plan line exceeds the bounded stream limit");
-            let newline = buffer.indexOf("\n");
-            while (newline >= 0) {
-              const raw = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
+            let raw = takeFrame();
+            while (raw !== undefined) {
               try { const part = line(raw); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
-              newline = buffer.indexOf("\n");
+              raw = takeFrame();
             }
           }
           if (buffer.trim()) { try { const part = line(buffer); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
