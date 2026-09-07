@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Reassert a requested pause if native video playback starts late, preserving footage during delayed narration and keeping viewer pauses in place.
+
 - Distinguish decode errors, frame-readiness timeouts and stalled footage in the local chat diagnostic log without retaining media URLs or user content.
 
 ## 0.10.8

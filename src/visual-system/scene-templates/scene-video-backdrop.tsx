@@ -253,6 +253,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={event => continueMotion(event.currentTarget)}
+        onPlaying={event => {
+          // A native start may arrive after pause() returned. The latest
+          // requested state still owns playback, including narration holds.
+          if (presentationRef.current.playing) return;
+          event.currentTarget.pause();
+          if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+        }}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
         onError={onError}
         data-media-position={mediaPosition}
