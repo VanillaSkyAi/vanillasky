@@ -131,7 +131,7 @@ describe("video chat provider deadlines", () => {
     vi.useFakeTimers();
     const handler = createVideoChatHandler({
       authorize: "none", streamText, generateText: async () => JSON.stringify({ suggestions: [{ prompt: "What next?", keyword: "ocean" }] }),
-      welcome: { heroQuery: "ocean" },
+      welcome: { heroQuery: "ocean", prompts: [{ prompt: "Ocean", mediaQuery: "ocean" }] },
       searchMedia: () => new Promise(() => {}),
     });
     let completed = false;

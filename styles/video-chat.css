@@ -1127,3 +1127,17 @@
 .vanillasky-video-chat .transcript-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--vs-media-glass); color: var(--vs-media-muted); font: inherit; font-size: 13px; cursor: pointer; pointer-events: auto; }
 .vanillasky-video-chat .transcript-toggle svg { width: 16px; height: 16px; }
 .vanillasky-video-chat .transcript-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+/* Welcome shows a deliberate four-card window; the rest stays in the rail. */
+.vanillasky-video-chat .suggestion-rail { position: relative; flex-shrink: 0; width: calc(4 * clamp(160px, 18vw, 260px) + 66px); max-width: calc(100% + 24px); margin: auto -12px 0; }
+.vanillasky-video-chat .suggestion-rail .cards { width: 100%; max-width: 100%; margin: 0; }
+.vanillasky-video-chat .rail-arrows { position: absolute; inset: 50% -6px auto; display: flex; justify-content: space-between; transform: translateY(-50%); pointer-events: none; }
+.vanillasky-video-chat .rail-arrows button { width: 36px; height: 36px; border: 1px solid rgb(255 255 255 / 30%); border-radius: 50%; background: #202438; color: white; font: inherit; font-size: 25px; line-height: 1; cursor: pointer; pointer-events: auto; }
+.vanillasky-video-chat .rail-arrows button:disabled { visibility: hidden; pointer-events: none; }
+.vanillasky-video-chat .rail-arrows button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+@media (max-width: 700px) {
+  .vanillasky-video-chat .suggestion-rail { width: calc(100% + 40px); max-width: calc(100% + 40px); margin-inline: -20px; }
+  .vanillasky-video-chat .rail-arrows { display: none; }
+}
+
+@media (hover: none) { .vanillasky-video-chat .rail-arrows { display: none; } }

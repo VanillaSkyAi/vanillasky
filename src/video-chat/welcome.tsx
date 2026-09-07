@@ -34,7 +34,7 @@ export function Welcome({ data, onAsk, title }: {
         {title ?? <>An AI chat that responds<br /><em>in video, not text.</em></>}
       </h1>
 
-      <SuggestionCards suggestions={data?.cards ?? []} label="Suggested prompts" onAsk={onAsk} />
+      <SuggestionCards browse suggestions={data?.cards ?? []} label="Suggested prompts" onAsk={onAsk} />
     </div>
   </div>;
 }
