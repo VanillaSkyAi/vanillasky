@@ -1,6 +1,7 @@
 import { getSceneDuration, getSceneDurationBounds } from "../protocol/scene-duration.js";
 import type { VideoScene, VideoTemplatePacing } from "../protocol/types.js";
 
+/** Measured speech replaces the estimate, but never the template's reading floor. */
 export function preparedSceneDuration(
   scene: VideoScene,
   spokenSeconds: number | undefined,
