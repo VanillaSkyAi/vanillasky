@@ -20,17 +20,19 @@ describe("scene media preparation", () => {
     await Promise.resolve(); expect(ready).toBe(false);
     images[0].onload?.(); expect(await task).toBe("image");
   });
-  it("identifies a decoded poster as a bridge, without allocating a video decoder", async () => {
-    mockImages(); const create = vi.spyOn(document, "createElement");
-    const task = prepareSceneMedia({mediaUrl: "https://example.com/movie.mp4", mediaType: "video", mediaPoster: "https://example.com/poster.jpg"}, new AbortController().signal);
-    images[0].onload?.(); expect(await task).toBe("poster-bridge");
-    expect(create).not.toHaveBeenCalledWith("video");
-  });
-  it("keeps missing and broken posters awaiting an actual video frame", async () => {
+  it("does not hold video preparation behind an optional poster", async () => {
     mockImages();
-    expect(await prepareSceneMedia({mediaUrl: "https://example.com/movie.mp4", mediaType: "video"}, new AbortController().signal)).toBe("awaiting-video-frame");
-    const task = prepareSceneMedia({mediaUrl: "https://example.com/movie.mp4", mediaType: "video", mediaPoster: "https://example.com/poster.jpg"}, new AbortController().signal);
-    images[0].onerror?.(); expect(await task).toBe("awaiting-video-frame");
+    const create = vi.spyOn(document, "createElement");
+    let ready = false;
+    const task = prepareSceneMedia({mediaUrl: "https://example.com/movie.mp4", mediaType: "video", mediaPoster: "https://example.com/poster.jpg"}, new AbortController().signal)
+      .then(value => { ready = true; return value; });
+    // The poster never responds. Video preparation must still reach its owner.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ready).toBe(true);
+    expect(await task).toBe("awaiting-video-frame");
+    expect(create).not.toHaveBeenCalledWith("video");
+    expect(images).toHaveLength(0);
   });
   it("cancels a pending decode and releases handlers", async () => {
     mockImages(); const controller = new AbortController();
