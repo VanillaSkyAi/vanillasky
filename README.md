@@ -1,5 +1,10 @@
 # Give your AI a voice and a face
 
+[![CI](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@vanillaskyai/video.svg)](https://www.npmjs.com/package/@vanillaskyai/video)
+[![runtime dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)](package.json)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 **VanillaSky is the open-source voice-and-video chat layer.** Add a polished,
 general-purpose AI conversation that speaks and starts playing visual answers
 while they are still being composed.

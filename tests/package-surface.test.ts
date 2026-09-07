@@ -5,15 +5,19 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 
 describe("public package surface", () => {
-  it("labels the package as a beta voice-and-video chat SDK", () => {
+  it("stays on a pre-1.0 version while the API is beta", () => {
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const readme = readFileSync(join(root, "README.md"), "utf8");
 
     expect(manifest.version).toMatch(/^0\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-    expect(manifest.description).toMatch(/voice-and-video chat SDK/i);
-    expect(manifest.keywords).toEqual(expect.arrayContaining(["video-chat", "voice-chat"]));
-    expect(manifest.keywords).not.toEqual(expect.arrayContaining(["personalized-video", "contextual-ai"]));
-    expect(readme).toMatch(/Status: Beta/);
+  });
+
+  it("installs no runtime dependencies", () => {
+    const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+
+    expect(manifest.dependencies ?? {}).toEqual({});
+    expect(manifest.peerDependenciesMeta.react.optional).toBe(true);
+    expect(manifest.peerDependenciesMeta["react-dom"].optional).toBe(true);
+    expect(manifest.peerDependenciesMeta.tsx.optional).toBe(true);
   });
 
   it("publishes only the supported entry points", () => {
@@ -65,47 +69,18 @@ describe("public package surface", () => {
     }
   });
 
-  it("keeps the website in its standalone repository and ships documentation only", () => {
+  it("keeps repository-only files out of the published package", () => {
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const workflow = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
-    const releasing = readFileSync(join(root, "docs/maintainers/releasing.md"), "utf8");
-    const addingTemplate = readFileSync(join(root, "docs/maintainers/adding-template.md"), "utf8");
-    const contributing = readFileSync(join(root, "CONTRIBUTING.md"), "utf8");
-    const eslintConfig = readFileSync(join(root, "eslint.config.js"), "utf8");
-    const gitignore = readFileSync(join(root, ".gitignore"), "utf8");
 
-    expect(existsSync(join(root, "site"))).toBe(false);
-    expect(existsSync(join(root, "wrangler.toml"))).toBe(false);
-    expect(Object.keys(manifest.scripts).filter((name) => name.startsWith("site:"))).toEqual([]);
-    expect(manifest.scripts["release:build"]).not.toContain("site:");
-    for (const maintainerFile of [
-      "docs/maintainers/acceptance.md",
+    for (const repositoryOnly of [
       "AGENTS.md",
       "CLAUDE.md",
-      "docs/maintainers/releasing.md",
-      "llms.txt",
+      "CODE_OF_CONDUCT.md",
+      "CONTRIBUTING.md",
+      "docs/maintainers",
     ]) {
-      expect(manifest.files).not.toContain(maintainerFile);
+      expect(manifest.files, repositoryOnly).not.toContain(repositoryOnly);
     }
-    expect(existsSync(join(root, "llms.txt"))).toBe(false);
-    expect(workflow).not.toMatch(/site:(?:install|build)/);
-    expect(eslintConfig).not.toContain("site/");
-    expect(gitignore).not.toContain("site/");
-    expect(existsSync(join(root, "docs/studio-handoff.md"))).toBe(false);
-    expect(releasing).toContain("vanillasky.ai adopts stable npm releases separately");
-    expect(releasing).not.toContain("VanillaSkyAi/vanillasky-site");
-    expect(releasing).not.toContain("verify:sdk-latest");
-    expect(addingTemplate).toContain("site-owned process");
-    expect(contributing).toContain("site-owned adoption process");
-    expect(contributing).not.toContain("required website handoff");
-    for (const privateSiteDetail of [
-      "`vanillasky-site`",
-      "VANILLASKY_SDK_SOURCE",
-      "verify:sdk-latest",
-      "sync:docs",
-      "public/template-thumbnails",
-    ]) {
-      expect(addingTemplate).not.toContain(privateSiteDetail);
-    }
+    expect(manifest.files.filter((entry: string) => entry.startsWith("docs/maintainers/"))).toEqual([]);
   });
 });

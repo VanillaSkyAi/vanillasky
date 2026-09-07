@@ -27,7 +27,10 @@ describe("documented examples", () => {
     const readme = publicFiles[0][1];
 
     expect(readme).toContain("npx @vanillaskyai/video init");
-    expect(readme).not.toMatch(/shields\.io|!\[[^\]]*version[^\]]*\]/i);
+    // Badges may report live state; they must never hard-code a version that goes stale.
+    for (const badge of readme.match(/!\[[^\]]*\]\([^)]*\)/g) ?? []) {
+      expect(badge).not.toMatch(/\d+\.\d+\.\d+/);
+    }
     expect(readme).not.toMatch(/npm install @vanillaskyai\/video[^\n]*(?:\bai\b|@ai-sdk)/);
     for (const [path, contents] of publicFiles) {
       expect(contents, path).not.toContain("@vanillaskyai/video@0.4.1");
