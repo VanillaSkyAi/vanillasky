@@ -8,6 +8,7 @@ import '../../../styles/video-chat.css';
 
 // Deliberately held offline stream for design review. No provider calls.
 let release = () => {};
+const transcriptPreview = new URLSearchParams(location.search).has('transcript');
 const voice: VideoChatVoice = {
   prepare: async () => ({ seconds: 1 }),
   speak: async (_text, { onStart, signal }) => {
@@ -26,9 +27,9 @@ const fetcher: typeof fetch = async input => {
   const action = new URL(String(input), location.origin).searchParams.get('action');
   if (action === 'capabilities') return Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: false, transcription: false, modes: ['cinematic'] });
   if (action === 'welcome') return Response.json({ hero: null, cards: [{ prompt: 'How do sunflowers follow the light?', media: null }] });
-  if (action === 'suggestions') return Response.json({ suggestions: [] });
+  if (action === 'suggestions') return Response.json({ suggestions: transcriptPreview ? [{ prompt: 'Why do flowers face the sun?', media: null }] : [] });
   if (action !== 'response') return new Response(null, { status: 204 });
-  const scene: VideoScene = { id: 'local-video', templateId: 'cinemaMedia', narration: 'Sunflowers turn toward the light.',
+  const scene: VideoScene = { id: 'local-video', templateId: 'cinemaMedia', narration: transcriptPreview ? 'Sunflowers turn toward the light as they grow. Their stems respond to changes throughout the day, following the sun across the sky. Mature flowers settle into an eastward position that warms them in the morning and welcomes early pollinators.' : 'Sunflowers turn toward the light.',
     variables: { mediaType: 'video', mediaUrl: new URL('./media-transition/sunflowers.mp4', location.href).href, fallbackText: 'Sunflowers follow the light' }, timing: { fixedDuration: 4 } };
   const snapshot: Video = { schemaVersion: '0.2', orientation: 'landscape', style: TEST_VIDEO_STYLE, scenes: [scene] };
   const encoder = new TextEncoder();

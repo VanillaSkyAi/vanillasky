@@ -1,3 +1,4 @@
+import { CaptionPages } from "./caption-pages";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { VideoOrientation } from "../protocol/types.js";
@@ -68,11 +69,21 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
   const composerRef = useRef<HTMLDivElement>(null);
   const viewportOrientation = useViewportOrientation();
   const sessionOrientation = options.orientation ?? viewportOrientation;
-  const { chat, restoreSession } = useVideoChatSession({
+  const { chat, restoreSession, getCaptionProgress } = useVideoChatSession({
     ...options,
     orientation: sessionOrientation,
     mode: selectedMode ?? options.mode,
   });
+
+  const observedMode = useRef<{ id: string; mode: VideoChatMode } | undefined>(undefined);
+  useEffect(() => {
+    const turn = chat.currentTurn;
+    if (!turn?.mode) { observedMode.current = undefined; return; }
+    const previous = observedMode.current;
+    observedMode.current = { id: turn.id, mode: turn.mode };
+    if (turn.id !== chat.shownTurn?.id) return;
+    if (previous?.id !== turn.id || previous.mode !== turn.mode) setSelectedMode(turn.mode);
+  }, [chat.currentTurn, chat.shownTurn?.id]);
 
   const instanceId = useId();
   const historyId = `${instanceId}-history`;
@@ -183,6 +194,9 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
 
   const shownOrientation = shown?.orientation ?? sessionOrientation;
   const stageOrientation = shown?.fixedOrientation ? shownOrientation : sessionOrientation;
+  useEffect(() => {
+    setCaptionsExpanded(false);
+  }, [chat.playbackEnded, shown?.id, chat.playerKey]);
   const line = chat.caption ?? "";
   const fullTranscript = shown?.video ? [shown.opening, ...shown.video.scenes.map((scene) => scene.narration)].filter((entry): entry is string => Boolean(entry)) : chat.transcript;
   const transport = status === "narrating"
@@ -243,7 +257,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     onKeyDownCapture={controls.reveal}
   >
     <header className="chrome" {...controlEvents}>
-      <div className="session-brand"><a className="home-link" href="/" aria-label="Home"><Logo /></a>{(shown?.mode ?? selectedMode ?? options.mode) === "pexels" && <a className="media-credit" href="https://www.pexels.com" target="_blank" rel="noopener noreferrer">Pexels</a>}</div>
+      <div className="session-brand"><a className="home-link" href="/" aria-label="Home"><Logo /></a></div>
       <div className="group">
         <button
           ref={historyButtonRef}
@@ -357,7 +371,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
       <div className="panel-inner">
         <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
           <div className="caption-clip">
-            <div className="line-row" data-opening-copy={openingChapter && line === shown?.opening && !captionsExpanded} data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
+            {chat.playbackEnded && !captionsExpanded ? <button type="button" className="transcript-toggle" aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-opening-copy={openingChapter && line === shown?.opening && !captionsExpanded} data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
               {captionsOn && line && <div className="caption-actions">
@@ -366,8 +380,8 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
               </div>}
               {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : <p className="line" aria-live="polite">{openingChapter && line === shown?.opening ? "" : line}</p>}
-            </div>
+              </div> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={openingChapter && line === shown?.opening ? "" : line} getProgress={getCaptionProgress} />}
+            </div>}
           </div>
         </div>
         {showRecoveryNotice && chat.shownTurn && dismissedNoticeTurn !== chat.shownTurn.id && chat.warnings.includes(MEDIA_RECOVERY_NOTICE) && !chat.error && <div className="recovery-notice">

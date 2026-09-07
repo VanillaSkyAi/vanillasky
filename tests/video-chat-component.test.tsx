@@ -61,6 +61,38 @@ describe("VideoChat", () => {
     expect(body.style?.generatedLook).toBe(generatedLook);
   });
 
+  it.each([false, true])("reflects a resolved Pexels response without overriding a later user choice (completed: %s)", async (completed) => {
+    const { VideoChat } = await import("../src/react");
+    const base = chatFetcher();
+    render(<VideoChat options={{ mode: "cinematic", fetcher: async (input, init) => {
+      const action = new URL(String(input), "https://app.example").searchParams.get("action");
+      if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: true, transcription: false, modes: ["cinematic", "pexels"] });
+      if (action === "response") {
+        const { checksumVideo } = await import("../src/protocol/checksum");
+        const { TEST_VIDEO_STYLE } = await import("./semantic-brand-fixture");
+        const scene = { id: "ready", templateId: "chapterTitle", variables: { title: "A complete answer" }, narration: "The sky changes colour.", timing: { fixedDuration: 1 } };
+        const snapshot = { schemaVersion: "0.2" as const, orientation: "landscape" as const, style: TEST_VIDEO_STYLE, scenes: [scene] };
+        const events = [
+          { type: "response.start", data: { requestId: "mode", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
+          { type: "scene.add", data: { scene, position: 0 } },
+          { type: "response.complete", data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
+        ];
+        const body = completed ? events.map((event, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `mode:${sequence}`, runId: "mode", sequence, ...event })}\n\n`).join("") : new ReadableStream();
+        return new Response(body, { headers: { "content-type": "text/event-stream", "x-vanillasky-resolved-video-mode": "pexels" } });
+      }
+      return base(input, init);
+    } }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Explain why the sky changes colour" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const pexels = await screen.findByRole("radio", { name: /Pexels/ });
+    await waitFor(() => expect((pexels as HTMLInputElement).checked).toBe(true));
+    expect(screen.queryByRole("link", { name: "Pexels" })).toBeNull();
+    const generated = screen.getByRole("radio", { name: /AI video/ });
+    fireEvent.click(generated);
+    fireEvent.click(screen.getByRole("switch", { name: /Subtitles/ }));
+    expect((generated as HTMLInputElement).checked).toBe(true);
+  });
+
   it("announces preparation one second after opening speech finishes", async () => {
     const { VideoChat } = await import("../src/react");
     const base = chatFetcher();

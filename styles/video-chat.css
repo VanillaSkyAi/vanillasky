@@ -1065,7 +1065,6 @@
 }
 
 .vanillasky-video-chat .opening-chapter { animation: vanillasky-chapter-enter 450ms ease-out both; }
-.vanillasky-video-chat .media-credit { color: var(--vs-fg); font-size: 11px; margin-left: 12px; text-underline-offset: 3px; }
 @keyframes vanillasky-chapter-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .vanillasky-video-chat .opening-chapter { animation: none; } }
 
@@ -1124,3 +1123,7 @@
 .vanillasky-video-chat .card-prompt { position: relative; inset: auto; overflow-wrap: anywhere; flex-shrink: 0; }
 
 .vanillasky-video-chat .cards { flex-shrink: 0; }
+
+.vanillasky-video-chat .transcript-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--vs-media-glass); color: var(--vs-media-muted); font: inherit; font-size: 13px; cursor: pointer; pointer-events: auto; }
+.vanillasky-video-chat .transcript-toggle svg { width: 16px; height: 16px; }
+.vanillasky-video-chat .transcript-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
