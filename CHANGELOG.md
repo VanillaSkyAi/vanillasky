@@ -4,6 +4,13 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.16
+
+- Start the first fully prepared scene without waiting for an eight-second startup buffer, while preserving narration and visual readiness.
+- Keep generated narration alive when a superseded playback attempt rejects after pause and resume.
+- Give ending suggestions larger responsive cards with complete labels, including narrow embedded players.
+- Match simple singular and plural stock subjects in the starter without discarding required subjects or exclusions.
+
 ## 0.10.15
 
 - Recover a mislabeled first chat brief only when its complete authored content validates, preserving its shots and ending. Keep malformed JSON and incomplete or later records rejected.

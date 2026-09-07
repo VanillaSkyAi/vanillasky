@@ -756,7 +756,7 @@ describe("useVideoChat", () => {
     expect(result.current.status).toBe("cancelled");
   });
 
-  it("stops and closes an active player stream when cancelled after the first scene", async () => {
+  it("starts a short prepared scene before planning finishes and closes it on cancellation", async () => {
     const { useVideoChat } = await import("../src/react");
     const encoder = new TextEncoder();
     const base = videoChatFetcher();
@@ -774,7 +774,7 @@ describe("useVideoChat", () => {
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
+    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Cancel after playback starts"); });

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import { decodeVideoSse } from "../protocol/sse.js";
-import { canStartPreparedSequence, preparedSceneDuration } from "../player/scene-readiness.js";
+import { preparedSceneDuration } from "../player/scene-readiness.js";
 import type { VideoEvent } from "../protocol/events.js";
 import type {
   Video,
@@ -689,8 +689,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return;
       }
       if (!timeline) {
-        if (!style || openingActive || heldRef.current || available === appended
-          || !canStartPreparedSequence(ready.slice(0, available), planDone)) return;
+        if (!style || openingActive || heldRef.current || available === appended) return;
         timeline = createSceneTimeline({ style, orientation });
         timelineRef.current = timeline;
         openingController.abort(new DOMException("Opening replaced by response", "AbortError"));

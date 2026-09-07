@@ -84,6 +84,15 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let disposed = false;
   let generatedSpeechUnavailable = false;
   let playbackFailure: (() => void) | undefined;
+  // Native play promises can reject after pause/resume has superseded them.
+  // Only the latest request may fail the current line or release its blob.
+  let playbackAttempt = 0;
+  const playGenerated = (element: HTMLAudioElement, fail: (() => void) | undefined) => {
+    const attempt = ++playbackAttempt;
+    const reject = () => { if (attempt === playbackAttempt && !held && sounding === element) fail?.(); };
+    try { void element.play().catch(reject); }
+    catch { reject(); }
+  };
   const notifyFallback = () => {
     try { void Promise.resolve(options.onFallback?.()).catch(() => undefined); }
     catch { /* Observer failures do not affect speech. */ }
@@ -204,6 +213,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}) };
     },
     pause() {
+      playbackAttempt++;
       held = true;
       sounding?.pause();
       globalThis.speechSynthesis?.pause();
@@ -218,7 +228,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         try { void element.play().catch(() => undefined); }
         catch { /* Actual speech retains the existing fallback behavior. */ }
       }
-      if (sounding) { const fail = playbackFailure; void sounding.play().catch(() => { if (!held) fail?.(); }); }
+      if (sounding) playGenerated(sounding, playbackFailure);
       if (!silent) globalThis.speechSynthesis?.resume();
     },
     setMuted(muted) {
@@ -346,11 +356,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           element.onended = finish;
           element.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });
-          try {
-            if (!held) void element.play().catch(() => { if (!held) fail(); });
-          } catch {
-            fail();
-          }
+          if (!held) playGenerated(element, fail);
         });
       } catch {
         playbackFailed = true;

@@ -105,3 +105,14 @@ it('preserves provider order when subject and query scores are equal', async () 
  expect(await findStockFootage('running dog beach', 'landscape', new AbortController().signal,
   { subject: 'dog', activity: 'running' })).toMatchObject({ url: 'https://videos.pexels.com/105.mp4' });
 });
+
+it('matches simple plural subjects without confusing unrelated nouns or bypassing exclusions',async()=>{
+ vi.stubEnv('PEXELS_API_KEY','plural-fixture');
+ for(const [subject,slug,accepted] of [['dog','dogs-beach',true],['dogs','dog-beach',true],['ocean wave','ocean-waves',true],['grass','gras',false],['gas','ga',false],['new','news',false],['dog','man-beach',false]] as const) {
+  vi.stubGlobal('fetch',async()=>Response.json({videos:[video(920,slug)]}));
+  const result=await findStockFootage(`${subject} pluralfixture ${slug}`,'landscape',new AbortController().signal,{subject});
+  expect(Boolean(result),`${subject} against ${slug}`).toBe(accepted);
+ }
+ vi.stubGlobal('fetch',async()=>Response.json({videos:[video(921,'dog-running')]}));
+ expect(await findStockFootage('dog exclusionfixture','landscape',new AbortController().signal,{subject:'dog',exclude:['dogs running']})).toBeNull();
+});
