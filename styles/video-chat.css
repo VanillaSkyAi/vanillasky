@@ -1089,7 +1089,7 @@
 /* Follow-ups have room for their complete prompt; the welcome rail stays compact. */
 .vanillasky-video-chat .ending-body {
   inset: 96px 0 180px;
-  padding: 12px var(--vs-media-gutter);
+  padding: 12px clamp(20px, 3.5cqw, 56px);
   overflow-y: auto;
   overscroll-behavior: contain;
   justify-content: safe flex-end;
@@ -1122,7 +1122,7 @@
   line-height: 1.4;
 }
 
-@media (min-width: 1200px) {
+@container (min-width: 1200px) {
   .vanillasky-video-chat .ending .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .vanillasky-video-chat .ending .cards button { min-height: 210px; }
 }
