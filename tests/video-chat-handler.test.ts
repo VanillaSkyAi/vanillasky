@@ -185,7 +185,7 @@ describe("createVideoChatHandler", () => {
     });
     expect(streamCalls).toBe(1);
     expect(generatedTasks).toEqual([]);
-    expect(systemPrompt).toContain("short inviting spoken introduction");
+    expect(systemPrompt).toContain("one useful spoken line of 4–7 ordinary words");
     expect(systemPrompt).toContain('"type":"answer"');
   });
 
