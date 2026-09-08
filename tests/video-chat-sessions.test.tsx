@@ -41,3 +41,17 @@ it("closes Sessions when starting from an empty welcome screen", () => {
   expect(screen.queryByRole("dialog", {name:"Sessions"})).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole("textbox", {name:"Prompt"}));
 });
+
+it.each([undefined, { name: "Acme" }])("keeps the Home/reset shortcut without an explicit home URL (%s)", (branding) => {
+  render(<VideoChat branding={branding} />);
+  fireEvent.click(screen.getByRole("link", { name: branding ? "Acme home" : "Home" }));
+  expect(session.current.reset).toHaveBeenCalledOnce();
+});
+
+it("leaves navigation to an explicit app home URL without resetting first", () => {
+  render(<VideoChat branding={{ name: "Acme", homeUrl: "/app" }} />);
+  const home = screen.getByRole("link", { name: "Acme home" });
+  home.addEventListener("click", event => event.preventDefault());
+  fireEvent.click(home);
+  expect(session.current.reset).not.toHaveBeenCalled();
+});

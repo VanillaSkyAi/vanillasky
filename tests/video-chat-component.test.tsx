@@ -120,6 +120,7 @@ describe("VideoChat", () => {
 
     expectTypeOf(VideoChat).toBeFunction();
     expect(screen.getByRole("link", {name: "Home"}).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("img", { name: "VanillaSky" })).toBeTruthy();
     const root = container.querySelector(".vanillasky-video-chat");
     expect(root?.hasAttribute("data-theme")).toBe(false);
     expect(root?.classList.contains("customer-shell")).toBe(true);
@@ -127,6 +128,30 @@ describe("VideoChat", () => {
     expect(await screen.findByRole("button", { name: "Explain why the sky changes colour" })).toBeTruthy();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
+  });
+
+  it("accepts an app identity without changing the welcome or session controls", async () => {
+    const { VideoChat } = await import("../src/react");
+    render(<VideoChat branding={{ name: "Acme", logo: <svg data-testid="acme-logo" width="120" height="30" />, homeUrl: "/app", showDeveloperLinks: false }} options={{ fetcher: chatFetcher() }} />);
+    expect(screen.getByRole("link", { name: "Acme home" }).getAttribute("href")).toBe("/app");
+    expect(screen.getByTestId("acme-logo")).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "VanillaSky" })).toBeNull();
+    expect(await screen.findByText("in video, not text.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Sessions" }));
+    expect(screen.getByRole("button", { name: "New session" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.queryByRole("navigation", { name: "Build with VanillaSky" })).toBeNull();
+    expect(screen.getByRole("switch", { name: /Subtitles/ })).toBeTruthy();
+  });
+
+  it("uses the app name without a logo and rejects executable home URLs", async () => {
+    const { VideoChat } = await import("../src/react");
+    render(<VideoChat branding={{ name: "Acme", homeUrl: "javascript:alert(1)" }} options={{ fetcher: chatFetcher() }} />);
+    const home = screen.getByRole("link", { name: "Acme home" });
+    expect(home.textContent).toBe("Acme");
+    expect(home.getAttribute("href")).toBe("/");
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("navigation", { name: "Build with VanillaSky" })).toBeTruthy();
   });
 
   it.each([false, true])("shows a dismissible recovery notice only when opted in (%s)", async (showRecoveryNotice) => {

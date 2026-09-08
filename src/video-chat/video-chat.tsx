@@ -41,18 +41,31 @@ function Waveform({ active, listening }: { active: boolean; listening?: boolean 
 }
 
 export interface VideoChatProps {
-  /** Connection, providers, templates, and rendering defaults for the session. */
+  /** Connection, voice, and rendering defaults for the session. */
   options?: UseVideoChatOptions;
   /** Added to the scoped component root for application layout and branding. */
   className?: string;
   /** Replaces the default two-line welcome heading without changing the interaction. */
   welcomeTitle?: ReactNode;
+  /** Application identity only; does not change scenes, prompts or playback. */
+  branding?: {
+    /** Visible fallback when logo is omitted, and the home link's accessible name. */
+    name: string;
+    /** App-owned logo element. Give images/SVGs explicit dimensions. */
+    logo?: ReactNode;
+    /** HTTP(S) or root-relative destination. Omit to preserve the Home/reset shortcut. */
+    homeUrl?: string;
+    /** Keep the SDK's Docs/About/GitHub section in Settings. Defaults to true. */
+    showDeveloperLinks?: boolean;
+  };
   /** Show a dismissible safe notice when generated visuals fall back. Defaults to false. */
   showRecoveryNotice?: boolean;
 }
 
 /** A complete voice-and-video chat interface backed by createVideoChatHandler. */
-export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryNotice = false }: VideoChatProps) {
+export function VideoChat({ options = {}, className, welcomeTitle, branding, showRecoveryNotice = false }: VideoChatProps) {
+  const appName = branding?.name.trim() || "VanillaSky";
+  const customHome = safeHomeUrl(branding?.homeUrl);
   const [dismissedNoticeTurn, setDismissedNoticeTurn] = useState<string>();
   const [draft, setDraft] = useState("");
   const [selectedMode, setSelectedMode] = useState<VideoChatMode>();
@@ -257,11 +270,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
     onKeyDownCapture={controls.reveal}
   >
     <header className="chrome" {...controlEvents}>
-      <div className="session-brand"><a className="home-link" href="/" aria-label="Home" onClick={event => {
-        if (window.location.pathname !== "/" || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      <div className="session-brand"><a className="home-link" href={customHome ?? "/"} aria-label={branding ? `${appName} home` : "Home"}
+        style={branding ? { color: "inherit", textDecoration: "none" } : undefined} onClick={event => {
+        if (customHome || window.location.pathname !== "/" || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         newSession();
-      }}><Logo /></a></div>
+      }}>{branding ? branding.logo ?? appName : <Logo />}</a></div>
       <div className="group">
         <button
           ref={historyButtonRef}
@@ -360,13 +374,13 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
           <label className="switch-row"><span><strong>Keep controls visible</strong><small>Keep the input bar on screen</small></span><input type="checkbox" role="switch" checked={alwaysShowControls} onChange={(event) => setAlwaysShowControls(event.target.checked)} /></label>
         </fieldset>
-        <nav className="developer-links" aria-label="Build with VanillaSky">
+        {branding?.showDeveloperLinks !== false && <nav className="developer-links" aria-label="Build with VanillaSky">
           <p className="section-label">Build with VanillaSky</p>
           <a href="https://github.com/VanillaSkyAi/video/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Docs<span aria-hidden="true">↗</span></a>
           <button type="button" aria-expanded={aboutOpen} aria-controls={`${instanceId}-about`} onClick={() => setAboutOpen((open) => !open)}>About<span aria-hidden="true">{aboutOpen ? "−" : "+"}</span></button>
           <div id={`${instanceId}-about`} className="developer-about" role="region" aria-label="About VanillaSky" hidden={!aboutOpen}><p>VanillaSky is an open-source SDK for conversations that answer in video. Developers connect their own AI providers through their application server.</p></div>
           <a href="https://github.com/VanillaSkyAi/video" target="_blank" rel="noopener noreferrer">GitHub<span aria-hidden="true">↗</span></a>
-        </nav>
+        </nav>}
       </div>}
     </div>
 
@@ -415,4 +429,14 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
       </div>
     </div>
   </div>;
+}
+
+function safeHomeUrl(value: string | undefined): string | undefined {
+  const candidate = value?.trim();
+  if (!candidate || !/^(?:https?:\/\/|\/(?![/\\]))/i.test(candidate)) return undefined;
+  try {
+    const url = new URL(candidate, "https://vanillasky.local");
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return undefined;
+    return candidate.startsWith("/") ? `${url.pathname}${url.search}${url.hash}` : url.href;
+  } catch { return undefined; }
 }
