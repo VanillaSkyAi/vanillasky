@@ -19,9 +19,10 @@ function help(): string {
     "VanillaSky video chat",
     "",
     "Usage:",
-    "  vanillasky init",
+    "  vanillasky init [--native]",
     "  vanillasky doctor",
-    "  vanillasky providers add <speech|video>",
+    "  vanillasky providers add <speech|transcription>",
+    "  vanillasky providers add video [fal|google|runway|custom]",
   ].join("\n");
 }
 
@@ -50,11 +51,13 @@ export function runVanillaSkyCli(
   if (rootCommand === "init") {
     return (async () => {
       try {
-        const unknown = unknownOption("init", rootArgs, []);
+        const unknown = unknownOption("init", rootArgs, ["--native"]);
         if (unknown) throw new Error(unknown);
-        if (rootArgs.length > 0) throw new Error(`Unexpected init argument: ${rootArgs[0]}`);
+        const unexpected = rootArgs.find(argument => argument !== "--native");
+        if (unexpected || rootArgs.length > 1) throw new Error(`Unexpected init argument: ${unexpected ?? rootArgs[1]}`);
         const result = await initVideoChatApp({
           cwd,
+          native: rootArgs.includes("--native") ? true : undefined,
           starterRoot: environment.starterRoot,
           sdkSpec: environment.sdkSpec ?? process.env.npm_config_package,
           installDependencies: environment.installDependencies,
@@ -62,8 +65,9 @@ export function runVanillaSkyCli(
         write(result.initialized ? "Video chat initialized with chapter introductions and browser voice." : "Video chat is already initialized; dependencies checked.");
         const health = doctorVideoChatApp(cwd);
         health.lines.forEach(write);
-        write(health.ok ? "Ready. Run: npm run dev" : health.lines.some((line) => line === "MISSING  ANTHROPIC_API_KEY in .env.local")
-          ? "Add ANTHROPIC_API_KEY to .env.local. Then run: npm run dev"
+        const requiredKey = health.lines.find(line => /^MISSING {2}(ANTHROPIC_API_KEY|GEMINI_API_KEY) in \.env\.local$/.test(line))?.split("  ")[1].split(" ")[0];
+        write(health.ok ? "Ready. Run: npm run dev" : requiredKey
+          ? `Add ${requiredKey} to .env.local. Then run: npm run dev`
           : "Next: fix the missing setup items above, then run npm run dev.");
         return 0;
       } catch (error) {
@@ -76,8 +80,14 @@ export function runVanillaSkyCli(
   if (rootCommand === "providers") {
     return (async () => {
       try {
-        if (rootArgs.length !== 2 || rootArgs[0] !== "add") throw new Error("Usage: vanillasky providers add <speech|video>");
-        write(await addVideoChatProvider(rootArgs[1], { cwd, starterRoot: environment.starterRoot, installDependencies: environment.installDependencies }));
+        const usage = "Usage: vanillasky providers add <speech|transcription> or vanillasky providers add video [fal|google|runway|custom]";
+        if (rootArgs[0] !== "add" || rootArgs.length < 2 || rootArgs.length > 3) throw new Error(usage);
+        const vendor = rootArgs[2];
+        if (vendor !== undefined && (rootArgs[1] !== "video" || !["fal", "google", "runway", "custom"].includes(vendor))) throw new Error(usage);
+        write(await addVideoChatProvider(rootArgs[1], {
+          cwd, starterRoot: environment.starterRoot, installDependencies: environment.installDependencies,
+          vendor: vendor as "fal" | "google" | "runway" | "custom" | undefined,
+        }));
         return 0;
       } catch (error) {
         write(error instanceof Error ? error.message : String(error));

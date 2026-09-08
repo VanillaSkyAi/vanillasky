@@ -80,16 +80,8 @@ try {
       throw new Error(`Baseline init unexpectedly installed optional provider ${dependency}`);
     }
   }
-  if (!existsSync(join(app, "providers.ts")) || existsSync(join(app, "providers"))) {
-    throw new Error("Baseline init must copy only the empty provider registry");
-  }
-  const generatedClient = readFileSync(join(app, "src", "main.tsx"), "utf8");
-  const generatedServer = readFileSync(join(app, "server.ts"), "utf8");
-  if (!generatedClient.includes("<VideoChat") || generatedClient.includes("../vanillasky")) {
-    throw new Error("Packed init did not create the thin SDK-owned VideoChat shell");
-  }
-  if (generatedServer.includes("./vanillasky/server")) {
-    throw new Error("Packed init copied a source-owned template registry into the default server");
+  if (!existsSync(join(app, "providers.ts")) || !existsSync(join(app, "providers/text.ts"))) {
+    throw new Error("Baseline init must install its app-owned text callback and optional-provider wiring");
   }
   const missingDoctor = runCli(["doctor"], { expectFailure: true });
   if (missingDoctor.status === 0 || !missingDoctor.output.includes("MISSING  ANTHROPIC_API_KEY")) {
@@ -206,7 +198,6 @@ try {
     || existsSync(join(app, "node_modules", "@fal-ai/client"))) {
     throw new Error("Speech upgrade did not install only its selected provider");
   }
-  run("npm", ["run", "build"], app);
   const editedSpeech = `${readFileSync(speechAdapter, "utf8")}\n// Customer-owned speech adapter customization.\n`;
   writeFileSync(speechAdapter, editedSpeech);
   rmSync(join(app, "node_modules", "@ai-sdk/xai"), { recursive: true, force: true });
@@ -215,18 +206,22 @@ try {
     || !existsSync(join(app, "node_modules", "@ai-sdk/xai", "package.json"))) {
     throw new Error("Repeated speech upgrade lost customer source or failed to repair installation");
   }
-  runCli(["providers", "add", "video"]);
-  if (!existsSync(join(app, "node_modules", "@fal-ai/client", "package.json"))
+  runCli(["providers", "add", "video", "fal"]);
+  const videoManifest = JSON.parse(readFileSync(join(app, "package.json"), "utf8"));
+  if (existsSync(join(app, "node_modules", "@fal-ai/client"))
+    || videoManifest.vanillasky.videoVendor !== "fal"
+    || videoManifest.vanillasky.providers.includes("transcription")
     || readFileSync(speechAdapter, "utf8") !== editedSpeech) {
-    throw new Error("Video upgrade lost the speech customization or failed to install");
+    throw new Error("Video upgrade changed unrelated capabilities, lost app source, or installed a vendor SDK");
   }
-  run("npm", ["run", "build"], app);
-  const optionalCanaries = ["server-only-speech-canary", "server-only-video-canary"];
-  const upgradedEnvironment = `ANTHROPIC_API_KEY=${textKeyCanary}\nXAI_API_KEY=${optionalCanaries[0]}\nFAL_KEY=${optionalCanaries[1]}\n`;
+  runCli(["providers", "add", "transcription"]);
+  const optionalCanaries = ["server-only-speech-canary", "server-only-video-canary", "server-only-storage-canary"];
+  const upgradedEnvironment = `ANTHROPIC_API_KEY=${textKeyCanary}\nXAI_API_KEY=${optionalCanaries[0]}\nFAL_KEY=${optionalCanaries[1]}\nVIDEO_UPLOAD_URL=https://storage.example/upload\nVIDEO_STORAGE_TOKEN=${optionalCanaries[2]}\n`;
   writeFileSync(environmentPath, upgradedEnvironment);
   const upgradedDoctor = runCli(["doctor"]);
   if (!upgradedDoctor.output.includes("READY    generated speech")
-    || !upgradedDoctor.output.includes("READY    generated video + transcription")
+    || !upgradedDoctor.output.includes("READY    generated video (fal")
+    || !upgradedDoctor.output.includes("READY    transcription")
     || [textKeyCanary, ...optionalCanaries].some((key) => upgradedDoctor.output.includes(key))) {
     throw new Error("Doctor did not recognize the installed upgrades without exposing keys");
   }
@@ -249,6 +244,31 @@ try {
     throw new Error("Optional provider setup exposed server keys in the browser bundle");
   }
 
+  // Prove the no-framework path from the same immutable artifact in another
+  // independent consumer. Native HTTP payloads are covered by offline adapter tests.
+  const nativeApp = join(workspace, "native-video-demo");
+  mkdirSync(nativeApp);
+  runCapture("npx", ["--yes", "--package", installSpec, "vanillasky", "init", "--native"], nativeApp);
+  const nativeCli = join(nativeApp, "node_modules/@vanillaskyai/video/bin/vanillasky.js");
+  runCapture(process.execPath, [nativeCli, "init"], nativeApp);
+  const nativeManifest = JSON.parse(readFileSync(join(nativeApp, "package.json"), "utf8"));
+  for (const dependency of ["ai", "@ai-sdk/anthropic", "@fal-ai/client"]) {
+    if (nativeManifest.dependencies?.[dependency] || existsSync(join(nativeApp, "node_modules", dependency))) {
+      throw new Error(`Native init unexpectedly required ${dependency}`);
+    }
+  }
+  const nativeKey = "server-only-native-text-canary";
+  writeFileSync(join(nativeApp, ".env.local"), `GEMINI_API_KEY=${nativeKey}\n`);
+  const nativeDoctor = runCapture(process.execPath, [nativeCli, "doctor"], nativeApp);
+  if (!nativeDoctor.output.includes("READY    GEMINI_API_KEY") || nativeDoctor.output.includes(nativeKey)) {
+    throw new Error("Native doctor did not report readiness without exposing credentials");
+  }
+  run("npm", ["run", "build"], nativeApp);
+  const nativeBundle = readdirSync(join(nativeApp, "dist"), { recursive: true })
+    .map(path => join(nativeApp, "dist", path)).filter(path => !statSync(path).isDirectory())
+    .map(path => readFileSync(path, "utf8")).join("\n");
+  if (nativeBundle.includes(nativeKey)) throw new Error("Native text credentials entered the browser bundle");
+
   for (const [path, original] of Object.entries(tsconfigSnapshot)) {
     if (readFileSync(join(app, path), "utf8") !== original) throw new Error("Onboarding changed strict TypeScript settings");
   }
@@ -260,10 +280,10 @@ try {
       sha256: candidateArtifact?.sha256 ?? process.env.VANILLASKY_EXPECTED_SHA256,
       browserErrors: welcomeErrors,
       responseCount: responseRequests.length,
-      result: "default chat, follow-up context, provider installation and strict builds passed",
+      result: "default chat, follow-up context, independent providers and native/AI-SDK strict builds passed",
     }, null, 2) + "\n");
   }
-  console.log("Fresh Vite onboarding passed: exact installed candidate, strict builds, default chat, follow-up context, provider upgrades, installation recovery and secret isolation.");
+  console.log("Fresh Vite onboarding passed: exact candidate, native and AI-SDK strict builds, default chat, follow-up context, independent provider upgrades, installation recovery and secret isolation.");
 } finally {
   if (welcomeBrowser) await welcomeBrowser.close();
   if (welcomeServer) {

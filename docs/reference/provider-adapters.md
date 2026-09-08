@@ -5,11 +5,11 @@ read [Media and voice](../media-and-audio.md).
 
 VanillaSky deliberately does not depend on a model provider or AI framework.
 Your server owns the model and credentials; `createVideoChatHandler` accepts
-`streamText` and `generateText` callbacks. The recommended adapter is the [AI SDK](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text),
+`streamText` and `generateText` callbacks. One optional adapter is the [AI SDK](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text),
 which gives the application one `LanguageModel` interface across official,
 community, AI Gateway, OpenAI-compatible, and custom providers.
 
-## Recommended: AI SDK
+## Optional: AI SDK
 
 Install the AI SDK plus the provider package your application chooses:
 
@@ -81,6 +81,7 @@ complete.
 ## Native or self-hosted providers
 
 The same chat contract supports a native provider without an AI SDK dependency.
+`npx @vanillaskyai/video init --native` creates an editable Gemini REST example.
 Return an `AsyncIterable<string>` from `streamText`, or an object with
 `textStream` and optional completion metadata. Implement `generateText` for the
 small welcome, suggestion, fallback narration, and bounded `narration-rewrite`

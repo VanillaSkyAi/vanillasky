@@ -12,6 +12,11 @@ builder, registry CLI, or custom renderer contract.
 In an empty app, run `npx @vanillaskyai/video init`, inspect
 `npx vanillasky doctor`, then start `npm run dev`. In an existing app, preserve
 its framework and follow the installed package's `docs/provider-integration.md`.
+Use `init --native` when the host wants no AI framework dependency; it supplies
+editable Gemini REST text callbacks. `providers add video <vendor>` accepts
+fal, google, runway, or custom. Speech and transcription are independent additions.
+Read the provider guide before enabling video: keys alone are insufficient;
+the application must configure durable media delivery as well.
 The generated shell is editable application code; do not copy SDK internals.
 
 Doctor reports missing key names and readiness. Have the host add credentials
