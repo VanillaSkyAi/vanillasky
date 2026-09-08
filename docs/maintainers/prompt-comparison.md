@@ -1,6 +1,7 @@
 # Compact chat prompt comparison
 
-Status: evaluation protocol frozen before implementation; live calls not authorized.
+Status: code implemented; offline verification in progress. Live calls not authorized.
+Quality acceptance and blind output preference remain unverified.
 
 ## Baseline and configuration
 
@@ -104,3 +105,74 @@ No paid calls authorized or made. Finish code/offline verification before reques
 one bounded live budget covering primary planning, second-model subset, limited
 repeats/revision, narration repairs and selected actual footage. No automatic paid
 retries, raised limits or stored keys. Stop for owner merge/release approval.
+
+## Candidate changes and offline evidence
+
+Compression artifact: `35173ca` (baseline style policy retained).
+Style artifact: `c4a824c` (content-led choice plus realistic compiler fallback).
+All remain unreleased SDK 0.11.2 source candidates, not npm publications.
+
+Callback capture over all 40 frozen configurations completed for all three arms,
+using authored records and null media only. No text provider was called. Typical
+waves request sizes, including the same application guidance and user content:
+
+| Arm | AI system + user | Stock system + user | Repair system |
+| --- | ---: | ---: | ---: |
+| Baseline | 8833 | 9077 | 873 |
+| Compact / baseline style | 4363 | 5276 | 612 |
+| Compact / proposed style | 4483 | 5396 | 612 |
+
+Final text reduction: 49.2% AI and 40.6% stock for this case. These are character
+counts, not a prompt-length gate, token billing estimate or model quality result.
+Stock uses a five-second planning slot independent of AI duration; no unavailable
+AI provider speech limit is injected. Narration repair retains its shared JSON,
+256-output-token ceiling and single 2500ms attempt. No playback code, provider
+callbacks, dependencies or public declarations were edited.
+
+Removed two exact-prose prompt tests; retained creative fixtures exercising the
+real handler and media adapter. Focused checks: 113 existing behavior tests passed
+for compression, lint/typecheck/build passed, then 23 visual-direction tests passed
+for style policy including malformed styles, independent intent validation and
+explicitly distinct styles under interleaving. Fixture criteria for three stock
+controls were clarified before any model assessment: AI allowance, availability
+and duration must not constrain stock. Inputs/configurations did not change.
+
+## Proposed live budget (approval required)
+
+One bounded run, at most **252 text requests, 6 generated clips and 12 stock
+searches**, with a **US$12 total hard stop** and no automatic retries:
+
+- 120 primary Haiku 4.5 plans (40 combinations × three arms).
+- 36 Sonnet 4.5 plans (12 fixed combinations × three arms).
+- At most 12 Haiku repeats and 12 Haiku plans after one targeted revision.
+- At most 72 narration-rewrite requests total, with 256 output tokens each;
+  use the planning model for that arm. Stop and report unmeasured repairs if
+  this ceiling is reached, rather than silently treating them as successful.
+- Six five-second 768p `minimax/h3-max-turbo/text-to-video` clips: baseline and
+  candidate for waves, evaporation, and caller clay direction. Evaluate the
+  relevant first developing beat (or ending when no developing beat exists).
+  If text acceptance rejects style policy, compare compression alone instead.
+- At most 12 stock searches: baseline and candidate first relevant beats for
+  equipment, historical, comedy, units, followup and waves. Preserve actual
+  search-result evidence separately from text-only feasibility judgments.
+
+Settings match website text defaults: Messages API 2023-06-01, 4096 output tokens,
+no temperature/top-p override, no cache/batch discount assumed. Reserve each call's
+maximum possible cost before dispatch; cap planning input at 12000 UTF-8 bytes and
+repair input at 4000 bytes (conservatively priced as tokens). Recheck prices before
+calling if approval is delayed. Do not change account/provider spending limits.
+Typical expected cost is roughly $3–5; the conservative token-ceiling estimate is
+$9.33 for text plus $1.20 for video at nonpromotional rates. Existing account caps
+remain authoritative; failures/timeouts consume their reservation without retry.
+No paid TTS; this evaluates estimated narration fit, with prerecorded/local speech
+playback checks reported separately from live voice fit.
+
+Prices checked 2026-09-08: [Haiku 4.5](https://www.anthropic.com/claude/haiku)
+$1/$5 per million input/output tokens; [Sonnet 4.5](https://www.anthropic.com/news/claude-sonnet-4-5)
+$3/$15; [FAL model](https://fal.ai/models/minimax/h3-max-turbo/text-to-video)
+768p $0.01/second promotional, $0.04/second regular. Budget uses regular rates.
+Pexels search has no per-call charge assumed; remain within existing account limits.
+
+Spend so far: **$0**. Live schemas, fidelity, completion/fit deltas, rewrite demand,
+latency, blind quality preference and actual generated/selected footage are all
+**unverified**. A green CI run cannot replace these acceptance gates.

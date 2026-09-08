@@ -440,7 +440,7 @@
     "clips": 1,
     "available": true,
     "criteria": [
-      "Complete ending alone; no developing shots; no false causal precision."
+      "Complete answer and saved ending; stock must not inherit the one-generation allowance. No unnecessary developing shots for this simple question."
     ]
   },
   {
@@ -452,7 +452,7 @@
     "clips": 0,
     "available": false,
     "criteria": [
-      "Complete chapter-led answer and ending despite no generated footage."
+      "Complete story and earned ending with feasible stock illustration; absence of a generated-video provider must not disable stock."
     ]
   },
   {
@@ -464,7 +464,7 @@
     "clips": 3,
     "available": true,
     "criteria": [
-      "Preserve lower-density causal fact, fit very short beats or clearly expose inability; no deleted mechanism."
+      "Preserve the lower-density causal fact; stock narration must not inherit the two-second generated-video speech budget."
     ]
   },
   {
