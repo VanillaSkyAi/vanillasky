@@ -118,6 +118,12 @@ export function usePlaybackClock({
         let raw = narrationTime !== undefined && cued
           ? cued.start - (cued.scene.narrationGroup?.offsetSeconds ?? 0) + narrationTime
           : timeRef.current + delta;
+        // The decoded visual can lead the first reported audio time slightly.
+        // Adopt a forward audio clock by holding until it catches up, not by
+        // seeking the decoder backward. Real audio/playhead resets still act.
+        if (narrationTime !== undefined && !audioMovedBackwards && !externallySeeked && !replaced) {
+          raw = Math.max(timeRef.current, raw);
+        }
         // Browser/custom voices may have no audio clock. Their completion
         // promise, not an estimate, owns the final cut. Waiting is bounded in
         // active playback time and leaves the same media element mounted.
