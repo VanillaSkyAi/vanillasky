@@ -25,4 +25,11 @@ describe("clip narration budget", () => {
     expect(estimateNarrationSeconds("你好世界")).toBeGreaterThan(1);
     expect(estimateNarrationSeconds("  ")).toBe(0);
   });
+
+  it("does not count compact numeric measurements as one short spoken word", () => {
+    // This five-second clip's live voice lasted 5.16s despite a 3.33s estimate.
+    expect(narrationFitsClip("Water below 195°F under-extracts coffee.", 5)).toBe(false);
+    expect(narrationFitsClip("The discount is 50%.", 5)).toBe(true);
+    expect(narrationFitsClip("Water below one hundred ninety-five degrees Fahrenheit under-extracts coffee.", 5)).toBe(false);
+  });
 });

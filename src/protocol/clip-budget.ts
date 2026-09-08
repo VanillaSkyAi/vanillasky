@@ -22,8 +22,13 @@ export function estimateNarrationSeconds(text: string): number {
   if (!normalized) return 0;
   const characters = normalized.match(UNSPACED_SCRIPT)?.length ?? 0;
   const words = normalized.replace(UNSPACED_SCRIPT, " ").match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+  // Digits and measurement symbols expand in speech. Be conservative rather
+  // than treating e.g. 195°F as two ordinary words; this is not a TTS formatter.
+  const numericExpansion = (normalized.match(/\p{Nd}+/gu) ?? []).reduce((sum, digits) =>
+    sum + Math.max(0, digits.length - 1) + (digits.length >= 3 ? 1 : 0), 0);
+  const symbols = normalized.match(/[%°\p{Sc}]/gu)?.length ?? 0;
   const pauses = normalized.match(/[.!?。！？;；:：]/gu)?.length ?? 0;
-  return words / 2.2 + characters / 3.5 + pauses * .15;
+  return (words + numericExpansion + symbols) / 2.2 + characters / 3.5 + pauses * .15;
 }
 
 export function speechFitsClip(seconds: number, durationSec: number): boolean {
