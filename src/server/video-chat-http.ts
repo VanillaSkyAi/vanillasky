@@ -26,7 +26,12 @@ async function readBody(request: Request, maximum: number): Promise<Uint8Array> 
       request.signal.throwIfAborted();
       if (next.done) break;
       bytes += next.value.byteLength;
-      if (bytes > maximum) { await reader.cancel(); throw new BodyTooLarge(); }
+      if (bytes > maximum) {
+        // Cleanup must not delay the bounded admission result or replace its
+        // error when an underlying stream has a failing cancellation hook.
+        void reader.cancel().catch(() => undefined);
+        throw new BodyTooLarge();
+      }
       chunks.push(next.value);
     }
   } finally {

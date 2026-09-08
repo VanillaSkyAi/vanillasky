@@ -538,6 +538,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     openingLine: string | undefined,
     mode: VideoChatMode,
     preparations: PreparationChannel,
+    internalBodyBytes: number,
   ) => {
     const startedAt = Date.now();
     type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
@@ -661,7 +662,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         resolveMedia: resolveSelected,
         mediaConcurrency,
       }),
-      authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
+      authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes: internalBodyBytes,
       systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode), instructions?.trim()]
         .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
@@ -775,29 +776,30 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       const cancellation = new AbortController();
       const forwardedHeaders = new Headers(request.headers);
       forwardedHeaders.delete("content-length");
+      const videoBody = JSON.stringify({
+        protocolVersion: VIDEO_PROTOCOL_VERSION,
+        requestId,
+        input: {
+          input: answer === undefined
+            ? conversationInput(input.prompt, input.conversation, input.opening)
+            : JSON.stringify({ prompt: input.prompt, completedAssistantAnswer: answer }),
+          knowledgeMode: answer === undefined ? "general" : "input-only",
+          opening: false,
+          orientation: input.orientation,
+          maxDurationSec: 40,
+          style: {
+            density: "airy",
+            motion: "calm",
+            textArchetype: "cinematic",
+            ...input.style,
+          },
+        },
+      });
       const videoRequest = new Request(request.url, {
         method: "POST",
         headers: forwardedHeaders,
         signal: AbortSignal.any([request.signal, cancellation.signal]),
-        body: JSON.stringify({
-          protocolVersion: VIDEO_PROTOCOL_VERSION,
-          requestId,
-          input: {
-            input: answer === undefined
-              ? conversationInput(input.prompt, input.conversation, input.opening)
-              : JSON.stringify({ prompt: input.prompt, completedAssistantAnswer: answer }),
-            knowledgeMode: answer === undefined ? "general" : "input-only",
-            opening: false,
-            orientation: input.orientation,
-            maxDurationSec: 40,
-            style: {
-              density: "airy",
-              motion: "calm",
-              textArchetype: "cinematic",
-              ...input.style,
-            },
-          },
-        }),
+        body: videoBody,
       });
       const response = await responseHandler(
         requestId,
@@ -806,6 +808,9 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         input.opening,
         input.mode,
         preparations,
+        // HTTP admission already bounded the caller's bytes. The validated
+        // 32k-character answer and JSON escaping have their own exact bound.
+        new TextEncoder().encode(videoBody).byteLength,
       )(videoRequest);
       return streamVideoChatOpening(response, openingChannel.ready, preparations, () => cancellation.abort());
     }

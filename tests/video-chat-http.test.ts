@@ -2,6 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server";
 
 describe("bounded video chat transport", () => {
+  it.each(["pending", "rejecting"])("returns the overflow error and releases the reader while cancellation cleanup is %s", async outcome => {
+    vi.useFakeTimers();
+    try {
+      const cancel = vi.fn(() => outcome === "pending" ? new Promise<void>(() => undefined) : Promise.reject(new Error("private cleanup failure")));
+      const body = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(32)); }, cancel });
+      const handler = createVideoChatHandler({ authorize: "none", maxBodyBytes: 16, generateText: () => "", streamText: async function* () {} });
+      const request = new Request("https://app.test/video?action=response", { method: "POST", body, duplex: "half" } as RequestInit);
+      const result = Promise.race([handler(request), new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 100))]);
+      await vi.advanceTimersByTimeAsync(100);
+      const response = await result;
+      expect(response?.status).toBe(413);
+      expect(await response?.json()).toMatchObject({ error: { message: "Request body is too large" } });
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(request.body?.locked).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
   it("stops reading a streamed body as soon as its byte budget is exceeded", async () => {
     const cancel = vi.fn(); let reads = 0;
     const body = new ReadableStream<Uint8Array>({

@@ -6,6 +6,23 @@ const streamText = vi.fn<VideoChatHandlerOptions["streamText"]>(async function* 
   yield JSON.stringify({ type: "answer", opening: "The result has limits.", subject: "ocean", development: "", ending: { narration: "It works only under controlled conditions.", title: "Controlled conditions", subject: "ocean waves" } }) + "\n";
 });
 describe("existing assistant integration", () => {
+  it("keeps the inbound body limit separate from a bounded completed answer and its JSON encoding", async () => {
+    const answer = '🌊"\\\n'.repeat(8_000).trim();
+    const resolveAnswer = vi.fn(async () => answer);
+    const planner = vi.fn(streamText);
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, maxBodyBytes: 1_024,
+      streamText: planner, generateText: () => "", resolveAnswer });
+    const response = await handler(request());
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(JSON.parse(planner.mock.calls[0]![0].request.input.input).completedAssistantAnswer).toBe(answer);
+    const oversizedRequest = new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "x".repeat(1_100) }) });
+    expect((await handler(oversizedRequest)).status).toBe(413);
+    expect(resolveAnswer).toHaveBeenCalledOnce();
+    resolveAnswer.mockResolvedValue("x".repeat(32_001));
+    expect((await handler(request())).status).toBe(502);
+    expect(planner).toHaveBeenCalledOnce();
+  });
   it("uses the completed answer as the only factual source without changing the client", async () => {
     const resolveAnswer = vi.fn<NonNullable<VideoChatHandlerOptions["resolveAnswer"]>>(async () => "It works only under controlled conditions.");
     const planner = vi.fn(streamText);
