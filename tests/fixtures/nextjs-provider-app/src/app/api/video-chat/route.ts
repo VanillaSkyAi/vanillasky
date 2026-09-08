@@ -10,6 +10,7 @@ const handle = createVideoChatHandler({
     return hostname === "localhost" || hostname === "127.0.0.1";
   },
   streamText: streamVideoPlan,
+  welcome: { heroQuery: "", prompts: [{ prompt: "Explain ocean waves" }] },
   generateVideo: async () => ({ type: "video", url: "https://media.example/fixture.mp4" }),
   generateText: ({ task }) => task === "suggestions"
     ? JSON.stringify({ suggestions: [
