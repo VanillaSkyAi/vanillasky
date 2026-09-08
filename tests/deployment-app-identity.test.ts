@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, expect, test } from "vitest";
 import { assertAppMarkup, createAppIdentity, renderAppMetaTags } from "../scripts/deployment-app-identity.mjs";
 
@@ -56,7 +57,7 @@ function builtApplication() {
   return root;
 }
 function verifyBuild(root: string, check = false) {
-  return execFileSync(process.execPath, [new URL("../scripts/verify-app-build.mjs", import.meta.url).pathname, ...(check ? ["--check"] : [])], {
+  return execFileSync(process.execPath, [fileURLToPath(new URL("../scripts/verify-app-build.mjs", import.meta.url)), ...(check ? ["--check"] : [])], {
     cwd: root, stdio: "pipe",
   });
 }
