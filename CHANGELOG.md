@@ -4,6 +4,12 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Plan single-idea narration with voice headroom against the configured video duration; keep the full repair budget for necessary meaning. Give the single rewrite explicit speech/word budgets and report content-free outcomes instead of silently collapsing timeout, empty, failed and oversized results.
+- Account conservatively for spoken expansion of numeric measurements before paid generation, and request spoken-form narration rather than compact symbols.
+- Keep stock search and playback independent of generated-video duration/deadline settings. Use reported footage duration when available and the mounted decoder when stock duration is unknown; retain every authored beat within the existing bounded plan.
+- Preserve two-second video budgets through composition and preparation. Delivered footage duration governs playback, with the requested duration as a fallback for generated clips; keep the 0.8-second speech tail, native-speed playback and full-narration chapter recovery.
+- Adopt a late narration clock without rewinding already-prepared footage. Hold visual time until forward-moving audio catches up; preserve deliberate playhead/audio resets and replay, avoiding unnecessary WebKit seeks and recovery chapters.
+
 ## 0.11.0
 
 ### Integration and developer experience

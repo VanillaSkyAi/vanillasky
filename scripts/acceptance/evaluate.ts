@@ -11,7 +11,7 @@ export function evaluateChatAcceptance(fixture: ChatFixture, events: TimedVideoE
     { id: "first-scene-ready", passed: !!scenes[0] && scenes[0].elapsedMs <= 1_000 },
     { id: "completed-scenes-preserved", passed: scenes.length === fixture.lines.length && completion?.event.type === "response.complete" && completion.event.data.snapshot.scenes.length === scenes.length },
     { id: "response-complete", passed: !!completion && completion.elapsedMs <= 3_000 && !events.some(({ event }) => event.type === "response.error" || event.type === "response.abort") },
-    { id: "grounded-readable-copy", passed: scenes.length > 0 && scenes.every(({ scene }, index) => scene.narration === fixture.lines[index] && fixture.lines[index].split(/\s+/).length <= 15 && (scene.timing?.fixedDuration ?? 0) >= 4) },
+    { id: "grounded-readable-copy", passed: scenes.length > 0 && scenes.every(({ scene }, index) => scene.narration === fixture.lines[index] && fixture.lines[index].split(/\s+/).length <= 15 && (scene.timing.fixedDuration ?? (scene.timing.endTime ?? 0) - (scene.timing.startTime ?? 0)) >= 4) },
     { id: "media-ready", passed: scenes.length > 0 && scenes.every(({ scene }, index) => fixture.recovery
       ? scene.templateId === "chapterTitle" && scene.variables.title === fixture.titles[index] && fixture.titles[index].length > 0 && fixture.titles[index].length <= 65
       : scene.templateId === "cinemaMedia" && scene.variables.mediaType === "video" && scene.variables.fallbackText === fixture.titles[index]

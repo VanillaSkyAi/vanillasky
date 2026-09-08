@@ -7,6 +7,35 @@ import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 afterEach(() => {cleanup(); vi.useRealTimers();});
+it("adopts a late narration clock without rewinding footage, but preserves an actual audio rewind", async () => {
+  vi.useFakeTimers();
+  let audioTime: number | undefined;
+  let ready = false;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [{ id: "one", templateId: "cinemaMedia", variables: { mediaUrl: "/clip.mp4", mediaType: "video" }, narration: "A fitting recorded line.", timing: { fixedDuration: 3.024 } }] };
+  // The first decoded frame arrives before the recorded voice reports onset.
+  const timeRef = { current: .267 };
+  const error = vi.fn();
+  renderHook(() => usePlaybackClock({ isPlaying: true,
+    stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef,
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: 0 },
+    callbacksRef: { current: { narrationReady: () => ready, narrationTime: () => audioTime, onError: error } },
+    setCurrentTime: vi.fn(), setIsPlaying: vi.fn(),
+  }));
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  ready = true;
+  for (const time of [.114, .2]) {
+    audioTime = time;
+    await act(() => vi.advanceTimersByTimeAsync(32));
+    expect(timeRef.current).toBe(.267);
+  }
+  audioTime = .3;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(timeRef.current).toBe(.3);
+  audioTime = 0;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(timeRef.current).toBe(0);
+  expect(error).not.toHaveBeenCalled();
+});
 it.each([1800, 3000])("waits for actual speech completion at %dms and a short tail before cutting", async finishAt => {
   vi.useFakeTimers();
   let active = true;

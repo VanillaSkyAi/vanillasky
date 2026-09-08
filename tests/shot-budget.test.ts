@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
+import { prepareNarratedScene } from "../src/player/scene-readiness";
+import { narrationFitsClip } from "../src/protocol/clip-budget";
 
 const oversized = "This explanation needs considerably more time than the short clip allows, especially because the result only applies under these specific conditions.";
 const ending = { narration: "Conditions still matter.", title: "Conditions", subject: "ocean waves", action: "Show the shore", durationSec: 5 };
@@ -22,6 +24,112 @@ async function collect(response: Response) {
   const events = []; for await (const event of decodeVideoSse(response.body!)) events.push(event); return events;
 }
 describe("clip budget before paid generation", () => {
+  afterEach(() => vi.useRealTimers());
+  it("preserves a two-second requested budget through streaming when actual duration is unknown", async () => {
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generatedClipDurationSec: 2,
+      generateText: () => "", generateVideo: () => ({ type: "video", url: "https://app.test/short.mp4" }),
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: "Waves rise." } }) + "\n"; },
+    });
+    const events = await collect(await handler(request()));
+    const scene = events.find(e => e.type === "scene.add")?.data.scene;
+    expect(scene?.timing.fixedDuration).toBe(2);
+    expect(prepareNarratedScene(scene!, 1).scene.timing.fixedDuration).toBe(2);
+  });
+  it.each([20, undefined])("retains every long stock beat with reported duration %s", async durationSec => {
+    const lines = ["First", "Second", "Third", "Final"].map(label => `${label}, ${oversized}`);
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generatedClipDurationSec: 2,
+      generateText: () => "",
+      searchMedia: () => ({ type: "video", url: "https://app.test/stock.mp4", ...(durationSec ? { durationSec } : {}) }),
+      streamText: async function* () {
+        yield JSON.stringify({ ...brief, ending: { ...ending, narration: lines.at(-1) } }) + "\n";
+        for (const narration of lines.slice(0, -1)) yield JSON.stringify({ type: "shot", ...ending, narration }) + "\n";
+      },
+    });
+    const events = await collect(await handler(new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "Explain waves", mode: "pexels" }) })));
+    const scenes = events.filter(e => e.type === "scene.add").map(e => e.data.scene);
+    expect(scenes.map(s => s.narration)).toEqual(lines);
+    // Unknown stock duration is checked on the mounted decoder, not against an AI vendor's request budget.
+    expect(scenes.map(s => prepareNarratedScene(s, 11).recovered)).toEqual([false, false, false, false]);
+  });
+  it("stock lookup deadlines do not inherit a video adapter's timeout", async () => {
+    vi.useFakeTimers();
+    let searches = 0;
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateVideoTimeoutMs: 1, generatedClipDurationSec: 2,
+      generateText: () => "", searchMedia: () => { searches++; return { type: "video", url: "https://app.test/stock.mp4", durationSec: 12 }; },
+      streamText: async function* () {
+        yield JSON.stringify(brief) + "\n";
+        yield JSON.stringify({ type: "shot", ...ending, narration: "Waves arrive." }) + "\n";
+        await new Promise(resolve => setTimeout(resolve, 6_000));
+      },
+    });
+    const pending = collect(await handler(new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "Explain waves", mode: "pexels" }) })));
+    await vi.advanceTimersByTimeAsync(7_000);
+    const events = await pending;
+    expect(searches).toBe(2);
+    expect(events.filter(e => e.type === "scene.add").map(e => e.data.scene.templateId)).toEqual(["cinemaMedia", "cinemaMedia"]);
+  });
+  it.each([2, 5, 6, 8, 10])("passes an explicit %ss narration budget to the single rewrite and video adapter", async durationSec => {
+    const generated: number[] = [];
+    let rewrites = 0;
+    let budget: { clipDurationSec: number; maxSpeechSec: number; targetWords: number; targetUnspacedCharacters: number; maxWords: number; narration: string } | undefined;
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generatedClipDurationSec: durationSec,
+      generateText: context => {
+        rewrites++;
+        budget = JSON.parse(context.userPrompt);
+        return "Conditions matter.";
+      },
+      generateVideo: (_query, context) => {
+        generated.push(context.requestedDurationSec);
+        return { type: "video", url: "https://app.test/clip.mp4", durationSec };
+      },
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
+    });
+    const events = await collect(await handler(request()));
+    expect(budget).toMatchObject({ clipDurationSec: durationSec, maxSpeechSec: durationSec - .8, maxWords: Math.floor((durationSec - .8) * 2), narration: oversized });
+    expect(budget!.targetWords).toBeLessThan(budget!.maxWords);
+    expect(narrationFitsClip(`${"word ".repeat(budget!.targetWords).trim()}.`, durationSec)).toBe(true);
+    expect(narrationFitsClip(`${"水".repeat(budget!.targetUnspacedCharacters)}。`, durationSec)).toBe(true);
+    expect(rewrites).toBe(1);
+    expect(generated).toEqual([durationSec]);
+    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "cinemaMedia", narration: "Conditions matter." } });
+  });
+  it.each(["empty", "oversized", "provider-error", "timeout"] as const)("identifies a %s rewrite without exposing its content", async reason => {
+    vi.useFakeTimers();
+    const diagnostics: unknown[] = [];
+    const generateVideo = vi.fn(() => null);
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateVideo,
+      onDiagnostic: event => { diagnostics.push(event); },
+      generateText: () => {
+        if (reason === "provider-error") throw new Error("private-provider-detail");
+        if (reason === "timeout") return new Promise<string>(() => undefined);
+        return reason === "empty" ? "" : oversized;
+      },
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
+    });
+    const pending = collect(await handler(request()));
+    await vi.advanceTimersByTimeAsync(10_000);
+    const events = await pending;
+    expect(diagnostics).toContainEqual(expect.objectContaining({ phase: "narration-rewrite", reason, clipDurationSec: 5, durationMs: expect.any(Number) }));
+    expect(JSON.stringify(diagnostics)).not.toContain(oversized);
+    expect(JSON.stringify(diagnostics)).not.toContain("private-provider-detail");
+    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "chapterTitle", narration: oversized } });
+    expect(generateVideo).not.toHaveBeenCalled();
+  });
+  it("uses available stock duration rather than the generated-video budget through speech preparation", async () => {
+    const narration = "Water moving across the shallow sea floor slows the wave before it breaks near shore.";
+    const generateVideo = vi.fn(() => null), rewrite = vi.fn(() => "");
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generatedClipDurationSec: 2,
+      generateVideo, generateText: rewrite,
+      searchMedia: () => ({ type: "video", url: "https://app.test/stock.mp4", durationSec: 12 }),
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration } }) + "\n"; },
+    });
+    const events = await collect(await handler(new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "Explain waves", mode: "pexels" }) })));
+    const scene = events.find(e => e.type === "scene.add")?.data.scene;
+    expect(scene).toMatchObject({ templateId: "cinemaMedia", narration, variables: { mediaDurationSec: 12 } });
+    expect(prepareNarratedScene(scene!, 8).recovered).toBe(false);
+    expect(rewrite).not.toHaveBeenCalled();
+    expect(generateVideo).not.toHaveBeenCalled();
+  });
   it("rewrites once before buying a clip, then prepares the accepted narration", async () => {
     const { handler, text, generation } = setup("The result depends on these conditions.");
     const events = await collect(await handler(request()));
