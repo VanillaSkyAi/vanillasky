@@ -1,5 +1,20 @@
 # Video-chat performance
 
+## Generating ahead of playback
+
+The app is built around a useful property of fast video providers: a scene can
+be generated in less time than it takes to watch it. [fal's H3 Max benchmarks](https://fal.ai/learn/devs/introducing-h3-max-by-fal)
+inspired this approach. The included adapter uses H3 Max Turbo with five-second
+clips; upcoming footage can prepare while an earlier scene plays.
+
+Provider generation time and prompt-to-playback time measure different things.
+Queueing, answer planning, narration preparation, transfer and decoding can still
+leave the viewer waiting. Measure the first audible speech and first moving
+footage separately, then track gaps between scenes. A provider benchmark alone
+does not establish smooth end-to-end playback.
+
+## Observe the application
+
 Measure the moment the response becomes visible and audible, and any wait for
 its next scene. Attach local observations without changing the default UI:
 
