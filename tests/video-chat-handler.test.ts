@@ -136,13 +136,11 @@ describe("createVideoChatHandler", () => {
     const createVideoChatHandler = await loadCreateVideoChatHandler();
     const generatedTasks: string[] = [];
     let streamCalls = 0;
-    let systemPrompt = "";
     const handler = createVideoChatHandler({
       authorize: "none",
       heartbeatMs: false,
-      streamText: ({ systemPrompt: prompt }: { systemPrompt: string }) => {
+      streamText: () => {
         streamCalls += 1;
-        systemPrompt = prompt;
         return (async function* () {
           yield* plannedResponse("The Moon turns, perfectly matching its orbit.", "moon orbit earth")();
         })();
@@ -185,8 +183,6 @@ describe("createVideoChatHandler", () => {
     });
     expect(streamCalls).toBe(1);
     expect(generatedTasks).toEqual([]);
-    expect(systemPrompt).toContain("one useful spoken line of 4–7 ordinary words");
-    expect(systemPrompt).toContain('"type":"answer"');
   });
 
   it("requires an explicit authorization policy", async () => {
@@ -227,15 +223,13 @@ describe("createVideoChatHandler", () => {
     expect(await speech.text()).toBe("");
   });
 
-  it("turns a prompt into the existing video stream with SDK-owned general guidance", async () => {
+  it("passes the request, conversation and spoken opening into the video stream", async () => {
     const createVideoChatHandler = await loadCreateVideoChatHandler();
-    let systemPrompt = "";
     let userPrompt = "";
     const handler = createVideoChatHandler({
       authorize: "none",
       heartbeatMs: false,
       streamText: (context: { systemPrompt: string; userPrompt: string }) => {
-        systemPrompt = context.systemPrompt;
         userPrompt = context.userPrompt;
         return plannedResponse()();
       },
@@ -257,11 +251,6 @@ describe("createVideoChatHandler", () => {
 
     expect(response.status).toBe(200);
     expect(events.at(-1)?.type).toBe("response.complete");
-    expect(systemPrompt).toContain("Match the user's form and tone");
-    expect(systemPrompt).toContain("Stories: portray characters");
-    expect(systemPrompt).toContain("separate narration and subtitles");
-    expect(systemPrompt).not.toContain('"id":"reaction"');
-    expect(systemPrompt).not.toContain('"id":"ctaMedia"');
     expect(userPrompt).toContain("Invent a playful bedtime story");
     expect(userPrompt).toContain("Make it whimsical");
     expect(userPrompt).toContain("tiny fox hero");

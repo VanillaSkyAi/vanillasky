@@ -176,3 +176,20 @@ Pexels search has no per-call charge assumed; remain within existing account lim
 Spend so far: **$0**. Live schemas, fidelity, completion/fit deltas, rewrite demand,
 latency, blind quality preference and actual generated/selected footage are all
 **unverified**. A green CI run cannot replace these acceptance gates.
+
+## Independent review and gate corrections
+
+A separate Sol agent inspected baseline fixtures before candidate code, then
+performed read-only implementation review. It found no concrete runtime or public
+API regression beyond the intended fallback. It identified stale prompt-prose
+assertions in three additional test files as a merge blocker. The first release
+check found the same nine failures (986 tests passed); it stopped before packing.
+Removed the obsolete prose assertions while retaining checks for generation caps,
+complete authored beats/endings, provider isolation and conversation/opening
+forwarding. All 49 tests in those files then passed. No production wording was
+changed to satisfy a test. The reviewer also clarified the stock caller-style
+rubric: literal stock cannot render clay. No model outputs have been assessed.
+
+This reviewer has now seen implementation identity. A fresh read-only evaluator
+must score randomized outputs after spending approval; code review is not blind
+quality preference. No more than one evaluator owns scoring at a time.
