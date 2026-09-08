@@ -8,7 +8,6 @@ import {
   useRef,
   useCallback,
   useEffect,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactElement,
 } from "react";
@@ -17,7 +16,6 @@ import { getDimensions } from "../visual-system/layout.js";
 import { getBuiltinSceneRenderer } from "../visual-system/catalog/builtin-player.js";
 import { resolveVideoTimeline, type VideoSceneRange } from "../protocol/timeline.js";
 import {
-  limitsConcurrentVideoDecoders,
   resolveMediaType,
 } from "../visual-system/scene-templates/media-source.js";
 import { ExternalVideoBackdropProvider, type MediaRecoveryReason } from "../visual-system/scene-templates/external-video-backdrop.js";
@@ -68,23 +66,7 @@ class SceneBoundary extends Component<
   }
 }
 
-/** Mount upcoming media before the cut while its keyed layer stays invisible. */
-const MEDIA_PREROLL_SECONDS = 1.2;
 const CONTIGUITY_ULP_FACTOR = 4;
-
-// Device identity cannot change during a page session. useSyncExternalStore
-// gives React a deterministic desktop-safe server snapshot, then applies the
-// real browser capability after hydration without rebuilding a mismatched
-// tree. Client-only roots receive the browser value on their first render.
-const subscribeToDecoderPolicy = () => () => {};
-
-function useDecoderConstraint(): boolean {
-  return useSyncExternalStore(
-    subscribeToDecoderPolicy,
-    limitsConcurrentVideoDecoders,
-    () => false,
-  );
-}
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -108,17 +90,6 @@ function sceneHasVideoBackdrop(range: VideoSceneRange): boolean {
     String(range.scene.variables.mediaType || "auto"),
     mediaUrl,
   ) === "video";
-}
-
-function sceneBackgroundChanges(
-  left: VideoSceneRange,
-  right: VideoSceneRange,
-): boolean {
-  const mediaUrl = (range: VideoSceneRange) =>
-    String(range.scene.variables.mediaType || "auto") === "gradient"
-      ? ""
-      : String(range.scene.variables.mediaUrl || "");
-  return mediaUrl(left) !== mediaUrl(right);
 }
 
 export interface VideoFrameProps {
@@ -175,7 +146,7 @@ function SceneLayer({
   const mediaFailed = externalVideoBackdrop === "fallback"
     || (range.scene.templateId === "cinemaMedia" && !String(range.scene.variables.mediaUrl || "").trim());
   const recoveryTitle = mediaFailed && range.scene.templateId === "cinemaMedia"
-    && typeof range.scene.variables.fallbackText === "string" ? range.scene.variables.fallbackText : undefined;
+    ? (typeof range.scene.variables.fallbackText === "string" && range.scene.variables.fallbackText.trim()) || "Your response continues." : undefined;
   const template = getBuiltinSceneRenderer(recoveryTitle ? "chapterTitle" : range.scene.templateId);
   const duration = range.end - range.start;
 
@@ -271,7 +242,7 @@ export function VideoFrame({
     if (!reportedFailures.current.has(key)) {
       reportedFailures.current.add(key);
       // Internal development signal: never include scene IDs, URLs or copy.
-      recoveryRoot.current?.dispatchEvent(new CustomEvent("vanillasky:media-recovery", { bubbles: true, detail: { reason: ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error"].includes(reason) ? reason : "playback-error" } }));
+      recoveryRoot.current?.dispatchEvent(new CustomEvent("vanillasky:media-recovery", { bubbles: true, detail: { reason: ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error", "duration-mismatch"].includes(reason) ? reason : "playback-error" } }));
     }
     setFailedMedia(previous => previous.has(key) ? previous : new Set([...previous, key]));
   }, [config.scenes]);
@@ -287,7 +258,6 @@ export function VideoFrame({
       return retained.size === previous.size ? previous : retained;
     });
   }, [config.scenes]);
-  const decoderConstrainedDevice = useDecoderConstraint();
   const timeline = resolveVideoTimeline(config);
   const lastRange = timeline.at(-1);
   const foundIndex = timeline.findIndex((range) => time >= range.start && time < range.end);
@@ -357,25 +327,11 @@ export function VideoFrame({
   const next = activeIndex < timeline.length - 1 ? timeline[activeIndex + 1] : undefined;
   const contiguousNext = next && rangesAreContiguous(active, next) ? next : undefined;
 
-  // Give the next backdrop a head start to decode before its cut.
-  // Only a backdrop the next scene does not already have on screen needs the
-  // head start. Identical media across a cut is already decoded.
-  const prerollsNext = Boolean(
-    contiguousNext &&
-      sceneHasBackdrop(contiguousNext) &&
-      sceneBackgroundChanges(active, contiguousNext),
-  );
-  const prerollDuration = prerollsNext ? Math.min(MEDIA_PREROLL_SECONDS, duration) : 0;
-  const prerollStart = active.end - prerollDuration;
-  // Both retained scene kinds have known decoder ownership.
-  const boundedPreparation = decoderConstrainedDevice;
+  // All browsers use the same bounded active-and-next decoder window.
   const activeMediaFailed = failedMedia.has(sceneReadinessKey(active.scene));
   const preparingNext = canRetain(active) && canPrepare(contiguousNext);
   const nextPlayable = hasPlayableMedia(contiguousNext);
-  const mountingNext = handoffPending || Boolean(
-    contiguousNext && (boundedPreparation || time >= prerollStart) && time < active.end &&
-      (prerollsNext || (boundedPreparation && sceneHasVideoBackdrop(contiguousNext))),
-  );
+  const mountingNext = handoffPending || Boolean(contiguousNext && time < active.end && sceneHasBackdrop(contiguousNext));
   const progress = rawProgress;
   // Body scenes own their complete 0→1 motion lifecycle so they can exit into
   // the next beat. A terminal scene has nowhere to exit to: once it reaches

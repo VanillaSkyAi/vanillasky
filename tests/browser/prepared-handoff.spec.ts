@@ -1,6 +1,6 @@
 import { devices, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-type Probe = { kind: string; at: number; sources: number; active: string; scene: string; layer: string; mediaTime: number; id: number; audioTime: number; index: number; source: string };
+type Probe = { kind: string; at: number; sources: number; active: string; scene: string; layer: string; mediaTime: number; id: number; audioTime: number; index: number; source: string; recovery?: boolean };
 const fixtureUrl = `http://127.0.0.1:4274/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`;
 const readProbe = () => (window as unknown as { narrationProbe: Probe[] }).narrationProbe;
 for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delayMs}ms requests while all paragraphs finish`, async ({ browser, browserName }, info) => {
@@ -9,15 +9,14 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
   const context = await browser.newContext({...devices['iPhone 13']});
   const page = await context.newPage();
   const requests: {url:string;range?:string;at:number}[]=[];
-  const delayed = new Set<string>();
+  const delayed = new Map<string, number>();
   await page.route(/\/(tram|sunflowers)\.(mp4|webm)$/, async route => {
     requests.push({url:route.request().url(),range:route.request().headers()['range'],at:Date.now()});
-    // The late control delays only resource selection. A second Range probe
-    // must not multiply that fault beyond the player's cold-start deadline.
-    if (delayMs === 1500 || !delayed.has(route.request().url())) {
-      delayed.add(route.request().url());
-      await new Promise(resolve=>setTimeout(resolve,delayMs));
-    }
+    // Fetch warming and native Range requests share one cold-resource deadline.
+    // Neither request can bypass the fault or multiply it on a second probe.
+    const url = route.request().url();
+    if (!delayed.has(url)) delayed.set(url, Date.now());
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, delayed.get(url)! + delayMs - Date.now())));
     await route.continue();
   });
   try {
@@ -26,8 +25,8 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
     await expect.poll(()=>page.evaluate(()=>(window as unknown as { narrationProbe: Probe[] }).narrationProbe.filter(e=>e.kind==='ended').length),{timeout:35000}).toBe(3);
     const events=await page.evaluate(readProbe);
     expect(events.filter(e=>e.kind==='cut').map(e=>e.index)).toEqual([0,1,2]);
-    expect(events.filter(e=>e.kind==='ended').every(e=>e.audioTime>6.4)).toBe(true);
-    expect(events.filter(e=>e.kind==='pause' && e.audioTime<6)).toHaveLength(0);
+    expect(events.filter(e=>e.kind==='ended').every(e=>e.audioTime>1.95)).toBe(true);
+    expect(events.filter(e=>e.kind==='pause' && e.audioTime<1.9)).toHaveLength(0);
     expect(Math.max(...events.filter(e=>e.kind==='surface').map(e=>e.sources))).toBeLessThanOrEqual(2);
     for(const index of [1,2]) {
       const firstSurface=events.find(e=>e.kind==='surface' && e.active===String(index));
@@ -41,43 +40,24 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
       if (delayMs === 1500) {
         const priorEnd = events.filter(event => event.kind === 'ended')[index - 1];
         const cue = events.find(event => event.kind === 'cut' && event.index === index)!;
-        expect(firstSurface!.at - priorEnd.at).toBeLessThanOrEqual(200);
-        expect(cue.at - priorEnd.at).toBeLessThanOrEqual(200);
+        expect(firstSurface!.at - priorEnd.at).toBeGreaterThanOrEqual(800);
+        expect(cue.at - priorEnd.at).toBeLessThanOrEqual(1300);
         expect(gap).toBeLessThanOrEqual(200);
         const prepared = events.find(e=>e.kind==='frame' && e.id===frames[0].id && e.layer==='incoming');
         expect(prepared).toBeDefined();
         expect(prepared!.source).toBe(frames[0].source);
         expect(prepared!.at).toBeLessThan(firstSurface!.at);
-        expect(priorEnd.at - prepared!.at).toBeGreaterThanOrEqual(3000);
+        expect(priorEnd.at - prepared!.at).toBeGreaterThanOrEqual(100);
         const outgoing = events.filter(e=>e.kind==='frame' && e.scene===String(index-1) && e.at<=frames[0].at).at(-1)!;
         expect(frames[0].at-outgoing.at).toBeLessThanOrEqual(200);
       } else {
         expect(gap).toBeLessThanOrEqual(200);
         const priorEnd = events.filter(event => event.kind === 'ended')[index - 1];
         expect(firstSurface!.at - priorEnd.at).toBeGreaterThan(1000);
-        const held = events.filter(event => event.kind === 'frame' && event.scene === String(index - 1)
-          && event.layer === 'active' && event.at >= priorEnd.at && event.at <= frames[0].at);
-        expect(held.length).toBeGreaterThanOrEqual(3);
-        expect(held[0].at - priorEnd.at).toBeLessThanOrEqual(200);
-        let advancing = 0;
-        for (let frame = 1; frame < held.length; frame++) {
-          expect(held[frame].at - held[frame - 1].at).toBeLessThanOrEqual(200);
-          advancing += Math.max(0, held[frame].mediaTime - held[frame - 1].mediaTime);
-        }
-        // Silent footage is fitted to narration at rates down to .75x.
-        // Require motion throughout the actual hold, including short holds,
-        // rather than demanding a fixed second of footage after an earlier cut.
-        const heldSeconds = (held.at(-1)!.at - held[0].at) / 1000;
-        expect(advancing).toBeGreaterThanOrEqual(heldSeconds * .5);
-        const advancingFrames = held.filter((frame, position) => position === 0
-          || frame.mediaTime > held[position - 1].mediaTime);
-        expect(held.at(-1)!.at - advancingFrames.at(-1)!.at).toBeLessThanOrEqual(200);
-        for (let frame = 1; frame < advancingFrames.length; frame++) {
-          expect(advancingFrames[frame].at - advancingFrames[frame - 1].at).toBeLessThanOrEqual(200);
-        }
-        expect(frames[0].at - held.at(-1)!.at).toBeLessThanOrEqual(200);
-        expect(events.filter(event => event.kind === 'surface' && event.at >= priorEnd.at
-          && event.at < firstSurface!.at).every(event => event.active === String(index - 1))).toBe(true);
+        // Once the outgoing clip ends, an authored chapter covers a slow
+        // generation/decode wait; the SDK does not loop footage to hide it.
+        expect(events.some(event => event.kind === 'surface' && event.recovery
+          && event.active === String(index - 1) && event.at < firstSurface!.at)).toBe(true);
       }
       const cue = events.find(e=>e.kind==='cut' && e.index===index)!;
       const speechEnd = events.filter(event => event.kind === 'ended')[index];
@@ -92,7 +72,7 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
       expect(cue.at).toBeGreaterThanOrEqual(proof!.at);
       expect(firstSurface!.at).toBeGreaterThanOrEqual(proof!.at);
       const connected=events.find(e=>e.kind==='connected' && e.id===frames[0].id);
-      expect(firstSurface!.at-connected!.at).toBeGreaterThanOrEqual(3000);
+      expect(firstSurface!.at-connected!.at).toBeGreaterThanOrEqual(1000);
     }
   } finally {
     await writeFile(info.outputPath('prepared-handoff.json'),JSON.stringify({delayMs,requests,events:await page.evaluate(readProbe)}));

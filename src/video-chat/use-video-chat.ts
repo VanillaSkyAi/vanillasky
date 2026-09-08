@@ -1,13 +1,12 @@
 import {orderWelcomeCards, welcomeVisitSeed} from "./welcome-cards.js";
 import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
-import { recoverSceneMedia } from "../player/recover-scene-media.js";
+import { createScenePreparation } from "./scene-preparation.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import { decodeVideoSse } from "../protocol/sse.js";
-import { preparedSceneDuration } from "../player/scene-readiness.js";
 import type { VideoEvent } from "../protocol/events.js";
 import type {
   Video,
@@ -18,11 +17,8 @@ import type {
 } from "../protocol/types.js";
 import { VideoError } from "../player/video-error.js";
 import type { VideoPlayerProps } from "../player/video-player.js";
+import type { MediaPlaybackMetric, PlaybackWaitReason } from "../player/video-player-types.js";
 import { useNarration } from "../player/use-narration.js";
-import { preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.js";
-import { getBuiltinSceneDefinition } from "../visual-system/catalog/builtin-metadata.js";
-import { warmSceneMedia } from "../player/warm-scene-media.js";
-import { prepareSceneMedia } from "../player/prepare-scene-media.js";
 import type {
   VideoChatCapabilities,
   VideoChatAskOptions,
@@ -36,7 +32,7 @@ import { withDeadline } from "./deadline.js";
 import { sanitizeVideoChatMedia } from "./media.js";
 import { createVideoChatVoice, type VideoChatVoice } from "./voice.js";
 
-const DEFAULT_TIMEOUT_MS = 180_000;
+const DEFAULT_TIMEOUT_MS = 660_000;
 
 export type VideoChatStatus = "idle" | "composing" | "playing" | "paused" | "ended" | "cancelled" | "error";
 
@@ -87,7 +83,9 @@ export type VideoChatPlaybackMetric = {
   | { type: "first-frame" }
   | { type: "first-media-frame" }
   | { type: "first-speech"; source: "browser" | "generated" | "custom" }
-  | { type: "stall"; durationMs: number; reason: "scene-generation" }
+  | { type: "stall"; durationMs: number; reason: PlaybackWaitReason }
+  | { type: "scene-duration"; speechDurationSec: number; clipDurationSec: number; recovered: boolean }
+  | MediaPlaybackMetric
 );
 
 function observe(callback: (() => unknown) | undefined): void {
@@ -413,21 +411,6 @@ async function responseError(response: Response): Promise<VideoError> {
   });
 }
 
-function pacedScene(
-  scene: VideoScene,
-  spokenSeconds: number | undefined,
-): VideoScene {
-  const held = preparedSceneDuration(scene, spokenSeconds, getBuiltinSceneDefinition(scene.templateId));
-  const {
-    startTime: _startTime,
-    endTime: _endTime,
-    beatStart: _beatStart,
-    beatEnd: _beatEnd,
-    ...timing
-  } = scene.timing ?? {};
-  return { ...scene, timing: { ...timing, fixedDuration: held } };
-}
-
 /** Own a complete video conversation while the application owns its UI. */
 export function useVideoChat(options: UseVideoChatOptions = {}): UseVideoChatResult {
   return useVideoChatSession(options).chat;
@@ -495,6 +478,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     mediaReported?: boolean;
     active: boolean;
     stallStartedAt?: number;
+    stallReason?: PlaybackWaitReason;
   } | undefined>(undefined);
 
   const reportMetric = useCallback((metric: VideoChatPlaybackMetric) => {
@@ -508,7 +492,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     timing.stallStartedAt = undefined;
     reportMetric({ type: "stall", turnId: timing.turnId, mode: timing.mode,
       elapsedMs: Math.max(0, Math.round(now - timing.startedAt)),
-      durationMs: Math.max(0, Math.round(now - started)), reason: "scene-generation" });
+      durationMs: Math.max(0, Math.round(now - started)), reason: timing.stallReason ?? "scene-generation" });
   }, [reportMetric]);
   const endTiming = useCallback(() => {
     finishStall();
@@ -714,35 +698,17 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     };
     flushRef.current = flush;
 
-    // The response stream holds one host admission slot. Two speech jobs leave
-    // room for user actions and prevent a batch of ready scenes from flooding it.
-    const speechLoads = new Map<string, Promise<Awaited<ReturnType<VideoChatVoice["prepare"]>>>>();
-    const speechLanes: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()];
-    let nextSpeechLane = 0;
-    let customVoiceFailed = false;
-    const prepareSpeech = (text: string, signal: AbortSignal) => {
-      const cached = speechLoads.get(text);
-      if (cached) return cached;
-      const lane = nextSpeechLane++ % speechLanes.length;
-      const prepared = speechLanes[lane]!.then(async () => {
-        signal.throwIfAborted();
-        try {
-          if (customVoiceFailed) throw new Error("Voice preparation did not respond");
-          return currentOptions.voice
-            ? await withDeadline((child) => voiceRef.current.prepare(text, { signal: child }), 3_000, signal)
-            : await voiceRef.current.prepare(text, { signal });
-        } catch (cause) {
-          if (currentOptions.voice && !signal.aborted && isCurrent()) {
-            unavailableVoiceLines.current.add(text);
-            if (cause instanceof DOMException && cause.name === "TimeoutError") customVoiceFailed = true;
-          }
-          throw cause;
-        }
-      });
-      speechLoads.set(text, prepared);
-      speechLanes[lane] = prepared.catch(() => undefined);
-      return prepared;
-    };
+    const preparation = createScenePreparation({
+      voice: () => voiceRef.current, customVoice: Boolean(currentOptions.voice), signal: controller.signal,
+      onVoiceUnavailable: text => { if (isCurrent()) unavailableVoiceLines.current.add(text); },
+      warn,
+      onDuration: value => {
+        const timing = firstFrameRef.current;
+        if (isCurrent() && timing?.active) reportMetric({ type: "scene-duration", ...value,
+          turnId: id, mode, elapsedMs: Math.max(0, Math.round(monotonicNow() - timing.startedAt)) });
+      },
+    });
+    const { prepareSpeech } = preparation;
 
     const speakOpening = async (text: string) => {
       try {
@@ -807,12 +773,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               : "Some parts were simplified so the response could continue.");
           }
           if (event.type === "data.video-chat-preparation") {
-            const data = event.data as { sceneId?: unknown; narration?: unknown } | undefined;
-            if (data && typeof data.sceneId === "string" && data.sceneId.length <= 200
-              && typeof data.narration === "string" && data.narration.trim() && data.narration.length <= 2_000
-              && speechLoads.size < 32) {
-              void prepareSpeech(data.narration.trim(), controller.signal).catch(() => undefined);
-            }
+            preparation.announce(event.data);
             continue;
           }
           if (event.type === "data.video-chat-opening") {
@@ -844,24 +805,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           const plannedScene = event.data.scene;
           planned[position] = plannedScene;
           received[position] = plannedScene;
-          const rendererReady = Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
-          const visualPreparation = rendererReady.then(async () => {
-            try {
-              await prepareSceneMedia(plannedScene.variables, controller.signal);
-              return plannedScene;
-            } catch (cause) {
-              if (controller.signal.aborted) throw cause;
-              // An unavailable optional photo must not discard the spoken answer.
-              // The fallback remains valid persisted template data, with no invented copy.
-              const fallback = recoverSceneMedia(plannedScene);
-              if (!fallback) throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" });
-              warn(MEDIA_RECOVERY_NOTICE);
-              return fallback;
-            }
-          });
-          // Attach a handler immediately while speech preparation runs in parallel.
-          void visualPreparation.catch(() => undefined);
-          warmSceneMedia(plannedScene.variables);
+          const visualPreparation = preparation.prepareVisual(plannedScene);
 
           const narrated = narrating.then(async () => {
             const supplied = plannedScene.narration?.trim();
@@ -900,7 +844,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
             const withNarration = line ? { ...visual, narration: line } : visual;
             const group = plannedScene.narrationGroup;
             if (group && (spoken?.supportsOffsets !== true || voiceRef.current.supportsOffsets !== true || Math.abs(spoken.seconds - group.totalSeconds) > 0.1)) throw new VideoError("Narration group requires matching measured audio with offset support", { code: "narration_group_invalid" });
-            ready[position] = group ? withNarration : pacedScene(withNarration, spoken?.seconds);
+            ready[position] = group ? withNarration : preparation.pace(withNarration, spoken?.seconds);
             flush();
           }).catch((cause: unknown) => {
             if (!isCurrent() || currentAttempt !== attempt) return;
@@ -940,7 +884,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       try {
         response = await untilAborted(runAttempt(attempt), controller.signal);
       } catch (cause) {
-        if (controller.signal.aborted || timeline || spokenHook
+        if (mode !== "pexels" || controller.signal.aborted || timeline || spokenHook
             || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) || received.some((scene) => scene?.narrationGroup)) throw cause;
         attempt += 1;
         ready = [];
@@ -1121,6 +1065,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     controls: false,
     narrationReady: narration.isReady,
     narrationTime: narration.getTime,
+    narrationActive: narration.isSpeaking,
     orientation: shownTurn?.fixedOrientation ? shownTurn.orientation : "auto" as const,
     onFramePresented: () => {
       const timing = firstFrameRef.current;
@@ -1137,15 +1082,20 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       reportMetric({type: "first-media-frame", turnId: timing.turnId, mode: timing.mode,
         elapsedMs: Math.max(0, Math.round(monotonicNow() - timing.startedAt))});
     },
-    onStallChange: (stalled: boolean) => {
+    onPlaybackMetric: options.onPlaybackMetric ? (metric: MediaPlaybackMetric) => {
+      const timing = firstFrameRef.current;
+      if (stateRef.current.playerKey !== playbackKey || !timing?.active || state.playback?.kind !== "stream") return;
+      reportMetric({ ...metric, turnId: timing.turnId, mode: timing.mode, elapsedMs: Math.max(0, Math.round(monotonicNow() - timing.startedAt)) });
+    } : undefined,
+    onStallChange: (stalled: boolean, reason: PlaybackWaitReason = "scene-generation") => {
       if (stateRef.current.playerKey !== playbackKey) return;
-      if (stalled) voiceRef.current.pause();
+      if (stalled && reason !== "speech") voiceRef.current.pause();
       else if (!heldRef.current) voiceRef.current.resume();
       if (state.playback?.kind !== "stream") return;
       const timing = firstFrameRef.current;
       if (!timing?.active || !timing.reported) return;
       if (!stalled) finishStall();
-      else if (!heldRef.current && timing.stallStartedAt == null) timing.stallStartedAt = monotonicNow();
+      else if (!heldRef.current && timing.stallStartedAt == null) { timing.stallStartedAt = monotonicNow(); timing.stallReason = reason; }
     },
     onSceneChange: (scene: VideoScene, index: number) => {
       if (stateRef.current.playerKey !== playbackKey) return;

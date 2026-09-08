@@ -8,7 +8,22 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "currentSrc", "get").mockImplementation(function (this: HTMLMediaElement) { return this.src; });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
-it("resumes paused footage, recovers its end once, and resets a deliberate replay", () => {
+it("rewinds the same decoder for an explicit replay but leaves ordinary pause intact", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const props = { mediaUrl: "/replay.mp4", sceneDuration: 3, isPlaying: true };
+  const view = render(<SceneVideoBackdrop {...props} progress={0} />);
+  const video = view.container.querySelector("video")!;
+  video.currentTime = 3;
+  view.rerender(<SceneVideoBackdrop {...props} progress={1} isPlaying={false} />);
+  expect(video.currentTime).toBe(3);
+  view.rerender(<SceneVideoBackdrop {...props} progress={0} />);
+  expect(view.container.querySelector("video")).toBe(video);
+  expect(video.currentTime).toBe(0);
+  expect(video.loop).toBe(false);
+});
+it("resumes paused footage without looping its exhausted end, and resets deliberate replay", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -24,37 +39,32 @@ it("resumes paused footage, recovers its end once, and resets a deliberate repla
   const calls = play.mock.calls.length;
   view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
   view.rerender(<SceneVideoBackdrop {...props} />);
-  expect(play).toHaveBeenCalledTimes(calls + 1);
+  expect(play).toHaveBeenCalledTimes(calls);
   view.rerender(<SceneVideoBackdrop {...props} playbackId="run2" />);
   expect(video.currentTime).toBe(0);
   view.unmount();
   vi.restoreAllMocks();
 });
 
-it("fits muted footage to narration, keeps looping through a finite narration scene", () => {
+it("recovers a clip shorter than measured narration without slowing or looping it", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
-  const props = { mediaUrl: "/shot.mp4", progress: .3, isPlaying: true, sceneDuration: 6, muted: true };
-  const view = render(<SceneVideoBackdrop {...props} />);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/short.mp4" progress={.3} isPlaying sceneDuration={6} muted onError={onError} />);
   const video = view.container.querySelector("video")!;
   Object.defineProperty(video, "duration", { configurable: true, value: 5 });
   fireEvent.loadedMetadata(video);
-  expect(video.playbackRate).toBeCloseTo(5 / 6.2);
+  expect(video.playbackRate).toBe(1);
+  expect(video.loop).toBe(false);
+  expect(onError).toHaveBeenCalledOnce();
   video.currentTime = 5;
   fireEvent.ended(video);
-  expect(video.currentTime).toBe(0);
-  expect(play).toHaveBeenCalledTimes(2);
-  for (let loop = 0; loop < 3; loop++) {
-    video.currentTime = 5;
-    fireEvent.ended(video);
-    expect(video.currentTime).toBe(0);
-  }
-  expect(view.queryByRole("status")).toBeNull();
-  expect(video.style.visibility).not.toBe("hidden");
-  expect(play).toHaveBeenCalledTimes(5);
-  view.unmount(); vi.restoreAllMocks();
+  expect(video.currentTime).toBe(5);
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(view.getByRole("status").textContent).toBe("Visual unavailable");
 });
+
 it("does not slow audible footage or restart it while the viewer pauses", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -68,7 +78,7 @@ it("does not slow audible footage or restart it while the viewer pauses", () => 
   view.unmount(); vi.restoreAllMocks();
 });
 
-it("fits an audible slight overrun only when native pitch preservation is enabled", () => {
+it("keeps audible footage at its native speed even when pitch preservation exists", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -77,7 +87,7 @@ it("fits an audible slight overrun only when native pitch preservation is enable
   Object.defineProperty(video, "duration", { configurable: true, value: 5 });
   Object.defineProperty(video, "preservesPitch", { configurable: true, value: true });
   fireEvent.loadedMetadata(video);
-  expect(video.playbackRate).toBeCloseTo(5 / 5.6);
+  expect(video.playbackRate).toBe(1);
   view.unmount(); vi.restoreAllMocks();
 });
 it("replaces a decoded video whose play request is rejected", async () => {
@@ -91,7 +101,7 @@ it("replaces a decoded video whose play request is rejected", async () => {
   expect(onError).toHaveBeenCalledOnce();
   view.unmount(); vi.restoreAllMocks();
 });
-it("refits a changed speech duration without resetting or replaying current footage", () => {
+it("recovers a changed oversized scene duration without resetting or replaying footage", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
@@ -101,7 +111,8 @@ it("refits a changed speech duration without resetting or replaying current foot
   Object.defineProperty(video, "duration", { configurable: true, value: 5 });
   fireEvent.loadedMetadata(video); video.currentTime = 2;
   view.rerender(<SceneVideoBackdrop {...props} sceneDuration={6} />);
-  expect(video.playbackRate).toBeCloseTo(5 / 6.2);
+  expect(video.playbackRate).toBe(1);
+  expect(view.getByRole("status").textContent).toBe("Visual unavailable");
   expect(video.currentTime).toBe(2); expect(play).toHaveBeenCalledTimes(1);
   view.unmount(); vi.restoreAllMocks();
 });
@@ -429,14 +440,14 @@ it("keeps the short stall bound after actual motion observed at readiness two", 
   expect(onError).toHaveBeenCalledOnce();
 });
 
-it("uses native looping only for playing silent footage with a finite scene budget", () => {
+it("never enables native looping for a narrated scene", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   const props = {mediaUrl:"/short.mp4", progress:.3, isPlaying:true, muted:true, sceneDuration:6};
   const view = render(<SceneVideoBackdrop {...props} />);
   const video = view.container.querySelector("video")!;
-  expect(video.loop).toBe(true);
+  expect(video.loop).toBe(false);
   view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
   expect(video.loop).toBe(false);
   expect(pause).toHaveBeenCalled();
@@ -445,7 +456,7 @@ it("uses native looping only for playing silent footage with a finite scene budg
   view.rerender(<SceneVideoBackdrop {...props} sceneDuration={Infinity} />);
   expect(video.loop).toBe(false);
   view.rerender(<SceneVideoBackdrop {...props} />);
-  expect(video.loop).toBe(true);
+  expect(video.loop).toBe(false);
   view.unmount();
   expect(video.getAttribute("src")).toBeNull();
 });

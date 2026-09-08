@@ -1,5 +1,6 @@
 import type { NarrationVoice } from "../player/use-narration.js";
 import { withDeadline } from "./deadline.js";
+import { estimateNarrationSeconds } from "../protocol/clip-budget.js";
 
 const DEFAULT_MAX_CACHED_LINES = 60;
 const SPEECH_PREPARATION_TIMEOUT_MS = 3_000;
@@ -44,8 +45,7 @@ function actionEndpoint(endpoint: string | URL, action: string): string {
 }
 
 function estimatedBrowserSeconds(text: string): number {
-  const words = text.trim().split(/\s+/u).filter(Boolean).length;
-  return Math.max(1, words / 2.5);
+  return Math.max(1, estimateNarrationSeconds(text));
 }
 
 async function measureSeconds(bytes: ArrayBuffer): Promise<{ seconds: number; measured: boolean }> {

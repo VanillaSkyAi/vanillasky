@@ -6,14 +6,16 @@ import { createVideoChatVoice } from "../../../src/video-chat/voice";
 import type { Video } from "../../../src/protocol/types";
 import cueUrl from "./media-transition/activation-cue.wav?url";
 import audioUrl from "./media-transition/paragraph.wav?url";
+import fittingAudioUrl from "./media-transition/clip-narration.wav?url";
+import { prepareNarratedScene } from "../../../src/player/scene-readiness";
 import fullWebm from "./media-transition/waterfall-hold.webm?url";
 import shortWebm from "./media-transition/waterfall-short.webm?url";
 import audibleWebm from "./media-transition/waterfall-audio.webm?url";
 import full from "./media-transition/waterfall.mp4?url";
 import audible from "./media-transition/waterfall-audio.mp4?url";
 import short from "./media-transition/waterfall-short.mp4?url";
-const text = "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light.";
 const params = new URLSearchParams(location.search);
+const text = params.has("oversized") ? "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light." : "Water keeps flowing through the forest.";
 const clips = params.has("webm") ? { full: fullWebm, short: shortWebm, audible: audibleWebm } : { full, short, audible };
 const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
@@ -58,7 +60,7 @@ HTMLMediaElement.prototype.pause = function () {
   }
   return result;
 };
-const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : audioUrl) });
+const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : params.has("oversized") ? audioUrl : fittingAudioUrl) });
 const playbackVoice = { ...voice, speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
   if (params.has("delayed")) {
     phases.push({kind:"speech-delay-start",at:performance.now()});
@@ -80,10 +82,10 @@ function App() {
     await voice.prepare("Opening cue");
     await voice.speak("Opening cue", { signal: new AbortController().signal });
     const prepared = await voice.prepare(text);
-    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: (params.has("same-url") ? ["one", "two", "three"] : ["one"]).map(id => ({
+    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: (params.has("same-url") ? ["one", "two", "three"] : ["one"]).map(id => prepareNarratedScene({
       id, templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
-      timing: { fixedDuration: prepared.seconds }, narration: text,
-    })) });
+      timing: { fixedDuration: 5 }, narration: text,
+    }, prepared.seconds).scene) });
     // Sample actual decoded pixels from this same-origin moving fixture. Native
     // WebKit may pin currentTime at clip duration while native looping moves.
     const canvas = document.createElement("canvas");
@@ -127,8 +129,8 @@ function App() {
   }
   return <><button onClick={() => void start()}>Play exact recorded narration</button>
     <div style={{ width: 360 }}>{video && <VideoPlayer video={video} autoPlay controls={false} startMuted={false} nativeMediaAudio={params.has("audible") ? { volume: .2 } : undefined}
-      narrationReady={narration.isReady} narrationTime={narration.getTime}
-      onStallChange={stalled => stalled ? voice.pause() : voice.resume()}
+      narrationReady={narration.isReady} narrationTime={narration.getTime} narrationActive={narration.isSpeaking}
+      onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}
       onSceneChange={narration.onSceneChange}
       onError={() => events.push("player-error")}
     />}</div></>;

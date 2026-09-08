@@ -49,19 +49,19 @@ it("tracks stream starvation, recovery and pause without counting initial wait o
   stateRef.current = { ...stateRef.current, config: video, status: "streaming" };
   timeRef.current = 1;
   tick(performance.now() + 200);
-  expect(onStallChange).toHaveBeenLastCalledWith(true);
+  expect(onStallChange).toHaveBeenLastCalledWith(true, "scene-generation");
   stateRef.current = { ...stateRef.current, config: { ...video, scenes: [...video.scenes, { ...video.scenes[0], id: "second" }] } };
   tick(performance.now() + 250);
-  expect(onStallChange).toHaveBeenLastCalledWith(false);
+  expect(onStallChange).toHaveBeenLastCalledWith(false, undefined);
   timeRef.current = 2;
   tick(performance.now() + 300);
-  expect(onStallChange).toHaveBeenLastCalledWith(true);
+  expect(onStallChange).toHaveBeenLastCalledWith(true, "scene-generation");
   view.rerender({ ...props, isPlaying: false });
-  expect(onStallChange).toHaveBeenLastCalledWith(false);
+  expect(onStallChange).toHaveBeenLastCalledWith(false, undefined);
   stateRef.current = { ...stateRef.current, status: "complete" };
   view.rerender(props);
   tick(performance.now() + 400);
-  expect(onStallChange.mock.calls).toEqual([[true], [false], [true], [false]]);
+  expect(onStallChange.mock.calls).toEqual([[true, "scene-generation"], [false, undefined], [true, "scene-generation"], [false, undefined]]);
 });
 
 

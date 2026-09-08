@@ -30,7 +30,7 @@ test("motion proof rejects frozen pixels despite an advancing media clock", () =
   expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: 1, presentedMediaTime: index * .1 })))).toBe(600);
 });
 
-for (const mode of ["normal", "short", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
+for (const mode of ["normal", "short", "oversized", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
   test.setTimeout(30000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}), recordVideo: { dir: info.outputPath("recording") } });
   const page = await context.newPage();
@@ -52,7 +52,7 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
     await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
     expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
-    if (!["missing", "unusable"].includes(mode)) {
+    if (!["missing", "unusable", "short", "oversized"].includes(mode)) {
       expect(new Set(active.flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
     }
     expect(maximumMotionStallMs).toBeLessThan(500);
@@ -81,18 +81,9 @@ for (const mode of ["normal", "short", "audible", "missing", "unusable", "delaye
     }
     if (mode === "audible") expect(active.some(sample => !sample.muted)).toBe(true);
     if (mode === "normal" || mode === "audible" || delayed) {
-      expect(active.some(sample => sample.rate >= .75 && sample.rate < 1)).toBe(true);
+      expect(active.every(sample => sample.rate === 1)).toBe(true);
       expect(active.filter(sample => sample.status === "Visual unavailable")).toHaveLength(0);
       expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(0);
-    } else if (mode === "short") {
-      expect(active.some(sample => sample.status === "Visual unavailable")).toBe(false);
-      const clockResets = active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5).length;
-      const duration = active.find(sample => sample.mediaDuration > 0)?.mediaDuration ?? Infinity;
-      // Native WebKit can emit loop seeks at duration without resetting its
-      // exposed currentTime. Pixel continuity above independently proves motion.
-      const nativeLoops = proof.events.filter(event => event.startsWith("video:seeking:")
-        && Number(event.split(":")[2]) >= duration - .02).length;
-      expect(Math.max(clockResets, nativeLoops)).toBeGreaterThan(2);
     } else {
       expect(active.some(sample => sample.chapter === "Water keeps moving")).toBe(true);
       expect(active.some(sample => sample.status === "Visual unavailable")).toBe(false);

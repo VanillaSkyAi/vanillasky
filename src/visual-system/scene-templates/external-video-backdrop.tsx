@@ -6,7 +6,7 @@ import React from "react";
 // and would never inherit the player's native media audio state.
 export type ExternalVideoBackdropMode = false | "pending" | "ready" | "fallback";
 
-export type MediaRecoveryReason = "decode-error" | "frame-readiness-timeout" | "stalled-media" | "playback-error";
+export type MediaRecoveryReason = "decode-error" | "frame-readiness-timeout" | "stalled-media" | "playback-error" | "duration-mismatch";
 
 interface BackdropContextValue {
   mode: ExternalVideoBackdropMode;

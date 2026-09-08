@@ -235,9 +235,9 @@ describe("VideoFrame media handoff", () => {
     } finally { view.unmount(); pause.mockRestore(); load.mockRestore(); }
   });
 
-  it("prepares at most the active and next known video on iPhone Safari", () => {
+  it.each(["iPhone Safari", "desktop Chrome"])("prepares active and next from the beginning on %s", browser => {
     const userAgent = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
+      browser === "iPhone Safari" ? "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1" : "Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36",
     );
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
@@ -253,7 +253,7 @@ describe("VideoFrame media handoff", () => {
 
     let view: ReturnType<typeof render> | undefined;
     try {
-      view = render(createElement(VideoFrame, { config, time: 4.2, width: 540, height: 960 }));
+      view = render(createElement(VideoFrame, { config, time: 0, width: 540, height: 960 }));
       expect(view.container.querySelectorAll("video")).toHaveLength(2);
       expect(view.container.querySelector('[data-scene-layer="incoming"]')).not.toBeNull();
       expect(view.container.querySelector("[data-media-treatment]")).toBeNull();
