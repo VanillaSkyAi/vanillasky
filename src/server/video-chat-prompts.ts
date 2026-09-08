@@ -11,11 +11,11 @@ export function createVideoChatResponseInstructions(
 ): string {
  const budget = clipNarrationBudget(clipDurationSec);
  const limited = mode === "cinematic" && generatedVideoAvailable;
- const spokenBeat = limited ? `one complete spoken beat of at most ${budget.targetWords} ordinary words` : "one concise complete spoken beat";
+ const spokenBeat = limited ? `one complete spoken sentence of at most ${budget.targetWords} ordinary words` : "one concise complete spoken beat";
  return [
   ...(limited ? [
     `NARRATION COMES FIRST. Each generated clip provides only ${budget.maxSpeechSec} seconds of speech, not room for a paragraph. Every narration field, INCLUDING the saved ending, must contain at most ${budget.targetWords} ordinary words (or ${budget.targetUnspacedCharacters} characters in languages without spaces). Mixed scripts share this time budget. Count each line before emitting it.`,
-    `Choose the complete answer and its payoff within at most ${maxGeneratedVideos} such spoken beats before writing the brief. Each beat carries one essential idea or action. Put necessary conditions with their claim; remove redundant framing, not facts or qualifications. Do not draft compound paragraphs and expect a later rewrite to make them fit. The opening has its own short spoken line. Visual action and development fields are not extra narration.`,
+    `Choose the complete answer and its payoff within at most ${maxGeneratedVideos} such spoken beats before writing the brief. Each narration is ONE short natural sentence carrying one distinct idea or action, not a list or several sentences. Put necessary conditions with their claim; remove redundant framing, not facts or qualifications. The saved ending contributes one new takeaway or payoff, not a recap of preceding claims. Do not draft compound paragraphs and expect a later rewrite to make them fit. Short, concrete words leave breathing room; footage supplies visual detail. The opening has its own short spoken line. Visual action and development fields are not extra narration.`,
   ] : []),
   'Use the exact record type "answer" for the first brief and "shot" for developing beats. Output JSON records only, with no prose outside them, including when explaining a limitation.',
   "Write a complete, intentful video answer as newline-delimited JSON. Match the user's form and tone; mixed intents can combine directions.",

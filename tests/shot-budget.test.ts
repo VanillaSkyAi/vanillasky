@@ -71,7 +71,7 @@ describe("clip budget before paid generation", () => {
   it.each([2, 5, 6, 8, 10])("passes an explicit %ss narration budget to the single rewrite and video adapter", async durationSec => {
     const generated: number[] = [];
     let rewrites = 0;
-    let budget: { clipDurationSec: number; maxSpeechSec: number; targetWords: number; targetUnspacedCharacters: number; narration: string } | undefined;
+    let budget: { clipDurationSec: number; maxSpeechSec: number; targetWords: number; targetUnspacedCharacters: number; maxWords: number; narration: string } | undefined;
     const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generatedClipDurationSec: durationSec,
       generateText: context => {
         rewrites++;
@@ -85,7 +85,8 @@ describe("clip budget before paid generation", () => {
       streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
     });
     const events = await collect(await handler(request()));
-    expect(budget).toMatchObject({ clipDurationSec: durationSec, maxSpeechSec: durationSec - .8, targetWords: Math.floor((durationSec - .8) * 2), narration: oversized });
+    expect(budget).toMatchObject({ clipDurationSec: durationSec, maxSpeechSec: durationSec - .8, maxWords: Math.floor((durationSec - .8) * 2), narration: oversized });
+    expect(budget!.targetWords).toBeLessThan(budget!.maxWords);
     expect(narrationFitsClip(`${"word ".repeat(budget!.targetWords).trim()}.`, durationSec)).toBe(true);
     expect(narrationFitsClip(`${"水".repeat(budget!.targetUnspacedCharacters)}。`, durationSec)).toBe(true);
     expect(rewrites).toBe(1);

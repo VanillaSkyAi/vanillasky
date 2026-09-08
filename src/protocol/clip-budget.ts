@@ -1,13 +1,16 @@
 /** Leave a short visual tail after the narration finishes. Shared by planning and playback. */
 export const CLIP_NARRATION_TAIL_SEC = .8;
 
-/** Concrete authoring targets, slightly inside the conservative preflight. */
+/** Draft below the repair budget to leave room for natural voice variation. */
 export function clipNarrationBudget(clipDurationSec: number) {
   const maxSpeechSec = Math.max(0, clipDurationSec - CLIP_NARRATION_TAIL_SEC);
+  const maxWords = Math.floor(maxSpeechSec * 2);
+  const maxUnspacedCharacters = Math.floor(maxSpeechSec * 3);
   return {
     clipDurationSec, maxSpeechSec,
-    targetWords: Math.floor(maxSpeechSec * 2),
-    targetUnspacedCharacters: Math.floor(maxSpeechSec * 3),
+    targetWords: Math.floor(maxWords * .8),
+    targetUnspacedCharacters: Math.floor(maxUnspacedCharacters * .8),
+    maxWords, maxUnspacedCharacters,
   };
 }
 

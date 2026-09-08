@@ -92,6 +92,10 @@ known. Keep `generatedClipDurationSec`, `mediaConcurrency` and
 resolution and account limits. A model-name change alone is not always enough.
 
 The planner targets speech ending at least 0.8 seconds before each clip ends.
+First-pass writing leaves additional headroom: a five-second clip targets six
+ordinary words and one distinct idea, while repair can use up to eight words
+when needed for meaning. These are authoring guides, not guarantees from a
+text or voice model; the duration checks remain authoritative.
 An oversized beat gets at most one bounded `narration-rewrite` call before
 footage generation. If the rewrite fails or still cannot fit, no video job is
 submitted for that beat: its complete original narration plays over a chapter.

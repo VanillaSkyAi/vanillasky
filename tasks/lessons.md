@@ -43,3 +43,8 @@
   streamed scene and voice preparation. Keep live text/voice quality evidence
   separate from stubbed generation and recorded-media playback; verify the
   actual reported browser session before attributing failures to authentication.
+
+- A narration repair cannot safely squeeze several independent claims into a
+  short clip. Give first-pass writing headroom and one idea per beat, with a
+  single new payoff instead of a multi-claim closing recap. Keep repair's full
+  safe budget for qualifiers; test live output as well as mocked fit checks.
