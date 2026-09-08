@@ -6,6 +6,14 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## 0.11.0
 
+### Provider setup
+
+- Keep providers application-owned: editable fal, Google, Runway and arbitrary-provider examples share the same client contract, not a fixed vendor list.
+- Add `init --native` with plain HTTP text callbacks and no Vercel/Anthropic dependency. Keep the optional Vercel AI SDK starter.
+- Separate video, speech and transcription setup; make `doctor` inspect the selected configuration. Bundle the native starter and all adapter helpers in npm.
+- Submit video jobs once, retain identity, bound polling/ledger/cleanup callbacks and cancel unfinished work best-effort. Preserve terminal job records and native text finish reasons.
+- Require application-owned video storage/delivery in direct-provider examples. No paid generation runs in CI.
+
 ### Timing and preparation
 
 - Share a clip budget between planning and playback, with a 0.8-second narration tail and one bounded rewrite before any paid clip. If it cannot fit, keep the complete original narration on a chapter.
