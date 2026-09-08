@@ -2,18 +2,22 @@
 
 The running app connects one `VideoChat` to `functions/api/video-chat.mjs`.
 Provider code lives in `functions/_video-chat/`; planner, validation and playback
-remain separate internal modules. Start with the existing working configuration
-before changing providers.
+remain separate internal modules. Start with Anthropic for planning and fal for
+generated footage, then replace the provider callbacks you need.
 
 ## Current providers
 
-- `provider.mjs`: Anthropic Haiku 4.5 for streaming planning and small text tasks.
-- `stock.mjs`: bounded Pexels video search and selection.
 - `fal.mjs`: MiniMax H3 Max Turbo, five-second 768P generated footage.
+- `provider.mjs`: Anthropic Haiku 4.5 for streaming planning and small text tasks.
 - `speech.mjs`: optional xAI Eve speech; the browser speaks when unavailable.
+- `stock.mjs`: optional Pexels video search and selection.
 
-Set server-side keys in ignored `.dev.vars` locally or your deployment secret
-store. The API advertises configured capabilities before a turn. Missing planning
+Set `ANTHROPIC_API_KEY` and `FAL_KEY` in ignored `.dev.vars` locally or your
+deployment secret store. The committed Wrangler configuration supplies
+`VIDEO_CHAT_FAL_PREVIEW=enabled`; keep it enabled to use fal. Add `XAI_API_KEY`
+for generated speech or `PEXELS_API_KEY` for the stock alternative.
+
+The API advertises configured capabilities before a turn. Missing planning
 or footage configuration gives a setup requirement. No generated-video provider
 means configured Pexels; no generated voice means browser speech. Once a footage
 mode is selected, a failed or late clip uses chapter recovery. The application's

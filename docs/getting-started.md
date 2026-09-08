@@ -9,15 +9,17 @@ npm ci
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars` with your own server-side provider keys:
+Start with generated video. Add your server-side provider keys to `.dev.vars`:
 
 ```dotenv
 ANTHROPIC_API_KEY=your-anthropic-key
-PEXELS_API_KEY=your-pexels-key
+FAL_KEY=your-fal-key
 ```
 
-This minimum configuration gives real Haiku planning, Pexels footage and browser
-speech. Add `FAL_KEY` for AI-generated video and `XAI_API_KEY` for generated voice.
+This gives real Haiku planning, fal-generated footage and browser speech. The
+committed configuration already enables fal; no extra local flag is needed.
+Add `XAI_API_KEY` for generated voice. `PEXELS_API_KEY` is optional for stock
+footage as an alternative or when generated video is not configured.
 Never commit `.dev.vars` or put these keys in frontend environment variables.
 
 ```bash
@@ -55,7 +57,7 @@ The app mounts `VideoChat` from the repository's own source. The
 `functions/_video-chat/`. The existing planner, protocol and player live under
 `src/`. [Architecture](architecture.md) maps the request path.
 
-The defaults match the website: Haiku 4.5, Pexels, optional fal MiniMax H3 Max
+The generated-video path matches the website: Haiku 4.5, fal MiniMax H3 Max
 Turbo at five seconds/768P, and optional xAI Eve. fal returns browser-playable
 URLs directly. You only need your own storage if your retention requirements or
 chosen provider require it.
