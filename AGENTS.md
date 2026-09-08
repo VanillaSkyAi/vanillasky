@@ -27,7 +27,7 @@ node -p 'require("./package.json").name + "@" + require("./package.json").versio
   that exact tarball in fresh consumers outside the repo, compile strict types,
   and exercise the browser. No workspace links, shared node_modules, copied
   internals, or unpublished dist in consumer verification.
-- Release candidate: `npm run chat:verify` runs the full gate using one artifact.
+- Release candidate: `npm run verify:release` runs the full gate using one artifact.
   The packed consumer includes API validation; do not repeat `verify:api`.
   Keep fail-closed CI aggregation and exact artifact identity.
 

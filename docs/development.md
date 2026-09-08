@@ -16,7 +16,7 @@ behavior changes; use the packed-consumer gates when exports, starter code, or
 public examples change. Do not run the complete release matrix repeatedly during
 the edit loop.
 
-`npm run chat:verify` is the final candidate gate: it builds one artifact and
+`npm run verify:release` is the final candidate gate: it builds one artifact and
 reuses it for clean-room consumers. `verify:package` already verifies public API
 declarations/runtime boundaries; `verify:api` is a targeted shortcut, not an
 additional full-release pass.

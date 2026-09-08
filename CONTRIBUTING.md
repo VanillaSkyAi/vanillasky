@@ -22,7 +22,7 @@ Export, CLI, starter and executable-example changes need a strict consumer of
 one identified packed artifact, installed outside the repo. Keep those consumers
 isolated: no links to local source or shared dependencies.
 `verify:package` includes public API verification; use `verify:api` only as a
-shorter targeted check. The full `npm run chat:verify` gate builds one candidate
+shorter targeted check. The full `npm run verify:release` gate builds one candidate
 for all consumers and is run once at the final handoff.
 
 Keep tests for protocol ordering, parsing, cancellation, narration/media timing,

@@ -40,7 +40,8 @@ On a branch off current `main`:
      --exclude-dir=node_modules --exclude-dir=.git .
    ```
 
-Open a pull request and merge it once CI is green, like any other change.
+Open a pull request and wait for green CI. Merge only after the owner's explicit
+approval; tag and publication require their own explicit approval.
 
 ## Tag and publish
 
