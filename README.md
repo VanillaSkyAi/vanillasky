@@ -41,10 +41,6 @@ Direct video generation also requires your storage/delivery callback.
 See [Getting started](docs/getting-started.md) for the complete setup and
 [Provider integration](docs/provider-integration.md) for the adapter boundary.
 
-To avoid an AI framework dependency, start with `npx @vanillaskyai/video init --native`.
-That editable Gemini REST adapter uses `GEMINI_API_KEY`; the default starter uses
-the optional Vercel AI SDK with Anthropic. Both mount the same React interface.
-
 ```tsx
 import { VideoChat } from "@vanillaskyai/video/react";
 import "@vanillaskyai/video/video-chat.css";
@@ -65,13 +61,14 @@ keeps retrieval, tools and answer policy. See [existing-assistant integration](d
 ## How it works
 
 The model streams an answer brief and shot directions, not component code.
-The server prepares footage and speech concurrently, validates each scene, and
+Footage generation overlaps browser-owned speech preparation. The server
 announces prepared media early and streams validated scenes in order. AI-video mode never silently
 substitutes stock; stock mode never spends on generated video. A failed or late
 clip becomes a narrated chapter. Narration targets a 0.8-second visual tail;
 one short rewrite may fit an oversized beat before generation. If it still
 does not fit, the complete original narration plays over a chapter. Footage
-plays once and holds its last frame for remaining speech rather than looping.
+plays once at native speed; unexpected overruns recover to a chapter without
+cutting off the sentence.
 
 This is progressive **scene** delivery, not real-time frames from every vendor.
 Some generation APIs take minutes; preloading cannot remove that latency.

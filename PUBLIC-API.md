@@ -25,6 +25,8 @@ Patch releases preserve documented APIs and saved video data. Breaking pre-1.0 m
 
 Applications supply required `streamText` and `generateText` callbacks, plus optional `generateSpeech`, `transcribe`, `searchMedia` and `generateVideo`. Text streams can be plain async iterables or structurally compatible AI SDK results. Vercel AI SDK is an optional application integration, not the core abstraction or a requirement.
 
+Optional `resolveAnswer({ prompt, conversation, signal })` returns an existing assistant's completed answer as a nonempty string, bounded to 32,000 characters after trimming and 30 seconds. It runs only after authorization and full input validation. Its output is the video planner's sole factual source, not a second assistant answer. Empty, oversized, failed or timed-out output returns `502 answer_unavailable`; cancellation returns `499 aborted`. This source constraint is model guidance, not automatic fact verification.
+
 The response action accepts `prompt`, `mode`, `orientation`, optional bounded `conversation`, `opening` and `style`. The model produces a single creative brief followed by shots, reserving an authored ending. The server converts these into validated footage scenes or chapters; models do not choose renderer IDs or author lifecycle events.
 
 Two visual modes remain: `cinematic` (AI video) and `pexels` (application-owned stock search). AI mode never silently substitutes stock. Missing/failed footage becomes an authored chapter without losing narration. The default UI opens on a chapter; the opening-media action is available to custom interfaces.
@@ -61,6 +63,8 @@ export function App() {
 ```
 
 The default experience includes loading states, captions, pause/mute, interruption, complete-turn history and replay. The real `npm run dev:chat` interface is the UI reference.
+
+`VideoChat` accepts optional `branding: { name, logo?, homeUrl?, showDeveloperLinks? }`. It changes application identity only; omitting it preserves the default UI. Home URLs must be HTTP(S) or root-relative; no external theme or template system is introduced.
 
 For an application-owned interface, call `useVideoChat(options)` and spread `chat.playerProps` onto `VideoPlayer`, keyed by `chat.playerKey`. A custom `VideoChatVoice` replaces voice output without replacing session orchestration. Its optional `onStart` callback must signal actual speech onset.
 

@@ -78,6 +78,11 @@ into `providers/video.ts`. `custom` supplies a callback skeleton. These names
 are onboarding examples, not a core allowlist. Keep any other SDK dependency
 inside your application's adapter.
 
+Setup never overwrites an edited adapter. To switch an existing vendor, edit
+`providers/video.ts` and the app manifest's `vanillasky.videoVendor` deliberately;
+keep duration, timeout, concurrency and delivery settings together. No client
+edit or SDK release is needed. Doctor follows that selected configuration.
+
 The video callback receives the visual query plus `requestedDurationSec`,
 `shotDirection`, orientation, `generatedLook`, `signal`, and an absolute
 epoch-millisecond `deadlineAt`. Return browser-safe media such as
@@ -92,7 +97,7 @@ footage generation. If the rewrite fails or still cannot fit, no video job is
 submitted for that beat: its complete original narration plays over a chapter.
 Rewrites are instructed to preserve facts and qualifications; applications
 should still evaluate meaning and timing with their actual models and voices.
-Measured speech can overrun the estimate; playback holds the last video frame
+Measured speech can overrun the estimate; playback recovers to a chapter
 rather than looping or cutting off the sentence.
 
 Speech setup uses the optional xAI/AI SDK adapter. Transcription setup uses

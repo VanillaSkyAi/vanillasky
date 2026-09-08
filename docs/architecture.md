@@ -11,9 +11,9 @@ VideoChat / useVideoChat
   → createVideoChatHandler (host policy, capabilities)
       → optional resolveAnswer (application's completed answer)
   → createChatShotPlanner (answer brief → ordered shots)
-  → media and speech preparation
+  → concurrent footage jobs + early preparation announcements
   → createVideo (validated protocol events)
-  → browser stream reducer → player + narration
+  → browser speech/media preparation → ordered player + narration
 ```
 
 Without `resolveAnswer`, shot planning begins directly from the request and
@@ -30,7 +30,7 @@ Narration is estimated against each clip with a 0.8-second tail. An oversized
 beat gets at most one short rewrite before footage is requested. A failed or
 still-oversized rewrite preserves the original speech in a chapter instead of
 spending on unusable footage. Measured speech remains authoritative during
-playback; video plays once, then holds its last frame if needed. Estimation is
+playback; video plays once and unexpected overruns recover to a chapter. Estimation is
 not a guarantee that every voice/language finishes inside its clip.
 
 ## Where to work
@@ -44,7 +44,8 @@ not a guarantee that every voice/language finishes inside its clip.
 | Answer brief and shot planning | `src/server/chat-shot-planner.ts` |
 | Validated composition and completion | `src/server/compose-video.ts` |
 | Wire contract and reduction | `src/protocol/` |
-| Media readiness, timeline and narration | `src/player/` and `src/video-chat/` |
+| Turn-owned speech queue and media preparation | `src/video-chat/scene-preparation.ts` |
+| Media readiness, timeline and narration | `src/player/` |
 | Shared speech/clip budget | `src/protocol/clip-budget.ts` |
 | Footage and chapter rendering | `src/visual-system/scene-templates/` |
 | CLI setup and doctor | `src/cli/` |

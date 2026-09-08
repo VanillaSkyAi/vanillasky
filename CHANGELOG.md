@@ -6,6 +6,14 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## 0.11.0
 
+### Integration and developer experience
+
+- Add optional `resolveAnswer({ prompt, conversation, signal })` for completed existing-assistant answers. Validate input before invoking it; preserve cancellation and fail explicitly on unusable output.
+- Separate bounded HTTP admission from response policy; stop oversized streamed bodies without waiting for unresponsive cleanup. Keep inbound limits separate from the SDK-owned answer envelope.
+- Add small optional application branding controls with unchanged default UI.
+- Update the architecture, quickstart and provider/UI recipes around footage and chapters. Remove retired internal prompt guidance and duplicate prose/source-structure assertions.
+- Verify native existing-assistant integration through the installed npm artifact, with no React or provider frameworks required by the server entry.
+
 ### Provider setup
 
 - Keep providers application-owned: editable fal, Google, Runway and arbitrary-provider examples share the same client contract, not a fixed vendor list.

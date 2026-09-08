@@ -25,11 +25,7 @@ For the native alternative, start a new directory with
 `npx @vanillaskyai/video init --native` and set `GEMINI_API_KEY` instead.
 Its editable Gemini REST callbacks need no `ai`, `@ai-sdk/anthropic`, or other
 model SDK. You can replace either text adapter with your own implementation.
-
-For a native text adapter without AI framework packages, use
-`npx @vanillaskyai/video init --native` in the empty directory instead. Add
-`GEMINI_API_KEY`; the generated `providers/text.ts` uses editable Gemini REST
-callbacks. Rerunning ordinary init keeps that selection.
+Rerunning ordinary init keeps the selected adapter.
 
 ## Application files
 
