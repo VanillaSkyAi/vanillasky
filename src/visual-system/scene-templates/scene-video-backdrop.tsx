@@ -251,7 +251,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
     event.currentTarget.pause();
-    if (rewindPreroll && !resolvedMuted && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+    // A late start can advance WebKit's decoded frames while its paused clock
+    // stays pinned. Reset this unexpected preroll, including silent footage,
+    // so resuming narration does not wait for the clock to catch stale pixels.
+    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
   };
 
   const mediaStyle: React.CSSProperties = {

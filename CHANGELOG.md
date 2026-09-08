@@ -4,6 +4,8 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Reset an unexpected native video start during narration preparation so paused WebKit decoders cannot drift ahead and freeze when speech begins.
+
 ## 0.11.0
 
 ### Timing and preparation
