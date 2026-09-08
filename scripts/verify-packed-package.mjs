@@ -123,7 +123,7 @@ try {
   for (const privateValue of ["PRIVATE_PROVIDER_CANARY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "node:fs"]) {
     if (bundle.includes(privateValue)) throw new Error("Browser bundle exposed " + privateValue);
   }
-  preview = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4387", "--strictPort"], { cwd: consumer, stdio: "ignore" });
+  preview = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4387", "--strictPort"], { cwd: consumer, stdio: "ignore", detached: process.platform !== "win32" });
   for (let attempt = 0; attempt < 100; attempt++) {
     if (preview.exitCode != null) throw new Error("Packed browser preview exited");
     try { if ((await fetch("http://127.0.0.1:4387")).ok) break; } catch { /* starting */ }
