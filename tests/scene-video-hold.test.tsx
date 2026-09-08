@@ -8,6 +8,119 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "currentSrc", "get").mockImplementation(function (this: HTMLMediaElement) { return this.src; });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+it("keeps the actual remainder bounded after an explicit seek into the repeated portion", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/seek.mp4", sceneDuration: 6, measuredSpeechDurationSec: 6, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} progress={.99} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 } });
+  fireEvent.loadedMetadata(video);
+  view.rerender(<SceneVideoBackdrop {...props} progress={.9} />);
+  expect(video.currentTime).toBeCloseTo(.4);
+  video.currentTime = 1.1;
+  await import("@testing-library/react").then(({ act }) => act(() => vi.advanceTimersByTimeAsync(32)));
+  expect(onError).toHaveBeenCalledOnce();
+});
+it("recovers when actual repeated playback outlasts the measured remainder even if speech never completes", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/late-voice.mp4", sceneDuration: 5.2, measuredSpeechDurationSec: 5.2, progress: .99, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { get: () => video.currentTime >= 5 } });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  video.currentTime = 5; fireEvent.ended(video);
+  expect(video.currentTime).toBe(0);
+  video.currentTime = .1;
+  await import("@testing-library/react").then(({ act }) => act(() => vi.advanceTimersByTimeAsync(32)));
+  expect(onError).not.toHaveBeenCalled();
+  video.currentTime = .3;
+  await import("@testing-library/react").then(({ act }) => act(() => vi.advanceTimersByTimeAsync(32)));
+  expect(onError).toHaveBeenCalledOnce();
+});
+it("does not recover or repeat a completed line while its final clock tick catches native ended", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/tail.mp4" sceneDuration={5} measuredSpeechDurationSec={4.5} progress={.996} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { value: true } });
+  video.currentTime = 5;
+  fireEvent.loadedMetadata(video); fireEvent.playing(video); fireEvent.ended(video);
+  expect(video.currentTime).toBe(5);
+  expect(play).toHaveBeenCalledOnce();
+  expect(onError).not.toHaveBeenCalled();
+});
+it.each([
+  { speech: 2.5, clip: 2, duration: 2.5, accepted: true },
+  { speech: 2.51, clip: 2, duration: 2.51, accepted: false },
+  { speech: 6, clip: 4, duration: 6, accepted: false },
+  { speech: undefined, clip: 5, duration: 6, accepted: false },
+  { speech: 4.5, clip: 5, duration: 5.3, accepted: false },
+])("checks the bounded measured fit against the decoder ($speech spoken, $clip actual, $duration prepared)", ({ speech, clip, duration, accepted }) => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<SceneVideoBackdrop mediaUrl="/actual.mp4" sceneDuration={duration} measuredSpeechDurationSec={speech} progress={.9} isPlaying onError={onError} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: clip }, readyState: { value: 4 }, ended: { get: () => video.currentTime >= clip } });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  expect(onError).toHaveBeenCalledTimes(accepted ? 0 : 1);
+  video.currentTime = clip;
+  const calls = play.mock.calls.length;
+  fireEvent.ended(video);
+  expect(play).toHaveBeenCalledTimes(calls + (accepted ? 1 : 0));
+  expect(video.loop).toBe(false);
+});
+it("repeats healthy footage once for a bounded measured overrun, without rearming on pause", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/recovery.mp4", sceneDuration: 6, measuredSpeechDurationSec: 6, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} progress={0} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, {
+    duration: { configurable: true, value: 5 },
+    readyState: { configurable: true, value: 4 },
+    ended: { configurable: true, get: () => video.currentTime >= 5 },
+  });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  expect(onError).not.toHaveBeenCalled();
+  video.currentTime = 5;
+  view.rerender(<SceneVideoBackdrop {...props} progress={5 / 6} />);
+  const calls = play.mock.calls.length;
+  fireEvent.ended(video);
+  expect(view.container.querySelector("video")).toBe(video);
+  expect(video.currentTime).toBe(0);
+  expect(video.loop).toBe(false);
+  expect(play).toHaveBeenCalledTimes(calls + 1);
+  video.currentTime = .5;
+  view.rerender(<SceneVideoBackdrop {...props} progress={5.5 / 6} isPlaying={false} />);
+  view.rerender(<SceneVideoBackdrop {...props} progress={5.5 / 6} />);
+  expect(video.currentTime).toBe(.5);
+  const resumed = play.mock.calls.length;
+  video.currentTime = 5;
+  fireEvent.ended(video);
+  expect(play).toHaveBeenCalledTimes(resumed);
+  expect(onError).toHaveBeenCalledOnce();
+  view.rerender(<SceneVideoBackdrop {...props} progress={1} isPlaying={false} />);
+  view.rerender(<SceneVideoBackdrop {...props} progress={0} />);
+  expect(video.currentTime).toBe(0);
+  video.currentTime = 5;
+  const replayed = play.mock.calls.length;
+  fireEvent.ended(video);
+  expect(play).toHaveBeenCalledTimes(replayed + 1);
+});
 it("rewinds the same decoder for an explicit replay but leaves ordinary pause intact", () => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();

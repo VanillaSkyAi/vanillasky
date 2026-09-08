@@ -128,6 +128,9 @@ export function usePlaybackClock({
         // promise, not an estimate, owns the final cut. Waiting is bounded in
         // active playback time and leaves the same media element mounted.
         if (cued && !cued.scene.narrationGroup && narrationTime === undefined) {
+          const measuredSpeech = cued.scene.variables.measuredSpeechDurationSec;
+          const tailSeconds = cued.scene.templateId === "cinemaMedia" && typeof measuredSpeech === "number" && Number.isFinite(measuredSpeech) && measuredSpeech > 0
+            ? Math.min(CLIP_NARRATION_TAIL_SEC, Math.max(0, cued.end - cued.start - measuredSpeech)) : CLIP_NARRATION_TAIL_SEC;
           let speaking = false;
           try { speaking = callbacksRef.current.narrationActive?.(cued.scene) === true; }
           catch (cause) {
@@ -135,7 +138,7 @@ export function usePlaybackClock({
             return;
           }
           if (completionHold?.sceneId !== cued.scene.id) completionHold = undefined;
-          if (raw >= cued.end - CLIP_NARRATION_TAIL_SEC && speaking) {
+          if (raw >= cued.end - tailSeconds && speaking) {
             completionHold ??= { sceneId: cued.scene.id, wait: 0, tail: 0 };
             if (raw >= cued.end) completionHold.wait += elapsed;
             if (completionHold.wait >= 8) {
@@ -145,8 +148,8 @@ export function usePlaybackClock({
             if (raw >= cued.end) { raw = Math.max(cued.start, cued.end - .01); completionBlocked = true; }
           } else if (completionHold && !speaking) {
             completionHold.tail += elapsed;
-            if (completionHold.tail < CLIP_NARRATION_TAIL_SEC && raw >= cued.end) { raw = Math.max(cued.start, cued.end - .01); completionBlocked = true; }
-            else if (completionHold.tail >= CLIP_NARRATION_TAIL_SEC) completionHold = undefined;
+            if (completionHold.tail < tailSeconds && raw >= cued.end) { raw = Math.max(cued.start, cued.end - .01); completionBlocked = true; }
+            else if (completionHold.tail >= tailSeconds) completionHold = undefined;
           }
         }
         let nextTime: number;

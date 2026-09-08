@@ -85,7 +85,7 @@ function App() {
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: footage.map((mediaUrl, index) => prepareNarratedScene({
       id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", fallbackText: ["Water keeps moving", "The tram crosses the city", "Flowers turn toward the light"][index], mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: 5 },
       narration: text,
-    }, prepared.seconds).scene) });
+    }, prepared.seconds, prepared.supportsOffsets === true).scene) });
     setRun((value) => value + 1);
   };
   return <><button onClick={() => void start().catch(error => probe.push({ kind: "prepare-error", message: String(error) }))}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>

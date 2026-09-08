@@ -13,12 +13,15 @@ export function getMediaBackgroundProps(variables: Record<string, unknown>) {
     mediaType: String(variables.mediaType || "auto"),
     mediaPoster: String(variables.mediaPoster || ""),
     mediaPosition: String(variables.mediaPosition || "center"),
+    measuredSpeechDurationSec: typeof variables.measuredSpeechDurationSec === "number" && Number.isFinite(variables.measuredSpeechDurationSec) && variables.measuredSpeechDurationSec > 0
+      ? variables.measuredSpeechDurationSec : undefined,
   };
 }
 
 export interface SceneBackgroundProps {
   progress: number;
   sceneDuration?: number;
+  measuredSpeechDurationSec?: number;
   mediaUrl?: string;
   mediaType?: string;
   mediaPoster?: string;
@@ -27,7 +30,7 @@ export interface SceneBackgroundProps {
 }
 
 export function SceneBackground({
-  progress, sceneDuration, mediaUrl = "", mediaType = "auto",
+  progress, sceneDuration, measuredSpeechDurationSec, mediaUrl = "", mediaType = "auto",
   mediaPoster, mediaPosition = "center", isPlaying = true,
 }: SceneBackgroundProps) {
   const resolved = resolveMediaType(mediaType, mediaUrl);
@@ -51,7 +54,7 @@ export function SceneBackground({
       style={{ position: "absolute", inset: 0, background: "#000", pointerEvents: "none" }} />}
     {wantsMedia && failedUrl !== mediaUrl && !external && (resolved === "video"
       ? <SceneVideoBackdrop mediaUrl={mediaUrl} mediaPoster={mediaPoster} mediaPosition={mediaPosition}
-          progress={progress} sceneDuration={sceneDuration} isPlaying={isPlaying}
+          progress={progress} sceneDuration={sceneDuration} measuredSpeechDurationSec={measuredSpeechDurationSec} isPlaying={isPlaying}
           onError={() => setFailedUrl(mediaUrl)} />
       : <img src={mediaUrl} alt="" aria-hidden="true" draggable={false} data-media-position={mediaPosition}
           onError={() => setFailedUrl(mediaUrl)}

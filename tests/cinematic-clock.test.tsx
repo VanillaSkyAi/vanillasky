@@ -6,7 +6,25 @@ import { createVideoState } from "../src/protocol/state";
 import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { prepareNarratedScene } from "../src/player/scene-readiness";
 afterEach(() => {cleanup(); vi.useRealTimers();});
+it("ends an exceptional repeat when an unclocked measured voice finishes, without another quiet tail", async () => {
+  vi.useFakeTimers();
+  let active = true;
+  const prepared = prepareNarratedScene({ id: "one", templateId: "cinemaMedia", variables: { mediaDurationSec: 5 }, narration: "The whole line finishes.", timing: { fixedDuration: 5 } }, 6, true).scene;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [prepared] };
+  const timeRef = { current: 0 }; const stop = vi.fn();
+  renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef,
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: 0 },
+    callbacksRef: { current: { narrationActive: () => active } }, setCurrentTime: vi.fn(), setIsPlaying: stop }));
+  await act(() => vi.advanceTimersByTimeAsync(6100));
+  expect(timeRef.current).toBeLessThan(6);
+  expect(stop).not.toHaveBeenCalled();
+  active = false;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(timeRef.current).toBe(6);
+  expect(stop).toHaveBeenCalledWith(false);
+});
 it("adopts a late narration clock without rewinding footage, but preserves an actual audio rewind", async () => {
   vi.useFakeTimers();
   let audioTime: number | undefined;

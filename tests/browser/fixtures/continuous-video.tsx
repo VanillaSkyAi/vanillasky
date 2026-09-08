@@ -7,6 +7,11 @@ import type { Video } from "../../../src/protocol/types";
 import cueUrl from "./media-transition/activation-cue.wav?url";
 import audioUrl from "./media-transition/paragraph.wav?url";
 import fittingAudioUrl from "./media-transition/clip-narration.wav?url";
+// The complete existing paragraph, locally tempo-adjusted without cutting words:
+// ffmpeg -i paragraph.wav -af atempo=1.08 bounded-paragraph.wav (5.941s)
+// ffmpeg -i paragraph.wav -af atempo=1.36 quiet-tail-paragraph.wav (4.714s)
+import repeatAudioUrl from "./media-transition/bounded-paragraph.wav?url";
+import quietTailAudioUrl from "./media-transition/quiet-tail-paragraph.wav?url";
 import { prepareNarratedScene } from "../../../src/player/scene-readiness";
 import fullWebm from "./media-transition/waterfall-hold.webm?url";
 import shortWebm from "./media-transition/waterfall-short.webm?url";
@@ -15,7 +20,7 @@ import full from "./media-transition/waterfall.mp4?url";
 import audible from "./media-transition/waterfall-audio.mp4?url";
 import short from "./media-transition/waterfall-short.mp4?url";
 const params = new URLSearchParams(location.search);
-const text = params.has("oversized") ? "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light." : "Water keeps flowing through the forest.";
+const text = params.has("oversized") || params.has("repeat") || params.has("quiet-tail") ? "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light." : "Water keeps flowing through the forest.";
 const clips = params.has("webm") ? { full: fullWebm, short: shortWebm, audible: audibleWebm } : { full, short, audible };
 const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
@@ -26,7 +31,7 @@ HTMLMediaElement.prototype.play = function () {
   phases.push({kind:this instanceof HTMLAudioElement ? "audio-play-call" : "video-play-call",at:performance.now(),time:this.currentTime});
   if (this instanceof HTMLAudioElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    this.addEventListener("ended", () => { events.push("audio-ended"); });
+    this.addEventListener("ended", () => { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); });
     this.addEventListener("playing", () => events.push("audio-playing"));
     this.addEventListener("error", () => events.push("audio-error"));
   }
@@ -60,7 +65,7 @@ HTMLMediaElement.prototype.pause = function () {
   }
   return result;
 };
-const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : params.has("oversized") ? audioUrl : fittingAudioUrl) });
+const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : params.has("repeat") ? repeatAudioUrl : params.has("quiet-tail") ? quietTailAudioUrl : params.has("oversized") ? audioUrl : fittingAudioUrl) });
 const playbackVoice = { ...voice, speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
   if (params.has("delayed")) {
     phases.push({kind:"speech-delay-start",at:performance.now()});
@@ -76,16 +81,18 @@ const playbackVoice = { ...voice, speak: async (line: string, options: Parameter
 } };
 function App() {
   const [video, setVideo] = useState<Video>();
+  const [paused, setPaused] = useState(false);
   const narration = useNarration({ voice: playbackVoice, onSpeechStart: () => phases.push({kind:"speech-onset",at:performance.now()}) });
   async function start() {
     // Match chat: an immediate opening activates the reused audio element.
     await voice.prepare("Opening cue");
     await voice.speak("Opening cue", { signal: new AbortController().signal });
     const prepared = await voice.prepare(text);
+    phases.push({ kind: "prepared-speech", at: performance.now(), seconds: prepared.seconds ?? -1 });
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: (params.has("same-url") ? ["one", "two", "three"] : ["one"]).map(id => prepareNarratedScene({
       id, templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
       timing: { fixedDuration: 5 }, narration: text,
-    }, prepared.seconds).scene) });
+    }, prepared.seconds, prepared.supportsOffsets === true).scene) });
     // Sample actual decoded pixels from this same-origin moving fixture. Native
     // WebKit may pin currentTime at clip duration while native looping moves.
     const canvas = document.createElement("canvas");
@@ -107,7 +114,7 @@ function App() {
         if (clip !== observedClip || !clip.isConnected) return;
         presentedMediaTime = metadata.mediaTime;
         presentedFrames = metadata.presentedFrames;
-        if (document.body.dataset.proofComplete !== "true") clip.requestVideoFrameCallback(presented);
+        if (params.has("lifecycle") || document.body.dataset.proofComplete !== "true") clip.requestVideoFrameCallback(presented);
       };
       clip.requestVideoFrameCallback(presented);
     };
@@ -120,18 +127,24 @@ function App() {
         if (clip && typeof clip.requestVideoFrameCallback === "function") observeFrames(clip);
       }
       const player = document.querySelector('[data-testid="video-player"]');
-      samples.push({ presentedMediaTime, presentedFrames, frameFingerprint:fingerprint(clip), mediaDuration:Number.isFinite(clip?.duration) ? clip!.duration : 0, narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
+      samples.push({ presentedMediaTime, presentedFrames, frameFingerprint:fingerprint(clip), mediaDuration:Number.isFinite(clip?.duration) ? clip!.duration : 0, narrationReady:narration.isReady(), audioTime:voice.getCurrentTime?.() ?? -1, scene: document.querySelector("[data-video-frame]")?.getAttribute("data-scene-id") ?? "", at: performance.now(), time: clip?.currentTime ?? -1, muted: clip?.muted ?? true, paused: clip?.paused ?? true, rate: clip?.playbackRate ?? 1, loop: clip?.loop ?? false, ended: clip?.ended ?? false, hidden: !clip || getComputedStyle(clip).visibility === "hidden", status: document.querySelector('[data-media-continuity], [data-media-unavailable]')?.textContent ?? "", chapter: document.querySelector('[data-template="title"]')?.textContent ?? "", playerEnded: player?.getAttribute("data-ended") === "true" });
       if (player?.getAttribute("data-ended") === "true") {
         document.body.dataset.proofComplete = "true";
-      } else requestAnimationFrame(sample);
+      } else document.body.dataset.proofComplete = "false";
+      if (params.has("lifecycle") || player?.getAttribute("data-ended") !== "true") requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
   }
   return <><button onClick={() => void start()}>Play exact recorded narration</button>
-    <div style={{ width: 360 }}>{video && <VideoPlayer video={video} autoPlay controls={false} startMuted={false} nativeMediaAudio={params.has("audible") ? { volume: .2 } : undefined}
+    {params.has("lifecycle") && <>
+      <button onClick={() => { setPaused(!paused); if (paused) voice.resume(); else voice.pause(); }}>{paused ? "Resume narration" : "Pause narration"}</button>
+      <button onClick={() => { setPaused(true); narration.interrupt(); }}>Interrupt narration</button>
+    </>}
+    <div style={{ width: 360 }}>{video && <VideoPlayer video={video} autoPlay controls={params.has("lifecycle")} paused={paused} startMuted={false} nativeMediaAudio={params.has("audible") ? { volume: .2 } : undefined}
       narrationReady={narration.isReady} narrationTime={narration.getTime} narrationActive={narration.isSpeaking}
-      onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}
+      onStallChange={(stalled, reason) => paused || (stalled && reason !== "speech") ? voice.pause() : voice.resume()}
       onSceneChange={narration.onSceneChange}
+      onPlaybackEnd={params.has("lifecycle") ? narration.interrupt : undefined}
       onError={() => events.push("player-error")}
     />}</div></>;
 }

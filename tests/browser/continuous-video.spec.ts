@@ -30,7 +30,7 @@ test("motion proof rejects frozen pixels despite an advancing media clock", () =
   expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: 1, presentedMediaTime: index * .1 })))).toBe(600);
 });
 
-for (const mode of ["normal", "short", "oversized", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
+for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
   test.setTimeout(30000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}), recordVideo: { dir: info.outputPath("recording") } });
   const page = await context.newPage();
@@ -80,10 +80,17 @@ for (const mode of ["normal", "short", "oversized", "audible", "missing", "unusa
       expect(longestHoldMs).toBeGreaterThanOrEqual(800);
     }
     if (mode === "audible") expect(active.some(sample => !sample.muted)).toBe(true);
-    if (mode === "normal" || mode === "audible" || delayed) {
+    if (mode === "normal" || mode === "audible" || mode === "quiet-tail" || mode === "repeat" || delayed) {
       expect(active.every(sample => sample.rate === 1)).toBe(true);
       expect(active.filter(sample => sample.status === "Visual unavailable")).toHaveLength(0);
-      expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(0);
+      expect(active.some(sample => sample.chapter)).toBe(false);
+      expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(mode === "repeat" ? 1 : 0);
+      if (mode === "repeat") {
+        const lastAudio = proof.phases.filter(phase => phase.kind === "audio-ended").at(-1)!;
+        expect(proof.samples.at(-1)!.at - lastAudio.at).toBeLessThan(150);
+        const repeat = active.findIndex((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5);
+        expect(new Set(active.slice(repeat).flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
+      }
     } else {
       expect(active.some(sample => sample.chapter === "Water keeps moving")).toBe(true);
       expect(active.some(sample => sample.status === "Visual unavailable")).toBe(false);
@@ -92,6 +99,51 @@ for (const mode of ["normal", "short", "oversized", "audible", "missing", "unusa
   } catch (error) {
     await info.attach("failure-proof", { body: JSON.stringify(await page.evaluate(() => (window as unknown as { continuityProof: unknown }).continuityProof)), contentType: "application/json" });
     throw error;
+  } finally { await context.close(); }
+});
+
+test("a bounded repeat preserves decoder identity through pause, replay and interruption", async ({ browser, browserName }, info) => {
+  test.setTimeout(35000);
+  const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}) });
+  const page = await context.newPage();
+  try {
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?repeat&lifecycle${process.platform === "linux" && browserName === "webkit" ? "&webm" : ""}`);
+    await page.getByRole("button", { name: "Play exact recorded narration", exact: true }).click();
+    await page.waitForFunction(() => {
+      const proof = (window as unknown as { continuityProof: { events: string[] } }).continuityProof;
+      return proof.events.some(event => event.startsWith("video:ended:")) && (document.querySelector("video")?.currentTime ?? 0) > .1;
+    });
+    const decoder = await page.locator("video").elementHandle();
+    await page.getByRole("button", { name: "Pause narration", exact: true }).click();
+    await expect(page.locator("video")).toHaveJSProperty("paused", true);
+    const held = await page.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime);
+    await page.waitForFunction(time => (document.querySelector("video")?.currentTime ?? -1) === time, held);
+    await page.waitForTimeout(200);
+    expect(await page.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime)).toBeCloseTo(held, 1);
+    await page.getByRole("button", { name: "Resume narration", exact: true }).click();
+    await page.waitForFunction(() => document.body.dataset.proofComplete === "true");
+    const first = await page.evaluate(() => (window as unknown as { continuityProof: { samples: Array<MotionSample & {chapter:string;loop:boolean}>; events: string[] } }).continuityProof);
+    expect(first.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(1);
+    expect(first.events.filter(event => event === "audio-ended")).toHaveLength(2);
+    expect(first.samples.some(sample => sample.chapter || sample.loop)).toBe(false);
+    expect(maximumMotionStall(first.samples)).toBeLessThan(500);
+    await page.getByRole("button", { name: "Replay video response", exact: true }).click();
+    await page.waitForFunction(() => {
+      const proof = (window as unknown as { continuityProof: { events: string[] } }).continuityProof;
+      return proof.events.filter(event => event.startsWith("video:ended:")).length === 2 && (document.querySelector("video")?.currentTime ?? 0) > .1;
+    });
+    expect(await decoder!.evaluate(video => video === document.querySelector("video"))).toBe(true);
+    await page.getByRole("button", { name: "Interrupt narration", exact: true }).click();
+    await expect(page.locator("video")).toHaveJSProperty("paused", true);
+    const interrupted = await page.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime);
+    await page.waitForTimeout(1000);
+    expect(await page.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime)).toBeCloseTo(interrupted, 1);
+    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { samples: Array<{chapter:string;loop:boolean}>; events: string[] } }).continuityProof);
+    expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
+    expect(proof.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(2);
+    expect(proof.samples.some(sample => sample.chapter || sample.loop)).toBe(false);
+    expect(proof.events.some(event => event.includes("error"))).toBe(false);
+    await writeFile(info.outputPath("bounded-repeat-lifecycle-proof.json"), JSON.stringify(proof));
   } finally { await context.close(); }
 });
 
