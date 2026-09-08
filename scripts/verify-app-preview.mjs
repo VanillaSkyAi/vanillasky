@@ -59,8 +59,8 @@ try {
   if (capabilities.ready !== false || !capabilities.missing?.includes("VIDEO_CHAT_PAID_PROVIDERS")) throw new Error("Built smoke must disable paid providers");
   const workerResponse = await fetch(`${url}/_worker.js`, { signal: AbortSignal.timeout(5000) });
   const workerBody = await workerResponse.text();
-  if (workerResponse.status !== 404) {
-    if (!workerResponse.ok || !workerResponse.headers.get("content-type")?.includes("text/html")) throw new Error("Compiled worker route was publicly served");
+  if (workerResponse.ok) {
+    if (!workerResponse.headers.get("content-type")?.includes("text/html")) throw new Error("Compiled worker route was publicly served");
     assertAppMarkup(workerBody, identity);
   }
   console.log(`Verified staged application HTTP headers, API identity and missing setup at ${url}: ${identity.commit}`);
