@@ -12,11 +12,6 @@ function videoChatRoutes(): Plugin {
         const path = url.pathname;
         if (path !== "/api/video-chat") return next();
         const action = url.searchParams.get("action");
-        if (!process.env.ANTHROPIC_API_KEY && action !== "welcome" && action !== "capabilities") {
-          response.statusCode = 503;
-          response.end("Set ANTHROPIC_API_KEY and restart. Video responses require a text provider.");
-          return;
-        }
 
         const startedAt = Date.now();
         const since = () => `${String(Date.now() - startedAt).padStart(6)}ms`;
@@ -63,9 +58,8 @@ function videoChatRoutes(): Plugin {
           }
           server.config.logger.info(`[video-chat] ${since()}  ${action ?? "unknown"} complete`);
           response.end();
-        } catch (cause) {
-          const message = cause instanceof Error ? cause.message : String(cause);
-          server.config.logger.error(`[video-chat] ${action ?? "unknown"} failed: ${message}`);
+        } catch {
+          server.config.logger.error(`[video-chat] ${action ?? "unknown"} failed`);
           if (!response.headersSent) response.statusCode = 500;
           response.end("Video chat request failed");
         }

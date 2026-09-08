@@ -60,8 +60,9 @@ describe("video chat starter", () => {
     expect(video).toContain("export const videoProvider");
     expect(video).toContain("generatedClipDurationSec: CLIP_DURATION_SEC");
     expect(video).toContain("duration: CLIP_DURATION_SEC");
-    expect(video).toContain("Uint8Array.from(audio)");
-    expect(video).toContain("signal.throwIfAborted()");
+    expect(video).not.toContain("transcribe:");
+    expect(video).toContain("createFalVideo");
+    expect(readFileSync(join(starterRoot, "providers/transcription.ts"), "utf8")).toContain("transcribe:");
     const packaged = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).files;
     expect(packaged).toEqual(expect.arrayContaining([
       "starters/video-chat/providers.ts",
@@ -75,7 +76,7 @@ describe("video chat starter", () => {
 
     expect(config).toContain("loadEnv");
     expect(config).not.toContain("import.meta.env");
-    expect(config).toContain('action !== "welcome"');
+    expect(config).not.toContain("ANTHROPIC_API_KEY");
   });
 
   it("keeps orchestration in the SDK behind one endpoint", () => {
@@ -95,7 +96,8 @@ describe("video chat starter", () => {
     expect(client).not.toContain("createSceneTimeline");
     expect(client).not.toContain("useNarration");
     expect(client).not.toContain("createSpokenVoice");
-    expect(server).toContain("abortSignal: signal");
+    expect(server).toContain("...textProvider");
+    expect(readFileSync(join(starterRoot, "providers/text.ts"), "utf8")).toContain("abortSignal: signal");
     expect(server).not.toContain("JSON.stringify(detail)");
     expect(server).not.toContain("OPENING_MODEL");
     expect(server).toContain('opening: "The Moon turns, perfectly matching its orbit."');
@@ -125,7 +127,7 @@ describe("video chat starter", () => {
     expect(existsSync(join(starterRoot, "scripts"))).toBe(false);
   });
 
-  it("uses packaged templates until the application opts into source ownership", () => {
+  it("uses SDK-owned playback without a template builder", () => {
     const client = readFileSync(join(starterRoot, "src/main.tsx"), "utf8");
     const server = readFileSync(join(starterRoot, "server.ts"), "utf8");
 

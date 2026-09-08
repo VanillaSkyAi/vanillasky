@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runVanillaSkyCli } from "../src/cli/index";
+import { addVideoChatProvider } from "../src/cli/providers";
 
 const directories: string[] = [];
 function fixture() {
@@ -15,6 +16,26 @@ function fixture() {
 afterEach(() => directories.splice(0).forEach((cwd) => rmSync(cwd, { recursive: true, force: true })));
 
 describe("optional provider setup", () => {
+  it.each(["fal", "google", "runway", "custom"] as const)("copies an app-owned %s video adapter without vendor packages or transcription", async (vendor) => {
+    const cwd = fixture();
+    await addVideoChatProvider("video", { cwd, vendor, installDependencies: async () => undefined });
+    const manifest = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
+    expect(manifest.dependencies).toEqual({ "@vanillaskyai/video": "0.7.1" });
+    expect(manifest.vanillasky.videoVendor).toBe(vendor);
+    expect(existsSync(join(cwd, "providers/video-job.ts"))).toBe(true);
+    expect(existsSync(join(cwd, "providers/video-delivery.ts"))).toBe(true);
+    expect(readFileSync(join(cwd, "providers/video.ts"), "utf8")).not.toContain("transcribe:");
+    await addVideoChatProvider("transcription", { cwd, installDependencies: async () => undefined });
+    expect(readFileSync(join(cwd, "providers/transcription.ts"), "utf8")).toContain("transcribe:");
+  });
+
+  it("does not overwrite an installed vendor when asked to switch", async () => {
+    const cwd = fixture();
+    await addVideoChatProvider("video", { cwd, vendor: "google", installDependencies: async () => undefined });
+    const before = readFileSync(join(cwd, "providers/video.ts"), "utf8");
+    await expect(addVideoChatProvider("video", { cwd, vendor: "runway", installDependencies: async () => undefined })).rejects.toThrow(/already|manually/);
+    expect(readFileSync(join(cwd, "providers/video.ts"), "utf8")).toBe(before);
+  });
   it("installs only selected providers and preserves edited adapters on repeat", async () => {
     const cwd = fixture();
     const installDependencies = vi.fn(async () => undefined);

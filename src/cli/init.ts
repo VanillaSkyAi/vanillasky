@@ -29,6 +29,8 @@ type JsonObject = Record<string, unknown>;
 
 export interface InitVideoChatOptions {
   cwd: string;
+  /** Use editable Gemini REST callbacks instead of the optional Vercel AI SDK adapter. */
+  native?: boolean;
   starterRoot?: string;
   /** Package spec supplied by npx so blank-folder init preserves its exact artifact. */
   sdkSpec?: string;
@@ -78,7 +80,7 @@ function resolvedSdkSpec(starterRoot: string, invokedSpec: string | undefined): 
   return isAbsolute(spec) ? `file:${spec}` : undefined;
 }
 
-function mergedManifest(cwd: string, starterRoot: string, invokedSpec?: string): string {
+function mergedManifest(cwd: string, starterRoot: string, invokedSpec: string | undefined, native: boolean): string {
   const destination = join(cwd, "package.json");
   const existing = existsSync(destination) ? readJson(destination) : {};
   const starter = readJson(join(starterRoot, "package.json"));
@@ -87,6 +89,10 @@ function mergedManifest(cwd: string, starterRoot: string, invokedSpec?: string):
     : basename(cwd).toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
   const existingDependencies = stringMap(existing.dependencies);
   const starterDependencies = stringMap(starter.dependencies);
+  if (native || (existing.vanillasky as JsonObject | undefined)?.textProvider === "custom") {
+    delete starterDependencies.ai;
+    delete starterDependencies["@ai-sdk/anthropic"];
+  }
   const existingScripts = stringMap(existing.scripts);
   const starterScripts = stringMap(starter.scripts);
   for (const [name, command] of Object.entries(starterScripts)) {
@@ -119,6 +125,7 @@ function mergedManifest(cwd: string, starterRoot: string, invokedSpec?: string):
     scripts: { ...existingScripts, ...starterScripts },
     dependencies,
     devDependencies,
+    vanillasky: { ...(existing.vanillasky as JsonObject | undefined), textProvider: (existing.vanillasky as JsonObject | undefined)?.textProvider ?? (native ? "native" : "vercel") },
   };
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
@@ -159,20 +166,27 @@ export function defaultInstall(cwd: string): Promise<void> {
   });
 }
 
-/** Create the canonical app-owned shell while keeping built-in UI and templates in the SDK. */
+/** Create the app-owned provider shell; playback and the chat UI stay in the SDK. */
 export async function initVideoChatApp(options: InitVideoChatOptions): Promise<InitVideoChatResult> {
   const cwd = resolve(options.cwd);
   const starterRoot = resolve(options.starterRoot ?? locateStarterRoot());
+  const manifestPath = safeProjectPath(cwd, "package.json");
+  const existing = existsSync(manifestPath) ? readJson(manifestPath) : {};
+  if (options.native && (existing.vanillasky as JsonObject | undefined)?.textProvider === "vercel") throw new Error("Text provider already configured. Edit providers/text.ts and vanillasky.textProvider manually to switch.");
+  const native = options.native ?? (existing.vanillasky as JsonObject | undefined)?.textProvider === "native";
   const planned = new Map<string, string>();
   for (const path of SCAFFOLD_FILES) {
     planned.set(path, readFileSync(join(starterRoot, path), "utf8"));
   }
+  if (native) planned.set(".env.example", readFileSync(join(starterRoot, ".env.native.example"), "utf8"));
+  const textPath = safeProjectPath(cwd, "providers/text.ts");
+  if (!existsSync(textPath)) planned.set("providers/text.ts", readFileSync(join(starterRoot, native ? "providers/text-native.ts" : "providers/text.ts"), "utf8"));
   // Application-owned registry is extended by providers add and may be edited.
   const providersPath = safeProjectPath(cwd, "providers.ts");
   if (!existsSync(providersPath)) {
     planned.set("providers.ts", readFileSync(join(starterRoot, "providers.ts"), "utf8"));
   }
-  planned.set("package.json", mergedManifest(cwd, starterRoot, options.sdkSpec));
+  planned.set("package.json", mergedManifest(cwd, starterRoot, options.sdkSpec, native));
   planned.set(".gitignore", mergeGitignore(
     existsSync(join(cwd, ".gitignore")) ? readFileSync(join(cwd, ".gitignore"), "utf8") : undefined,
   ));
