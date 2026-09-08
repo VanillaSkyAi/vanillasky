@@ -12,8 +12,9 @@ Your application owns models, keys, authentication, storage, and spending.
 VanillaSky owns the chat interface, shot-planning prompts, streaming, validation,
 voice timing, and playback. The core has no runtime dependencies.
 
-Pre-1.0 beta: pin an exact version for production and review
-[breaking changes](CHANGELOG.md) before upgrading.
+Pre-1.0 beta, distributed through npm with [best-effort support](SUPPORT.md).
+Pin an exact version and use its matching docs; an unreleased checkout is not
+the published package. Review [breaking changes](CHANGELOG.md) before upgrading.
 
 ## Start on localhost
 
@@ -21,25 +22,24 @@ Pre-1.0 beta: pin an exact version for production and review
 npx @vanillaskyai/video init
 ```
 
-Add `ANTHROPIC_API_KEY` to the generated, ignored `.env.local`, then run:
+The default starter uses the optional Vercel AI SDK text adapter. Add
+`ANTHROPIC_API_KEY` to the generated, ignored `.env.local`, then run:
 
 ```bash
 npx vanillasky doctor
 npm run dev
 ```
 
-One text key gives you the complete chat, chapter introductions, subtitles, and
-browser voice. Add `PEXELS_API_KEY` for stock footage, or run
-`npx vanillasky providers add video fal` (or `google`, `runway`, `custom`) for
-generated footage. Configure its server-only credentials and app-owned media
-delivery before enabling it. `providers add speech` and `providers add transcription`
-are separate optional capabilities. Missing footage preserves a narrated chapter.
-See [Getting started](docs/getting-started.md) for setup and
-[Provider integration](docs/provider-integration.md) for the adapter boundary.
+Prefer native callbacks? Use `init --native` in a new directory and configure
+`GEMINI_API_KEY`; that starter needs neither `ai` nor `@ai-sdk/anthropic`.
+Both are application examples, not SDK requirements.
 
-To avoid an AI framework dependency, start with `npx @vanillaskyai/video init --native`.
-That editable Gemini REST adapter uses `GEMINI_API_KEY`; the default starter uses
-the optional Vercel AI SDK with Anthropic. Both mount the same React interface.
+One text key gives you chat, chapter introductions, subtitles, and browser voice.
+Add stock or generated footage through app-owned adapters. fal, Google, and
+Runway references are included; any vendor can implement the same callback.
+Direct video generation also requires your storage/delivery callback.
+See [Getting started](docs/getting-started.md) for the complete setup and
+[Provider integration](docs/provider-integration.md) for the adapter boundary.
 
 ```tsx
 import { VideoChat } from "@vanillaskyai/video/react";
@@ -54,14 +54,25 @@ Use `useVideoChat` to build your own interface, and `parseVideo` with
 `VideoPlayer` to replay completed responses. Changing a provider does not
 require changing the React client.
 
+Already have an assistant? The optional server `resolveAnswer` callback turns
+its completed answer into the source for the video, while your application
+keeps retrieval, tools and answer policy. See [existing-assistant integration](docs/provider-integration.md#use-an-existing-assistant).
+
 ## How it works
 
 The model streams an answer brief and shot directions, not component code.
-The server prepares footage and speech concurrently, validates each scene, and
-streams ready scenes to the browser in order. AI-video mode never silently
+Footage generation overlaps browser-owned speech preparation. The server
+announces prepared media early and streams validated scenes in order. AI-video mode never silently
 substitutes stock; stock mode never spends on generated video. A failed or late
-clip becomes a narrated chapter. Silent footage can loop when narration exceeds
-a clip; media timing and provider latency still need real-footage evaluation.
+clip becomes a narrated chapter. Narration targets a 0.8-second visual tail;
+one short rewrite may fit an oversized beat before generation. If it still
+does not fit, the complete original narration plays over a chapter. Footage
+plays once at native speed; unexpected overruns recover to a chapter without
+cutting off the sentence.
+
+This is progressive **scene** delivery, not real-time frames from every vendor.
+Some generation APIs take minutes; preloading cannot remove that latency.
+Evaluate the model, voice and delivery path you actually deploy.
 
 The supported visual vocabulary is deliberately small: footage and chapter
 introductions/fallbacks. There is no template-authoring CLI, renderer plugin

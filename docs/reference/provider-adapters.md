@@ -122,10 +122,9 @@ duration, resolution, concurrency and timeout together in your editable adapter.
 These longer deadlines accommodate queued providers; they do not make generation
 real-time. The SDK streams ready scenes and prepares upcoming media progressively.
 
-For a limited offering, `VideoChat` accepts `generatedVideoLabel` and
-`generatedVideoDescription` to explain the generated-video choice in Settings.
-Set `showRecoveryNotice` to opt into a brief dismissible message when generated
-visuals fall back. These presentation props do not enforce limits or enable
+Set `VideoChat`'s `showRecoveryNotice` to opt into a brief dismissible message
+when generated visuals fall back. Use an application-owned interface for custom
+plan labels or controls. Presentation does not enforce spending limits or enable
 provider capabilities; the server remains authoritative.
 
 ## Application retrieval

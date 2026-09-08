@@ -8,6 +8,12 @@ Keep that interface unless your application needs to own it.
 <VideoChat
   className="acme-chat"
   welcomeTitle={<>Ask Acme<br />See the answer</>}
+  branding={{
+    name: "Acme",
+    logo: <img src="/acme-logo.svg" alt="" width={120} height={30} />,
+    homeUrl: "/app",
+    showDeveloperLinks: false,
+  }}
 />
 ```
 
@@ -23,7 +29,24 @@ on the instance class, not global element selectors:
 }
 ```
 
-`welcomeTitle` changes the heading, not the navigation logo. The chapter
+`welcomeTitle` changes the heading. `branding` changes only the navigation
+identity: `name` supplies the accessible home-link label and becomes the visible
+wordmark when `logo` is omitted. Size an app-owned image or React logo explicitly
+to fit the header (about 120–144px wide and 30–36px high). Keep it non-interactive:
+the surrounding home link already handles navigation.
+
+Omit `branding` for the unchanged VanillaSky logo and interface. Omit `homeUrl`
+even with custom branding to keep the existing Home behavior: at `/`, an ordinary
+click starts a new session; elsewhere it navigates to `/`. An explicit `homeUrl`
+navigates normally and never resets the current session first. Only root-relative
+paths and HTTP(S) links without embedded credentials are accepted; other values
+fall back to the existing Home behavior.
+
+`showDeveloperLinks` defaults to true. It controls the SDK's Docs/About/GitHub
+section in Settings, not an About page for your application. This is a small UI
+option, not a theme system; it does not affect narration, providers or history.
+
+The chapter
 introduction uses black with neutral system typography. The supported scenes
 are chapters and footage; there is no renderer-extension or brand-kit API.
 

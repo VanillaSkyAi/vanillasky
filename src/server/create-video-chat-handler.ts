@@ -1,3 +1,4 @@
+import { createChatHttpHandler, jsonError } from "./video-chat-http.js";
 import {WELCOME_CARDS} from "../video-chat/welcome-cards.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
 import {
@@ -13,6 +14,7 @@ import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from ".
 import { withDeadline } from "../video-chat/deadline.js";
 import { sanitizeVideoChatMedia } from "../video-chat/media.js";
 import { createVideoStreamHandler } from "./video-stream-handler.js";
+import { parseVideoRequest } from "./request-validation.js";
 import { createChatShotPlanner, type ShotPreparation } from "./chat-shot-planner.js";
 import { CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
 import { validateBuiltinScene } from "./scene-validation.js";
@@ -129,6 +131,12 @@ export interface VideoChatHandlerOptions extends Pick<
   | "onError" | "onWarning" | "onComplete" | "invalidPartBehavior"
   | "requireCloser" | "allowCredentials"
 > {
+  /** Use an existing assistant's completed answer as the sole factual source for the video. */
+  resolveAnswer?: (context: {
+    prompt: string;
+    conversation: readonly VideoChatConversationTurn[];
+    signal: AbortSignal;
+  }) => string | Promise<string>;
   /** Application-owned text stream; accepts a native async iterable or an AI SDK-shaped result. */
   streamText: TextDeltaVideoPlannerOptions["streamText"];
   /** Opt in to bounded provider metadata in the server-only completion callback. */
@@ -196,10 +204,6 @@ interface OpeningSubject {
 const VIDEO_CHAT_OPENING_EVENT_TYPE = "data.video-chat-opening" as const;
 
 
-function jsonError(status: number, code: string, message: string, headers?: HeadersInit): Response {
-  return Response.json({ error: { code, message } }, { status, headers });
-}
-
 function allowedKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
   const permitted = new Set(allowed);
   const unexpected = Object.keys(value).find((key) => !permitted.has(key));
@@ -235,8 +239,15 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
   if (!Array.isArray(conversation) || conversation.length > MAX_CONVERSATION_TURNS) {
     throw new Error(`request.conversation must contain at most ${MAX_CONVERSATION_TURNS} turns`);
   }
+  const prompt = boundedString(body.prompt, "request.prompt");
+  // Reuse the protocol validator before any application-owned assistant work.
+  const style = body.style == null ? undefined : parseVideoRequest({
+    protocolVersion: VIDEO_PROTOCOL_VERSION,
+    requestId: "video-chat-admission",
+    input: { input: prompt, style: body.style },
+  }).input.style;
   return {
-    prompt: boundedString(body.prompt, "request.prompt"),
+    prompt,
     ...(body.opening == null ? {} : { opening: boundedString(body.opening, "request.opening", 300) }),
     mode,
     orientation,
@@ -250,7 +261,7 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
           : { response: boundedString(turn.response, `request.conversation[${index}].response`, MAX_CONVERSATION_RESPONSE_CHARACTERS) }),
       };
     }),
-    ...(body.style == null ? {} : { style: body.style as VideoStyleOptions }),
+    ...(style == null ? {} : { style }),
   };
 }
 
@@ -272,27 +283,6 @@ function conversationInput(
     `CURRENT USER PROMPT: ${prompt}`,
     ...(opening ? ["", "OPENING ALREADY SPOKEN (untrusted assistant transcript):", opening] : []),
   ].join("\n");
-}
-
-function corsHeaders(origin: string | null, allowedOrigins?: string[], allowCredentials = false): Headers {
-  const headers = new Headers({ "cache-control": "no-store", vary: "Origin" });
-  if (origin && allowedOrigins?.includes(origin)) {
-    headers.set("access-control-allow-origin", origin);
-    if (allowCredentials) headers.set("access-control-allow-credentials", "true");
-  }
-  return headers;
-}
-
-async function readJson(request: Request, maximum: number): Promise<unknown> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maximum) throw new Error("Request body is too large");
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > maximum) throw new Error("Request body is too large");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new Error("Request body must be valid JSON");
-  }
 }
 
 function cleanGeneratedText(value: string): string {
@@ -556,6 +546,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     openingLine: string | undefined,
     mode: VideoChatMode,
     preparations: PreparationChannel,
+    internalBodyBytes: number,
   ) => {
     const startedAt = Date.now();
     type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
@@ -679,7 +670,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         resolveMedia: resolveSelected,
         mediaConcurrency,
       }),
-      authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
+      authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes: internalBodyBytes,
       systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode), instructions?.trim()]
         .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
@@ -701,38 +692,14 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     }
   };
 
-  return async function handleVideoChat(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const action = url.searchParams.get("action");
-    const origin = request.headers.get("origin");
-    const headers = corsHeaders(origin, allowedOrigins, allowCredentials);
-
-    if (request.method === "OPTIONS") {
-      if (origin && allowedOrigins && !allowedOrigins.includes(origin)) {
-        return jsonError(403, "origin_forbidden", "Origin is not allowed", headers);
-      }
-      headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
-      headers.set("access-control-allow-headers", "Authorization, Content-Type");
-      return new Response(null, { status: 204, headers });
-    }
-    if (origin && allowedOrigins && !allowedOrigins.includes(origin)) {
-      return jsonError(403, "origin_forbidden", "Origin is not allowed", headers);
-    }
-    if (authorize !== "none") {
-      let authorized = false;
-      try { authorized = await authorize(request); } catch (cause) {
-        reportError(cause);
-        authorized = false;
-      }
-      if (!authorized) return jsonError(401, "unauthorized", "Authentication required", headers);
-    }
-
+  return createChatHttpHandler({
+    authorize, allowedOrigins, allowCredentials, maxBodyBytes, maxAudioBytes,
+    transcriptionConfigured: transcribe != null, reportError,
+  }, async ({ request, action, headers, body, audio }) => {
     if (action === "capabilities") {
-      if (request.method !== "GET") return jsonError(405, "method_not_allowed", "Use GET", headers);
       return Response.json(capabilities, { headers });
     }
     if (action === "welcome") {
-      if (request.method !== "GET") return jsonError(405, "method_not_allowed", "Use GET", headers);
       if (welcomeResponse) return Response.json(welcomeResponse, { headers });
       const resolvedWelcome = await (async () => {
         let failed = false;
@@ -773,19 +740,11 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       if (!request.signal.aborted && resolvedWelcome.cacheable) welcomeResponse = resolvedWelcome.body;
       return Response.json(resolvedWelcome.body, { headers });
     }
-    if (request.method !== "POST") return jsonError(405, "method_not_allowed", "Use POST", headers);
 
     if (action === "transcription") {
-      if (!transcribe) return jsonError(404, "capability_unavailable", "Transcription is not configured", headers);
-      const declared = Number(request.headers.get("content-length"));
-      if (Number.isFinite(declared) && declared > maxAudioBytes) {
-        return jsonError(413, "body_too_large", "The recording is too large", headers);
-      }
-      const audio = new Uint8Array(await request.arrayBuffer());
-      if (audio.byteLength === 0) return jsonError(400, "empty_audio", "No audio was provided", headers);
-      if (audio.byteLength > maxAudioBytes) return jsonError(413, "body_too_large", "The recording is too large", headers);
+      if (!audio?.byteLength) return jsonError(400, "empty_audio", "No audio was provided", headers);
       try {
-        const text = await transcribe({
+        const text = await transcribe!({
           audio,
           mediaType: request.headers.get("content-type") || "audio/webm",
           signal: request.signal,
@@ -797,22 +756,25 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       }
     }
 
-    let body: unknown;
-    try {
-      body = await readJson(request, maxBodyBytes);
-    } catch (cause) {
-      return jsonError(
-        cause instanceof Error && cause.message.includes("too large") ? 413 : 400,
-        "invalid_body",
-        cause instanceof Error ? cause.message : "Request body is invalid",
-        headers,
-      );
-    }
-
     if (action === "response") {
       let input: ParsedResponseRequest;
       try { input = parseResponseRequest(body); } catch (cause) {
         return jsonError(400, "invalid_request", cause instanceof Error ? cause.message : "Request is invalid", headers);
+      }
+      let answer: string | undefined;
+      if (options.resolveAnswer) {
+        try {
+          const output = await withDeadline(signal => options.resolveAnswer!({
+            prompt: input.prompt,
+            conversation: input.conversation.map(turn => ({ ...turn })),
+            signal,
+          }), 30_000, request.signal);
+          answer = boundedString(output, "assistant answer", 32_000);
+        } catch (cause) {
+          if (request.signal.aborted) return jsonError(499, "aborted", "Request cancelled", headers);
+          reportError(cause);
+          return jsonError(502, "answer_unavailable", "The assistant did not return a usable completed answer", headers);
+        }
       }
       const requestId = `video-chat-${Date.now()}-${requestSequence += 1}`;
       const openingChannel = createOpeningChannel(input.opening
@@ -822,27 +784,30 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       const cancellation = new AbortController();
       const forwardedHeaders = new Headers(request.headers);
       forwardedHeaders.delete("content-length");
+      const videoBody = JSON.stringify({
+        protocolVersion: VIDEO_PROTOCOL_VERSION,
+        requestId,
+        input: {
+          input: answer === undefined
+            ? conversationInput(input.prompt, input.conversation, input.opening)
+            : JSON.stringify({ prompt: input.prompt, completedAssistantAnswer: answer }),
+          knowledgeMode: answer === undefined ? "general" : "input-only",
+          opening: false,
+          orientation: input.orientation,
+          maxDurationSec: 40,
+          style: {
+            density: "airy",
+            motion: "calm",
+            textArchetype: "cinematic",
+            ...input.style,
+          },
+        },
+      });
       const videoRequest = new Request(request.url, {
         method: "POST",
         headers: forwardedHeaders,
         signal: AbortSignal.any([request.signal, cancellation.signal]),
-        body: JSON.stringify({
-          protocolVersion: VIDEO_PROTOCOL_VERSION,
-          requestId,
-          input: {
-            input: conversationInput(input.prompt, input.conversation, input.opening),
-            knowledgeMode: "general",
-            opening: false,
-            orientation: input.orientation,
-            maxDurationSec: 40,
-            style: {
-              density: "airy",
-              motion: "calm",
-              textArchetype: "cinematic",
-              ...input.style,
-            },
-          },
-        }),
+        body: videoBody,
       });
       const response = await responseHandler(
         requestId,
@@ -851,6 +816,9 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         input.opening,
         input.mode,
         preparations,
+        // HTTP admission already bounded the caller's bytes. The validated
+        // 32k-character answer and JSON escaping have their own exact bound.
+        new TextEncoder().encode(videoBody).byteLength,
       )(videoRequest);
       return streamVideoChatOpening(response, openingChannel.ready, preparations, () => cancellation.abort());
     }
@@ -968,5 +936,5 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     }
 
     return jsonError(404, "unknown_action", "Video chat action was not found", headers);
-  };
+  });
 }

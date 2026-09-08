@@ -168,7 +168,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatHandlerOptions extends Pick<VideoStreamHandlerOptions, \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    streamText: TextDeltaVideoPlannerOptions[\"streamText\"];\n    includeRawProviderData?: boolean;\n    mediaConcurrency?: number;\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatVideoGenerator;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    generatedClipDurationSec?: number;\n    onDiagnostic?: (event: {\n        requestId: string;\n        mode: VideoChatMode;\n        phase: \"request-accepted\" | \"opening-authored\" | \"shot-authored\" | \"media-start\" | \"media-end\" | \"media-skipped\" | \"narration-fit\";\n        elapsedMs: number;\n        sceneId?: string;\n        durationMs?: number;\n        estimatedSpeechSec?: number;\n        clipDurationSec?: number;\n        reason?: \"ready\" | \"empty\" | \"provider-error\" | \"timeout\" | \"cancelled\" | \"allowance\" | \"deadline\" | \"not-configured\" | \"fit\" | \"rewritten\" | \"oversized\";\n    }) => unknown;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
+          "interface VideoChatHandlerOptions extends Pick<VideoStreamHandlerOptions, \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    resolveAnswer?: (context: {\n        prompt: string;\n        conversation: readonly VideoChatConversationTurn[];\n        signal: AbortSignal;\n    }) => string | Promise<string>;\n    streamText: TextDeltaVideoPlannerOptions[\"streamText\"];\n    includeRawProviderData?: boolean;\n    mediaConcurrency?: number;\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatVideoGenerator;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    generatedClipDurationSec?: number;\n    onDiagnostic?: (event: {\n        requestId: string;\n        mode: VideoChatMode;\n        phase: \"request-accepted\" | \"opening-authored\" | \"shot-authored\" | \"media-start\" | \"media-end\" | \"media-skipped\" | \"narration-fit\";\n        elapsedMs: number;\n        sceneId?: string;\n        durationMs?: number;\n        estimatedSpeechSec?: number;\n        clipDurationSec?: number;\n        reason?: \"ready\" | \"empty\" | \"provider-error\" | \"timeout\" | \"cancelled\" | \"allowance\" | \"deadline\" | \"not-configured\" | \"fit\" | \"rewritten\" | \"oversized\";\n    }) => unknown;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
         ]
       },
       "VideoChatMode": {
@@ -336,7 +336,7 @@
           "value"
         ],
         "declaration": [
-          "declare function VideoChat({ options, className, welcomeTitle, showRecoveryNotice }: VideoChatProps): react.JSX.Element;"
+          "declare function VideoChat({ options, className, welcomeTitle, branding, showRecoveryNotice }: VideoChatProps): react.JSX.Element;"
         ]
       },
       "VideoChatAskOptions": {
@@ -400,7 +400,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatProps {\n    options?: UseVideoChatOptions;\n    className?: string;\n    welcomeTitle?: ReactNode;\n    showRecoveryNotice?: boolean;\n}"
+          "interface VideoChatProps {\n    options?: UseVideoChatOptions;\n    className?: string;\n    welcomeTitle?: ReactNode;\n    branding?: {\n        name: string;\n        logo?: ReactNode;\n        homeUrl?: string;\n        showDeveloperLinks?: boolean;\n    };\n    showRecoveryNotice?: boolean;\n}"
         ]
       },
       "VideoChatStatus": {

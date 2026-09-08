@@ -26,6 +26,8 @@ const voice: VideoChatVoice = {
 createRoot(document.getElementById("root")!).render(
   <>
     {holdOpening && <button onClick={() => releaseOpening()}>Finish opening</button>}
-    <VideoChat showRecoveryNotice={new URLSearchParams(location.search).has("recovery-notice")} options={{ endpoint: "/api/video-chat", mode: "cinematic", voice }} />
+    <VideoChat
+      branding={new URLSearchParams(location.search).has("branding") ? { name: "Acme", homeUrl: "/app", showDeveloperLinks: false } : undefined}
+      showRecoveryNotice={new URLSearchParams(location.search).has("recovery-notice")} options={{ endpoint: "/api/video-chat", mode: "cinematic", voice }} />
   </>,
 );
