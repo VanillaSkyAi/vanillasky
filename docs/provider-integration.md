@@ -1,213 +1,145 @@
-[← Documentation home](../README.md) · [Previous: Getting started](getting-started.md) · [Next: Customization →](customization.md)
-
 # Provider integration
 
-Start from the generated chat so provider work stays confined to the
-application-owned server:
+Follow [Getting started](getting-started.md) for setup. Keep one `VideoChat`
+client and one `createVideoChatHandler` endpoint. Models, credentials,
+authentication, retrieval, tools, storage and spending belong to the application;
+the SDK owns shot planning, validation, streaming and playback.
 
-```bash
-npx @vanillaskyai/video init
-npx vanillasky doctor
-npm run dev
-```
+The generated `providers/text.ts` is an editable Vercel AI SDK example.
+`init --native` instead installs native Gemini REST callbacks with no `ai` or
+`@ai-sdk/anthropic` dependency. Neither integration is required by the core.
+Any native API, vendor SDK or application service can implement the callbacks.
 
-Init runs doctor automatically. The generated `server.ts` starts with one
-`ANTHROPIC_API_KEY`, a chapter introduction, and browser voice; it installs no
-optional speech or video packages.
+## Text callbacks
 
-Use `init --native` for editable Gemini REST callbacks without `ai` or a provider
-SDK. Its key is `GEMINI_API_KEY`. The default starter uses the optional AI SDK
-and Anthropic; both keep the text connection in `providers/text.ts`.
+`streamText` receives the SDK's `systemPrompt`, `userPrompt` and `signal`.
+Return an `AsyncIterable<string>` directly, or an AI SDK-shaped object with a
+`textStream`. The stream contains the model's answer brief and shot records,
+not React components or pre-generated MP4 bytes.
 
-Optional capabilities are independent:
+`generateText` handles bounded helper tasks. Honor its `systemPrompt`,
+`userPrompt`, `maxOutputTokens` and `signal`; return a string. If you dispatch by
+`task`, handle `narration`, `narration-rewrite` and `suggestions`. The rewrite
+task is an intentional part of the speech/clip budget, not a second answer.
 
-| Command | Server configuration |
-| --- | --- |
-| `providers add video fal` | `FAL_KEY` |
-| `providers add video google` | `GEMINI_API_KEY` |
-| `providers add video runway` | `RUNWAY_API_KEY` |
-| `providers add video custom` | Your callback and credentials |
-| `providers add speech` | `XAI_API_KEY`; installs AI SDK/xAI in the app |
-| `providers add transcription` | `FAL_KEY`; separate from video |
+Model IDs, reasoning effort, sampling, prompt caching and provider timeouts
+remain in the adapter. Measure first usable scene and answer quality, not only
+time to first token. Keep credentials and raw provider metadata server-side.
+See the [adapter reference](reference/provider-adapters.md) for lower-level
+text stream and completion fields.
 
-Prefix commands with `npx vanillasky`. Video adapters also need app-owned durable
-delivery: edit `providers/video-delivery.ts`, or configure its example
-`VIDEO_UPLOAD_URL` and `VIDEO_STORAGE_TOKEN`. Provider download credentials must
-never become browser URLs. These REST video adapters add no provider SDK package.
-Configure the named keys in `.env.local`, restart, and run doctor. It checks
-configuration only, not whether a paid generation will succeed. Stock media
-needs only `PEXELS_API_KEY`. The client does not change.
+## Use an existing assistant
 
-Rerunning setup repairs installation without replacing edited adapters. To switch
-an existing video vendor, deliberately edit `providers/video.ts` and update
-`vanillasky.videoVendor` in the app manifest; the CLI refuses to overwrite owned
-source. Keep model duration, timeout, concurrency and delivery settings together.
-
-For the full chat experience, mount one `createVideoChatHandler` and keep every
-provider choice in its callbacks:
+Add `resolveAnswer` when your application already decides what the assistant
+should say. For example, in your generated `server.ts`:
 
 ```ts
-import "server-only";
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, streamText } from "ai";
 import { createVideoChatHandler } from "@vanillaskyai/video/server";
+import { textProvider } from "./providers/text";
+import { providers } from "./providers";
+import { answerQuestion } from "./assistant";
+import { verifySession } from "./auth";
 
-export const handler = createVideoChatHandler({
+export const handleVideoChat = createVideoChatHandler({
   authorize: verifySession,
-  streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
-    model: anthropic(process.env.TEXT_MODEL ?? "claude-sonnet-5"),
-    system: systemPrompt,
-    prompt: userPrompt,
-    abortSignal: signal,
-  }),
-  generateText: async ({ systemPrompt, userPrompt, maxOutputTokens, signal }) => {
-    const result = await generateText({
-      model: anthropic(process.env.TEXT_MODEL ?? "claude-sonnet-5"),
-      system: systemPrompt,
-      prompt: userPrompt,
-      maxOutputTokens,
-      abortSignal: signal,
-    });
-    return result.text;
-  },
+  ...textProvider,
+  ...providers,
+  resolveAnswer: ({ prompt, conversation, signal }) =>
+    answerQuestion({ prompt, conversation, signal }),
 });
 ```
 
-That one text provider gives the browser chapter responses and local
-browser speech. Supplying `generateSpeech`, `transcribe`, `searchMedia`, or
-`generateVideo` enables those capabilities automatically. The callbacks are
-structural and provider-neutral; their SDKs and credentials remain application
-dependencies and never enter the browser bundle.
+`answerQuestion` and `verifySession` above are functions supplied by **your app**.
+Keep tenant lookup, retrieval, tool execution and answer policy there. The
+callback receives the validated prompt, bounded prior conversation and an
+abort signal. It must return one completed, nonempty string of at most 32,000
+characters after trimming—not an event stream, agent object or partial answer.
 
-The planner emits a short spoken opening, then continues the answer in the same
-stream. The default UI shows a chapter immediately. A welcome card can carry a
-prewritten `opening`, whose narration starts without waiting for the model.
-Each authored body beat prepares speech and selected footage together. Playback
-starts after its contiguous preparation cushion, without requiring the entire
-plan or a second model call for narration.
+The SDK waits up to 30 seconds and forwards cancellation. A failed, empty,
+oversized or timed-out answer returns HTTP 502 with `answer_unavailable`;
+request cancellation returns `aborted`. It does not silently replace your
+assistant's failure with a different answer. Provider work that ignores the
+signal may continue, so your assistant adapter must honor it.
 
-The matching complete React interface is one component and one scoped style
-import:
+The completed answer becomes the planner's sole factual source in input-only
+mode. Planning still uses `streamText` to present that source as video; it is
+not a second retrieval/tool run or a fact-checking guarantee. The video plan
+streams after the answer has completed. Without `resolveAnswer`, the normal
+planner answers from the prompt and conversation directly.
 
-```tsx
-import { VideoChat } from "@vanillaskyai/video/react";
-import "@vanillaskyai/video/video-chat.css";
+## Video, speech and transcription
 
-export function App() {
-  return <VideoChat />;
-}
-```
+`generateVideo`, `searchMedia`, `generateSpeech` and `transcribe` are separate
+optional callbacks. Their availability advertises the relevant capabilities;
+changing providers does not require a new React interface.
 
-## Custom interface
+`providers add video fal`, `google` or `runway` copies an app-owned REST reference
+into `providers/video.ts`. `custom` supplies a callback skeleton. These names
+are onboarding examples, not a core allowlist. Keep any other SDK dependency
+inside your application's adapter.
 
-For a custom interface, use `useVideoChat` and render its `turns`, `welcome`,
-`suggestions`, `caption`, and `status`; the hook owns their network and playback
-lifecycle. Pass a selected card through
-`chat.ask(card.prompt, { opening: card.opening })` to start its hook immediately.
-Custom interfaces can still pass and render `openingMedia`; the default UI uses
-the chapter. Typed prompts receive their authored opening through the stream.
+The video callback receives the visual query plus `requestedDurationSec`,
+`shotDirection`, orientation, `generatedLook`, `signal`, and an absolute
+epoch-millisecond `deadlineAt`. Return browser-safe media such as
+`{ type: "video", url, durationSec }`; report the actual delivered duration when
+known. Keep `generatedClipDurationSec`, `mediaConcurrency` and
+`generateVideoTimeoutMs` aligned with the adapter's model, supported duration,
+resolution and account limits. A model-name change alone is not always enough.
 
-Any AI SDK `LanguageModel` works in both `streamText` and `generateText`. Keep
-selection in one server-only module when an application supports several text
-providers. The chat route and React component stay unchanged; only the model
-passed to those callbacks changes. The AI SDK result can be returned directly:
-its text stream, finish reason, usage, warnings, and response metadata match the
-structural callback contract. See the
-[provider adapter reference](reference/provider-adapters.md) for native provider
-alternatives.
+The planner targets speech ending at least 0.8 seconds before each clip ends.
+An oversized beat gets at most one bounded `narration-rewrite` call before
+footage generation. If the rewrite fails or still cannot fit, no video job is
+submitted for that beat: its complete original narration plays over a chapter.
+Rewrites are instructed to preserve facts and qualifications; applications
+should still evaluate meaning and timing with their actual models and voices.
+Measured speech can overrun the estimate; playback holds the last video frame
+rather than looping or cutting off the sentence.
 
-## Planning effort and reasoning modes
+Speech setup uses the optional xAI/AI SDK adapter. Transcription setup uses
+Whisper via fal REST independently of the selected video vendor. Stock footage
+uses `searchMedia`; AI-video mode never silently calls stock, and stock mode
+does not spend on generated video.
 
-Planning emits an answer brief and narrated shot directions.
-Where a provider exposes a reasoning or effort control, a host that wants a
-video to start quickly should turn extended reasoning off and keep effort low
-to moderate. The default matters: several current models reason by default, and
-that reasoning happens before the first plan part is emitted, so it is added
-directly to time to first generated scene.
+## Video delivery and cancellation
 
-With the Vercel AI SDK and a current Anthropic model, that is one option object:
+Direct references require an app-owned delivery callback. The starter's
+`providers/video-delivery.ts` receives downloaded video bytes, job ID, duration
+and signal. Replace it with your storage code, or implement its example upload
+endpoint: `PUT` MP4 bytes to `VIDEO_UPLOAD_URL` with `VIDEO_STORAGE_TOKEN`, then
+return a public HTTPS `{ url }`. VanillaSky does not host that endpoint.
 
-```ts
-streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
-  model,
-  system: systemPrompt,
-  prompt: userPrompt,
-  abortSignal: signal,
-  providerOptions: {
-    anthropic: { thinking: { type: "disabled" }, effort: "medium" },
-  },
-}),
-```
+Google video downloads require a private API key. Keep it server-side, strip
+credentials when following off-origin redirects, and never pass the private
+provider URI to the player. Copy temporary vendor outputs into storage with an
+appropriate replay lifetime. Deliver H.264 MP4 with the moov atom first,
+Content-Type/Content-Length, byte ranges and CORS. Access rules, retention and
+deletion remain application responsibilities.
 
-Reasoning settings can substantially affect startup latency. Measure them with
-representative requests. Compare first-scene timing,
-rejected scenes and factual accuracy; the fastest token stream is not useful if
-its scenes cannot be rendered. Keep these settings in the provider adapter.
+The references submit each paid job once, retain its ID and poll to a deadline.
+Persist the ID through the helper's `onSubmitted` callback if jobs must survive
+server restarts. Never automatically resubmit an ambiguous network failure;
+check the provider dashboard first. Cancellation is best effort for fal and
+Runway. Gemini Veo has no documented cancellation operation: accepted work may
+finish and be billed even after local polling stops. No cancellation promises
+a refund.
 
-VanillaSky never sets these controls. Provider selection, sampling parameters,
-and credentials stay with the application.
+Initial policies are fal: 5s/480P, concurrency 3, 120s deadline; Google:
+6s/720p, concurrency 2, 360s; Runway: 5s/720p, concurrency 2, 180s. These are
+editable settings, not measured latency guarantees. Google and Runway may take
+minutes. Early media preparation enables progressive scene playback, not
+real-time streaming from a provider that only returns completed jobs.
 
-## Completion and usage
+## Completion and integration scope
 
-Use `onComplete` for server-side cost and completion measurement:
+Use `onComplete` for successful server-side completion and usage summaries;
+it does not fire for terminal failure or cancellation. Use safe diagnostics
+and `onError` for failures without exposing raw provider payloads to browsers.
+Stored completed responses can be validated with `parseVideo` and replayed
+without another generation.
 
-```ts
-createVideoChatHandler({
-  authorize: verifySession,
-  streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
-    model,
-    system: systemPrompt,
-    prompt: userPrompt,
-    abortSignal: signal,
-  }),
-  generateText: runSmallTextTask,
-  onWarning: (warning) => logSafeWarning(warning.code, warning.category),
-  onComplete: (summary) => recordGeneration({
-    finishReason: summary.finishReason,
-    usage: summary.usage,
-    requestedModelId: summary.requestedModelId,
-    resolvedModelId: summary.resolvedModelId,
-    totalDurationMs: summary.totalDurationMs,
-  }),
-  onError: (error) => recordPrivateFailure(error),
-});
-```
-
-`onComplete` fires once only after `response.complete`. It does not fire for a
-terminal error, abort, disconnect, or timeout. Callback failures are isolated
-from the event stream. Normalized token usage and model IDs remain server-only;
-they never enter SSE or the persisted `Video`. Set `includeRawProviderData:
-true` only when the host deliberately needs bounded provider-native usage and
-metadata and has an appropriate retention policy.
-
-`acceptedSceneCount`, `rejectedSceneCount`, and `timeToFirstSceneMs` describe
-model-generated scene additions; the streamed opening hook is not counted.
-Their sum is the proposed scene count. `videoDurationSec` is the duration
-actually committed. These fields provide a server-side quality signal without
-exposing model metadata in the browser.
-Warnings include the same bounded typed warnings emitted to the client.
-`plan_incomplete` identifies a playable partial response whose planner reported
-a length limit; applications should show that result as incomplete and may
-offer a bounded retry with a larger output or duration budget.
-`plan_missing_closer` identifies a playable answer that ended without its
-explicit final scene. For non-interactive evaluation, define an application
-threshold and retry a bounded number of times. Keep the best accepted result
-rather than treating `finishReason: "stop"` alone as a quality score.
-
-The default prompt describes answer briefs and shot directions. Keep product
-instructions concise and measure provider-reported token usage. Prompt caching
-and model-specific controls belong in the application adapter.
-
-Provider finish reasons `error` and `tool-calls` are terminal failures.
-`length` and `content-filter` may complete with already accepted scenes; a
-truncation before the first generated scene fails instead of returning an empty
-success. The request signal is forwarded to the provider. Configure route and
-provider timeouts with that signal, and keep retries host-owned and within the
-same explicit request budget.
-
-## Product-level planner guidance
-
-`createVideoChatHandler` constructs the answer and shot-planning prompt. Normal integrations do not build prompts or capabilities. Use the
-handler's `instructions` option for durable product-level direction such as a
-character, audience, domain, or answer style. The current user prompt and
-bounded prior turns are supplied separately by the SDK.
+This is a beta npm SDK with [best-effort support](../SUPPORT.md), not a hosted
+generation service or a guarantee for every vendor/model combination. Offline
+fixtures establish callback contracts; live model availability, output quality,
+cost and latency require an explicitly budgeted check in your own account.
+See [production](production.md) before exposing the endpoint publicly and
+[customization](customization.md) for branding or application-owned controls.
