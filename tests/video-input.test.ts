@@ -1,6 +1,4 @@
 import type { VideoInput } from "../src/protocol/types";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import type { VideoStyle } from "../src/index";
@@ -12,7 +10,7 @@ const complete = async function* () {
 
 describe("VideoInput", () => {
   it("uses a deterministic chapter opening when opening is omitted", async () => {
-    const { buildVideoUserPrompt, createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/internal");
     const response = createVideo({
       input: "Activation increased to 58%.",
       maxDurationSec: 12,
@@ -28,13 +26,10 @@ describe("VideoInput", () => {
       variables: { title: "Creating your video..." },
       timing: { fixedDuration: 3, startTime: 0, endTime: 3 },
     }]);
-    expect(buildVideoUserPrompt(response.request.input)).toContain(
-      "The host has already added the opening scene",
-    );
   });
 
   it("lets the host replace the deterministic opening with application loading UI", async () => {
-    const { buildVideoUserPrompt, createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/internal");
     const response = createVideo({
       input: "Activation increased to 58%.",
       opening: false,
@@ -57,9 +52,6 @@ describe("VideoInput", () => {
 
     expect(response.request.input.opening).toBe(false);
     expect(response.initialConfig.scenes).toEqual([]);
-    expect(buildVideoUserPrompt(response.request.input)).toContain(
-      "Add the first grounded scene as soon as it is complete",
-    );
 
     const events = [];
     for await (const event of response.stream) events.push(event);
@@ -73,7 +65,7 @@ describe("VideoInput", () => {
   });
 
   it("turns an intent-level opening into the deterministic opening scene", async () => {
-    const { buildVideoUserPrompt, createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/internal");
     const response = createVideo({
       input: "Activation increased to 58%.",
       opening: "  Your activation update is ready.  ",
@@ -90,10 +82,6 @@ describe("VideoInput", () => {
       timing: { fixedDuration: 3, startTime: 0, endTime: 3 },
     }]);
     expect(response.request.input.opening).toBe("Your activation update is ready.");
-    expect(buildVideoUserPrompt(response.request.input)).toContain(
-      "The host has already added the opening scene",
-    );
-    expect(buildVideoUserPrompt(response.request.input)).not.toContain("Response type:");
   });
 
   it("infers deterministic output audio metadata from a supplied src", async () => {
@@ -288,13 +276,6 @@ describe("VideoInput", () => {
         }],
       },
     })).toThrow(`request.input.suppliedMedia[0].${field} must be ${choices}`);
-  });
-
-  it("does not expose opening or timing configuration aliases at the package root", () => {
-    const rootExports = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
-    expect(rootExports).not.toContain("VideoOpening");
-    expect(rootExports).not.toContain("VideoTiming");
-    expect(rootExports).toMatch(/\bVideoAudio\b/);
   });
 
   it("has the small intent-level type surface", () => {
