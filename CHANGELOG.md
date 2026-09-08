@@ -4,8 +4,6 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
-- Reset an unexpected native video start during narration preparation so paused WebKit decoders cannot drift ahead and freeze when speech begins.
-
 ## 0.11.0
 
 ### Integration and developer experience
@@ -26,6 +24,7 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ### Timing and preparation
 
+- Reset an unexpected native video start during narration preparation so paused WebKit decoders cannot drift ahead and freeze when speech begins.
 - Share a clip budget between planning and playback, with a 0.8-second narration tail and one bounded rewrite before any paid clip. If it cannot fit, keep the complete original narration on a chapter.
 - Check measured speech and actual decoded footage; play normal footage at native speed without looping. Respect browser speech completion with bounded failure handling.
 - Announce completed media ahead of ordered scene delivery. Limit actual decoding to active and next scenes on every browser; isolate speech/media preparation from session state.
