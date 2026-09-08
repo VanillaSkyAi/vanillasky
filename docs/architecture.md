@@ -19,6 +19,26 @@ own your product policy. It supplies the complete default chat, video-planning
 prompts, trusted visual vocabulary, conversation and narration lifecycle,
 validation, streaming, and player.
 
+## Start here
+
+Six files, in this order, are enough to hold the whole system in your head.
+About 2,600 lines total, and two of them are most of it.
+
+1. `src/protocol/types.ts` — the `Video` shape. Everything else exists to
+   produce, validate, transport, or play this one object.
+2. `src/server/prompts/system-prompt.ts` — what the model is actually asked
+   for. The product's behavior is mostly here, not in the code around it.
+3. `src/server/create-video-chat-handler.ts` — the one endpoint. Where an
+   application's providers and policy attach.
+4. `src/protocol/events.ts` — the wire contract between server and browser.
+5. `src/video-chat/use-video-chat.ts` — the client lifecycle, as a reducer.
+   Read `reducer` first and the hook second.
+6. `src/visual-system/scene-templates/quote.tsx` — one complete scene, small
+   enough to read in a sitting. Every other template has this shape.
+
+To watch it run instead, `npm run dev:chat` renders the real `VideoChat` from
+source against fixtures, with no provider credentials and no spend.
+
 ## Repository map
 
 | Location | Purpose |
@@ -32,19 +52,20 @@ validation, streaming, and player.
 | `src/video-chat/` | Default `VideoChat` interface and headless conversation/session engine |
 | `src/visual-system/catalog/` | Template metadata, schemas, loading, and planner catalog |
 | `src/visual-system/scene-templates/` | Complete scenes the model may select |
-| `src/visual-system/primitives/` | Reusable visual components used inside scenes |
 | `src/visual-system/backgrounds/` | Standalone background renderers |
 | `src/visual-system/motion/` | Animation functions and timing behavior |
 | `src/visual-system/theme/` | Color and design tokens |
+| `src/visual-system/typography/` | Text fitting, formatting, and kinetic type lifecycles |
 | `src/cli/` | `vanillasky init`, `doctor`, and `providers add`, plus `vanillasky templates create`, `add`, `sync`, `check`, `list`, and `describe` |
 | `registry/items/` | Generated distributable copies installed into customer projects |
 | `src/index.ts`, `src/server.ts`, `src/react.ts`, `src/templates.ts`, `src/template-catalog.ts`, `src/test.ts`, `styles/video-chat.css` | The six small code entry points and one scoped stylesheet |
 
 The source of truth for built-in visuals is `src/visual-system`. The JSON files
 in `registry/items` are distribution artifacts, kept flat so the CLI can address
-every installable item by a stable name. Their `meta.vanillasky.layer` and
-`category` fields distinguish full templates, primitives, effects, and shared
-support code. Run `npm run registry:sync` after changing canonical visual source.
+every installable item by a stable name. Their `meta.vanillasky.layer` field is
+`template` for a complete scene the model may select, or `lib` for shared
+support code a template imports. Run `npm run registry:sync` after changing
+canonical visual source.
 
 Customer applications do not edit those internal locations. Their source of
 truth is one file per visual under `vanillasky/templates/`; `vanillasky templates sync`
