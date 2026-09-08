@@ -98,8 +98,7 @@ produces safe diagnostics. A media failure does not delete valid narration.
 
 AI mode generates footage within the host allowance. Pexels mode searches
 stock without calling the video generator. Each authored beat includes a short
-chapter title; missing footage becomes that chapter with its complete narration. Handlers configured with an explicit custom `templates` registry continue to
-support the trusted catalog and its existing structured planner contract.
+chapter title; missing footage becomes that chapter with its complete narration.
 
 ## Grounding
 

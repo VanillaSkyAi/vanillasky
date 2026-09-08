@@ -394,21 +394,3 @@ describe("vanillasky doctor", () => {
     expect(result.output).not.toContain("private");
   });
 });
-
-describe("vanillasky templates namespace", () => {
-  it("keeps app commands at the root and moves template operations under templates", async () => {
-    const cwd = project();
-    const help = await run(cwd, ["help"]);
-    expect(help.output).toContain("vanillasky init");
-    expect(help.output).toContain("vanillasky doctor");
-    expect(help.output).toContain("vanillasky templates list");
-
-    const namespaced = await run(cwd, ["templates", "list", "--builtin", "--json"]);
-    expect(namespaced.code).toBe(0);
-    expect(JSON.parse(namespaced.output)).toContainEqual(expect.objectContaining({ id: "keyFigure" }));
-
-    const removed = await run(cwd, ["list"]);
-    expect(removed.code).toBe(1);
-    expect(removed.output).toContain("vanillasky templates list");
-  });
-});

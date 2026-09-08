@@ -4,6 +4,42 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.11.0
+
+### Breaking changes
+
+The beta now focuses on footage and chapter opening/recovery. The default chat
+experience and saved `cinemaMedia` / `chapterTitle` playback remain supported.
+Custom renderers, the five other built-ins, all registry bundles, template CLI
+commands, and `/templates` and `/templates/catalog` exports are removed.
+Server template registries and custom-registry options are removed as well.
+There is no compatibility loader for retired custom-template videos.
+
+Before, applications could install and pass a custom registry:
+
+```tsx
+import { createTemplateRegistry } from "@vanillaskyai/video/templates";
+const templates = createTemplateRegistry({ templates: customScenes });
+<VideoChat options={{ endpoint: "/api/video", templates }} />;
+```
+
+### Adoption
+
+Use the built-in video-and-chapter experience. Remove registry imports, custom
+template files, authoring scripts and their configuration from your application.
+Use visual direction for the footage and the headless hook for custom chat UI:
+
+```tsx
+import { VideoChat } from "@vanillaskyai/video/react";
+import "@vanillaskyai/video/video-chat.css";
+<VideoChat options={{ endpoint: "/api/video" }} />;
+```
+
+Keep provider integrations application-owned. npm distribution and optional
+Vercel AI SDK integration remain; the SDK does not require `ai`, Anthropic or
+any video-provider package. Support is best-effort beta support for the focused
+chat flow, not an expanding model compatibility matrix.
+
 ## 0.10.23
 
 - Stop shipping the maintainer-only cinematic migration note in the published

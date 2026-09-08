@@ -40,8 +40,8 @@ export async function* simulateVideoStream(
 
   const { createVideo } = await import("../server/compose-video.js");
   const { createTextDeltaVideoPlanner } = await import("../server/model/text-stream.js");
-  const { BUILTIN_SERVER_TEMPLATE_KIT } = await import("../visual-system/catalog/builtin-server.js");
-  const { createTemplateSceneValidator } = await import("../visual-system/catalog/validate.js");
+  const { SCENE_DEFINITIONS, getBuiltinSceneDefinition } = await import("../visual-system/catalog/builtin-metadata.js");
+  const { validateBuiltinScene } = await import("../server/scene-validation.js");
 
   const controller = new AbortController();
   const forwardAbort = () => controller.abort(options.signal?.reason);
@@ -57,9 +57,9 @@ export async function* simulateVideoStream(
   const run = createVideo(input, {
     requestId: options.requestId ?? DEFAULT_REQUEST_ID,
     runId: options.runId ?? DEFAULT_RUN_ID,
-    capabilities: cloneValue(BUILTIN_SERVER_TEMPLATE_KIT.capabilities),
-    validateScene: createTemplateSceneValidator({ kit: BUILTIN_SERVER_TEMPLATE_KIT }),
-    getTemplatePacing: (templateId) => BUILTIN_SERVER_TEMPLATE_KIT.getTemplateMetadata(templateId),
+    capabilities: { templates: SCENE_DEFINITIONS.map(scene => scene.id) },
+    validateScene: validateBuiltinScene,
+    getTemplatePacing: getBuiltinSceneDefinition,
     invalidPartBehavior: options.invalidPartBehavior ?? "drop",
     signal: controller.signal,
     generate,

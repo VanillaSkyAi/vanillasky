@@ -12,7 +12,7 @@ npm run dev
 ```
 
 Init runs doctor automatically. The generated `server.ts` starts with one
-`ANTHROPIC_API_KEY`, a template introduction, and browser voice; it installs no
+`ANTHROPIC_API_KEY`, a chapter introduction, and browser voice; it installs no
 optional speech or video packages.
 
 Use `npx vanillasky providers add speech` to install xAI speech, or
@@ -52,7 +52,7 @@ export const handler = createVideoChatHandler({
 });
 ```
 
-That one text provider gives the browser templated video responses and local
+That one text provider gives the browser chapter responses and local
 browser speech. Supplying `generateSpeech`, `transcribe`, `searchMedia`, or
 `generateVideo` enables those capabilities automatically. The callbacks are
 structural and provider-neutral; their SDKs and credentials remain application
@@ -97,7 +97,7 @@ alternatives.
 
 ## Planning effort and reasoning modes
 
-Planning is a structured emit against a trusted catalog, not a reasoning task.
+Planning emits an answer brief and narrated shot directions.
 Where a provider exposes a reasoning or effort control, a host that wants a
 video to start quickly should turn extended reasoning off and keep effort low
 to moderate. The default matters: several current models reason by default, and
@@ -119,7 +119,7 @@ streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
 ```
 
 Reasoning settings can substantially affect startup latency. Measure them with
-your installed catalog and representative requests. Compare first-scene timing,
+representative requests. Compare first-scene timing,
 rejected scenes and factual accuracy; the fastest token stream is not useful if
 its scenes cannot be rendered. Keep these settings in the provider adapter.
 
@@ -173,13 +173,9 @@ explicit final scene. For non-interactive evaluation, define an application
 threshold and retry a bounded number of times. Keep the best accepted result
 rather than treating `finishReason: "stop"` alone as a quality score.
 
-The generated system prompt includes the selected trusted-template catalog and
-is intentionally substantial. It is stable for the same SDK version, template
-kit, media policy, and base prompt. Record input-token usage, keep the selected
-kit no broader than the product needs, and enable provider-side prompt caching
-where the chosen provider/model supports it. VanillaSky does not assume one
-provider's cache controls in its provider-neutral adapter. Default chat streams an answer brief and shot directions rather than the template catalog; use provider-reported token
-usage as the authoritative measurement rather than a character estimate.
+The default prompt describes answer briefs and shot directions. Keep product
+instructions concise and measure provider-reported token usage. Prompt caching
+and model-specific controls belong in the application adapter.
 
 Provider finish reasons `error` and `tool-calls` are terminal failures.
 `length` and `content-filter` may complete with already accepted scenes; a
@@ -190,8 +186,7 @@ same explicit request budget.
 
 ## Product-level planner guidance
 
-`createVideoChatHandler` constructs the planner prompt from the trusted template
-registry. Normal integrations do not build prompts or capabilities. Use the
+`createVideoChatHandler` constructs the answer and shot-planning prompt. Normal integrations do not build prompts or capabilities. Use the
 handler's `instructions` option for durable product-level direction such as a
 character, audience, domain, or answer style. The current user prompt and
 bounded prior turns are supplied separately by the SDK.

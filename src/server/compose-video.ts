@@ -139,8 +139,8 @@ export function createVideo(
         }));
       }
 
-      const systemPrompt = options.systemPrompt ??
-        (await import("./prompts/system-prompt.js")).createVideoSystemPrompt(input.knowledgeMode);
+      // Response policy belongs to the chat planner. Deterministic test runs need no prompt.
+      const systemPrompt = options.systemPrompt ?? "";
       const context = { request, systemPrompt, userPrompt, initialConfig, signal: controller.signal };
       attachGenerationLifecycleSink(context, lifecycle);
       for await (const untrustedPart of options.generate(context)) {

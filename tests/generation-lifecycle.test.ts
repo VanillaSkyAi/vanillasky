@@ -1,4 +1,11 @@
-import { createVideoHandler, type VideoHandlerOptions } from "../src/server/create-video-handler";
+import { createVideoStreamHandler, type VideoStreamHandlerOptions } from "../src/server/video-stream-handler";
+import { createTextDeltaVideoPlanner, type TextDeltaVideoPlannerOptions } from "../src/server/model/text-stream";
+import type { VideoChatHandlerOptions } from "../src/server";
+import { validateBuiltinScene } from "../src/server/scene-validation";
+type LifecycleOptions = Omit<VideoStreamHandlerOptions, "generate"> & TextDeltaVideoPlannerOptions;
+function createLifecycleHandler({streamText, includeRawProviderData, ...options}: LifecycleOptions) {
+  return createVideoStreamHandler({...options, validateScene: validateBuiltinScene, generate: createTextDeltaVideoPlanner({streamText, includeRawProviderData})});
+}
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { createVideo, createVideoRequest, decodeVideoSse } from "../src/internal";
@@ -13,8 +20,8 @@ const scene = (id: string) => JSON.stringify({
   type: "scene.add",
   scene: {
     id,
-    templateId: "mobileMessage",
-    variables: { app: "VanillaSky", message: id },
+    templateId: "chapterTitle",
+    variables: { title: id },
     timing: { fixedDuration: 4 },
   },
 });
@@ -36,7 +43,7 @@ async function eventsFrom(response: Response) {
 describe("typed generation lifecycle", () => {
   it("normalizes OpenAI-shaped AI SDK usage and keeps provider diagnostics server-only", async () => {
     const completed: VideoGenerationSummary[] = [];
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -92,7 +99,7 @@ describe("typed generation lifecycle", () => {
 
   it("normalizes Anthropic-shaped cache and reasoning usage without retaining raw values by default", async () => {
     let summary: VideoGenerationSummary | undefined;
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -136,7 +143,7 @@ describe("typed generation lifecycle", () => {
     async (finishReason) => {
       const internalErrors: Error[] = [];
       const completed: VideoGenerationSummary[] = [];
-      const handler = createVideoHandler({
+      const handler = createLifecycleHandler({
         authorize: "none",
         requireCloser: false,
         heartbeatMs: false,
@@ -167,7 +174,7 @@ describe("typed generation lifecycle", () => {
     ["content_filter", "content-filter"],
   ] as const)("preserves a partial video for provider finish reason %s", async (providerReason, finishReason) => {
     const completed: VideoGenerationSummary[] = [];
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -188,7 +195,7 @@ describe("typed generation lifecycle", () => {
   it("turns rejected provider metadata promises into one safe warning without failing generation", async () => {
     const warnings: VideoWarning[] = [];
     let summary: VideoGenerationSummary | undefined;
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -225,7 +232,7 @@ describe("typed generation lifecycle", () => {
 
   it("isolates all lifecycle callback failures and invokes each callback exactly once per diagnostic", async () => {
     const counts = { warning: 0, error: 0, complete: 0 };
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -253,7 +260,7 @@ describe("typed generation lifecycle", () => {
 
   it("prevents onWarning mutation from changing reducer state, completion summary, or SSE", async () => {
     let summary: VideoGenerationSummary | undefined;
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -287,7 +294,7 @@ describe("typed generation lifecycle", () => {
 
   it("reports accepted/rejected scene counts and bounded timing once", async () => {
     const completed = vi.fn<(summary: VideoGenerationSummary) => void>();
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -313,7 +320,7 @@ describe("typed generation lifecycle", () => {
     let release!: () => void;
     const ready = new Promise<void>((resolve) => { release = resolve; });
     const completed: VideoGenerationSummary[] = [];
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       heartbeatMs: false,
       onComplete: (summary) => completed.push(summary),
@@ -345,7 +352,7 @@ describe("typed generation lifecycle", () => {
     const ready = new Promise<void>((resolve) => { release = resolve; });
     let rejectDiagnostics!: (cause: Error) => void;
     const unresolved = new Promise<never>((_, reject) => { rejectDiagnostics = reject; });
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       heartbeatMs: false,
       streamText: ({ signal }) => ({
@@ -381,7 +388,7 @@ describe("typed generation lifecycle", () => {
   it("bounds raw provider data and exposes stable public lifecycle types", async () => {
     let summary: VideoGenerationSummary | undefined;
     const huge = "x".repeat(100_000);
-    const handler = createVideoHandler({
+    const handler = createLifecycleHandler({
       authorize: "none",
       requireCloser: false,
       heartbeatMs: false,
@@ -411,10 +418,10 @@ describe("typed generation lifecycle", () => {
       reasoningTokens?: number;
       raw?: unknown;
     }>();
-    expectTypeOf<VideoHandlerOptions>().toHaveProperty("invalidPartBehavior");
-    expectTypeOf<VideoHandlerOptions>().toHaveProperty("requireCloser");
+    expectTypeOf<VideoChatHandlerOptions>().toHaveProperty("invalidPartBehavior");
+    expectTypeOf<VideoChatHandlerOptions>().toHaveProperty("requireCloser");
     // @ts-expect-error Callback-like selector names are intentionally unsupported.
-    expectTypeOf<VideoHandlerOptions>().toHaveProperty("onInvalidPart");
+    expectTypeOf<VideoChatHandlerOptions>().toHaveProperty("onInvalidPart");
   });
 
   it("bounds and redacts host abort diagnostics", async () => {

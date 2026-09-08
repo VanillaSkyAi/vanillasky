@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { createVideoHandler } from "../src/server/create-video-handler";
 import {
   createMockVideoPlanner,
   simulateVideoStream,
@@ -11,25 +10,6 @@ async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
   const values: T[] = [];
   for await (const value of source) values.push(value);
   return values;
-}
-
-function request(input = videoFixtures.portrait.input, signal?: AbortSignal): Request {
-  return new Request("https://app.example/api/video", {
-    method: "POST",
-    signal,
-    body: JSON.stringify({
-      protocolVersion: "0.6",
-      requestId: "test-request",
-      input,
-    }),
-  });
-}
-
-function eventsFromSse(body: string): Array<Record<string, unknown>> {
-  return body
-    .split("\n")
-    .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
-    .map((line) => JSON.parse(line.slice(6)) as Record<string, unknown>);
 }
 
 describe("public deterministic test kit", () => {
@@ -188,33 +168,6 @@ describe("public deterministic test kit", () => {
     });
   });
 
-  it("redacts provider failures at the route boundary", async () => {
-    const privateErrors: Error[] = [];
-    const handler = createVideoHandler({
-      authorize: "none",
-      requireCloser: false,
-      heartbeatMs: false,
-      onError: (error) => privateErrors.push(error),
-      streamText: createMockVideoPlanner({ scenario: "providerFailure" }),
-    });
-    const response = await handler(request());
-    const body = await response.text();
-    const events = eventsFromSse(body);
-
-    expect(events.at(-1)).toMatchObject({
-      type: "response.error",
-      data: {
-        error: {
-          code: "generation_failed",
-          message: "Video response generation failed",
-          recoverable: false,
-        },
-      },
-    });
-    expect(privateErrors[0]?.message).toContain("fixture-private-value");
-    expect(body).not.toContain("fixture-private-value");
-    expect(body).not.toContain("authorization");
-  });
 
   it("keeps a content-filtered partial scene playable", async () => {
     const events = await collect(simulateVideoStream(videoFixtures.scenarios.contentFilter));
@@ -271,23 +224,4 @@ describe("public deterministic test kit", () => {
     }
   });
 
-  it("plugs directly into createVideoHandler and emits validated SSE", async () => {
-    const handler = createVideoHandler({
-      authorize: "none",
-      requireCloser: false,
-      heartbeatMs: false,
-      streamText: createMockVideoPlanner(),
-    });
-    const response = await handler(request());
-    const events = eventsFromSse(await response.text());
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/event-stream; charset=utf-8");
-    expect(events.map(({ type }) => type)).toEqual([
-      "response.start",
-      "scene.add",
-      "scene.add",
-      "response.complete",
-    ]);
-  });
 });

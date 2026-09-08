@@ -1,12 +1,7 @@
 import { createVideoChatHandler } from "@vanillaskyai/video/server";
-import { templates } from "../../../../vanillasky/server";
 import { streamVideoPlan } from "./planner";
 
 const handle = createVideoChatHandler({
-  templates,
-  // This deterministic compatibility fixture intentionally produces one body
-  // scene. Ordinary AI planners should keep the default closer requirement.
-  requireCloser: false,
   // This local-only bypass makes the fixture runnable in development.
   // Replace it with the application's session check before deploying.
   authorize: (request) => {
@@ -15,6 +10,8 @@ const handle = createVideoChatHandler({
     return hostname === "localhost" || hostname === "127.0.0.1";
   },
   streamText: streamVideoPlan,
+  welcome: { heroQuery: "", prompts: [{ prompt: "Explain ocean waves" }] },
+  generateVideo: async () => ({ type: "video", url: "https://media.example/fixture.mp4" }),
   generateText: ({ task }) => task === "suggestions"
     ? JSON.stringify({ suggestions: [
         { prompt: "How can activation improve further?", keyword: "product onboarding" },

@@ -240,7 +240,7 @@ export function ${exportName}(modelId: string) {
           controller.enqueue({
             type: "text-delta",
             id: "text-1",
-            delta: '{"type":"video-chat.opening","spokenHook":"Activation climbed after guided onboarding.","mediaKeyword":"product onboarding"}\\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed video chat","previous":"41%","current":"58%","explanation":"Guided onboarding helped more users reach value."},"timing":{"fixedDuration":6},"narration":"Guided onboarding raised activation from forty-one to fifty-eight percent."}}\\n{"type":"plan.complete"}\\n',
+            delta: ${JSON.stringify("{\"type\":\"answer\",\"intent\":\"informational\",\"opening\":\"A video answer begins here.\",\"subject\":\"ocean waves\",\"development\":\"\",\"visualDirection\":\"Natural ocean footage.\",\"ending\":{\"narration\":\"Ocean waves carry energy toward the shore.\",\"title\":\"Waves carry energy\",\"subject\":\"ocean waves\",\"action\":\"Follow ocean waves moving toward the shore.\",\"durationSec\":5,\"continuity\":\"cut\"}}\n")},
           });
           controller.enqueue({ type: "text-end", id: "text-1" });
           controller.enqueue({
@@ -271,7 +271,7 @@ function installDeterministicProviders(app) {
 }
 
 function compatibilityNativeSse(expectation) {
-  const plan = '{"type":"video-chat.opening","spokenHook":"Provider streaming works inside video chat.","mediaKeyword":"video conversation"}\n{"type":"scene.add","scene":{"id":"activation","templateId":"activationLift","variables":{"title":"Packed provider compatibility","previous":"41%","current":"58%","explanation":"A real provider package parsed its native stream without a network call."},"timing":{"fixedDuration":6},"narration":"The provider streamed a validated video-chat response without a network call."}}\n{"type":"plan.complete"}\n';
+  const plan = "{\"type\":\"answer\",\"intent\":\"informational\",\"opening\":\"A video answer begins here.\",\"subject\":\"ocean waves\",\"development\":\"\",\"visualDirection\":\"Natural ocean footage.\",\"ending\":{\"narration\":\"Ocean waves carry energy toward the shore.\",\"title\":\"Waves carry energy\",\"subject\":\"ocean waves\",\"action\":\"Follow ocean waves moving toward the shore.\",\"durationSec\":5,\"continuity\":\"cut\"}}\n";
   if (expectation.provider === "google") {
     return [
       {
@@ -645,8 +645,6 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
   if (!lock.includes(packed.integrity)) {
     throw new Error(`${provider} package lock does not identify exact integrity ${packed.integrity}`);
   }
-  run("npx", ["--no-install", "vanillasky", "templates", "sync", "--check"], app, environment);
-  run("npx", ["--no-install", "vanillasky", "templates", "check"], app, environment);
 
   const buildStarted = performance.now();
   run("npm", ["run", "build"], app, environment);
@@ -710,14 +708,18 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
       .catch((error) => { responseCaptureErrors.push(error instanceof Error ? error.message : String(error)); });
   });
   try {
+    await page.route("https://media.example/fixture.mp4", route => route.fulfill({
+      contentType: "video/mp4",
+      body: readFileSync(join(root, "tests/browser/fixtures/media-transition/waterfall.mp4")),
+    }));
     await page.goto(development.url);
     await page.getByText("in video, not text.").waitFor();
     await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Activation increased from 41% to 58% after guided onboarding.");
     await page.getByRole("button", { name: "Ask", exact: true }).click();
     try {
-      await page.locator('[data-template-id="activationLift"]').first().waitFor({ timeout: 10_000 });
+      await page.locator('[data-template-id="cinemaMedia"]').first().waitFor({ timeout: 10_000 });
     } catch (cause) {
-      throw new Error(`Custom template did not become visible: ${await page.locator("body").innerText()}; browser=${JSON.stringify(errors)}; response=${JSON.stringify(responseBodies)}`, { cause });
+      throw new Error(`Default video scene did not become visible: ${await page.locator("body").innerText()}; browser=${JSON.stringify(errors)}; response=${JSON.stringify(responseBodies)}`, { cause });
     }
     await waitForResponseBodies(responseBodies, 1);
     await waitForOutput(development.output, /"event":"video\.complete"/);
@@ -797,7 +799,7 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
     resolvedModel: expectation.resolvedModel,
     providerSelection: "verified server-side and absent from browser surfaces",
     forcedFailure: "generation_failed + video.error",
-    projectTemplate: "activationLift",
+    playback: "default video chat",
     reload: "returns to welcome without a response request",
     browserBoundary: "SSE + DOM + static bundle",
     credentialBoundary: "fake provider credentials consumed server-side and absent from public evidence",
@@ -854,8 +856,6 @@ async function verifyCompatibilityProvider({ expectation, tarball, packed, brows
   if (lock.packages?.["node_modules/@vanillaskyai/video"]?.integrity !== packed.integrity) {
     throw new Error(`${provider} package lock does not identify exact SDK integrity ${packed.integrity}`);
   }
-  run("npx", ["--no-install", "vanillasky", "templates", "sync", "--check"], app);
-  run("npx", ["--no-install", "vanillasky", "templates", "check"], app);
 
   const buildStarted = performance.now();
   run("npm", ["run", "build"], app);
@@ -920,11 +920,15 @@ async function verifyCompatibilityProvider({ expectation, tarball, packed, brows
       .catch((error) => { responseCaptureErrors.push(error instanceof Error ? error.message : String(error)); });
   });
   try {
+    await page.route("https://media.example/fixture.mp4", route => route.fulfill({
+      contentType: "video/mp4",
+      body: readFileSync(join(root, "tests/browser/fixtures/media-transition/waterfall.mp4")),
+    }));
     await page.goto(development.url);
     await page.getByText("in video, not text.").waitFor();
     await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Activation increased from 41% to 58% after guided onboarding.");
     await page.getByRole("button", { name: "Ask", exact: true }).click();
-    await page.locator('[data-template-id="activationLift"]').first().waitFor({ timeout: 10_000 });
+    await page.locator('[data-template-id="cinemaMedia"]').first().waitFor({ timeout: 10_000 });
     await waitForResponseBodies(responseBodies, 1);
 
     const complete = await waitForJsonEvent(development.output, "video.complete");

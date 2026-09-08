@@ -1,6 +1,5 @@
 export { createVideo } from "./server/compose-video.js";
 export { buildVideoUserPrompt } from "./server/prompts/user-prompt.js";
-export { createVideoSystemPrompt, DEFAULT_VIDEO_SYSTEM_PROMPT, VIDEO_PLAN_INSTRUCTION } from "./server/prompts/system-prompt.js";
 export { createTextDeltaVideoPlanner } from "./server/model/text-stream.js";
 export { createVideoEventFactory } from "./protocol/events.js";
 export {

@@ -17,19 +17,16 @@ describe("public package surface", () => {
     expect(manifest.dependencies ?? {}).toEqual({});
     expect(manifest.peerDependenciesMeta.react.optional).toBe(true);
     expect(manifest.peerDependenciesMeta["react-dom"].optional).toBe(true);
-    expect(manifest.peerDependenciesMeta.tsx.optional).toBe(true);
+    expect(manifest.peerDependencies).not.toHaveProperty("tsx");
   });
 
   it("publishes only the supported entry points", () => {
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const architecture = readFileSync(join(root, "docs/architecture.md"), "utf8");
 
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./react",
       "./server",
-      "./templates",
-      "./templates/catalog",
       "./test",
       "./video-chat.css",
     ]);
@@ -39,8 +36,6 @@ describe("public package surface", () => {
     expect(manifest.files).not.toContain("starters/video-chat/vanillasky");
     expect(manifest.sideEffects).toEqual(["./styles/video-chat.css", "./styles/fonts/roboto.css"]);
     expect(manifest.bin).toEqual({ vanillasky: "bin/vanillasky.js" });
-    expect(architecture).toContain("`vanillasky init`, `doctor`, and `providers add`, plus `vanillasky templates create`, `add`, `sync`, `check`, `list`, and `describe`");
-    expect(architecture).toContain("six small code entry points and one scoped stylesheet");
   });
 
   it("does not advertise install-time build scripts in the published manifest", () => {

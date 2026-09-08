@@ -5,7 +5,7 @@ describe("public API", () => {
     type Options = import("../src/server").VideoChatHandlerOptions;
     expectTypeOf<Extract<keyof Options,
       "selectAudio" | "snapshotRetention" | "replay" | "createRunId" |
-      "allowMediaUrl" | "basePrompt" | "maxResolvedMedia" | "narrate" | "resolveMedia"
+      "templates" | "allowMediaUrl" | "basePrompt" | "maxResolvedMedia" | "narrate" | "resolveMedia"
     >>().toEqualTypeOf<never>();
   });
   it("keeps the root limited to universal runtime helpers", async () => {
@@ -21,7 +21,6 @@ describe("public API", () => {
   it("exposes one obvious server path", async () => {
     const api = await import("../src/server");
     expect(Object.keys(api).sort()).toEqual([
-      "createServerTemplateRegistry",
       "createVideoChatHandler",
     ]);
   });
@@ -41,16 +40,7 @@ describe("public API", () => {
     new api.VideoError("unsafe", { code: "video_failed", cause: new Error("provider secret") });
   });
 
-  it("keeps template authoring small", async () => {
-    const api = await import("../src/templates");
-    expect(Object.keys(api).sort()).toEqual(["createTemplateRegistry", "defineTemplate"]);
-  });
 
-  it("exposes the serializable built-in catalog separately from authoring", async () => {
-    const api = await import("../src/template-catalog");
-    expect(Object.keys(api)).toEqual(["builtinTemplates"]);
-    expect(api.builtinTemplates).toHaveLength(7);
-  });
 
   it("exposes only the deterministic public test kit", async () => {
     const api = await import("../src/test");

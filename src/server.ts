@@ -7,9 +7,6 @@ export type {
   VideoChatWelcomeOptions,
   VideoChatWelcomePrompt,
 } from "./server/create-video-chat-handler.js";
-export { createServerTemplateRegistry } from "./visual-system/catalog/server-kit.js";
-export type { ServerTemplateRegistry } from "./visual-system/catalog/server-kit.js";
-export type { SceneTemplateMetadata as ServerTemplateMetadata } from "./visual-system/catalog/catalog-types.js";
 export type { VideoFinishReason } from "./protocol/events.js";
 export type {
   VideoGenerationSummary,

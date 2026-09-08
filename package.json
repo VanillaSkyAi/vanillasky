@@ -1,6 +1,6 @@
 {
   "name": "@vanillaskyai/video",
-  "version": "0.10.23",
+  "version": "0.11.0",
   "description": "Open-source voice-and-video chat SDK for AI applications.",
   "keywords": [
     "video-chat",
@@ -45,8 +45,6 @@
     "starters/video-chat/stock.ts",
     "starters/video-chat/tsconfig.json",
     "starters/video-chat/vite.config.ts",
-    "registry/items",
-    "examples/custom-template",
     "README.md",
     "LICENSE",
     "SECURITY.md",
@@ -77,16 +75,6 @@
       "import": "./dist/react.js",
       "default": "./dist/react.js"
     },
-    "./templates": {
-      "types": "./dist/templates.d.ts",
-      "import": "./dist/templates.js",
-      "default": "./dist/templates.js"
-    },
-    "./templates/catalog": {
-      "types": "./dist/template-catalog.d.ts",
-      "import": "./dist/template-catalog.js",
-      "default": "./dist/template-catalog.js"
-    },
     "./test": {
       "types": "./dist/test.d.ts",
       "import": "./dist/test.js",
@@ -99,11 +87,6 @@
     "browser:test": "playwright test",
     "build": "tsup",
     "lint": "eslint .",
-    "catalog:sync": "tsx scripts/generate-builtin-catalog.ts",
-    "catalog:check": "tsx scripts/generate-builtin-catalog.ts --check",
-    "registry:sync": "npm run catalog:sync && node scripts/sync-template-registry.mjs",
-    "registry:check": "node scripts/sync-template-registry.mjs --check && npm run catalog:check",
-    "template:check": "tsx scripts/template-check.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -122,17 +105,13 @@
   },
   "peerDependencies": {
     "react": ">=18 <20",
-    "react-dom": ">=18 <20",
-    "tsx": ">=4.19 <5"
+    "react-dom": ">=18 <20"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
     },
     "react-dom": {
-      "optional": true
-    },
-    "tsx": {
       "optional": true
     }
   },

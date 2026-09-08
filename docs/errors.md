@@ -11,9 +11,9 @@ be produced. Never put provider details or stack traces in the interface.
 | Failure | Result |
 | --- | --- |
 | Invalid planner scene | Skip the part and accept later valid scenes |
-| Generated footage | Try stock media, matching completed footage, then a safe template |
-| Stock lookup or candidate | Continue with another candidate or template |
-| Template renderer | Isolate the failed scene with a safe visual |
+| Generated footage | Use a narrated chapter; never silently switch to stock |
+| Stock lookup or candidate | Continue with another stock candidate or narrated chapter |
+| Scene renderer | Isolate the failed scene with a safe visual |
 | Missing narration | Continue with scene text |
 | Generated speech | Use browser voice |
 | Late stream failure | Keep playable opening and completed scenes |
@@ -50,7 +50,7 @@ Automated regression and acceptance tests use mocked providers. See
 
 ## Slow optional providers
 
-Generated video has a 15-second deadline per lookup. Stock media, generated
+Generated video starts with a 15-second preparation budget; later deadlines account for the scene's position. Stock media, generated
 speech preparation, and fallback scene narration have 3-second deadlines.
 A deadline uses the same safe fallback as a failed provider; completed scenes
 and scene order are preserved. Providers receive cancellation, and late results

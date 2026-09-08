@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getBackgroundTransform } from "../backgrounds";
 import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 
@@ -7,13 +6,11 @@ export interface SceneVideoBackdropProps {
   mediaUrl: string;
   mediaPoster?: string;
   mediaPosition?: string;
-  backgroundEffect?: string;
   progress: number;
   /** Narration-led visible duration; muted or pitch-preserving footage may be gently retimed. */
   sceneDuration?: number;
   /** Internal player-owned decoder priming, distinct from viewer pause. */
   preparingNarration?: boolean;
-  beatIntensity?: number;
   isPlaying: boolean;
   muted?: boolean;
   volume?: number;
@@ -26,11 +23,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   mediaUrl,
   mediaPoster,
   mediaPosition = "center",
-  backgroundEffect,
   progress,
   sceneDuration,
   preparingNarration = false,
-  beatIntensity = 0,
   isPlaying,
   muted,
   volume,
@@ -45,7 +40,6 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const resolvedMuted = muted ?? inheritedAudio.muted;
   const resolvedVolume = volume ?? inheritedAudio.volume;
   const resolvedPosition = resolveMediaPosition(mediaPosition);
-  const bgTransform = getBackgroundTransform(backgroundEffect, progress, beatIntensity);
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>();
   const [waitingKey, setWaitingKey] = useState<string>();
   const [exhaustedKey, setExhaustedKey] = useState<string>();
@@ -249,8 +243,6 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     height: "100%",
     objectFit: "cover",
     objectPosition: resolvedPosition,
-    transform: bgTransform.transform,
-    transformOrigin: bgTransform.transformOrigin,
   };
   return (
     <>

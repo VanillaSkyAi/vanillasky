@@ -1,6 +1,10 @@
 import type { SceneTemplateProps } from './types';
 
-import {editorialFont,fade as ease} from './editorial-typography';
+const editorialFont = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif';
+function ease(value: number): number {
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - 2 * t);
+}
 
 /** A quiet chapter beat: fade in, read, fade to black. */
 function TitleScene({ variables, width, height, progress, motionProgress }: SceneTemplateProps) {

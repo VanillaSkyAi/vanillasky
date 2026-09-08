@@ -1,6 +1,5 @@
 import {orderWelcomeCards, welcomeVisitSeed} from "./welcome-cards.js";
 import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
-import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 import { recoverSceneMedia } from "../player/recover-scene-media.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
@@ -21,8 +20,7 @@ import { VideoError } from "../player/video-error.js";
 import type { VideoPlayerProps } from "../player/video-player.js";
 import { useNarration } from "../player/use-narration.js";
 import { preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.js";
-import { getBuiltinTemplateMetadata } from "../visual-system/catalog/builtin-metadata.js";
-import type { TemplateRegistry } from "../visual-system/catalog/kit.js";
+import { getBuiltinSceneDefinition } from "../visual-system/catalog/builtin-metadata.js";
 import { warmSceneMedia } from "../player/warm-scene-media.js";
 import { prepareSceneMedia } from "../player/prepare-scene-media.js";
 import type {
@@ -64,8 +62,6 @@ export interface VideoChatTurn {
 export interface UseVideoChatOptions {
   /** One provider-neutral route created with createVideoChatHandler. */
   endpoint?: string | URL;
-  /** Customer-owned templates that replace built-ins and add new renderers. */
-  templates?: TemplateRegistry;
   mode?: VideoChatMode;
   orientation?: VideoOrientation;
   style?: VideoStyleOptions;
@@ -420,10 +416,8 @@ async function responseError(response: Response): Promise<VideoError> {
 function pacedScene(
   scene: VideoScene,
   spokenSeconds: number | undefined,
-  templates?: TemplateRegistry,
 ): VideoScene {
-  const held = preparedSceneDuration(scene, spokenSeconds,
-    templates?.getTemplateMetadata(scene.templateId) ?? getBuiltinTemplateMetadata(scene.templateId));
+  const held = preparedSceneDuration(scene, spokenSeconds, getBuiltinSceneDefinition(scene.templateId));
   const {
     startTime: _startTime,
     endTime: _endTime,
@@ -850,8 +844,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
           const plannedScene = event.data.scene;
           planned[position] = plannedScene;
           received[position] = plannedScene;
-          const rendererReady = currentOptions.templates?.getTemplate(plannedScene.templateId)
-            ? Promise.resolve() : Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
+          const rendererReady = Promise.resolve(preloadBuiltinTemplate(plannedScene.templateId));
           const visualPreparation = rendererReady.then(async () => {
             try {
               await prepareSceneMedia(plannedScene.variables, controller.signal);
@@ -860,9 +853,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
               if (controller.signal.aborted) throw cause;
               // An unavailable optional photo must not discard the spoken answer.
               // The fallback remains valid persisted template data, with no invented copy.
-              const override = currentOptions.templates?.getTemplate(plannedScene.templateId);
-              const fallback = !override || supportsExternalVideoBackdrop(override)
-                ? recoverSceneMedia(plannedScene) : undefined;
+              const fallback = recoverSceneMedia(plannedScene);
               if (!fallback) throw new VideoError("Scene could not prepare its visual", { code: "media_not_ready" });
               warn(MEDIA_RECOVERY_NOTICE);
               return fallback;
@@ -909,7 +900,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
             const withNarration = line ? { ...visual, narration: line } : visual;
             const group = plannedScene.narrationGroup;
             if (group && (spoken?.supportsOffsets !== true || voiceRef.current.supportsOffsets !== true || Math.abs(spoken.seconds - group.totalSeconds) > 0.1)) throw new VideoError("Narration group requires matching measured audio with offset support", { code: "narration_group_invalid" });
-            ready[position] = group ? withNarration : pacedScene(withNarration, spoken?.seconds, currentOptions.templates);
+            ready[position] = group ? withNarration : pacedScene(withNarration, spoken?.seconds);
             flush();
           }).catch((cause: unknown) => {
             if (!isCurrent() || currentAttempt !== attempt) return;
@@ -1122,7 +1113,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     : fullTranscript;
   const playbackKey = state.playerKey;
   const playerProps = state.playback ? {
-    ...(options.templates ? { templates: options.templates } : {}),
     ...(state.playback.kind === "stream"
       ? { stream: state.playback.stream! }
       : { video: state.playback.video! }),

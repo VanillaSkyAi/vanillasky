@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { VideoFrame } from "../src/player/video-frame";
-import { BUILTIN_PLAYER_KIT, preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
+import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 import type { Video } from "../src/protocol/types";
 import { recoverSceneMedia } from "../src/player/recover-scene-media";
 beforeAll(async () => { await preloadBuiltinTemplate("cinemaMedia"); await preloadBuiltinTemplate("chapterTitle"); });
@@ -12,7 +12,7 @@ function frame(url = "/wave.mp4") {
   const config: Video = {schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [{...scene, variables: {...scene.variables, mediaUrl: url}}]};
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
-  return render(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={3} playing />);
+  return render(<VideoFrame config={config} width={360} height={640} time={3} playing />);
 }
 it("uses the authored chapter immediately when a persisted shot has no URL", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -42,23 +42,23 @@ it.each(['authored chapter', 'missing video', 'decode failure'] as const)('keeps
     ? {...scene,templateId:'chapterTitle',variables:{title:'Wind transfers energy'}}
     : {...scene,variables:{...scene.variables,mediaUrl:kind==='missing video'?'':'/wave.mp4'}};
   const config: Video = {schemaVersion:'0.2',orientation:'portrait',style:{},scenes:[last]};
-  const view = render(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={11} playing />);
+  const view = render(<VideoFrame config={config} width={360} height={640} time={11} playing />);
   if (kind === 'decode failure') fireEvent.error(view.container.querySelector('video')!);
   const title = () => view.container.querySelector<HTMLElement>('[data-title-composition]');
   await waitFor(() => expect(title()?.textContent).toBe('Wind transfers energy'));
   expect(Number(title()!.style.opacity)).toBe(1);
-  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={12} playing={false} />);
+  view.rerender(<VideoFrame config={config} width={360} height={640} time={12} playing={false} />);
   expect(Number(title()!.style.opacity)).toBe(1);
 });
 
 it('keeps a developing chapter entrance and exit while another scene follows', () => {
   const chapter = {...scene,templateId:'chapterTitle',variables:{title:'Wind transfers energy'}};
   const config: Video = {schemaVersion:'0.2',orientation:'portrait',style:{},scenes:[chapter,{...chapter,id:'ending'}]};
-  const view = render(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={0} playing />);
+  const view = render(<VideoFrame config={config} width={360} height={640} time={0} playing />);
   const opacity = () => Number(view.container.querySelector<HTMLElement>('[data-title-composition]')!.style.opacity);
   expect(opacity()).toBe(0);
-  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={3} playing />);
+  view.rerender(<VideoFrame config={config} width={360} height={640} time={3} playing />);
   expect(opacity()).toBe(1);
-  view.rerender(<VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} width={360} height={640} time={11} playing />);
+  view.rerender(<VideoFrame config={config} width={360} height={640} time={11} playing />);
   expect(opacity()).toBeLessThan(.3);
 });

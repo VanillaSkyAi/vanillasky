@@ -15,14 +15,13 @@
     "paths": {
       "@vanillaskyai/video": ["src/index.ts"],
       "@vanillaskyai/video/react": ["src/react.ts"],
-      "@vanillaskyai/video/server": ["src/server.ts"],
-      "@vanillaskyai/video/templates": ["src/templates.ts"]
+      "@vanillaskyai/video/server": ["src/server.ts"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "tests", "scripts", "examples/custom-template", "playwright.config.ts", "tsup.config.ts", "vitest.config.ts"],
+  "include": ["src", "tests", "scripts", "playwright.config.ts", "tsup.config.ts", "vitest.config.ts"],
   "exclude": ["tests/fixtures/nextjs-provider-app"]
 }

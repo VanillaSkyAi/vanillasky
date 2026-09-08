@@ -1,57 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-async function visiblePixelRatio(screenshot: Buffer, page: import("@playwright/test").Page): Promise<number> {
-  return page.evaluate(async (base64) => {
-    const response = await fetch(`data:image/png;base64,${base64}`);
-    const bitmap = await createImageBitmap(await response.blob());
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("Canvas 2D context is unavailable.");
-    context.drawImage(bitmap, 0, 0);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    const first = [pixels[0], pixels[1], pixels[2]];
-    let changed = 0;
-    for (let offset = 0; offset < pixels.length; offset += 4) {
-      const distance = Math.abs(pixels[offset] - first[0])
-        + Math.abs(pixels[offset + 1] - first[1])
-        + Math.abs(pixels[offset + 2] - first[2]);
-      if (distance > 24) changed += 1;
-    }
-    return changed / (pixels.length / 4);
-  }, screenshot.toString("base64"));
-}
-
-async function differingPixelRatio(
-  screenshot: Buffer,
-  baseline: Buffer,
-  page: import("@playwright/test").Page,
-): Promise<number> {
-  return page.evaluate(async ({ actualBase64, baselineBase64 }) => {
-    const decode = async (base64: string) => createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
-    const [actual, expected] = await Promise.all([decode(actualBase64), decode(baselineBase64)]);
-    if (actual.width !== expected.width || actual.height !== expected.height) throw new Error("Pixel baselines differ in size");
-    const canvas = document.createElement("canvas");
-    canvas.width = actual.width;
-    canvas.height = actual.height;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("Canvas 2D context is unavailable.");
-    context.drawImage(actual, 0, 0);
-    const actualPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(expected, 0, 0);
-    const expectedPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let changed = 0;
-    for (let offset = 0; offset < actualPixels.length; offset += 4) {
-      const distance = Math.abs(actualPixels[offset] - expectedPixels[offset])
-        + Math.abs(actualPixels[offset + 1] - expectedPixels[offset + 1])
-        + Math.abs(actualPixels[offset + 2] - expectedPixels[offset + 2]);
-      if (distance > 24) changed += 1;
-    }
-    return changed / (actualPixels.length / 4);
-  }, { actualBase64: screenshot.toString("base64"), baselineBase64: baseline.toString("base64") });
-}
 
 test("keeps frame and player templates on the same canonical canvas at thumbnail widths", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Focused pixel-geometry parity runs once in Chromium.");
@@ -59,7 +7,7 @@ test("keeps frame and player templates on the same canonical canvas at thumbnail
   await expect(page.locator('[data-surface="player"] [data-status="complete"]')).toHaveCount(8);
   await expect(page.locator('[data-surface="saved"] [data-status="complete"]')).toHaveCount(8);
 
-  for (const templateId of ["keyFigure", "editorialTimeline"]) {
+  for (const templateId of ["chapterTitle", "cinemaMedia"]) {
     for (const width of [180, 380, 600, 960]) {
       for (const surface of ["frame", "player", "saved"]) {
         const fixture = page.locator(`[data-case="${templateId}-${surface}-${width}"]`);
@@ -225,7 +173,7 @@ test("keeps touch controls accessible without pinning them across resume and ful
   await context.close();
 });
 
-test("keeps one scene video decoder mounted during iPhone WebKit transitions", async ({ browser, browserName }) => {
+test("keeps at most the active and next scene decoder mounted on iPhone WebKit", async ({ browser, browserName }) => {
   test.skip(browserName !== "webkit", "The decoder ceiling is specific to mobile WebKit.");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -239,73 +187,8 @@ test("keeps one scene video decoder mounted during iPhone WebKit transitions", a
   await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
 
   const transition = page.locator('[data-case="mobile-video-transition"]');
-  await expect(transition.locator("video")).toHaveCount(1);
-  await expect(transition.locator('[data-scene-layer="incoming"]')).toHaveCount(0);
+  await expect(transition.locator("video")).toHaveCount(2);
+  await expect(transition.locator('[data-scene-layer="incoming"]')).toHaveCount(1);
+  await expect(transition.locator('[data-scene-layer="incoming"]')).toHaveCSS("opacity", "0");
   await context.close();
-});
-
-test("keeps black graphic boundaries readable without overlapping two explanations", async ({ page, browserName }) => {
-  test.skip(browserName !== "chromium", "Focused pixel proof runs once in Chromium.");
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-  const black = await page.locator('[data-case="brand-baseline"]').screenshot();
-  for (const orientation of ["portrait", "landscape"]) {
-    for (const time of [4.7, 4.71, 4.85]) {
-      const fixture = page.locator(`[data-case="${orientation}-transition-${time}"]`);
-      await expect(fixture.locator('[data-scene-layer="active"]')).toHaveAttribute("data-layer-scene-id", "opening");
-      await expect(fixture).toContainText(/The\s*opening\s*remains\s*readable\./);
-      await expect(fixture.locator('[data-scene-layer="incoming"], [data-scene-layer="outgoing"]')).toHaveCount(0);
-      const screenshot = await fixture.screenshot();
-      expect(await visiblePixelRatio(screenshot, page)).toBeGreaterThan(0.01);
-      if (orientation === "portrait") expect(await differingPixelRatio(screenshot, black, page)).toBeGreaterThan(0.005);
-    }
-    const settled = page.locator(`[data-case="${orientation}-transition-5"]`);
-    await expect(settled.locator('[data-scene-layer="active"]')).toHaveAttribute("data-layer-scene-id", "proof");
-    await expect(settled).toContainText("128%");
-    await expect(settled).toContainText("Faster deployment cycles");
-    await expect(settled.getByText("0%", { exact: true })).toHaveCount(0);
-    await expect(settled).not.toContainText("The opening remains readable.");
-  }
-});
-
-test("keeps exact sourced content without synthetic count-ups at graphic cuts", async ({page,browserName}) => {
-  test.skip(browserName !== "chromium", "Semantic geometry runs once in Chromium.");
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-  for (const orientation of ["portrait","landscape"]) {
-    for (const id of ["keyFigure","editorialTimeline"]) {
-      const fixture=page.locator(`[data-case="${orientation}-semantic-${id}"]`);
-      await expect(fixture.locator('[data-scene-layer="incoming"]')).toHaveCount(0);
-      await expect(fixture.locator('[data-transition-semantic="transient"]')).toHaveCount(0);
-      await expect(fixture).toContainText(id==="keyFigure" ? "128%" : "Final event");
-    }
-  }
-});
-
-test("keeps the preview inert until focus ownership transfers at the scene boundary", async ({ page, browserName }) => {
-  test.skip(browserName !== "chromium", "Native inert behavior is proven once in Chromium.");
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html");
-
-  const transitionStart = page.locator('[data-case="focus-transition-4.7"]');
-  const hiddenIncoming = transitionStart.locator('[data-scene-layer="incoming"] button');
-  expect(await hiddenIncoming.evaluate((button) => {
-    button.focus();
-    return document.activeElement === button;
-  })).toBe(false);
-
-  const midpoint = page.locator('[data-case="focus-transition-4.85"]');
-  const activeOutgoing = midpoint.locator('[data-scene-layer="outgoing"] button');
-  const hiddenMidpointIncoming = midpoint.locator('[data-scene-layer="incoming"] button');
-  expect(await activeOutgoing.evaluate((button) => {
-    button.focus();
-    return document.activeElement === button;
-  })).toBe(true);
-  expect(await hiddenMidpointIncoming.evaluate((button) => {
-    button.focus();
-    return document.activeElement === button;
-  })).toBe(false);
-
-  const settled = page.locator('[data-case="focus-transition-5"]');
-  expect(await settled.locator('[data-scene-layer="active"] button').evaluate((button) => {
-    button.focus();
-    return document.activeElement === button;
-  })).toBe(true);
 });

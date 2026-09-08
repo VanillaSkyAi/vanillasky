@@ -17,7 +17,7 @@ Mount `<VideoChat />` or `useVideoChat` against that boundary.
 - Forward cancellation to every text, speech, media, transcription, and video provider.
 
 The handler rejects unknown templates and fields, invalid variables, unsafe
-media, and fabricated quote-template content before a scene reaches the
+media before a scene reaches the
 player. Read the [security guide](security.md) for the complete controls.
 
 ## Cinematic direction and providers
@@ -25,9 +25,7 @@ player. Read the [security guide](security.md) for the complete controls.
 Default chat shows an immediate chapter while speech and selected footage prepare.
 Configure `generateVideo` for AI mode and `searchMedia` for Pexels mode. Neither
 mode calls the other footage source. Missing or late footage uses the authored
-chapter with complete narration. Explicit custom template registries keep their
-existing composition and fallback contracts.
-A stock candidate must match the subject, action and permitted crop. Return
+chapter with complete narration. A stock candidate must match the subject, action and permitted crop. Return
 `null` for uncertainty rather than broadening an essential detail.
 
 Use explicit provider deadlines. Generated video should use idempotency keys
@@ -45,8 +43,7 @@ cards may carry a prepared opening so its speech starts without a model round tr
 
 Do not wait for the complete plan before showing the first validated scene.
 Preload upcoming assets and keep the current visual if the next one is late.
-When generated footage is useful, reserve the first shot in the opening object so generation
-can begin while the planner streams later scenes.
+The answer brief reserves the ending while body shots stream; do not wait for every clip before sending ready scenes.
 
 ## Data and privacy
 
@@ -90,15 +87,7 @@ small, explicitly gated real-provider smoke test before a release.
 
 In CI, build one clean consumer from the packed SDK artifact. This catches
 missing exports, server/browser boundary leaks, code-generation drift, and
-dependency-resolution problems that workspace tests miss. If the application
-owns copied templates, also run:
-
-```bash
-npx vanillasky templates sync --check
-npm run build
-npm test
-```
-
+dependency-resolution problems that workspace tests miss.
 ## Deployment checklist
 
 - [ ] Keys exist only in the server secret store.
