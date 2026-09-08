@@ -4,8 +4,17 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.10.23
+
 - Stop shipping the maintainer-only cinematic migration note in the published
   package. The changelog now links it on GitHub.
+- Remove the unreferenced text-rendering and emoji modules from the source tree.
+  The bundle is unchanged; this code was already excluded from it.
+- Correct the repository map in the architecture guide, and drop the stale
+  comments that described a text component the templates no longer use. Those
+  comments also shipped inside the installable `theme` registry item.
+- Remove the CLI redirect for template command names that were renamed before
+  the package had users. Use `vanillasky templates <command>`.
 
 ## 0.10.22
 
