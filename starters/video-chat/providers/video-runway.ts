@@ -26,8 +26,9 @@ export function createRunwayVideo(apiKey: string, delivery: DeliverVideo): NonNu
       poll: async (job, signal) => {
         const status = await jsonResponse<{ status: string; output?: string[] }>(await fetch(`${BASE}/tasks/${encodeURIComponent(job.id)}`, { headers, signal }));
         if (["PENDING", "THROTTLED", "RUNNING"].includes(status.status)) return null;
+        // DELETE removes terminal tasks too; preserve their status and cost.
+        if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(status.status)) pending = false;
         if (status.status !== "SUCCEEDED" || !status.output?.[0]) throw new Error("Video generation failed");
-        pending = false;
         const response = await downloadVideo(status.output[0], signal);
         return { url: await delivery({ response, jobId: job.id, durationSec: CLIP_DURATION_SEC, signal }), type: "video" as const, durationSec: CLIP_DURATION_SEC };
       },

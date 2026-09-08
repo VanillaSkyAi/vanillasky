@@ -81,9 +81,85 @@ describe("reference video adapters (offline HTTP contracts)", () => {
     await expect(generate("A cyclist", { ...context(5), signal: controller.signal })).rejects.toMatchObject({ jobId: "completed" });
     expect(methods).not.toContain("DELETE");
   });
+
+  it.each(["FAILED", "CANCELLED", "SUCCEEDED"])("retains Runway %s task diagnostics when no usable output is returned", async status => {
+    const methods: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      methods.push(init?.method ?? "GET");
+      return json(methods.length === 1 ? { id: "retained-task" } : { status });
+    });
+    await expect(createRunwayVideo("key", async () => "unused")("A cyclist", context(5))).rejects.toMatchObject({ jobId: "retained-task" });
+    expect(methods).toEqual(["POST", "GET"]);
+  });
 });
 
 describe("native text callbacks", () => {
+  const input = () => ({ systemPrompt: "system", userPrompt: "user", signal: new AbortController().signal,
+    request: { protocolVersion: "0.6" as const, requestId: "test", input: { input: "user" } },
+    initialConfig: { schemaVersion: "0.2" as const, scenes: [], style: {} },
+  });
+
+  it.each([["STOP", "stop"], ["MAX_TOKENS", "length"], ["SAFETY", "content-filter"]])("exposes settled native %s completion as %s", async (raw, normalized) => {
+    vi.stubEnv("GEMINI_API_KEY", "private");
+    vi.stubGlobal("fetch", async () => new Response(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: "one beat" }] }, finishReason: raw }] })}\n\n`));
+    const result = textProvider.streamText!(input());
+    if (!("textStream" in result)) throw new Error("Expected completion metadata");
+    const finish = result.finishReason;
+    const rawFinish = result.rawFinishReason;
+    const chunks: string[] = [];
+    for await (const text of result.textStream) chunks.push(text);
+    expect(chunks.join("")).toBe("one beat");
+    expect(await finish).toBe(normalized);
+    expect(await rawFinish).toBe(raw);
+  });
+
+  it.each(["MAX_TOKENS", "SAFETY", "PROMPT_BLOCKED"])("rejects %s instead of using a partial helper-task answer", async reason => {
+    vi.stubEnv("GEMINI_API_KEY", "private");
+    vi.stubGlobal("fetch", async () => json(reason === "PROMPT_BLOCKED" ? { promptFeedback: { blockReason: "SAFETY" } }
+      : { candidates: [{ content: { parts: [{ text: "partial claim" }] }, finishReason: reason }] }));
+    await expect(textProvider.generateText!({ task: "narration", systemPrompt: "system", userPrompt: "user", signal: new AbortController().signal, maxOutputTokens: 100 })).rejects.toThrow(/complete|blocked/);
+  });
+
+  it("settles metadata when a consumer closes the stream before its terminal event", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "private");
+    vi.stubGlobal("fetch", async () => new Response('data: {"candidates":[{"content":{"parts":[{"text":"first"}]}}]}\n\n'));
+    const result = textProvider.streamText!(input());
+    if (!("textStream" in result)) throw new Error("Expected completion metadata");
+    const finish = result.finishReason;
+    const rawFinish = result.rawFinishReason;
+    const iterator = result.textStream[Symbol.asyncIterator]();
+    expect(await iterator.next()).toMatchObject({ value: "first" });
+    await iterator.return?.();
+    expect(await finish).toBe("error");
+    expect(await rawFinish).toBeUndefined();
+  });
+
+  it("settles failed-request metadata without an unhandled rejected promise", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "private");
+    vi.stubGlobal("fetch", async () => new Response("private failure", { status: 503 }));
+    const result = textProvider.streamText!(input());
+    if (!("textStream" in result)) throw new Error("Expected completion metadata");
+    await expect(result.textStream[Symbol.asyncIterator]().next()).rejects.toThrow("Text provider HTTP 503");
+    expect(await result.finishReason).toBe("error");
+    expect(await result.rawFinishReason).toBeUndefined();
+  });
+
+  it("settles an iterator closed before it starts without contacting the provider", async () => {
+    let requests = 0;
+    vi.stubGlobal("fetch", async () => { requests++; return json({}); });
+    const result = textProvider.streamText!(input());
+    if (!("textStream" in result)) throw new Error("Expected completion metadata");
+    await result.textStream[Symbol.asyncIterator]().return?.();
+    expect(await result.finishReason).toBe("error");
+    expect(requests).toBe(0);
+  }, 200);
+
+  it("accepts completed non-stream text", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "private");
+    vi.stubGlobal("fetch", async () => json({ candidates: [{ content: { parts: [{ text: "A complete answer." }] }, finishReason: "STOP" }] }));
+    await expect(textProvider.generateText!({ task: "narration", systemPrompt: "system", userPrompt: "user", signal: new AbortController().signal, maxOutputTokens: 100 })).resolves.toBe("A complete answer.");
+  });
+
   it("streams text across network/UTF-8 boundaries and never emits thought parts", async () => {
     vi.stubEnv("GEMINI_API_KEY", "private");
     const encoder = new TextEncoder();
