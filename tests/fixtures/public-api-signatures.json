@@ -168,7 +168,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatHandlerOptions extends Pick<VideoStreamHandlerOptions, \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    streamText: TextDeltaVideoPlannerOptions[\"streamText\"];\n    includeRawProviderData?: boolean;\n    mediaConcurrency?: number;\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatMediaResolver;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    generatedClipDurationSec?: number;\n    onDiagnostic?: (event: {\n        requestId: string;\n        mode: VideoChatMode;\n        phase: \"request-accepted\" | \"opening-authored\" | \"shot-authored\" | \"media-start\" | \"media-end\" | \"media-skipped\";\n        elapsedMs: number;\n        sceneId?: string;\n        durationMs?: number;\n        reason?: \"ready\" | \"empty\" | \"provider-error\" | \"timeout\" | \"cancelled\" | \"allowance\" | \"deadline\" | \"not-configured\";\n    }) => unknown;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
+          "interface VideoChatHandlerOptions extends Pick<VideoStreamHandlerOptions, \"allowedOrigins\" | \"authorize\" | \"maxBodyBytes\" | \"heartbeatMs\" | \"onError\" | \"onWarning\" | \"onComplete\" | \"invalidPartBehavior\" | \"requireCloser\" | \"allowCredentials\"> {\n    streamText: TextDeltaVideoPlannerOptions[\"streamText\"];\n    includeRawProviderData?: boolean;\n    mediaConcurrency?: number;\n    generateText: VideoChatTextGenerator;\n    generateSpeech?: VideoChatSpeechGenerator;\n    transcribe?: VideoChatTranscriber;\n    searchMedia?: VideoChatMediaResolver;\n    generateVideo?: VideoChatVideoGenerator;\n    maxGeneratedVideos?: number;\n    generateVideoTimeoutMs?: number;\n    generatedClipDurationSec?: number;\n    onDiagnostic?: (event: {\n        requestId: string;\n        mode: VideoChatMode;\n        phase: \"request-accepted\" | \"opening-authored\" | \"shot-authored\" | \"media-start\" | \"media-end\" | \"media-skipped\" | \"narration-fit\";\n        elapsedMs: number;\n        sceneId?: string;\n        durationMs?: number;\n        estimatedSpeechSec?: number;\n        clipDurationSec?: number;\n        reason?: \"ready\" | \"empty\" | \"provider-error\" | \"timeout\" | \"cancelled\" | \"allowance\" | \"deadline\" | \"not-configured\" | \"fit\" | \"rewritten\" | \"oversized\";\n    }) => unknown;\n    instructions?: string;\n    welcome?: VideoChatWelcomeOptions;\n    maxAudioBytes?: number;\n}"
         ]
       },
       "VideoChatMode": {
@@ -239,7 +239,7 @@
     "support": [
       "declare const VIDEO_PROTOCOL_VERSION: \"0.6\";",
       "declare const VIDEO_SCHEMA_VERSION: \"0.2\";",
-      "interface ResolvedMedia {\n    url: string;\n    type: \"image\" | \"video\";\n    posterUrl?: string;\n}",
+      "interface ResolvedMedia {\n    url: string;\n    type: \"image\" | \"video\";\n    posterUrl?: string;\n    durationSec?: number;\n}",
       "interface TextDeltaVideoPlannerOptions {\n    streamText: (context: VideoGenerationContext) => AsyncIterable<string> | TextDeltaVideoSource;\n    includeRawProviderData?: boolean;\n}",
       "interface TextDeltaVideoSource {\n    textStream: AsyncIterable<string>;\n    finishReason?: Awaitable<ProviderFinishReason | undefined>;\n    rawFinishReason?: Awaitable<string | undefined>;\n    usage?: Awaitable<unknown>;\n    totalUsage?: Awaitable<unknown>;\n    providerMetadata?: Awaitable<unknown>;\n    warnings?: Awaitable<unknown>;\n    response?: Awaitable<unknown>;\n    finalStep?: Awaitable<unknown>;\n    lastStep?: Awaitable<unknown>;\n    steps?: Awaitable<unknown>;\n    requestedModelId?: Awaitable<string | undefined>;\n    resolvedModelId?: Awaitable<string | undefined>;\n    modelId?: Awaitable<string | undefined>;\n}",
       "interface Video {\n    schemaVersion: typeof VIDEO_SCHEMA_VERSION;\n    orientation?: VideoOrientation;\n    audio?: VideoAudio;\n    scenes: VideoScene[];\n    style: VideoStyle;\n    meta?: {\n        name?: string;\n        prompt?: string;\n        source?: string;\n        uploadedMediaUrls?: string[];\n    };\n}",
@@ -250,6 +250,7 @@
       "interface VideoChatSpeechResult {\n    audio: Uint8Array | ArrayBuffer;\n    mediaType?: string;\n}",
       "interface VideoChatTextContext {\n    task: VideoChatTextTask;\n    systemPrompt: string;\n    userPrompt: string;\n    maxOutputTokens: number;\n    signal: AbortSignal;\n}",
       "interface VideoChatTranscriptionContext {\n    audio: Uint8Array;\n    mediaType: string;\n    signal: AbortSignal;\n}",
+      "interface VideoChatVideoContext extends VideoChatMediaContext {\n    purpose: \"response\";\n    requestedDurationSec: number;\n    shotDirection: string;\n    deadlineAt: number;\n}",
       "interface VideoEventDataMap {\n    \"response.start\": {\n        requestId: string;\n        format: {\n            orientation: VideoOrientation;\n        };\n        style: VideoStyle;\n        meta?: Video[\"meta\"];\n        capabilities?: VideoCapabilities;\n    };\n    \"audio.set\": {\n        audio: VideoAudio;\n    };\n    \"scene.add\": {\n        scene: VideoScene;\n        position: number;\n    };\n    \"response.warning\": {\n        warning: VideoWarning;\n    };\n    \"response.complete\": {\n        finishReason: VideoFinishReason;\n        snapshot: Video;\n        checksum: string;\n    };\n    \"response.error\": {\n        error: {\n            code: string;\n            message: string;\n            recoverable: boolean;\n        };\n        terminal: boolean;\n        snapshot?: Video;\n    };\n    \"response.abort\": {\n        reason: string;\n        snapshot?: Video;\n    };\n}",
       "interface VideoEventEnvelope<TType extends string, TData> {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n}",
       "interface VideoGenerationContext {\n    request: VideoRequest;\n    systemPrompt: string;\n    userPrompt: string;\n    initialConfig: Video;\n    signal: AbortSignal;\n}",
@@ -272,8 +273,9 @@
       "type VideoChatMediaResolver = (query: string, context: VideoChatMediaContext) => ResolvedMedia | null | Promise<ResolvedMedia | null>;",
       "type VideoChatSpeechGenerator = (context: VideoChatSpeechContext) => VideoChatSpeechResult | Promise<VideoChatSpeechResult>;",
       "type VideoChatTextGenerator = (context: VideoChatTextContext) => string | Promise<string>;",
-      "type VideoChatTextTask = \"narration\" | \"suggestions\";",
+      "type VideoChatTextTask = \"narration\" | \"narration-rewrite\" | \"suggestions\";",
       "type VideoChatTranscriber = (context: VideoChatTranscriptionContext) => string | Promise<string>;",
+      "type VideoChatVideoGenerator = (query: string, context: VideoChatVideoContext) => ResolvedMedia | null | Promise<ResolvedMedia | null>;",
       "type VideoCoreEvent = {\n    [TType in VideoCoreEventType]: VideoEventEnvelope<TType, VideoEventDataMap[TType]>;\n}[VideoCoreEventType];",
       "type VideoCoreEventType = keyof VideoEventDataMap;",
       "type VideoEvent = VideoCoreEvent | VideoExtensionEvent;",
@@ -366,7 +368,7 @@
           "type"
         ],
         "declaration": [
-          "interface VideoChatMedia {\n    url: string;\n    type: \"image\" | \"video\";\n    posterUrl?: string;\n}"
+          "interface VideoChatMedia {\n    url: string;\n    type: \"image\" | \"video\";\n    posterUrl?: string;\n    durationSec?: number;\n}"
         ]
       },
       "VideoChatMode": {
@@ -382,7 +384,7 @@
           "type"
         ],
         "declaration": [
-          "type VideoChatPlaybackMetric = {\n    turnId: string;\n    mode: VideoChatMode;\n    elapsedMs: number;\n} & ({\n    type: \"first-frame\";\n} | {\n    type: \"first-media-frame\";\n} | {\n    type: \"first-speech\";\n    source: \"browser\" | \"generated\" | \"custom\";\n} | {\n    type: \"stall\";\n    durationMs: number;\n    reason: \"scene-generation\";\n});"
+          "type VideoChatPlaybackMetric = {\n    turnId: string;\n    mode: VideoChatMode;\n    elapsedMs: number;\n} & ({\n    type: \"first-frame\";\n} | {\n    type: \"first-media-frame\";\n} | {\n    type: \"first-speech\";\n    source: \"browser\" | \"generated\" | \"custom\";\n} | {\n    type: \"stall\";\n    durationMs: number;\n    reason: PlaybackWaitReason;\n} | {\n    type: \"scene-duration\";\n    speechDurationSec: number;\n    clipDurationSec: number;\n    recovered: boolean;\n} | MediaPlaybackMetric);"
         ]
       },
       "VideoChatPreparedSpeech": {
@@ -494,12 +496,14 @@
       "interface VideoEventDataMap {\n    \"response.start\": {\n        requestId: string;\n        format: {\n            orientation: VideoOrientation;\n        };\n        style: VideoStyle;\n        meta?: Video[\"meta\"];\n        capabilities?: VideoCapabilities;\n    };\n    \"audio.set\": {\n        audio: VideoAudio;\n    };\n    \"scene.add\": {\n        scene: VideoScene;\n        position: number;\n    };\n    \"response.warning\": {\n        warning: VideoWarning;\n    };\n    \"response.complete\": {\n        finishReason: VideoFinishReason;\n        snapshot: Video;\n        checksum: string;\n    };\n    \"response.error\": {\n        error: {\n            code: string;\n            message: string;\n            recoverable: boolean;\n        };\n        terminal: boolean;\n        snapshot?: Video;\n    };\n    \"response.abort\": {\n        reason: string;\n        snapshot?: Video;\n    };\n}",
       "interface VideoEventEnvelope<TType extends string, TData> {\n    protocolVersion: typeof VIDEO_PROTOCOL_VERSION;\n    runId: string;\n    sequence: number;\n    eventId: string;\n    type: TType;\n    data: TData;\n}",
       "interface VideoNarrationGroup {\n    id: string;\n    text: string;\n    offsetSeconds: number;\n    durationSeconds: number;\n    totalSeconds: number;\n}",
-      "interface VideoPlayerSharedProps {\n    playbackMode?: VideoPlaybackMode;\n    autoPlay?: boolean;\n    startMuted?: boolean;\n    nativeMediaAudio?: NativeMediaAudioOptions;\n    width?: number;\n    orientation?: VideoOrientation | \"auto\";\n    responsiveBreakpoint?: number;\n    className?: string;\n    style?: CSSProperties;\n    ariaLabel?: string;\n    controls?: boolean;\n    narrationReady?: () => boolean;\n    narrationTime?: (scene: VideoScene) => number | undefined;\n    paused?: boolean;\n    loop?: boolean;\n    onPlaybackEnd?: (video: Video) => void;\n    onComplete?: (video: Video) => void;\n    onError?: (error: Error) => void;\n    onFramePresented?: () => unknown;\n    onMediaFramePresented?: () => unknown;\n    onStallChange?: (stalled: boolean) => unknown;\n    onSceneChange?: (scene: VideoScene, index: number) => void;\n}",
+      "interface VideoPlayerSharedProps {\n    playbackMode?: VideoPlaybackMode;\n    autoPlay?: boolean;\n    startMuted?: boolean;\n    nativeMediaAudio?: NativeMediaAudioOptions;\n    width?: number;\n    orientation?: VideoOrientation | \"auto\";\n    responsiveBreakpoint?: number;\n    className?: string;\n    style?: CSSProperties;\n    ariaLabel?: string;\n    controls?: boolean;\n    narrationReady?: () => boolean;\n    narrationTime?: (scene: VideoScene) => number | undefined;\n    narrationActive?: (scene: VideoScene) => boolean;\n    paused?: boolean;\n    loop?: boolean;\n    onPlaybackEnd?: (video: Video) => void;\n    onComplete?: (video: Video) => void;\n    onError?: (error: Error) => void;\n    onFramePresented?: () => unknown;\n    onMediaFramePresented?: () => unknown;\n    onStallChange?: (stalled: boolean, reason?: PlaybackWaitReason) => unknown;\n    onPlaybackMetric?: (metric: MediaPlaybackMetric) => unknown;\n    onSceneChange?: (scene: VideoScene, index: number) => void;\n}",
       "interface VideoScene {\n    id: string;\n    templateId: string;\n    variables: Record<string, unknown>;\n    textArchetype?: string;\n    backgroundEffect?: string;\n    timing: VideoTiming;\n    narration?: string;\n    narrationGroup?: VideoNarrationGroup;\n}",
       "interface VideoStyle {\n    preset?: string;\n    defaultBackgroundEffect?: string;\n    defaultTextArchetype?: string;\n    defaultTransition?: string;\n    density?: string;\n    motion?: string;\n    generatedLook?: string;\n}",
       "interface VideoStyleOptions {\n    generatedLook?: string;\n    density?: \"airy\" | \"normal\" | \"packed\";\n    motion?: \"calm\" | \"normal\" | \"punchy\";\n    textArchetype?: \"subtle\" | \"typewriter\" | \"wordStagger\" | \"slam\" | \"cinematic\" | \"heroWord\";\n    backgroundEffect?: \"static\" | \"slow-zoom-in\" | \"slow-zoom-out\" | \"ken-burns\" | \"drift\" | \"pulse\" | \"breathe\" | \"slow-tilt\" | \"camera-shake\";\n}",
       "interface VideoTiming {\n    beatStart?: number;\n    beatEnd?: number;\n    startTime?: number;\n    endTime?: number;\n    fixedDuration?: number;\n    durationWeight?: number;\n}",
       "interface VideoWarning {\n    code: VideoWarningCode;\n    category: VideoWarningCategory;\n    message: string;\n    sceneId?: string;\n    recoverable: boolean;\n}",
+      "type MediaPlaybackMetric = {\n    type: \"media-playback\";\n    clipDurationSec: number;\n    sceneDurationSec: number;\n    repeatCount: number;\n} | {\n    type: \"buffer\";\n    bufferedSeconds: number;\n};",
+      "type PlaybackWaitReason = \"scene-generation\" | \"speech\" | \"media-decoding\";",
       "type VideoCoreEvent = {\n    [TType in VideoCoreEventType]: VideoEventEnvelope<TType, VideoEventDataMap[TType]>;\n}[VideoCoreEventType];",
       "type VideoCoreEventType = keyof VideoEventDataMap;",
       "type VideoEvent = VideoCoreEvent | VideoExtensionEvent;",

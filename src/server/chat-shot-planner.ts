@@ -319,7 +319,7 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     if (!narrationFitsClip(narration, durationSec) && options.resolveMedia && options.rewriteNarration) {
       try {
         const rewritten = (await options.rewriteNarration(original, durationSec, context.signal)).trim();
-        if (rewritten && rewritten.length <= 2000 && narrationFitsClip(rewritten, durationSec)) narration = rewritten;
+        if (/[\p{L}\p{N}]/u.test(rewritten) && rewritten.length <= 2000 && narrationFitsClip(rewritten, durationSec)) narration = rewritten;
       } catch { context.signal.throwIfAborted(); }
     }
     context.signal.throwIfAborted();

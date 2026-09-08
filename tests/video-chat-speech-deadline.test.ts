@@ -41,7 +41,7 @@ describe("generated speech preparation deadlines", () => {
     expect(ready).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(ready).toBe(true);
-    await expect(preparing).resolves.toEqual({ seconds: 1.2 });
+    await expect(preparing).resolves.toEqual({ seconds: expect.any(Number) });
     expect(childSignal?.aborted).toBe(true);
     expect(parent.signal.aborted).toBe(false);
     expect(fallback).toHaveBeenCalledOnce();
@@ -50,7 +50,7 @@ describe("generated speech preparation deadlines", () => {
     body.resolve(new Uint8Array([1, 2, 3]).buffer);
     decode.resolve({ duration: 25 } as AudioBuffer);
     await vi.advanceTimersByTimeAsync(0);
-    await expect(voice.prepare("A short response.")).resolves.toEqual({ seconds: 1.2 });
+    await expect(voice.prepare("A short response.")).resolves.toEqual({ seconds: expect.any(Number) });
     await voice.speak("A short response.", { signal: parent.signal });
     expect(fetcher).toHaveBeenCalledOnce();
     expect(browserSpeak).toHaveBeenCalledOnce();

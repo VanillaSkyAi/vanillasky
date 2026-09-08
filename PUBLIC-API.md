@@ -66,6 +66,8 @@ For an application-owned interface, call `useVideoChat(options)` and spread `cha
 
 Unclocked browser/custom speech owns its completion, with a bounded watchdog and quiet tail before advancing. Direct player integrations can supply `narrationActive(scene)` to preserve that behavior; the standard hook wires it automatically.
 
+When wiring `onStallChange(stalled, reason)` manually, do not pause the voice for a `speech` wait: the player is waiting for speech to start or finish. Pause voice only for generation or decoding waits. The standard hook already applies this policy.
+
 `createVideoChatVoice` uses generated speech when configured and browser speech otherwise. Preparation duration may be estimated; measured generated audio supports offsets for narration groups. Cancellation releases stale voice/media work. Missing optional footage must not discard the spoken answer.
 
 `chat.warnings` are developer notices; the unchanged default shell stays quiet. `showRecoveryNotice` opts into a fixed dismissible recovery notice without exposing arbitrary provider messages.

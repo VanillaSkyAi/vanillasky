@@ -30,7 +30,7 @@ describe("clip budget before paid generation", () => {
     expect(generation.mock.calls[0]?.[1]).toMatchObject({ requestedDurationSec: 5, shotDirection: expect.stringContaining("Show the shore"), deadlineAt: expect.any(Number) });
     expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { narration: "The result depends on these conditions.", variables: { mediaDurationSec: 5 } } });
   });
-  it.each(["", oversized])("preserves the entire oversized line as a chapter when rewrite does not fit", async rewrite => {
+  it.each(["", "[]", oversized])("preserves the entire oversized line as a chapter when rewrite is unusable", async rewrite => {
     const { handler, text, generation } = setup(rewrite);
     const events = await collect(await handler(request()));
     expect(text).toHaveBeenCalledOnce();

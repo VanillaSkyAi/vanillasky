@@ -10,7 +10,7 @@ async function run(source:'stock'|'generate', success: boolean | 'reject' | 'abo
  const searchMedia=vi.fn(resolve);
  const handler=createVideoChatHandler({authorize:'none',heartbeatMs:false,requireCloser:false,
   generateText:()=>'',generateVideo,searchMedia,maxGeneratedVideos:source==='stock'?0:5,
-  streamText:()=>streamChatShots([chatShot('ocean waves','Waves carry energy across the surface of the water.')])
+  streamText:()=>streamChatShots([chatShot('ocean waves',"Waves carry energy across the water's surface.")])
 
  });
  const response=await handler(new Request('https://example.test/api/video?action=response',{method:'POST',body:JSON.stringify({prompt:'Explain waves',mode:source==='stock'?'pexels':'cinematic'})}));
@@ -32,7 +32,7 @@ describe('cinematic media routing',()=>{
   expect(result.scenes[0]?.variables).toEqual({title:'ocean waves'});expect(result.scenes[0]?.narration).toContain('Waves carry energy');
  });
  it('keeps the literal authored subject and narration when Pexels misses',async()=>{
-  const result=await run('stock',false);expect(result.generateVideo).not.toHaveBeenCalled();expect(result.scenes[0]).toMatchObject({templateId:'chapterTitle',variables:{title:'ocean waves'},narration:'Waves carry energy across the surface of the water.'});expect(result.scenes).toHaveLength(1);expect(result.events.at(-1)?.type).toBe('response.complete');
+  const result=await run('stock',false);expect(result.generateVideo).not.toHaveBeenCalled();expect(result.scenes[0]).toMatchObject({templateId:'chapterTitle',variables:{title:'ocean waves'},narration:"Waves carry energy across the water's surface."});expect(result.scenes).toHaveLength(1);expect(result.events.at(-1)?.type).toBe('response.complete');
  });
  it.each(['reject','abort'] as const)('recovers a provider %s without losing grounded content',async failure=>{
   const result=await run('generate',failure);

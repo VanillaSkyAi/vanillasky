@@ -7,9 +7,19 @@ it("records safe stream phases and resets metrics for the next response", async 
   const fetcher = diagnostics.wrapFetch(async () => new Response(text));
   await (await fetcher("http://localhost/?action=response")).text();
   diagnostics.playback({type:"first-media-frame", elapsedMs:350, turnId:"private id", mode:"cinematic"});
+  diagnostics.playback({type:"scene-duration", elapsedMs:400, turnId:"private id", mode:"cinematic", speechDurationSec:3,clipDurationSec:5,recovered:false});
+  diagnostics.playback({type:"buffer",elapsedMs:450,turnId:"private id",mode:"cinematic",bufferedSeconds:4});
+  diagnostics.playback({type:"media-playback",elapsedMs:500,turnId:"private id",mode:"cinematic",clipDurationSec:5,sceneDurationSec:3.8,repeatCount:0});
+  diagnostics.playback({type:"stall",elapsedMs:550,turnId:"private id",mode:"cinematic",durationMs:50,reason:"speech"});
   expect(JSON.stringify(snapshots)).not.toContain("private");
   expect(diagnostics.rows().map(row => row.phase)).toContain("shot authored");
   expect(diagnostics.rows().find(row => row.phase === "video decoded")?.elapsedMs).toBe(350);
+  expect(diagnostics.rows()).toEqual(expect.arrayContaining([
+    expect.objectContaining({phase:"speech fit",speechDurationSec:3,clipDurationSec:5,recovered:false}),
+    expect.objectContaining({phase:"buffered media",bufferedSeconds:4}),
+    expect.objectContaining({phase:"media playback",repeatCount:0,sceneDurationSec:3.8}),
+    expect.objectContaining({phase:"playback wait",reason:"speech",durationMs:50}),
+  ]));
   await fetcher("http://localhost/?action=response");
   expect(diagnostics.rows().some(row => row.phase === "video decoded")).toBe(false);
   diagnostics.dispose();

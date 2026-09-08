@@ -81,12 +81,12 @@ describe('explicit footage modes', () => {
     } finally {release();vi.useRealTimers();}
   });
   it('uses the configured clip duration in planning and finite scene timing',async()=>{
-    let instructions='';
+    const generateVideo=vi.fn(async()=>({type:'video' as const,url:'https://media.example/ten.mp4'}));
     const shot={...chatShot('ocean wave'),durationSec:12};
-    const handler=createVideoChatHandler({authorize:'none',heartbeatMs:false,generatedClipDurationSec:10,generateText:async()=>'',streamText:context=>{instructions=context.systemPrompt+' '+context.userPrompt;return streamChatShots([shot]);}});
+    const handler=createVideoChatHandler({authorize:'none',heartbeatMs:false,generatedClipDurationSec:10,generateVideo,generateText:async()=>'',streamText:()=>streamChatShots([shot])});
     const response=await handler(new Request('https://app.example/?action=response',{method:'POST',body:JSON.stringify({prompt:'A wave'})}));
     const events=[];for await(const event of decodeVideoSse(response.body!))events.push(event);
-    expect(instructions).toContain('at most 10 seconds');
+    expect(generateVideo).toHaveBeenCalledWith(expect.any(String),expect.objectContaining({requestedDurationSec:10}));
     expect(events.find(e=>e.type==='scene.add')).toMatchObject({data:{scene:{timing:{fixedDuration:10}}}});
   });
   it('publishes speech preparation before blocked footage resolves',async()=>{

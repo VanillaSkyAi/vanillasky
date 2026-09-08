@@ -22,7 +22,7 @@ export function createOfflineChatHandler(options: FixtureOptions, origin = "http
       context.signal.addEventListener("abort", () => {clearTimeout(timer); reject(context.signal.reason);}, {once: true});
     });
     if (options.scenario === "miss") return null;
-    return { type: "video" as const, url: `${origin}/tests/browser/fixtures/media-transition/${options.scenario === "decode-error" ? "does-not-exist.mp4" : "waterfall-short.mp4"}` };
+    return { type: "video" as const, url: `${origin}/tests/browser/fixtures/media-transition/${options.scenario === "decode-error" ? "does-not-exist.mp4" : "waterfall.mp4"}`, durationSec: 5 };
   };
   const handler = createVideoChatHandler({
     authorize: "none", heartbeatMs: false,
@@ -34,7 +34,7 @@ export function createOfflineChatHandler(options: FixtureOptions, origin = "http
     maxGeneratedVideos: options.scenario === "allowance" ? 0 : 5,
     generateVideo: media, searchMedia: media,
     welcome: {heroQuery: "local flowing water", prompts: [{prompt: "Try the selected fixture"}]},
-    generateText: () => "[]",
+    generateText: ({task}) => task === "narration-rewrite" ? "" : "[]",
     generateSpeech: async ({text, signal}) => {
       if (options.scenario === "speech-error") throw new Error("Fixture speech failure");
       signal.throwIfAborted();
