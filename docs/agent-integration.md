@@ -23,4 +23,17 @@ Use `useVideoChat` only when the host needs a custom UI; use `parseVideo` and
 `VideoPlayer` for saved responses. Renderer plugins and template authoring are
 not supported.
 
+Chat planning uses a shared answer contract plus the selected AI-video or stock
+mode instructions. Application `instructions` guide the answer within that
+contract. With `resolveAnswer`, the completed answer is the sole factual source;
+user and conversation content cannot replace the planning contract. Narration
+budgets come from the configured generated clip duration, while stock footage
+uses its available duration.
+
+Automatic generated style follows the content: realistic for observable action,
+illustrated for mechanisms or abstract relationships, cinematic for fiction or
+atmosphere. Missing or invalid model styles fall back to realistic. A caller
+`style.generatedLook` takes precedence; stock searches remain literal footage
+selection and cannot apply a generated rendering style.
+
 [Getting started](getting-started.md) · [Documentation home](../README.md)

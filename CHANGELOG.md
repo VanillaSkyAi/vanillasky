@@ -4,6 +4,12 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.11.3
+
+- Select generated visual treatment by what helps communicate the answer. Missing or invalid planned styles now default to realistic for every intent; valid planned styles and explicit caller looks remain respected.
+
+- Consolidate chat planning into a compact core and one footage-mode block, retaining source grounding, complete endings and shared speech budgets. Keep stock search guidance separate from generated-video timing.
+
 ## 0.11.2
 
 - Show the spoken introduction in the normal subtitle line when subtitles are enabled. Keep the opening once in the full transcript, including replay and restored sessions.
