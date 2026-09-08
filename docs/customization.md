@@ -86,3 +86,11 @@ History in `VideoChat` is in memory. Durable storage belongs to the host;
 see [persistence](persistence.md).
 
 [Documentation home](../README.md)
+
+## Hosting policy
+
+When changing video providers, add only their approved media CDN origins to
+`public/_headers`. The deployed content security policy must permit the clips
+you intend to play. Keep the existing script, frame and credential boundaries.
+For your own deployment domain, update `public/robots.txt` and
+`public/sitemap.xml` too.

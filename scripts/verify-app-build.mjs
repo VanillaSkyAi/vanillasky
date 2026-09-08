@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { assertAppIdentity, assertAppMarkup, createAppIdentity } from "./deployment-app-identity.mjs";
 
+import { assertBuiltHostingPolicy } from "./deployment-hosting-policy.mjs";
+
+assertBuiltHostingPolicy();
 const built = assertAppIdentity(JSON.parse(readFileSync("dist/app-build.json", "utf8")));
 if (JSON.stringify(built) !== JSON.stringify(createAppIdentity())) throw new Error("Checkout changed after application build");
 assertAppMarkup(readFileSync("dist/index.html", "utf8"), built);

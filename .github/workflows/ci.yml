@@ -37,6 +37,7 @@ jobs:
       - run: npm run build
       - run: npm run build:functions
       - run: npm run verify:app-build
+      - run: npm run verify:preview
       - run: npm audit --audit-level=high
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { assertAppIdentity, assertAppMarkup } from "./deployment-app-identity.mjs";
 
+import { assertResponseHeaders, readRootHeaderPolicy } from "./deployment-hosting-policy.mjs";
+
+const headerPolicy = readRootHeaderPolicy();
 const url = new URL(process.env.DEPLOYMENT_URL);
 if (url.protocol !== "https:") throw new Error("Deployment verification requires HTTPS");
 const expected = assertAppIdentity(JSON.parse(readFileSync("dist/app-build.json", "utf8")));
@@ -16,6 +19,7 @@ for (let attempt = 0; attempt < 24; attempt++) {
       fetch(new URL("/api/video-chat?action=status", url), { signal: AbortSignal.timeout(15_000), headers: { "cache-control": "no-cache" } }),
     ]);
     if (!page.ok || !health.ok || !status.ok) throw new Error(`Deployment returned ${page.status}/${health.status}/${status.status}`);
+    assertResponseHeaders(page.headers, headerPolicy);
     assertAppMarkup(await page.text(), expected);
     const observed = await health.json();
     if (observed.commit !== expected.commit || observed.sourceSha256 !== expected.sourceSha256) {
