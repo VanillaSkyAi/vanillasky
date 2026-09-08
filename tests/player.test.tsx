@@ -5,26 +5,11 @@ import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VideoValidationError, type Video } from "../src/index";
 import { createVideo, createVideoEventFactory } from "../src/internal";
-import { createRenderTemplateRegistry, defineTemplate } from "../src/visual-system/catalog/internal";
+import { SCENE_DEFINITIONS } from "../src/visual-system/catalog/builtin-metadata";
+import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 describe("VideoPlayer", () => {
-  it("keeps a cued visual at its first frame until narration onset, then resumes it", async () => {
-    const { VideoPlayer } = await import("../src/player/video-player");
-    let ready = true;
-    const onSceneChange = vi.fn(() => { ready = false; });
-    const templates = createRenderTemplateRegistry({ templates: [defineTemplate({ id: "motion", schema: { type: "object", properties: {} }, component: ({ isPlaying }) => createElement("div", { "data-motion-playing": String(isPlaying) }) })] });
-    const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE, scenes: [{ id: "shot", templateId: "motion", variables: {}, timing: { fixedDuration: 5 } }] };
-    const props = { video, templates, autoPlay: true, narrationReady: () => ready, onSceneChange };
-    const view = render(createElement(VideoPlayer, props));
-    await waitFor(() => expect(onSceneChange).toHaveBeenCalledOnce());
-    view.rerender(createElement(VideoPlayer, { ...props, width: 641 }));
-    expect(view.container.querySelector("[data-motion-playing]")?.getAttribute("data-motion-playing")).toBe("false");
-    ready = true;
-    view.rerender(createElement(VideoPlayer, { ...props, width: 642 }));
-    expect(view.container.querySelector("[data-motion-playing]")?.getAttribute("data-motion-playing")).toBe("true");
-  });
-
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
@@ -34,21 +19,20 @@ describe("VideoPlayer", () => {
   it("renders nothing before a stream starts", async () => {
     const { VideoPlayer } = await import("../src/player/video-player");
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
     }));
 
     expect(view.container.innerHTML).toBe("");
   });
 
   it("plays a saved video without requiring stream player props", async () => {
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [{
         id: "saved",
-        templateId: "keyFigure",
-        variables: { value: "42", label: "saved result" },
+        templateId: "chapterTitle",
+        variables: { title: "saved result" },
         timing: { fixedDuration: 4 },
       }],
       style: TEST_VIDEO_STYLE,
@@ -60,20 +44,16 @@ describe("VideoPlayer", () => {
     expect(player.getAttribute("data-status")).toBe("complete");
     expect(player.getAttribute("data-scenes")).toBe("1");
     await waitFor(() => expect(view.getByText("saved result")).toBeDefined(), { timeout: 3_000 });
-    expect(view.container.querySelector('[data-template-id="keyFigure"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-template-id="chapterTitle"]')).not.toBeNull();
   });
 
-  it.each(["missing", "throws"])("keeps scene content playable when a renderer %s", async (failure) => {
-    const { VideoPlayer } = await import("../src/react");
+  it("keeps scene content available when a saved renderer is unavailable", async () => {
+    const { VideoPlayer } = await import("../src/player/video-player");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const templates = createRenderTemplateRegistry({ templates: failure === "missing" ? [] : [defineTemplate({
-      id: "broken", schema: { type: "object", properties: {}, additionalProperties: true },
-      component: () => { throw new Error("private renderer failure"); },
-    })] });
     const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,
       scenes: [{ id: "safe", templateId: "broken", variables: {}, narration: "The response remains available.", timing: { fixedDuration: 4 } }],
     };
-    const view = render(createElement(VideoPlayer, { video, templates, autoPlay: false }));
+    const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
     expect(view.getByText("The response remains available.")).toBeDefined();
     expect(view.container.textContent).not.toMatch(/private|Unsupported template/);
     consoleError.mockRestore();
@@ -83,7 +63,7 @@ describe("VideoPlayer", () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
@@ -118,68 +98,8 @@ describe("VideoPlayer", () => {
     await waitFor(() => expect(sceneVideo.muted).toBe(false));
   });
 
-  it("overlays customer templates onto built-ins when replaying a mixed saved video", async () => {
-    const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
-    await preloadBuiltinTemplate("chapterTitle");
-    const queuedFrames = new Map<number, FrameRequestCallback>();
-    let frameId = 0;
-    const nextFrame = (time: number) => {
-      const callbacks = [...queuedFrames.values()];
-      queuedFrames.clear();
-      for (const callback of callbacks) callback(time);
-    };
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      queuedFrames.set(++frameId, callback);
-      return frameId;
-    });
-    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
-    const customerTemplates = createRenderTemplateRegistry({ templates: [defineTemplate({
-      id: "customerMetric",
-      schema: {
-        type: "object",
-        properties: { label: { type: "string", default: "" } },
-        required: ["label"],
-        additionalProperties: false,
-      },
-      component: ({ variables }) => createElement("span", null, `Customer: ${variables.label}`),
-    })] });
-    const video: Video = {
-      schemaVersion: "0.2",
-      orientation: "portrait",
-      scenes: [
-        {
-          id: "customer",
-          templateId: "customerMetric",
-          variables: { label: "activation" },
-          timing: { fixedDuration: 1 },
-        },
-        {
-          id: "builtin",
-          templateId: "keyFigure",
-          variables: { value: "42", label: "retention" },
-          timing: { fixedDuration: 1 },
-        },
-      ],
-      style: TEST_VIDEO_STYLE,
-    };
-    const { VideoPlayer } = await import("../src/react");
-
-    const view = render(createElement(VideoPlayer, {
-      video,
-      templates: customerTemplates,
-      autoPlay: true,
-    }));
-
-    await waitFor(() => expect(view.getByText("Customer: activation")).toBeDefined());
-    act(() => nextFrame?.(performance.now() + 1_100));
-    await waitFor(() => expect(view.getByText("retention")).toBeDefined());
-    expect(view.container.querySelector('[data-template-id="keyFigure"]')).not.toBeNull();
-  });
-
   it("loops a saved video instead of ending, and reports scene changes", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -195,7 +115,7 @@ describe("VideoPlayer", () => {
     vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
 
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
@@ -209,8 +129,8 @@ describe("VideoPlayer", () => {
         beatMarkers: [],
       },
       scenes: [
-        { id: "one", templateId: "keyFigure", variables: { value: "1", label: "first" }, timing: { fixedDuration: 2 } },
-        { id: "two", templateId: "keyFigure", variables: { value: "2", label: "second" }, timing: { fixedDuration: 2 } },
+        { id: "one", templateId: "chapterTitle", variables: { title: "first" }, timing: { fixedDuration: 2 } },
+        { id: "two", templateId: "chapterTitle", variables: { title: "second" }, timing: { fixedDuration: 2 } },
       ],
       style: TEST_VIDEO_STYLE,
     };
@@ -251,7 +171,6 @@ describe("VideoPlayer", () => {
 
   it("still ends a saved video when loop is not set", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -266,11 +185,11 @@ describe("VideoPlayer", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
 
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "only", templateId: "keyFigure", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
+      scenes: [{ id: "only", templateId: "chapterTitle", variables: { title: "only" }, timing: { fixedDuration: 2 } }],
       style: TEST_VIDEO_STYLE,
     };
 
@@ -292,7 +211,6 @@ describe("VideoPlayer", () => {
 
   it("reports playback end again for replacement content", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -306,11 +224,11 @@ describe("VideoPlayer", () => {
       return frameId;
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const makeVideo = (id: string): Video => ({
       schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id, templateId: "keyFigure", variables: { value: id, label: id }, timing: { fixedDuration: 1 } }],
+      scenes: [{ id, templateId: "chapterTitle", variables: { title: id }, timing: { fixedDuration: 1 } }],
       style: TEST_VIDEO_STYLE,
     });
     const first = makeVideo("first");
@@ -332,7 +250,6 @@ describe("VideoPlayer", () => {
 
   it("renders no controls and no replay when controls are off", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -347,11 +264,11 @@ describe("VideoPlayer", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
 
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "only", templateId: "keyFigure", variables: { value: "1", label: "only" }, timing: { fixedDuration: 2 } }],
+      scenes: [{ id: "only", templateId: "chapterTitle", variables: { title: "only" }, timing: { fixedDuration: 2 } }],
       style: TEST_VIDEO_STYLE,
     };
 
@@ -368,16 +285,6 @@ describe("VideoPlayer", () => {
   });
 
   it("rejects an unsupported saved schema before invoking a renderer", async () => {
-    const renderTemplate = vi.fn(() => createElement("span", null, "must not render"));
-    const customerTemplates = createRenderTemplateRegistry({ templates: [defineTemplate({
-      id: "futureTemplate",
-      schema: {
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      },
-      component: renderTemplate,
-    })] });
     const future = {
       schemaVersion: "99.0",
       scenes: [{
@@ -389,14 +296,12 @@ describe("VideoPlayer", () => {
       style: TEST_VIDEO_STYLE,
     } as unknown as Video;
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const { VideoPlayer } = await import("../src/react");
+    const { VideoPlayer } = await import("../src/player/video-player");
 
     expect(() => render(createElement(VideoPlayer, {
       video: future,
-      templates: customerTemplates,
       autoPlay: false,
     }))).toThrow(VideoValidationError);
-    expect(renderTemplate).not.toHaveBeenCalled();
   });
 
   it("replays every built-in saved template without a generation request", async () => {
@@ -405,13 +310,10 @@ describe("VideoPlayer", () => {
       generationRequests.push(input);
       throw new Error(`Unexpected generation request: ${String(input)}`);
     }));
-    const { VideoPlayer } = await import("../src/react");
-    const { BUILTIN_TEMPLATE_MANIFEST } = await import("../src/visual-system/catalog/builtin-manifest");
+    const { VideoPlayer } = await import("../src/player/video-player");
 
-    const view = render(createElement("main", null, BUILTIN_TEMPLATE_MANIFEST.map((template) => {
-      const variables = Object.fromEntries(Object.entries(template.schema.properties).flatMap(
-        ([key, property]) => "default" in property ? [[key, property.default]] : [],
-      ));
+    const view = render(createElement("main", null, SCENE_DEFINITIONS.map((template) => {
+      const variables = { ...template.defaults };
       const video: Video = {
         schemaVersion: "0.2",
         orientation: "portrait",
@@ -432,7 +334,7 @@ describe("VideoPlayer", () => {
     })));
 
     await waitFor(() => {
-      for (const { id } of BUILTIN_TEMPLATE_MANIFEST) {
+      for (const { id } of SCENE_DEFINITIONS) {
         expect(view.container.querySelector(`[data-template-id="${id}"]`), id).not.toBeNull();
       }
     }, { timeout: 10_000 });
@@ -454,12 +356,11 @@ describe("VideoPlayer", () => {
         });
         await plannerGate;
         yield events.create("scene.add", {
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 1, startTime: 0, endTime: 1 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1, startTime: 0, endTime: 1 } },
           position: 0,
         });
     })();
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream,
       width: 360,
       playbackMode: "manual",
@@ -479,35 +380,25 @@ describe("VideoPlayer", () => {
     expect(view.getByRole("button", { name: "Play video response" })).toBe(coverStart);
   });
 
-  it("uses the first template's authored hold pose for the static start poster", async () => {
+  it("shows the chapter's readable hold pose in the static start poster", async () => {
     const { VideoPlayer } = await import("../src/player/video-player");
-    const templates = createRenderTemplateRegistry({ templates: [defineTemplate({
-      id: "posterProbe",
-      usesGlobalTransition: true,
-      transitionTiming: { entryReadyProgress: 0.2, holdProgress: 0.7 },
-      schema: { type: "object", properties: {}, additionalProperties: false },
-      component: ({ progress, motionProgress }) => createElement("span", {
-        "data-testid": "poster-probe",
-        "data-progress": progress.toFixed(3),
-        "data-motion-progress": (motionProgress ?? progress).toFixed(3),
-      }),
-    })] });
+    await preloadBuiltinTemplate("chapterTitle");
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
       scenes: [{
         id: "intro",
-        templateId: "posterProbe",
+        templateId: "chapterTitle",
         variables: {},
         timing: { fixedDuration: 4 },
       }],
       style: TEST_VIDEO_STYLE,
     };
 
-    const view = render(createElement(VideoPlayer, { video, templates, autoPlay: false }));
-    const poster = view.getByTestId("poster-probe");
-    expect(poster.getAttribute("data-progress")).toBe("0.700");
-    expect(poster.getAttribute("data-motion-progress")).toBe("0.700");
+    const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
+    const poster = view.container.querySelector<HTMLElement>("[data-title-composition]")!;
+    expect(poster.textContent).toBe("A different perspective");
+    expect(Number(poster.style.opacity)).toBe(1);
   });
 
   it("starts the default opening with sound before the planner body arrives", async () => {
@@ -526,7 +417,7 @@ describe("VideoPlayer", () => {
           type: "scene.add" as const,
           scene: {
             id: "first",
-            templateId: "keyFigure",
+            templateId: "chapterTitle",
             variables: { texts: "Activation", value: 58, label: "percent" },
             timing: { fixedDuration: 3 },
           },
@@ -535,7 +426,6 @@ describe("VideoPlayer", () => {
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       playbackMode: "autoplay-after-interaction",
     }));
@@ -571,7 +461,7 @@ describe("VideoPlayer", () => {
           type: "scene.add" as const,
           scene: {
             id: "first",
-            templateId: "keyFigure",
+            templateId: "chapterTitle",
             variables: { texts: "Activation", value: 58, label: "percent" },
             timing: { fixedDuration: 3 },
           },
@@ -581,7 +471,6 @@ describe("VideoPlayer", () => {
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       playbackMode: "manual",
     }));
@@ -605,7 +494,7 @@ describe("VideoPlayer", () => {
     releasePlanner();
   });
 
-  it("uses the default gradient opening as the poster and starts it with sound", async () => {
+  it("uses the default chapter opening as the poster and starts it with sound", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     let releasePlanner!: () => void;
@@ -621,7 +510,6 @@ describe("VideoPlayer", () => {
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       playbackMode: "manual",
     }));
@@ -648,18 +536,16 @@ describe("VideoPlayer", () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     const { VideoPlayer } = await import("../src/player/video-player");
-    const kit = createRenderTemplateRegistry({ templates: [] });
     const first = createVideo({
       input: "First",
       audio: { src: "data:audio/wav;base64,UklGRg==" },
     }, {
       generate: async function* () {
-        yield { type: "scene.add" as const, scene: { id: "first", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } } };
+        yield { type: "scene.add" as const, scene: { id: "first", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } } };
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: kit,
       stream: first.stream,
       playbackMode: "autoplay-after-interaction",
     }));
@@ -678,12 +564,11 @@ describe("VideoPlayer", () => {
     }, {
       generate: async function* () {
         await secondGate;
-        yield { type: "scene.add" as const, scene: { id: "second", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } } };
+        yield { type: "scene.add" as const, scene: { id: "second", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } } };
         yield { type: "plan.complete" as const };
       },
     });
     view.rerender(createElement(VideoPlayer, {
-      templates: kit,
       stream: second.stream,
       playbackMode: "autoplay-after-interaction",
     }));
@@ -696,7 +581,6 @@ describe("VideoPlayer", () => {
 
   it("starts each replacement stream as a fresh autoplay session with an immediate cover", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -720,14 +604,13 @@ describe("VideoPlayer", () => {
       }),
     });
     const { VideoPlayer } = await import("../src/player/video-player");
-    const kit = createRenderTemplateRegistry({ templates: [] });
     const first = createVideo({ input: "First" }, {
       generate: async function* () {
-        yield { type: "scene.add" as const, scene: { id: "first", templateId: "customer", variables: {}, timing: { fixedDuration: 1 } } };
+        yield { type: "scene.add" as const, scene: { id: "first", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1 } } };
         yield { type: "plan.complete" as const };
       },
     });
-    const view = render(createElement(VideoPlayer, { templates: kit, stream: first.stream, autoPlay: true }));
+    const view = render(createElement(VideoPlayer, { stream: first.stream, autoPlay: true }));
     const player = view.getByTestId("video-player");
     await waitFor(() => expect(player.getAttribute("data-status")).toBe("complete"));
     act(() => nextFrame?.(performance.now() + 4_000));
@@ -740,11 +623,11 @@ describe("VideoPlayer", () => {
     const second = createVideo({ input: "Second" }, {
       generate: async function* () {
         await secondGate;
-        yield { type: "scene.add" as const, scene: { id: "second", templateId: "customer", variables: {}, timing: { fixedDuration: 1 } } };
+        yield { type: "scene.add" as const, scene: { id: "second", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1 } } };
         yield { type: "plan.complete" as const };
       },
     });
-    view.rerender(createElement(VideoPlayer, { templates: kit, stream: second.stream, autoPlay: true }));
+    view.rerender(createElement(VideoPlayer, { stream: second.stream, autoPlay: true }));
 
     expect(player.getAttribute("data-status")).toBe("streaming");
     expect(player.getAttribute("data-current-time")).toBe("0.000");
@@ -759,13 +642,12 @@ describe("VideoPlayer", () => {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 1 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1 } },
         };
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(StrictMode, null, createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
     })));
 
@@ -778,13 +660,12 @@ describe("VideoPlayer", () => {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 1 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1 } },
         };
         yield { type: "plan.complete" as const, finishReason: "length" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
     }));
     const player = view.getByTestId("video-player");
@@ -807,7 +688,6 @@ describe("VideoPlayer", () => {
       generate: async function* () { yield { type: "plan.complete" as const }; },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       orientation: "auto",
     }));
@@ -825,7 +705,6 @@ describe("VideoPlayer", () => {
       generate: async function* () { yield { type: "plan.complete" as const }; },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       orientation: "portrait",
       width: 800,
@@ -837,7 +716,6 @@ describe("VideoPlayer", () => {
 
   it("enters an ended state and restarts from zero", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -865,7 +743,7 @@ describe("VideoPlayer", () => {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 1 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 1 } },
         };
         yield { type: "plan.complete" as const };
       },
@@ -873,7 +751,6 @@ describe("VideoPlayer", () => {
     const onComplete = vi.fn();
     const onPlaybackEnd = vi.fn();
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       onComplete,
       onPlaybackEnd,
@@ -909,7 +786,6 @@ describe("VideoPlayer", () => {
 
   it("presents idle, playing, and paused controls as distinct player states", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -934,7 +810,6 @@ describe("VideoPlayer", () => {
       generate: async function* () { yield { type: "plan.complete" as const }; },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       width: 360,
       playbackMode: "manual",
@@ -1003,22 +878,10 @@ describe("VideoPlayer", () => {
       }),
     });
     const { VideoPlayer } = await import("../src/player/video-player");
-    const kit = createRenderTemplateRegistry({
-      templates: [defineTemplate({
-        id: "notification",
-        schema: {
-          type: "object",
-          properties: { message: { type: "string", default: "Opening" } },
-          additionalProperties: false,
-        },
-        component: ({ variables }) => createElement("div", null, String(variables.message)),
-      })],
-    });
     const response = createVideo({ input: "Update", opening: "Opening" }, {
       generate: async function* () { yield { type: "plan.complete" as const }; },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: kit,
       stream: response.stream,
       width: 360,
       ariaLabel: "Quarterly recap",
@@ -1055,17 +918,16 @@ describe("VideoPlayer", () => {
       }),
     });
     const { VideoPlayer } = await import("../src/player/video-player");
-    const kit = createRenderTemplateRegistry({ templates: [] });
     const response = createVideo({ input: "Update" }, {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } },
         };
         yield { type: "plan.complete" as const };
       },
     });
-    const view = render(createElement(VideoPlayer, { templates: kit, stream: response.stream }));
+    const view = render(createElement(VideoPlayer, { stream: response.stream }));
     const player = view.getByTestId("video-player");
     expect(player.getAttribute("data-playing")).toBe("true");
     onChange?.({ matches: true } as MediaQueryListEvent);
@@ -1083,13 +945,12 @@ describe("VideoPlayer", () => {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } },
         };
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
     }));
     await waitFor(() => expect(view.container.querySelector("audio")).not.toBeNull());
@@ -1115,13 +976,12 @@ describe("VideoPlayer", () => {
         beatMarkers: [],
       }),
       generate: async function* () {
-        yield { type: "scene.add" as const, scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } } };
+        yield { type: "scene.add" as const, scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } } };
         await plannerGate;
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
     }));
 
@@ -1137,7 +997,6 @@ describe("VideoPlayer", () => {
 
   it("fades soundtrack audio through Web Audio when iPhone Safari locks element volume", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
-    await preloadBuiltinTemplate("keyFigure");
     await preloadBuiltinTemplate("chapterTitle");
     const queuedFrames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -1195,8 +1054,8 @@ describe("VideoPlayer", () => {
       },
       scenes: [{
         id: "saved",
-        templateId: "keyFigure",
-        variables: { value: "1", label: "update" },
+        templateId: "chapterTitle",
+        variables: { title: "update" },
         timing: { fixedDuration: 4 },
       }],
       style: TEST_VIDEO_STYLE,
@@ -1335,8 +1194,8 @@ describe("VideoPlayer", () => {
       },
       scenes: [{
         id: "saved",
-        templateId: "keyFigure",
-        variables: { value: "1", label: "update" },
+        templateId: "chapterTitle",
+        variables: { title: "update" },
         timing: { fixedDuration: 4 },
       }],
       style: TEST_VIDEO_STYLE,
@@ -1376,12 +1235,11 @@ describe("VideoPlayer", () => {
       audio: { src: "data:audio/wav;base64,UklGRg==" },
     }, {
       generate: async function* () {
-        yield { type: "scene.add" as const, scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } } };
+        yield { type: "scene.add" as const, scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } } };
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       playbackMode: "autoplay-with-sound",
     }));
@@ -1413,13 +1271,12 @@ describe("VideoPlayer", () => {
       generate: async function* () {
         yield {
           type: "scene.add" as const,
-          scene: { id: "one", templateId: "customer", variables: {}, timing: { fixedDuration: 3 } },
+          scene: { id: "one", templateId: "chapterTitle", variables: {}, timing: { fixedDuration: 3 } },
         };
         yield { type: "plan.complete" as const };
       },
     });
     const view = render(createElement(VideoPlayer, {
-      templates: createRenderTemplateRegistry({ templates: [] }),
       stream: response.stream,
       autoPlay: false,
       startMuted: true,
@@ -1464,7 +1321,7 @@ describe("VideoPlayer", () => {
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "saved", templateId: "keyFigure", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
+      scenes: [{ id: "saved", templateId: "chapterTitle", variables: { title: "update" }, timing: { fixedDuration: 3 } }],
       style: TEST_VIDEO_STYLE,
     };
     const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
@@ -1499,7 +1356,7 @@ describe("VideoPlayer", () => {
     const video: Video = {
       schemaVersion: "0.2",
       orientation: "portrait",
-      scenes: [{ id: "saved", templateId: "keyFigure", variables: { value: "1", label: "update" }, timing: { fixedDuration: 3 } }],
+      scenes: [{ id: "saved", templateId: "chapterTitle", variables: { title: "update" }, timing: { fixedDuration: 3 } }],
       style: TEST_VIDEO_STYLE,
     };
     const view = render(createElement(VideoPlayer, { video, autoPlay: false }));
@@ -1536,36 +1393,6 @@ describe("VideoPlayer", () => {
     expect(api?.VideoPlayer, "the streaming React player should exist").toBeDefined();
     if (!api?.VideoPlayer) return;
 
-    const kit = createRenderTemplateRegistry({
-      templates: [
-        defineTemplate({
-          id: "media",
-          useWhen: "A concise sentence opens on the brand gradient.",
-          schema: {
-            type: "object",
-            properties: {
-              texts: { type: "string", default: "Your update is ready." },
-              mediaType: { type: "string", enum: ["gradient"], default: "gradient" },
-            },
-            required: ["texts"],
-            additionalProperties: false,
-          },
-          component: ({ variables }) => createElement("div", null, String(variables.texts)),
-        }),
-        defineTemplate({
-          id: "customerMetric",
-          useWhen: "A grounded metric is the proof point.",
-          schema: {
-            type: "object",
-            properties: { value: { type: "number", default: 0 } },
-            required: ["value"],
-            additionalProperties: false,
-          },
-          component: ({ variables }) => createElement("div", null, String(variables.value)),
-        }),
-      ],
-    });
-
     const response = createVideo(
       {
         input: "Activation increased from 41% to 58%.",
@@ -1579,8 +1406,8 @@ describe("VideoPlayer", () => {
             type: "scene.add" as const,
             scene: {
               id: "metric",
-              templateId: "customerMetric",
-              variables: { value: 58, unit: "%", label: "activation" },
+              templateId: "chapterTitle",
+              variables: { title: "Activation reached 58%" },
               timing: { fixedDuration: 4 },
             },
           };
@@ -1590,7 +1417,6 @@ describe("VideoPlayer", () => {
     );
 
     const view = render(createElement(api.VideoPlayer, {
-      templates: kit,
       stream: response.stream,
       autoPlay: false,
       width: 360,

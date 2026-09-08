@@ -17,8 +17,7 @@ import { getDimensions } from "../visual-system/layout.js";
 import { VideoFrame } from "./video-frame.js";
 import { getVideoDuration, resolveVideoTimeline } from "../protocol/timeline.js";
 import { parseVideo } from "../protocol/persistence.js";
-import { overlayPlayerTemplateRegistry } from "../visual-system/catalog/player-kit.js";
-import { BUILTIN_PLAYER_KIT, preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.js";
+import { preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.js";
 import { warmSceneMedia } from "./warm-scene-media.js";
 import { resolvePlaybackPolicy } from "./playback-policy.js";
 import {
@@ -46,7 +45,6 @@ function savedVideoState(video: Video): VideoState {
 type FullscreenMode = "none" | "native" | "fallback";
 
 export function VideoPlayerRuntime({
-  kit,
   stream,
   video,
   playbackMode,
@@ -440,7 +438,7 @@ export function VideoPlayerRuntime({
   const hasSuppliedOpening = firstSceneRange?.scene.id === "supplied-opening";
   const showStartPoster = (!generationIntroWaiting || hasSuppliedOpening) && !startRequested && !isPlaying && !ended && currentTime <= 0.001 && Boolean(config?.scenes.length);
   const firstSceneHoldProgress = firstSceneRange
-    ? kit.getTemplate(firstSceneRange.scene.templateId)?.transitionTiming?.holdProgress ?? 0.7
+    ? 0.7
     : 0;
   const posterTime = firstSceneRange
     ? firstSceneRange.start + Math.max(0, firstSceneRange.end - firstSceneRange.start) * firstSceneHoldProgress
@@ -562,7 +560,6 @@ export function VideoPlayerRuntime({
       {!generationCoverVisible && config?.scenes.length ? (
         <MountedReadinessContext.Provider value={reportVisualReady}>
           <VideoFrame
-          kit={kit}
           onFramePresented={!showStartPoster && onFramePresented ? reportFramePresented : undefined}
           config={displayConfig!}
           time={showStartPoster ? posterTime : currentTime}
@@ -621,7 +618,6 @@ export function VideoPlayerRuntime({
 }
 
 export function VideoPlayer({
-  templates,
   stream,
   video,
   onPlaybackEnd,
@@ -630,14 +626,9 @@ export function VideoPlayer({
   ...props
 }: VideoPlayerProps): ReactElement | null {
   const savedVideo = useMemo(() => video ? parseVideo(video) : undefined, [video]);
-  const kit = useMemo(
-    () => overlayPlayerTemplateRegistry(BUILTIN_PLAYER_KIT, templates),
-    [templates],
-  );
   if (!stream && !savedVideo) return null;
   return <VideoPlayerRuntime
     {...props}
-    kit={kit}
     stream={stream}
     video={savedVideo}
     onPlaybackEnd={(state) => {

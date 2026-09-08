@@ -3,7 +3,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { VideoFrame } from "../src/player/video-frame";
 import { MountedReadinessContext } from "../src/player/mounted-scene-readiness";
-import { BUILTIN_PLAYER_KIT, preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
+import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 import type { Video } from "../src/protocol/types";
 
 beforeAll(async () => {
@@ -33,7 +33,7 @@ function fixture(cut = true) {
   const report = vi.fn();
   const frame = (time: number, playing = true, preparingNarration = false) =>
     <MountedReadinessContext.Provider value={report}>
-      <VideoFrame kit={BUILTIN_PLAYER_KIT} config={config} time={time} width={360} height={640} playing={playing} preparingNarration={preparingNarration} />
+      <VideoFrame config={config} time={time} width={360} height={640} playing={playing} preparingNarration={preparingNarration} />
     </MountedReadinessContext.Provider>;
   const view = render(frame(3));
   const [outgoing, incoming] = view.container.querySelectorAll("video");
@@ -113,7 +113,7 @@ it("retains a readable canonical chapter while the next video is still partial",
     { ...config.scenes[0], templateId: "chapterTitle", variables: { title: "A useful opening" } },
     config.scenes[1],
   ] };
-  const frame = (time: number) => <VideoFrame kit={BUILTIN_PLAYER_KIT} config={chapterConfig} time={time} width={360} height={640} playing />;
+  const frame = (time: number) => <VideoFrame config={chapterConfig} time={time} width={360} height={640} playing />;
   const view = render(frame(3.5));
   view.rerender(frame(4));
   await act(() => vi.advanceTimersByTimeAsync(2100));

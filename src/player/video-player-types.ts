@@ -2,8 +2,6 @@ import type { CSSProperties } from "react";
 import type { VideoEvent } from "../protocol/events.js";
 import type { VideoState } from "../protocol/state.js";
 import type { Video, VideoOrientation, VideoScene } from "../protocol/types.js";
-import type { TemplateRegistry } from "../visual-system/catalog/kit.js";
-import type { PlayerTemplateRegistry } from "../visual-system/catalog/player-kit.js";
 import type { VideoPlaybackMode } from "./playback-policy.js";
 
 export interface NativeMediaAudioOptions {
@@ -75,12 +73,11 @@ interface VideoPlayerSharedProps {
 }
 
 export type VideoPlayerProps = VideoPlayerSharedProps & (
-  | { video: Video; stream?: never; templates?: TemplateRegistry }
-  | { stream?: AsyncIterable<VideoEvent>; video?: never; templates?: TemplateRegistry }
+  | { video: Video; stream?: never }
+  | { stream?: AsyncIterable<VideoEvent>; video?: never }
 );
 
 export interface VideoPlayerRuntimeProps extends Omit<VideoPlayerSharedProps, "onComplete" | "onPlaybackEnd" | "onError"> {
-  kit: PlayerTemplateRegistry;
   stream?: AsyncIterable<VideoEvent>;
   video?: Video;
   onComplete?: (state: VideoState) => void;

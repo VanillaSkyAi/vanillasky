@@ -13,21 +13,14 @@ import {
   type ReactElement,
 } from "react";
 import type { Video, VideoScene } from "../protocol/types.js";
-import { resolveDensity } from "../visual-system/scene-templates/tokens.js";
-import {
-  getDimensions,
-  getSafeZone,
-  scaleSafeZone,
-} from "../visual-system/layout.js";
-import type { PlayerTemplateRegistry } from "../visual-system/catalog/player-kit.js";
-import { getTemplateDefaults } from "../visual-system/catalog/schema.js";
+import { getDimensions } from "../visual-system/layout.js";
+import { getBuiltinSceneRenderer } from "../visual-system/catalog/builtin-player.js";
 import { resolveVideoTimeline, type VideoSceneRange } from "../protocol/timeline.js";
 import {
   limitsConcurrentVideoDecoders,
   resolveMediaType,
 } from "../visual-system/scene-templates/media-source.js";
 import { ExternalVideoBackdropProvider, type MediaRecoveryReason } from "../visual-system/scene-templates/external-video-backdrop.js";
-import { supportsExternalVideoBackdrop } from "../visual-system/catalog/video-backdrop-capability.js";
 
 function PresentedScene({ notify }: { notify?: () => unknown }): null {
   useEffect(() => {
@@ -75,24 +68,7 @@ class SceneBoundary extends Component<
   }
 }
 
-const SCENE_TRANSITION_SECONDS = 0.3;
-/**
- * How long before a cut the next scene is mounted when it carries its own
- * backdrop.
- *
- * The blend above is a design decision — 0.3s of cross-fade. Mounting was
- * accidentally the same number, which gave a <video> 300ms to attach a
- * source, read metadata, decode a frame and start playing. It cannot, so the
- * scene arrived as a bare gradient and popped to its picture a beat later.
- * Warming the bytes ahead of time never fixed that: cached bytes still have
- * to be decoded by an element that does not exist yet.
- *
- * Mounting early costs nothing visually — the layer stays at opacity 0 until
- * the blend starts, so every rendered frame is identical — and the mounted
- * element is keyed by scene id, so React hands the very same DOM node (and
- * its decoded video) to the active layer at the cut instead of building a
- * fresh one.
- */
+/** Mount upcoming media before the cut while its keyed layer stays invisible. */
 const MEDIA_PREROLL_SECONDS = 1.2;
 const CONTIGUITY_ULP_FACTOR = 4;
 
@@ -112,10 +88,6 @@ function useDecoderConstraint(): boolean {
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
-}
-
-function supportsContinuousTransition(value: string | undefined): value is "crossfade" | "fade" {
-  return value === "crossfade" || value === "fade";
 }
 
 function rangesAreContiguous(left: VideoSceneRange, right: VideoSceneRange): boolean {
@@ -138,16 +110,6 @@ function sceneHasVideoBackdrop(range: VideoSceneRange): boolean {
   ) === "video";
 }
 
-function registrySupportsExternalVideoBackdrop(kit: PlayerTemplateRegistry): boolean {
-  return kit.templates.every((template) => {
-    const properties = template.schema?.properties;
-    if (!properties?.mediaUrl) return true;
-    const mediaTypes = properties.mediaType?.enum;
-    const canRenderVideo = mediaTypes == null || mediaTypes.includes("video") || mediaTypes.includes("auto");
-    return !canRenderVideo || supportsExternalVideoBackdrop(template);
-  });
-}
-
 function sceneBackgroundChanges(
   left: VideoSceneRange,
   right: VideoSceneRange,
@@ -161,7 +123,6 @@ function sceneBackgroundChanges(
 
 export interface VideoFrameProps {
   onFramePresented?: () => unknown;
-  kit: PlayerTemplateRegistry;
   config: Video;
   time: number;
   width: number;
@@ -177,8 +138,6 @@ export interface VideoFrameProps {
 interface SceneLayerProps {
   onFramePresented?: () => unknown;
   onMediaError?: (reason?: MediaRecoveryReason) => void;
-  kit: PlayerTemplateRegistry;
-  config: Video;
   range: VideoSceneRange;
   progress: number;
   motionProgress: number;
@@ -188,7 +147,7 @@ interface SceneLayerProps {
   preparingNarration: boolean;
   mediaAudioMuted: boolean;
   mediaAudioVolume: number;
-  layer: "active" | "outgoing" | "incoming";
+  layer: "active" | "incoming";
   opacity: number;
   interactive: boolean;
   zIndex: number;
@@ -198,8 +157,6 @@ interface SceneLayerProps {
 function SceneLayer({
   onFramePresented,
   onMediaError,
-  kit,
-  config,
   range,
   progress,
   motionProgress,
@@ -219,7 +176,7 @@ function SceneLayer({
     || (range.scene.templateId === "cinemaMedia" && !String(range.scene.variables.mediaUrl || "").trim());
   const recoveryTitle = mediaFailed && range.scene.templateId === "cinemaMedia"
     && typeof range.scene.variables.fallbackText === "string" ? range.scene.variables.fallbackText : undefined;
-  const template = kit.getTemplate(recoveryTitle ? "chapterTitle" : range.scene.templateId);
+  const template = getBuiltinSceneRenderer(recoveryTitle ? "chapterTitle" : range.scene.templateId);
   const duration = range.end - range.start;
 
   return (
@@ -247,12 +204,7 @@ function SceneLayer({
           opacity,
           zIndex,
           pointerEvents: interactive ? "auto" : "none",
-          // A changed-media transition can expose an incoming template's true
-          // initial frame. Values that would be false placeholders at progress
-          // zero opt into this inherited guard.
-          "--vanillasky-transition-semantic-visibility": layer === "incoming" ? "hidden" : "visible",
-          "--vanillasky-template-surface": externalVideoBackdrop !== false ? "transparent" : undefined,
-        } as CSSProperties}
+        }}
       >
         {range.scene.templateId === "cinemaMedia" && !recoveryTitle && (mediaFailed || !String(range.scene.variables.mediaUrl || "").trim()) && <div
           role="status" data-media-unavailable="true"
@@ -269,23 +221,15 @@ function SceneLayer({
               <PresentedScene notify={onFramePresented} />
               {createElement(template.component, {
                 variables: {
-                  ...(template.defaults ?? getTemplateDefaults(template.schema!)),
+                  ...template.defaults,
                   ...range.scene.variables,
                   ...(mediaFailed ? { mediaUrl: "", mediaPoster: "", mediaType: "gradient" } : {}),
                   ...(recoveryTitle ? { title: recoveryTitle } : {}),
                 },
-                style: config.style,
                 progress,
                 motionProgress,
-                beatIntensity: 0,
                 width,
                 height,
-                textArchetype: range.scene.textArchetype ?? config.style.defaultTextArchetype,
-                backgroundEffect: range.scene.backgroundEffect ?? config.style.defaultBackgroundEffect,
-                safeZone: scaleSafeZone(
-                  getSafeZone(config.orientation),
-                  resolveDensity(config.style.density).safeZoneScale,
-                ),
                 sceneDuration: duration,
                 isPlaying: playing,
               })}
@@ -301,7 +245,6 @@ function SceneLayer({
 
 export function VideoFrame({
   onFramePresented,
-  kit,
   config,
   time,
   width,
@@ -359,7 +302,7 @@ export function VideoFrame({
   const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
   const previous = timeline[previousIndex];
   const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && (mediaAudioMuted || !sceneHasVideoBackdrop(range))
-    && sceneHasBackdrop(range) && supportsExternalVideoBackdrop(kit.getTemplate(range.scene.templateId)));
+    && sceneHasBackdrop(range) && range.scene.templateId === "cinemaMedia");
   const canRetain = (range: VideoSceneRange | undefined) => canPrepare(range) || range?.scene.templateId === "chapterTitle";
   const hasPlayableMedia = (range: VideoSceneRange | undefined) => {
     if (!range || !preparedMedia.has(sceneReadinessKey(range.scene))) return false;
@@ -396,7 +339,7 @@ export function VideoFrame({
     );
   }
 
-  if (!kit.getTemplate(active.scene.templateId)) {
+  if (!getBuiltinSceneRenderer(active.scene.templateId)) {
     return (
       <div
         data-video-frame="unsupported"
@@ -411,37 +354,10 @@ export function VideoFrame({
 
   const duration = active.end - active.start;
   const rawProgress = clamp01((time - active.start) / duration);
-  const transitionEnabled = supportsContinuousTransition(config.style.defaultTransition);
   const next = activeIndex < timeline.length - 1 ? timeline[activeIndex + 1] : undefined;
-  const activeTemplate = kit.getTemplate(active.scene.templateId)!;
-  const nextTemplate = next ? kit.getTemplate(next.scene.templateId) : undefined;
   const contiguousNext = next && rangesAreContiguous(active, next) ? next : undefined;
-  const transitionableNext = contiguousNext &&
-    activeTemplate.usesGlobalTransition &&
-    activeTemplate.transitionTiming &&
-    nextTemplate?.usesGlobalTransition &&
-    nextTemplate.transitionTiming
-    ? contiguousNext
-    : undefined;
-  const activeTiming = activeTemplate.transitionTiming;
-  const nextTiming = nextTemplate?.transitionTiming;
-  const eligibleNextTransition = Boolean(
-    transitionEnabled &&
-      transitionableNext &&
-      activeTiming &&
-      nextTiming &&
-      sceneBackgroundChanges(active, transitionableNext),
-  );
-  const blendDuration = Math.min(
-    SCENE_TRANSITION_SECONDS,
-    Math.max(0, duration),
-  );
-  const blendStart = active.end - blendDuration;
-  const blendEnd = blendStart + blendDuration;
 
-  // Give a backdrop that has to decode a real head start, whether or not the
-  // pair also qualifies for a cross-fade: an abrupt cut to an undecoded video
-  // looks worse than a blended one, not better.
+  // Give the next backdrop a head start to decode before its cut.
   // Only a backdrop the next scene does not already have on screen needs the
   // head start. Identical media across a cut is already decoded.
   const prerollsNext = Boolean(
@@ -449,36 +365,17 @@ export function VideoFrame({
       sceneHasBackdrop(contiguousNext) &&
       sceneBackgroundChanges(active, contiguousNext),
   );
-  const prerollDuration = prerollsNext
-    ? Math.min(Math.max(MEDIA_PREROLL_SECONDS, blendDuration), Math.max(0, duration))
-    : blendDuration;
+  const prerollDuration = prerollsNext ? Math.min(MEDIA_PREROLL_SECONDS, duration) : 0;
   const prerollStart = active.end - prerollDuration;
-  // Known templates own one local video each. Keep only the active and next
-  // keyed layers; promoting the prepared layer retains its decoded resource.
-  // Unknown/custom video templates retain conservative one-layer transitions.
-  const boundedPreparation = decoderConstrainedDevice && registrySupportsExternalVideoBackdrop(kit);
-  const decoderConstrainedTransition = Boolean(
-    contiguousNext &&
-      decoderConstrainedDevice && !boundedPreparation &&
-      sceneHasVideoBackdrop(active) &&
-      sceneHasVideoBackdrop(contiguousNext),
-  );
+  // Both retained scene kinds have known decoder ownership.
+  const boundedPreparation = decoderConstrainedDevice;
   const activeMediaFailed = failedMedia.has(sceneReadinessKey(active.scene));
   const preparingNext = canRetain(active) && canPrepare(contiguousNext);
   const nextPlayable = hasPlayableMedia(contiguousNext);
   const mountingNext = handoffPending || Boolean(
-    contiguousNext && !decoderConstrainedTransition &&
-      (boundedPreparation || time >= prerollStart) && time < blendEnd &&
-      (eligibleNextTransition || prerollsNext || (boundedPreparation && sceneHasVideoBackdrop(contiguousNext))),
+    contiguousNext && (boundedPreparation || time >= prerollStart) && time < active.end &&
+      (prerollsNext || (boundedPreparation && sceneHasVideoBackdrop(contiguousNext))),
   );
-  const previewingNext = Boolean(
-    eligibleNextTransition && time >= blendStart && time < blendEnd
-      && (!preparingNext || nextPlayable),
-  );
-  // Zero until the blend window opens, so every frame before it is unchanged.
-  const blendProgress = previewingNext && blendDuration > 0
-    ? Math.round(clamp01((time - blendStart) / blendDuration) * 1_000_000) / 1_000_000
-    : 0;
   const progress = rawProgress;
   // Body scenes own their complete 0→1 motion lifecycle so they can exit into
   // the next beat. A terminal scene has nowhere to exit to: once it reaches
@@ -491,7 +388,7 @@ export function VideoFrame({
       && (activeMediaFailed || !String(active.scene.variables.mediaUrl || "").trim()));
   // Recovery uses the chapter's presentation even when the planned template
   // was footage. Keep its final readable pose through completion.
-  const finalHold = presentsChapter ? .76 : activeTiming?.holdProgress;
+  const finalHold = presentsChapter ? .76 : undefined;
   const holdChapter = presentsChapter && preparingNext && !nextPlayable;
   const motionProgress = (isFinalScene || holdChapter) && finalHold !== undefined
     ? Math.min(rawProgress, finalHold)
@@ -509,8 +406,7 @@ export function VideoFrame({
         if (!(target instanceof HTMLVideoElement || target instanceof HTMLImageElement)) return;
         const ownerId = target.closest("[data-layer-scene-id]")?.getAttribute("data-layer-scene-id");
         const owner = [active, contiguousNext].find(range => range?.scene.id === ownerId);
-        const template = owner && kit.getTemplate(owner.scene.templateId);
-        if (owner && template && supportsExternalVideoBackdrop(template)
+        if (owner?.scene.templateId === "cinemaMedia"
           && target.getAttribute("src") === owner.scene.variables.mediaUrl) {
           markMediaFailed(sceneReadinessKey(owner.scene), "decode-error");
         }
@@ -531,7 +427,7 @@ export function VideoFrame({
       <MountedSceneReadiness scene={active.scene} playing={playing && !handoffPending}
         fallback={activeMediaFailed}
         preparedProof={confirmedHandoff.current === sceneReadinessKey(active.scene) ? handoffProof.current : undefined}
-        onFailure={sceneHasBackdrop(active) && supportsExternalVideoBackdrop(activeTemplate) && !activeMediaFailed
+        onFailure={sceneHasBackdrop(active) && active.scene.templateId === "cinemaMedia" && !activeMediaFailed
           ? () => markMediaFailed(sceneReadinessKey(active.scene), "frame-readiness-timeout") : undefined} />
       {mountingNext && contiguousNext && preparingNext && <MountedSceneReadiness
         scene={contiguousNext.scene} playing={playing || preparingNarration} observeIncoming
@@ -574,8 +470,6 @@ export function VideoFrame({
             <SceneLayer
               key={active.scene.id}
               onFramePresented={onFramePresented}
-              kit={kit}
-              config={config}
               range={active}
               onMediaError={reason => markMediaFailed(sceneReadinessKey(active.scene), reason)}
               progress={progress}
@@ -586,19 +480,14 @@ export function VideoFrame({
               preparingNarration={handoffPending ? false : preparingNarration}
               mediaAudioMuted={mediaAudioMuted}
               mediaAudioVolume={mediaAudioVolume}
-              // Only a blend makes this scene "outgoing". During a preroll it
-              // is still the scene on screen, fully opaque and interactive —
-              // the layer beside it is invisible and only there to decode.
-              layer={previewingNext ? "outgoing" : "active"}
-              opacity={1 - blendProgress}
+              layer="active"
+              opacity={1}
               interactive
               zIndex={1}
               externalVideoBackdrop={activeMediaFailed ? "fallback" : false}
             />,
             <SceneLayer
               key={contiguousNext.scene.id}
-              kit={kit}
-              config={config}
               range={contiguousNext}
               progress={0}
               motionProgress={0}
@@ -609,7 +498,7 @@ export function VideoFrame({
               mediaAudioMuted={true}
               mediaAudioVolume={mediaAudioVolume}
               layer="incoming"
-              opacity={blendProgress}
+              opacity={0}
               interactive={false}
               zIndex={2}
               onMediaError={reason => markMediaFailed(sceneReadinessKey(contiguousNext.scene), reason)}
@@ -620,8 +509,6 @@ export function VideoFrame({
           <SceneLayer
             key={active.scene.id}
             onFramePresented={onFramePresented}
-            kit={kit}
-            config={config}
             range={active}
             onMediaError={reason => markMediaFailed(sceneReadinessKey(active.scene), reason)}
             progress={progress}

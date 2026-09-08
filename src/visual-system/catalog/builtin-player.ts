@@ -1,80 +1,53 @@
-import { createElement } from "react";
-import {
-  GENERATED_BUILTIN_TEMPLATE_LOADERS,
-  type BuiltinTemplateModule,
-} from "./builtin-loaders.generated.js";
-import { GENERATED_BUILTIN_PLAYER_TEMPLATES, GENERATED_BUILTIN_VIDEO_BACKDROP_IDS } from "./builtin-player.generated.js";
-import {
-  createPlayerTemplateRegistry,
-  type PlayerTemplate,
-} from "./player-kit.js";
+import { createElement, type ComponentType } from "react";
+import type { SceneTemplateProps } from "../scene-templates/types.js";
+import { SCENE_DEFINITIONS, type BuiltinSceneId } from "./builtin-metadata.js";
 
-import { markExternalVideoBackdropTemplate } from "./video-backdrop-capability.js";
+type SceneModule = { default: ComponentType<SceneTemplateProps> };
 
-interface PreloadableBuiltinTemplate {
-  component: PlayerTemplate["component"];
+interface SceneRenderer {
+  readonly component: ComponentType<SceneTemplateProps>;
+  readonly defaults: Readonly<Record<string, unknown>>;
   preload(): Promise<void>;
 }
 
-function createPreloadableBuiltinTemplate(
-  loader: () => Promise<BuiltinTemplateModule>,
-  mediaBackdrop: boolean,
-): PreloadableBuiltinTemplate {
-  let loaded: BuiltinTemplateModule | undefined;
+function createRenderer(
+  defaults: Readonly<Record<string, unknown>>,
+  loader: () => Promise<SceneModule>,
+): SceneRenderer {
+  let loaded: SceneModule | undefined;
   let failure: unknown;
   let pending: Promise<void> | undefined;
-
   const preload = (): Promise<void> => {
     if (loaded) return Promise.resolve();
     if (failure) return Promise.reject(failure);
-    pending ??= loader().then(
-      (module) => {
-        loaded = module;
-      },
-      (cause: unknown) => {
-        failure = cause;
-        throw cause;
-      },
-    );
+    pending ??= loader().then(module => { loaded = module; }, (cause: unknown) => {
+      failure = cause;
+      throw cause;
+    });
     return pending;
   };
-
-  const component: PlayerTemplate["component"] = (props) => {
+  const component: ComponentType<SceneTemplateProps> = props => {
     if (loaded) return createElement(loaded.default, props);
     if (failure) throw failure;
     throw preload();
   };
-
-  const template = { component, preload };
-  return mediaBackdrop ? markExternalVideoBackdropTemplate(template) : template;
+  return Object.freeze({ component, defaults, preload });
 }
 
-function freezeValue<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    for (const nested of Object.values(value as Record<string, unknown>)) freezeValue(nested);
-    Object.freeze(value);
-  }
-  return value;
+const loaders: Record<BuiltinSceneId, () => Promise<SceneModule>> = {
+  cinemaMedia: () => import("../scene-templates/cinema-media.js").then(module => ({ default: module.MediaSceneTemplate })),
+  chapterTitle: () => import("../scene-templates/chapter-title.js").then(module => ({ default: module.TitleSceneTemplate })),
+};
+const renderers = new Map(SCENE_DEFINITIONS.map(scene => [
+  scene.id,
+  createRenderer(scene.defaults, loaders[scene.id]),
+]));
+
+export function getBuiltinSceneRenderer(id: string): SceneRenderer | undefined {
+  return renderers.get(id as BuiltinSceneId);
 }
-
-const preloadableById = new Map(
-  GENERATED_BUILTIN_PLAYER_TEMPLATES.map(({ id }) => [
-    id,
-    createPreloadableBuiltinTemplate(GENERATED_BUILTIN_TEMPLATE_LOADERS[id], GENERATED_BUILTIN_VIDEO_BACKDROP_IDS.includes(id)),
-  ] as const),
-);
-
-const builtinPlayerTemplates: readonly PlayerTemplate[] = Object.freeze(
-  GENERATED_BUILTIN_PLAYER_TEMPLATES.map((template) => Object.freeze({
-    ...template,
-    defaults: freezeValue({ ...template.defaults }),
-    component: preloadableById.get(template.id)!.component,
-  })),
-);
-
-export const BUILTIN_PLAYER_KIT = createPlayerTemplateRegistry(builtinPlayerTemplates);
 
 /** Load the exact renderer state used by the player before its first frame. */
 export function preloadBuiltinTemplate(id: string): Promise<void> | undefined {
-  return preloadableById.get(id as keyof typeof GENERATED_BUILTIN_TEMPLATE_LOADERS)?.preload();
+  return getBuiltinSceneRenderer(id)?.preload();
 }

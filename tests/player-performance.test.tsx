@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
-import { createElement, lazy } from "react";
-import { afterEach, expect, it, vi } from "vitest";
-import { VideoPlayer } from "../src/react";
+import { createElement } from "react";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { VideoPlayer } from "../src/player/video-player";
 import { usePlaybackClock } from "../src/player/use-playback-clock";
 import { createVideoState } from "../src/protocol/state";
-import { createRenderTemplateRegistry, defineTemplate } from "../src/visual-system/catalog/internal";
+import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
+beforeAll(async () => { await preloadBuiltinTemplate("chapterTitle"); });
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 import type { Video } from "../src/index";
 
 const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,
-  scenes: [{ id: "first", templateId: "test", variables: {}, timing: { fixedDuration: 1 } }] };
+  scenes: [{ id: "first", templateId: "chapterTitle", variables: { title: "Actual scene" }, timing: { fixedDuration: 1 } }] };
 function clock() {
   const pending = new Map<number, FrameRequestCallback>();
   let id = 0;
@@ -24,8 +25,7 @@ it("reports a committed scene after a frame, excluding the idle poster", async (
   await import("../src/player/control-visibility");
   const tick = clock();
   const onFramePresented = vi.fn();
-  const templates = createRenderTemplateRegistry({ templates: [defineTemplate({ id: "test", schema: { type: "object", properties: {} }, component: () => createElement("div", null, "Actual scene") })] });
-  const view = render(createElement(VideoPlayer, { video, templates, autoPlay: false, onFramePresented }));
+  const view = render(createElement(VideoPlayer, { video, autoPlay: false, onFramePresented }));
   tick(100);
   expect(onFramePresented).not.toHaveBeenCalled();
   fireEvent.click(view.getByRole("button", { name: /play video/i }));
@@ -65,18 +65,11 @@ it("tracks stream starvation, recovery and pause without counting initial wait o
 });
 
 
-it("waits for a lazy renderer commit and cancels an unpresented frame on unmount", async () => {
+it("cancels an unpresented scene frame on unmount", async () => {
   const tick = clock();
-  let resolveTemplate!: (value: { default: () => ReturnType<typeof createElement> }) => void;
-  const component = lazy(() => new Promise<{ default: () => ReturnType<typeof createElement> }>((resolve) => { resolveTemplate = resolve; }));
-  const templates = createRenderTemplateRegistry({ templates: [defineTemplate({ id: "test", schema: { type: "object", properties: {} }, component })] });
   const onFramePresented = vi.fn();
-  const view = render(createElement(VideoPlayer, { video, templates, controls: false, onFramePresented }));
-  tick(0);
-  expect(view.container.querySelector("[data-template-loading]")).not.toBeNull();
-  expect(onFramePresented).not.toHaveBeenCalled();
-  await act(async () => resolveTemplate({ default: () => createElement("div", null, "Loaded scene") }));
-  expect(view.getByText("Loaded scene")).toBeDefined();
+  const view = render(createElement(VideoPlayer, { video, controls: false, onFramePresented }));
+  expect(view.getByText("Actual scene")).toBeDefined();
   expect(onFramePresented).not.toHaveBeenCalled();
   view.unmount();
   tick(16);
@@ -85,13 +78,12 @@ it("waits for a lazy renderer commit and cancels an unpresented frame on unmount
 
 it("isolates rejected frame observers and reports once for replacement video", async () => {
   const tick = clock();
-  const templates = createRenderTemplateRegistry({ templates: [defineTemplate({ id: "test", schema: { type: "object", properties: {} }, component: () => createElement("div", null, "Scene") })] });
   const onFramePresented = vi.fn(() => Promise.reject(new Error("observer failure")));
-  const view = render(createElement(VideoPlayer, { video, templates, controls: false, onFramePresented }));
+  const view = render(createElement(VideoPlayer, { video, controls: false, onFramePresented }));
   tick(0);
   await act(async () => {});
   expect(onFramePresented).toHaveBeenCalledOnce();
-  view.rerender(createElement(VideoPlayer, { video: { ...video, scenes: [{ ...video.scenes[0], id: "replacement" }] }, templates, controls: false, onFramePresented }));
+  view.rerender(createElement(VideoPlayer, { video: { ...video, scenes: [{ ...video.scenes[0], id: "replacement" }] }, controls: false, onFramePresented }));
   tick(16);
   await act(async () => {});
   expect(onFramePresented).toHaveBeenCalledTimes(2);
