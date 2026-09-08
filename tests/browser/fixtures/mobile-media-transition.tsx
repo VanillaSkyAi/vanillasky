@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import type { Video } from "../../../src/internal";
+import type { Video } from "../../../src/protocol/types";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 import waterfallVideo from "./media-transition/waterfall.mp4?url";

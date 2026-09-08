@@ -1,8 +1,8 @@
 # Test video chat without a model
 
-Use deterministic callbacks for your route and the React-free
-`src/test.ts` helpers for protocol cases. These tests need no keys,
-provider SDKs, or real model requests.
+Use deterministic callbacks for the application route and import the actual
+protocol modules in focused tests. These tests need no keys, provider SDKs,
+or real model requests.
 
 ## Test the default route
 
@@ -48,33 +48,20 @@ Also test authorization and capability discovery. In the browser, submit through
 the visible composer and verify a completed answer and recovery. Do not couple
 application tests to private hook state or exact prompt wording.
 
-## Protocol fixtures
+## Protocol and playback tests
 
-```ts
-import { expect, it } from "vitest";
-import { simulateVideoStream, videoFixtures } from "../src/test";
+Protocol tests exercise the real modules in `src/protocol/` and
+`src/server/compose-video.ts`. Keep provider output beside the regression it
+explains instead of maintaining a separate mock SDK.
 
-it("keeps a truncated result playable", async () => {
-  const events = [];
-  for await (const event of simulateVideoStream(videoFixtures.scenarios.truncated)) {
-    events.push(event);
-  }
-  expect(events.at(-1)).toMatchObject({
-    type: "response.complete", data: { finishReason: "length" },
-  });
-});
-```
+The browser scenarios in `tests/browser/` use recorded media and the local
+callbacks in `tests/support/chat/`. Those fixtures are test-only and never appear
+in the runnable application. They verify decoding, narration, cancellation,
+media recovery and complete endings without provider calls.
 
-The portrait and landscape fixtures contain frozen `{ input, parts }`.
-Helpers clone inputs for each run. `createMockVideoPlanner({ scenario })`
-provides success, delayed, truncated, invalidScene, providerFailure,
-contentFilter, abort, and timeout scenarios for structural protocol tests.
-Those structural parts are not the default chat model's answer-brief format.
-
-`simulateVideoStream(parts, { signal, timeoutMs })` handles abort and timeout
-without a server. Delays use ordinary timers and work with Vitest fake timers.
-Test cancellation at your route boundary too: every provider must honor the
-request signal.
+Test cancellation at the route boundary too: every provider must honor the
+request signal. Existing core and resilience tests cover partial results,
+invalid scenes and interrupted streams.
 
 Keep fast tests focused on behavior. Run the fresh application setup check when
 installation changes and browser media tests when playback changes.

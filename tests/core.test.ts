@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 describe("video response core", () => {
   it("carries optional global visual direction into the deterministic video style", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "A calm customer update.",
       style: {
@@ -32,7 +32,7 @@ describe("video response core", () => {
   });
 
   it("provides typed planner-part helpers distinct from emitted events", async () => {
-    const { addScene, completePlan } = await import("../src/internal");
+    const { addScene, completePlan } = await import("../src/protocol/types");
     const scene = { id: "result", templateId: "bigNumber", variables: { value: 42 }, timing: { fixedDuration: 4 } };
 
     expect(addScene(scene)).toEqual({ type: "scene.add", scene });
@@ -41,7 +41,7 @@ describe("video response core", () => {
   });
 
   it("parses a planner-only closer placement without persisting it into the scene", async () => {
-    const { parseVideoPlanPart } = await import("../src/internal");
+    const { parseVideoPlanPart } = await import("../src/protocol/validation");
     const part = parseVideoPlanPart({
       type: "scene.add",
       placement: "closer",
@@ -63,7 +63,7 @@ describe("video response core", () => {
   });
 
   it("keeps raw input and supplied-media URLs out of snapshots unless bounded fields are explicitly retained", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const generate = async function* () {
       yield {
         type: "scene.add" as const,
@@ -111,20 +111,17 @@ describe("video response core", () => {
       .toBe(true);
   });
 
-  it("keeps supplied media addresses out of model prompts and resolves opaque references before validation", async () => {
-    const { createVideo } = await import("../src/internal");
+  it("resolves supplied-media opaque references before validation", async () => {
+    const { createVideo } = await import("../src/server/compose-video");
     const privateUrl = "data:image/png;base64,private-customer-bytes";
-    let observedPrompt = "";
     let validatedUrl = "";
     const response = createVideo({
       input: "Show the supplied product image.",
       suppliedMedia: [{ id: "product-shot", type: "image", url: privateUrl, role: "product" }],
     }, {
       validateScene: (scene) => { validatedUrl = String(scene.variables.mediaUrl); },
-      generate: async function* (context) {
-        observedPrompt = context.userPrompt;
-        const reference = context.userPrompt.match(/https:\/\/vanillasky\.invalid\/supplied\/[a-z0-9-]+/i)?.[0];
-        if (!reference) throw new Error("missing opaque supplied-media reference");
+      generate: async function* () {
+        const reference = "https://vanillasky.invalid/supplied/media-1";
         yield {
           type: "scene.add" as const,
           scene: {
@@ -140,14 +137,12 @@ describe("video response core", () => {
 
     for await (const _event of response.stream) { /* consume */ }
     const state = await response.result;
-    expect(observedPrompt).not.toContain(privateUrl);
-    expect(observedPrompt).not.toContain("private-customer-bytes");
     expect(validatedUrl).toBe(privateUrl);
     expect(state.config?.scenes.find(({ id }) => id === "media")?.variables.mediaUrl).toBe(privateUrl);
   });
 
   it("recovers content held for a closer when the planner emits no closer", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Two grounded points.", maxDurationSec: 10 }, {
       capabilities: { templates: ["body", "close"] },
       getTemplatePacing: (id) => id === "close"
@@ -183,7 +178,7 @@ describe("video response core", () => {
   });
 
   it("preserves planner order while recovering multiple scenes held for a missing closer", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const durations: Record<string, number> = {
       "body-1": 7,
       "body-2": 4,
@@ -214,7 +209,7 @@ describe("video response core", () => {
   });
 
   it("treats supplied media as an optional approved pool", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const privateUrl = "https://private.example/customer-proof.png";
     const response = createVideo({
       input: "Grounded update.",
@@ -236,7 +231,7 @@ describe("video response core", () => {
   });
 
   it("caps the emitted timeline at maxDurationSec", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "A concise update.",
       maxDurationSec: 10,
@@ -263,7 +258,7 @@ describe("video response core", () => {
   });
 
   it("buffers an early ask while later body scenes continue and appends it last", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Two points and a grounded next action.", maxDurationSec: 12 }, {
       capabilities: { templates: ["body", "close"] },
       getTemplatePacing: (id) => id === "close"
@@ -286,7 +281,7 @@ describe("video response core", () => {
   });
 
   it("completes the partial response with length when the next scene starts at the ceiling", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Update",
       maxDurationSec: 8,
@@ -335,7 +330,7 @@ describe("video response core", () => {
   });
 
   it("keeps the fallback opening in the error snapshot when no generated scene can fit", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Grounded but too long", maxDurationSec: 5 }, {
       getTemplatePacing: (id) => id === "body"
         ? { minDuration: 6, preferredDuration: 6 }
@@ -371,7 +366,7 @@ describe("video response core", () => {
   });
 
   it("fails instead of completing an empty video when the host disables the opening", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "A grounded answer is required.",
       opening: false,
@@ -392,7 +387,7 @@ describe("video response core", () => {
   });
 
   it("allocates or omits content-heavy scenes deterministically through the protocol", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const cases = [
       {
         id: "headline",
@@ -477,16 +472,8 @@ describe("video response core", () => {
   });
 
   it("streams a complete provider-neutral response without a hosted service", async () => {
-    let sdk: typeof import("../src/internal") | undefined;
-    try {
-      sdk = await import("../src/internal");
-    } catch {
-      // The assertion below is the expected red phase before the core exists.
-    }
-    expect(sdk, "the standalone core entry point should exist").toBeDefined();
-    if (!sdk) return;
-
-    const response = sdk.createVideo(
+    const { createVideo } = await import("../src/server/compose-video");
+    const response = createVideo(
       {
         input: "Activation increased from 41% to 58%.",
         opening: "Your activation update is ready.",
@@ -530,7 +517,7 @@ describe("video response core", () => {
   });
 
   it("keeps the runtime-owned opening outside planner template selection", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Activation update",
       opening: "Your video is getting ready.",
@@ -548,7 +535,7 @@ describe("video response core", () => {
   });
 
   it("validates the deterministic opening before streaming starts", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const validateScene = vi.fn(() => { throw new Error("opening schema rejected"); });
 
     expect(() => createVideo({
@@ -570,7 +557,7 @@ describe("video response core", () => {
   });
 
   it("validates a generated scene before emitting it", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Grounded facts" }, {
       validateScene: (scene) => {
         if (scene.id === "invalid") throw new Error("scene rejected");
@@ -600,7 +587,7 @@ describe("video response core", () => {
   });
 
   it("errors when truncation lands no generated scenes beyond the opening", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Grounded facts",
       opening: "Opening",
@@ -617,7 +604,7 @@ describe("video response core", () => {
   });
 
   it("keeps a truncated response playable when a generated scene landed", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Grounded facts",
       opening: "Opening",
@@ -656,7 +643,7 @@ describe("video response core", () => {
   });
 
   it("rejects a generated template outside negotiated capabilities", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Grounded facts" }, {
       capabilities: { templates: ["notification"] },
       generate: async function* () {

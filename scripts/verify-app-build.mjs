@@ -19,5 +19,13 @@ function digestDirectory(directory) {
   return records;
 }
 const files = [...digestDirectory("dist"), ...digestDirectory(".generated/functions-build")];
-writeFileSync(".generated/app-artifact.json", JSON.stringify({ ...built, files }, null, 2) + "\n");
-console.log(`Verified app build ${built.commit}; recorded ${files.length} output files`);
+const artifactPath = ".generated/app-artifact.json";
+const artifact = { ...built, files };
+if (process.argv.includes("--check")) {
+  if (JSON.stringify(JSON.parse(readFileSync(artifactPath, "utf8"))) !== JSON.stringify(artifact)) {
+    throw new Error("Downloaded application differs from the verified CI artifact");
+  }
+} else {
+  writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + "\n");
+}
+console.log(`Verified app build ${built.commit}; ${files.length} output files`);

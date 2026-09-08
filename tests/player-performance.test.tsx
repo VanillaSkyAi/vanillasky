@@ -8,7 +8,7 @@ import { createVideoState } from "../src/protocol/state";
 import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 beforeAll(async () => { await preloadBuiltinTemplate("chapterTitle"); });
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
-import type { Video } from "../src/index";
+import type { Video } from "../src/protocol/types";
 
 const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,
   scenes: [{ id: "first", templateId: "chapterTitle", variables: { title: "Actual scene" }, timing: { fixedDuration: 1 } }] };

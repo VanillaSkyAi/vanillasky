@@ -172,7 +172,6 @@ export function createVideoRequest(
 export interface VideoGenerationContext {
   request: VideoRequest;
   systemPrompt: string;
-  userPrompt: string;
   /** Opening, audio, and brand state already emitted by the protocol runtime. */
   initialConfig: Video;
   signal: AbortSignal;

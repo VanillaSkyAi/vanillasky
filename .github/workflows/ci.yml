@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -47,7 +46,7 @@ jobs:
             .generated/functions-build/
             .generated/app-artifact.json
           include-hidden-files: true
-          retention-days: 3
+          retention-days: 30
 
   app-browser:
     runs-on: ubuntu-latest
@@ -129,17 +128,6 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           node -e 'const jobs = JSON.parse(process.env.RESULTS); for (const [name, job] of Object.entries(jobs)) { if (job.result !== "success") throw new Error(`${name}: ${job.result}`); }'
-
-  # Preserve existing protection while maintainers switch to application-checks.
-  browser-compatibility:
-    if: always()
-    needs: [browser-gate, app-browser]
-    runs-on: ubuntu-latest
-    steps:
-      - run: test "$ENGINE" = success && test "$APP" = success
-        env:
-          ENGINE: ${{ needs.browser-gate.result }}
-          APP: ${{ needs.app-browser.result }}
 
   node-compatibility:
     strategy:

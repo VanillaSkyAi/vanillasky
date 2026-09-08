@@ -53,11 +53,11 @@ voice/language finishes inside its clip.
 | Footage and chapter rendering | `src/visual-system/scene-templates/` |
 | Application API and admission | `functions/api/video-chat.mjs` |
 | Live provider implementation and quotas | `functions/_video-chat/` |
-| Internal module boundaries | `src/index.ts`, `src/server.ts`, `src/react.ts` |
+| Browser and server entry points | `src/react.ts`, `src/server.ts` |
 | Scoped UI styles and fonts | `styles/` |
 
-The root and test entry points are React-free. Server imports must not pull in
-React; browser entries must not pull in Node or provider libraries.
+Server imports must not pull in React; browser entries must not pull in Node
+or provider libraries. Tests import the modules they exercise directly.
 Keep import-isolation tests for those boundaries as the application evolves.
 
 ## Prompts and ownership
@@ -91,4 +91,4 @@ early. This repository supplies a runnable application with best-effort support;
 your configured providers determine generation availability and latency.
 
 See [development](development.md) for the fast edit loop and
-[testing](testing.md) for deterministic test helpers.
+[testing](testing.md) for behavioral tests and recorded-media fixtures.

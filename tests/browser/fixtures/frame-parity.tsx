@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { createVideo, type Video } from "../../../src/internal";
+import { createVideo } from "../../../src/server/compose-video";
+import { type Video } from "../../../src/protocol/types";
 import { VideoFrame } from "../../../src/player/video-frame";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { TEST_VIDEO_STYLE as style } from "../../semantic-brand-fixture";

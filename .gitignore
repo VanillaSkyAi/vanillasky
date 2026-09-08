@@ -1,8 +1,5 @@
 node_modules
 dist/
-examples/*/node_modules
-examples/*/dist/
-examples/*/.next/
 coverage/
 artifacts/
 playwright-report/
@@ -22,5 +19,3 @@ test-results/
 .dev.vars.*
 !.dev.vars.example
 functions/build-identity.json
-
-wrangler.deploy.json

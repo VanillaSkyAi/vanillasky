@@ -3,8 +3,10 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VideoValidationError, type Video } from "../src/index";
-import { createVideo, createVideoEventFactory } from "../src/internal";
+import { VideoValidationError } from "../src/protocol/persistence";
+import { type Video } from "../src/protocol/types";
+import { createVideo } from "../src/server/compose-video";
+import { createVideoEventFactory } from "../src/protocol/events";
 import { SCENE_DEFINITIONS } from "../src/visual-system/catalog/builtin-metadata";
 import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";

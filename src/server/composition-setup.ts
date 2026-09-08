@@ -1,6 +1,5 @@
 import { createVideoRequest, type CreateVideoOptions, type VideoInput } from "../protocol/types.js";
 import { getCloserReserve } from "../protocol/pacing.js";
-import { buildVideoUserPrompt } from "./prompts/user-prompt.js";
 import {
   buildInitialComposition,
   normalizeVideoInput,
@@ -57,10 +56,6 @@ export function prepareComposition(
     request,
     initial,
     initialConfig,
-    userPrompt: buildVideoUserPrompt(
-      input,
-      initialConfig.scenes.at(-1)?.timing.endTime ?? 0,
-    ),
     closerReserveSec,
   };
 }

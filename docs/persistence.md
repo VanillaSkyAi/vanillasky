@@ -20,7 +20,8 @@ Treat values loaded from a database, object store, API, or file as `unknown`.
 Parse them before using them in application code:
 
 ```tsx
-import { getVideoDuration, parseVideo } from "../src/index";
+import { getVideoDuration } from "../src/protocol/timeline";
+import { parseVideo } from "../src/protocol/persistence";
 import { VideoPlayer } from "../src/react";
 
 export function SavedVideo({ storedJson }: { storedJson: string }) {

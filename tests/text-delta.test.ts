@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTextDeltaVideoPlanner } from "../src/internal";
+import { createTextDeltaVideoPlanner } from "../src/server/model/text-stream";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 
 const context = {

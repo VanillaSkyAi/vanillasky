@@ -8,14 +8,13 @@ import {
   type VideoStyleOptions,
 } from "../protocol/types.js";
 import type { VideoStreamHandlerOptions } from "./video-stream-handler.js";
-import type { TextDeltaVideoPlannerOptions } from "./model/text-stream.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from "./lifecycle.js";
 import { withDeadline } from "../video-chat/deadline.js";
 import { sanitizeVideoChatMedia } from "../video-chat/media.js";
 import { createVideoStreamHandler } from "./video-stream-handler.js";
 import { parseVideoRequest } from "./request-validation.js";
-import { createChatShotPlanner, type ShotPreparation } from "./chat-shot-planner.js";
+import { createChatShotPlanner, type ChatPlannerText, type ShotPreparation } from "./chat-shot-planner.js";
 import { clipNarrationBudget } from "../protocol/clip-budget.js";
 import { validateBuiltinScene } from "./scene-validation.js";
 import {
@@ -138,7 +137,7 @@ export interface VideoChatHandlerOptions extends Pick<
     signal: AbortSignal;
   }) => string | Promise<string>;
   /** Application-owned text stream; accepts a native async iterable or an AI SDK-shaped result. */
-  streamText: TextDeltaVideoPlannerOptions["streamText"];
+  streamText: ChatPlannerText;
   /** Opt in to bounded provider metadata in the server-only completion callback. */
   includeRawProviderData?: boolean;
   /** Concurrent media jobs, bounded to 1–5. Results play in narrative order. */

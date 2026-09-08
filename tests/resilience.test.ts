@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  createVideo,
-  createVideoRequest,
-  decodeVideoSse,
-} from "../src/internal";
+import { createVideo } from "../src/server/compose-video";
+import { createVideoRequest } from "../src/protocol/types";
+import { decodeVideoSse } from "../src/protocol/sse";
 import { createVideoStreamHandler } from "../src/server/video-stream-handler";
 
 const validScene = (id: string) => ({
@@ -195,6 +193,35 @@ describe("remote consumption and credentials", () => {
 });
 
 describe("local consumption lifecycle", () => {
+
+  it.each([
+    ["cancelled in test", "cancelled in test"],
+    [new DOMException("private timeout detail", "TimeoutError"), "Request timed out"],
+  ])("keeps generated scenes in the partial snapshot after interruption (%s)", async (reason, publicReason) => {
+    const controller = new AbortController();
+    const run = createVideo({ input: "Grounded partial answer" }, {
+      signal: controller.signal,
+      generate: async function* ({ signal }) {
+        yield validScene("partial");
+        if (!signal.aborted) {
+          await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+        }
+      },
+    });
+    const events = [];
+    for await (const event of run.stream) {
+      events.push(event);
+      if (event.type === "scene.add" && event.data.scene.id === "partial") controller.abort(reason);
+    }
+    expect(events.at(-1)).toMatchObject({
+      type: "response.abort",
+      data: {
+        reason: publicReason,
+        snapshot: { scenes: expect.arrayContaining([expect.objectContaining({ id: "partial" })]) },
+      },
+    });
+    expect(JSON.stringify(events)).not.toContain("private timeout detail");
+  });
 
   it("resolves terminal protocol errors and aborts without a stream consumer", async () => {
     const failed = createVideo({ input: "facts" }, {
