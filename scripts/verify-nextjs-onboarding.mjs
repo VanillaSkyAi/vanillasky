@@ -759,9 +759,9 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
     await page.getByRole("status").waitFor({ timeout: 15_000 });
     const errorEvent = await waitForJsonEvent(development.output, "video.error");
     publicLifecycleEvidence.push(errorEvent);
-    await waitForResponseBodies(responseBodies, 3);
-    if (generationPostCount !== postsBeforeReload + 2) {
-      throw new Error(`${provider} forced failure and its bounded pre-playback retry issued ${generationPostCount - postsBeforeReload} generation POST(s)`);
+    await waitForResponseBodies(responseBodies, 2);
+    if (generationPostCount !== postsBeforeReload + 1) {
+      throw new Error(`${provider} forced cinematic failure issued ${generationPostCount - postsBeforeReload} generation POST(s), expected one without automatic resubmission`);
     }
     const failedDom = await page.locator("body").innerText();
     assertBrowserSafe(provider, {
@@ -798,7 +798,7 @@ async function verifyProvider({ provider, tarball, packed, browser }) {
     configuredModel: expectation.configuredModel,
     resolvedModel: expectation.resolvedModel,
     providerSelection: "verified server-side and absent from browser surfaces",
-    forcedFailure: "generation_failed + video.error",
+    forcedFailure: "generation_failed + video.error; no automatic cinematic resubmission",
     playback: "default video chat",
     reload: "returns to welcome without a response request",
     browserBoundary: "SSE + DOM + static bundle",
