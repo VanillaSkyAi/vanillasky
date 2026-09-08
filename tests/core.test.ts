@@ -111,20 +111,17 @@ describe("video response core", () => {
       .toBe(true);
   });
 
-  it("keeps supplied media addresses out of model prompts and resolves opaque references before validation", async () => {
+  it("resolves supplied-media opaque references before validation", async () => {
     const { createVideo } = await import("../src/server/compose-video");
     const privateUrl = "data:image/png;base64,private-customer-bytes";
-    let observedPrompt = "";
     let validatedUrl = "";
     const response = createVideo({
       input: "Show the supplied product image.",
       suppliedMedia: [{ id: "product-shot", type: "image", url: privateUrl, role: "product" }],
     }, {
       validateScene: (scene) => { validatedUrl = String(scene.variables.mediaUrl); },
-      generate: async function* (context) {
-        observedPrompt = context.userPrompt;
-        const reference = context.userPrompt.match(/https:\/\/vanillasky\.invalid\/supplied\/[a-z0-9-]+/i)?.[0];
-        if (!reference) throw new Error("missing opaque supplied-media reference");
+      generate: async function* () {
+        const reference = "https://vanillasky.invalid/supplied/media-1";
         yield {
           type: "scene.add" as const,
           scene: {
@@ -140,8 +137,6 @@ describe("video response core", () => {
 
     for await (const _event of response.stream) { /* consume */ }
     const state = await response.result;
-    expect(observedPrompt).not.toContain(privateUrl);
-    expect(observedPrompt).not.toContain("private-customer-bytes");
     expect(validatedUrl).toBe(privateUrl);
     expect(state.config?.scenes.find(({ id }) => id === "media")?.variables.mediaUrl).toBe(privateUrl);
   });

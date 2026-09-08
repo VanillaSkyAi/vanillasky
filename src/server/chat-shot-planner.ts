@@ -7,6 +7,12 @@ import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
 
+export interface ChatPlannerTextContext extends VideoGenerationContext {
+  userPrompt: string;
+}
+
+export type ChatPlannerText = (context: ChatPlannerTextContext) => ReturnType<TextDeltaVideoPlannerOptions["streamText"]>;
+
 export interface ShotPreparation {
   sceneId: string;
   narration: string;
@@ -135,7 +141,8 @@ function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamTe
 }
 
 /** Chat-only creative grammar. Generic structured composition keeps its own protocol. */
-export function createChatShotPlanner(options: TextDeltaVideoPlannerOptions & ShotResolutionOptions & {
+export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions, "streamText"> & ShotResolutionOptions & {
+  streamText: ChatPlannerText;
   openingLine?: string;
   publishOpening: (opening: { line: string; keyword: string } | undefined) => void;
   generatedClipDurationSec?: number;

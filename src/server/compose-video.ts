@@ -13,7 +13,7 @@ import {
 import { parseVideo } from "../protocol/persistence.js";
 import { parseVideoPlanPart } from "../protocol/validation.js";
 import { createReplayableStream } from "../replayable-stream.js";
-import { resolveSuppliedMediaPlanPart } from "./prompts/user-prompt.js";
+import { resolveSuppliedMediaPlanPart } from "./supplied-media.js";
 import { safePublicDiagnostic } from "../protocol/warnings.js";
 import type { VideoGenerationSummary } from "./lifecycle.js";
 import { attachGenerationLifecycleSink } from "./lifecycle.js";
@@ -47,7 +47,6 @@ export function createVideo(
     request,
     initial,
     initialConfig,
-    userPrompt,
     closerReserveSec,
   } = prepareComposition(rawInput, options, requestId);
   const events = createVideoEventFactory({ runId });
@@ -141,7 +140,7 @@ export function createVideo(
 
       // Response policy belongs to the chat planner. Deterministic test runs need no prompt.
       const systemPrompt = options.systemPrompt ?? "";
-      const context = { request, systemPrompt, userPrompt, initialConfig, signal: controller.signal };
+      const context = { request, systemPrompt, initialConfig, signal: controller.signal };
       attachGenerationLifecycleSink(context, lifecycle);
       for await (const untrustedPart of options.generate(context)) {
         let attemptedScene = false;
