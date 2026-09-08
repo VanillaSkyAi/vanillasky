@@ -25,10 +25,10 @@ On a branch off current `main`:
    and fails if it is missing or empty.
 2. Set the version in `package.json`, then run `npm install --package-lock-only`
    to match `package-lock.json`.
-3. Update the exact `@vanillaskyai/video` dependency in each executable
-   `examples/*/package.json`, `starters/video-chat/package.json`, and
-   `tests/fixtures/nextjs-provider-app/package.json`. Tests and
-   the release builder assert these pins, so the reviewed consumers and packed artifact cannot drift apart. Public
+3. Update the exact `@vanillaskyai/video` dependency in
+   `starters/video-chat/package.json`. The release builder asserts that pin.
+   Clean-room consumer verifiers inject the identified candidate tarball; their
+   fixture manifests deliberately carry no SDK version placeholder. Public
    human and agent guides intentionally keep an unversioned install command and
    package-relative example links; do not rewrite onboarding copy for a release.
 
