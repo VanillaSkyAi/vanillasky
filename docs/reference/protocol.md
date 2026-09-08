@@ -92,7 +92,7 @@ A resume request repeats the public input and includes:
 It also sends `Last-Event-ID: run-123:7`. The server validates that both cursors
 match, then calls customer-owned replay storage. Replay begins at sequence `8`
 and remains subject to normal run, order, validation, and terminal rules. The
-SDK does not prescribe or operate a persistence service.
+chat runtime does not operate a persistence service.
 
 Validate adapter output and persisted replay logs against this protocol before
 accepting them. A replay log must preserve ordering, checksums, and a terminal

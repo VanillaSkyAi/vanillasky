@@ -4,6 +4,14 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Consolidate the website and chat engine into one runnable application with
+  one local development command and the website's provider defaults.
+- Require real AI planning; use configured Pexels without generated video and
+  browser speech without generated voice. Remove demo conversation paths.
+- Retire the generated starter and separate npm publication surface. Existing
+  published versions remain available; new development uses this application.
+
+
 ## 0.11.3
 
 - Select generated visual treatment by what helps communicate the answer. Missing or invalid planned styles now default to realistic for every intent; valid planned styles and explicit caller looks remain respected.

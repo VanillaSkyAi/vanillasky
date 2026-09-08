@@ -1,5 +1,5 @@
 import { createVideoRequest, type CreateVideoOptions, type VideoInput } from "../protocol/types.js";
-import { getCloserReserve } from "./pacing.js";
+import { getCloserReserve } from "../protocol/pacing.js";
 import { buildVideoUserPrompt } from "./prompts/user-prompt.js";
 import {
   buildInitialComposition,

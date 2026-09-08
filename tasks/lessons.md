@@ -9,14 +9,8 @@
   judge relevance, pacing and endings. Do not repeat broad suites without a
   changed candidate or a specific unresolved question.
 
-- A patch release updates the root package and lockfile plus the exact SDK pins
-  in `starters/video-chat/package.json` and
-  `tests/fixtures/nextjs-provider-app/package.json`. Run the unit release checks
-  after the bump before starting the full consumer/browser CI matrix; focused
-  playback tests do not check these version contracts.
-
-  Watched source changes trigger Vite HMR and invalidate an ongoing playback
-  trace; keep the candidate unchanged until the browser run finishes.
+- Watched source changes and HEAD changes invalidate an ongoing playback trace;
+  keep the candidate unchanged until browser verification finishes.
 
 - Cached media may load while a Suspense tree is detached. First-frame observation
   must start when the element mounts; a loadeddata handler alone cannot establish
@@ -24,7 +18,7 @@
   with actual presented frames, then a frozen decoder and the unchanged recovery bound.
 
 - When a runtime DOM contract changes, audit verification scripts as well as
-  tests: exact packed-consumer playback assertions also live under scripts/.
+  tests: application playback assertions also live under scripts/.
   Replace obsolete architecture assertions with the intended behavior and retain
   real-frame, identity, lifecycle and bounded-resource coverage.
 
@@ -54,3 +48,8 @@
   rewind the decoder. A small automatic seek can stall WebKit even with fully
   fitted prerecorded speech. Inspect retained frames and clock telemetry before
   calling a retrying browser failure a flaky assertion.
+
+- Every user conversation must use real AI planning. Missing keys must produce
+  explicit setup guidance, never canned onboarding or demo responses. Configure
+  Pexels when generated video is unavailable and browser speech when generated
+  voice is unavailable; keep deterministic responses only in automated tests.

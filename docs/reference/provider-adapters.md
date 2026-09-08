@@ -1,134 +1,65 @@
-# Secure LLM provider adapters
+# Provider callback reference
 
-This page covers the planner boundary. For Pexels and other visual providers,
-read [Media and voice](../media-and-audio.md).
+The application implements these callbacks in `functions/_video-chat/` and passes
+them to `createVideoChatHandler` in `src/server/`. These are internal boundaries
+for customization, not separately versioned package exports.
 
-VanillaSky deliberately does not depend on a model provider or AI framework.
-Your server owns the model and credentials; `createVideoChatHandler` accepts
-`streamText` and `generateText` callbacks. One optional adapter is the [AI SDK](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text),
-which gives the application one `LanguageModel` interface across official,
-community, AI Gateway, OpenAI-compatible, and custom providers.
+## Planning
 
-## Optional: AI SDK
+`streamText({ systemPrompt, userPrompt, signal })` returns an
+`AsyncIterable<string>` or `{ textStream, ...completionMetadata }`. Native REST
+streams and AI SDK-shaped results both work. The application uses Anthropic
+Haiku 4.5 through its existing provider module; no alternate starter is needed.
 
-Install the AI SDK plus the provider package your application chooses:
+The stream contains NDJSON answer and shot records. Arbitrary text chunks are
+buffered until a complete record can be parsed and validated. Preserve this
+incremental path so the first scenes can prepare before the whole answer exists.
 
-```bash
-npm install ai @ai-sdk/anthropic
-```
+`generateText` returns a string for bounded helper tasks. Honor its
+`maxOutputTokens` and `signal` in addition to both prompt strings. Model names,
+usage and finish metadata stay server-side through completion observers.
+Provider-native metadata requires explicit opt-in and never enters the stream
+sent to the browser. Do not log prompts or provider deltas.
 
-```ts
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, streamText } from "ai";
-import { createVideoChatHandler } from "@vanillaskyai/video/server";
+## Generated video
 
-const modelId = process.env.ANTHROPIC_MODEL;
-if (!modelId) throw new Error("Set ANTHROPIC_MODEL in the server environment");
+`maxGeneratedVideos` is an application-owned per-response attempt budget,
+including failures. Zero skips generation. The planner is guided by the budget,
+but recovery retains authored speech if it exceeds it. Stock mode never consumes
+that allowance. Never copy an untrusted request value into this option.
 
-export const POST = createVideoChatHandler({
-  authorize: verifySession,
-  generateText: async ({ systemPrompt, userPrompt, signal }) => {
-    const result = await generateText({
-      model: anthropic(modelId),
-      system: systemPrompt,
-      prompt: userPrompt,
-      abortSignal: signal,
-    });
-    return result.text;
-  },
-  streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
-    model: anthropic(modelId),
-    system: systemPrompt,
-    prompt: userPrompt,
-    abortSignal: signal,
-  }),
-});
-```
+`generateVideo` receives `requestedDurationSec`, `shotDirection`, orientation,
+`generatedLook`, absolute epoch-millisecond `deadlineAt`, and `signal`. Return
+approved media with its actual `durationSec` when known. A browser-playable
+fal URL needs no additional storage endpoint.
 
-Return the AI SDK `StreamTextResult` directly. It is structurally compatible
-with VanillaSky's callback: VanillaSky reads `textStream`, finish metadata,
-usage, safe provider warnings, provider metadata, and response/final-step model
-metadata. Usage and model IDs are available only through the server-side
-`onComplete` summary. Provider-native usage and metadata require the explicit
-bounded `includeRawProviderData` opt-in and never enter SSE. The forwarded abort
-signal cancels provider work when the request disconnects or the host timeout
-fires.
+Keep `generatedClipDurationSec`, `mediaConcurrency` and `generateVideoTimeoutMs`
+aligned with the chosen model. Bound `generateVideoTimeoutMs` to 1–600000 ms.
+Its internal default is 15000 ms; the application's provider configuration can
+set a longer bounded deadline. The client timeout is separately bounded and must
+leave enough room for the complete request.
 
-Only the model expression changes:
+Reserve quota before submission. Submit once, retain job identifiers, poll only
+until cancellation or deadline and cancel accepted work best-effort. Never infer
+that a disconnected or timed-out request did not cost money. Retries within a
+provider callback need their own explicit bounds.
 
-- Use any [official AI SDK provider](https://ai-sdk.dev/providers/ai-sdk-providers).
-- Use an [AI Gateway model ID](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway).
-- Use an [OpenAI-compatible provider](https://ai-sdk.dev/providers/openai-compatible-providers).
-- Use a [community or custom provider](https://ai-sdk.dev/providers/community-providers)
-  implementing the Language Model Specification.
+## Stock and speech
 
-The callback runs for every video request, so the application may select a
-different model each time. A product can route routine planning to a cheap,
-fast model and reserve a stronger model for difficult inputs without changing
-VanillaSky or its protocol. The same boundary also accepts a self-hosted model
-or a provider-native async text stream when it is not represented in the AI
-SDK. VanillaSky has no model allowlist.
+`searchMedia` uses a bounded lookup independent of generated-video allowance.
+Return approved browser URLs and duration when known. Selection respects the
+requested footage mode. Clip failure does not authorize switching providers;
+the application has a separate personal-quota policy that can use configured
+Pexels when the public AI-video allowance is exhausted.
 
-The provider must emit NDJSON text matching the supplied prompt: one complete
-object per line. Default chat planning uses an answer brief and shot descriptions;
-the SDK translates them into validated scene events.
-The SDK buffers arbitrary text chunks until a newline, parses the completed
-object, validates it, and only then forwards it to the motion runtime. Do not
-replace that per-line validator with whole-response structured output: motion
-streaming intentionally renders the first scene before the full composition is
-complete.
+`generateSpeech` is optional. The browser can speak when generated voice is not
+configured or becomes unavailable. Preserve complete spoken text, cancellation
+and existing subtitle recovery. `transcribe` is independent of speech output.
 
-## Native or self-hosted providers
+## Existing answers and private context
 
-The same chat contract supports a native provider without an AI SDK dependency.
-`npx @vanillaskyai/video init --native` creates an editable Gemini REST example.
-Return an `AsyncIterable<string>` from `streamText`, or an object with
-`textStream` and optional completion metadata. Implement `generateText` for the
-small welcome, suggestion, fallback narration, and bounded `narration-rewrite`
-tasks and return its text.
-Infer each callback from `VideoChatHandlerOptions` so the adapter stays aligned
-with the public contract.
-
-Forward the supplied signal, preserve both prompt strings, and keep provider
-errors and credentials on the server. Do not automatically resubmit ambiguous
-paid requests. The chat does not expose a durable
-stream-reconnect contract.
-
-## Generated-video budget
-
-Set `maxGeneratedVideos` on `createVideoChatHandler` to a nonnegative safe integer
-(default `5`). This is a per-response generation attempt limit, including
-failures. The default AI planner is instructed to fit a concise, complete answer
-within that many visual beats, including the ending. This is model guidance, not
-a guaranteed shot count: already-authored content is retained if the model
-exceeds the budget. AI mode uses authored chapter recovery after the allowance is reached;
-`0` skips all generated footage. Pexels mode searches stock independently and
-never consumes the generated-video allowance. Retries inside your
-provider callback can incur additional charges; bound those separately. Never
-copy an untrusted request value into this application-owned option.
-
-Use `generateVideoTimeoutMs` for slower providers (integer `1`–`600000`, default
-`15000`). Poll queued jobs only until the supplied signal aborts; submit once,
-record the provider job identifier, and cancel that job best-effort on abort.
-A disconnected browser or timed-out request does not prove the job was free.
-Reserve host-owned quotas before submission and retain uncertain attempts.
-Keep the host request deadline longer than the provider deadline. The default
-client `timeoutMs` is `660000`; an explicit shorter override remains authoritative.
-The SDK does not resume a completed queued job into a finished answer.
-
-The video callback receives `requestedDurationSec`, `shotDirection`, `deadlineAt`
-(epoch milliseconds), and `signal`. Return `durationSec` when known. Keep model,
-duration, resolution, concurrency and timeout together in your editable adapter.
-These longer deadlines accommodate queued providers; they do not make generation
-real-time. The SDK streams ready scenes and prepares upcoming media progressively.
-
-Set `VideoChat`'s `showRecoveryNotice` to opt into a brief dismissible message
-when generated visuals fall back. Use an application-owned interface for custom
-plan labels or controls. Presentation does not enforce spending limits or enable
-provider capabilities; the server remains authoritative.
-
-## Application retrieval
-
-Fetch or search approved context in the application before asking the chat.
-Include only authorized facts in the prompt or conversation and record
-provenance separately. Keep retrieval tools and private URLs server-side.
+Use `resolveAnswer` for an already-completed assistant answer. It is bounded to
+32,000 characters and 30 seconds and becomes the planner's factual source.
+See [provider integration](../provider-integration.md#use-an-existing-assistant).
+Keep retrieval, tools, private URLs and tenant authorization server-side. Include
+only approved facts in the supplied answer and preserve provenance separately.

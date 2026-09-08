@@ -1,0 +1,37 @@
+name: Roll back application
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: Successful Cloudflare production deployment ID to restore
+        required: true
+        type: string
+      confirmation:
+        description: Type ROLLBACK to confirm
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: video-chat-deployment-production
+  cancel-in-progress: false
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ROLLBACK'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+        with:
+          node-version: 22.23.1
+      - name: Restore selected deployment and verify its commit
+        run: node scripts/deployment-cloudflare.mjs rollback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}

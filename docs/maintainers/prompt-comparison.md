@@ -1,3 +1,7 @@
+> Historical evidence from the 0.11.3 prompt change. Commands, package identities
+> and proposed evaluations below describe that release, not the current
+> application setup or release process.
+
 # Compact chat prompt comparison
 
 Status: owner approved release on 2026-09-08 and chose to test live quality

@@ -1,4 +1,4 @@
-import { getReadableSceneDuration } from "../server/pacing.js";
+import { getReadableSceneDuration } from "./pacing.js";
 import type { VideoScene, VideoTemplatePacing } from "./types.js";
 
 /**

@@ -2,7 +2,12 @@
 
 # Security
 
-The SDK validates protocol shape; your application still owns identity, authorization, data policy, and infrastructure controls.
+The chat runtime validates protocol shape; your application still owns identity, authorization, data policy, and infrastructure controls.
+
+Local development's bounded owner reservation path requires both an explicit
+server-owned local flag and a loopback request URL. Public requests retain their
+normal quotas; production owner access requires a verified Access identity.
+Local development does not change provider account limits or production data.
 
 ## Required server controls
 
@@ -22,5 +27,5 @@ Do not log raw source, personalization, authorization headers, provider deltas, 
 
 Treat final configs as customer data. Apply tenant isolation, retention,
 encryption, and deletion policy to snapshots and event logs. Report suspected
-SDK vulnerabilities through the repository's private process in
+application vulnerabilities through the repository's private process in
 [SECURITY.md](../SECURITY.md).

@@ -1,96 +1,68 @@
 # Getting started
 
-This is the canonical quickstart. Create the default chat in an empty directory:
+Use Node 22+ and the npm version recorded in `package.json`.
 
 ```bash
-npx @vanillaskyai/video init
+git clone https://github.com/VanillaSkyAi/video.git
+cd video
+npm ci
+cp .dev.vars.example .dev.vars
 ```
 
-Init creates an editable Vite app, installs its dependencies, and runs doctor.
-The default text adapter uses the optional Vercel AI SDK. Add `ANTHROPIC_API_KEY`
-to the generated, ignored `.env.local`, then:
+Edit `.dev.vars` with your own server-side provider keys:
+
+```dotenv
+ANTHROPIC_API_KEY=your-anthropic-key
+PEXELS_API_KEY=your-pexels-key
+```
+
+This minimum configuration gives real Haiku planning, Pexels footage and browser
+speech. Add `FAL_KEY` for AI-generated video and `XAI_API_KEY` for generated voice.
+Never commit `.dev.vars` or put these keys in frontend environment variables.
 
 ```bash
-npx vanillasky doctor
 npm run dev
 ```
 
-Open the reported localhost URL. Ask a question, let its spoken answer finish,
-then ask a follow-up. Doctor reports key names and readiness, never key values.
-Rerun init if installation was interrupted. It preserves keys and installed
-provider adapters, and refuses conflicting scaffold files rather than replacing
-your code.
+Open [localhost:4200](http://localhost:4200). One command starts the Vite frontend
+and local Cloudflare API, initializes the local D1 database and local quota salt,
+and stops both processes when you exit. Its local database is separate from
+production. With your keys, localhost uses the same bounded allowance as the
+website owner: up to five generated clips per answer, without the public pilot's
+permanent personal limit. Request admission and per-answer spending bounds remain
+active. Restart after changing provider keys.
 
-For the native alternative, start a new directory with
-`npx @vanillaskyai/video init --native` and set `GEMINI_API_KEY` instead.
-Its editable Gemini REST callbacks need no `ai`, `@ai-sdk/anthropic`, or other
-model SDK. You can replace either text adapter with your own implementation.
-Rerunning ordinary init keeps the selected adapter.
+## What happens with missing keys
 
-## Application files
+- Without an Anthropic key, the app explains that planning must be configured.
+- Without fal, footage uses Pexels. Pexels requires its own key.
+- Without either footage provider, the app reports the missing setup.
+- Without xAI, speech uses the browser. If browser speech is unavailable,
+  subtitles remain available.
 
-- `src/main.tsx` mounts `<VideoChat />` and imports the scoped stylesheet.
-- `server.ts` connects one `createVideoChatHandler` to app-owned providers.
-- `providers.ts` holds optional provider wiring.
-- `providers/text.ts` supplies streaming planning and small text tasks.
-- `vite.config.ts` serves the client and `/api/video-chat`.
-- `.env.local` holds server-only keys; never commit it.
+The actual footage mode is visible in the app. With both footage providers,
+you can deliberately select Pexels or generated video. On a public deployment,
+exhausting the personal AI-video allowance can resolve remaining footage to
+configured Pexels. It never selects Pexels without its key. Failed or late AI
+clips use chapter recovery; that failure itself does not trigger stock search.
+All submitted conversations use the real planner. Test doubles exist only in
+automated tests, never as a development or production mode.
 
-The SDK owns the interface, shot planning, streaming, subtitles, voice timing,
-and footage/chapter renderers. It does not copy a template tree into your app.
+## The files you will change
 
-## Add footage and voice
+The app mounts `VideoChat` from the repository's own source. The
+`functions/api/video-chat.mjs` route connects it to provider functions in
+`functions/_video-chat/`. The existing planner, protocol and player live under
+`src/`. [Architecture](architecture.md) maps the request path.
 
-Add `PEXELS_API_KEY` for stock video without another package. For optional
-generated video or speech, run the corresponding setup command:
+The defaults match the website: Haiku 4.5, Pexels, optional fal MiniMax H3 Max
+Turbo at five seconds/768P, and optional xAI Eve. fal returns browser-playable
+URLs directly. You only need your own storage if your retention requirements or
+chosen provider require it.
 
-```bash
-npx vanillasky providers add video fal
-npx vanillasky providers add speech
-npx vanillasky providers add transcription
-npx vanillasky doctor
-```
+Ask a question and a follow-up. Let the whole answer finish, check moving
+footage and complete speech, and try pause/mute. Real provider calls incur
+charges; keyless automated tests establish behavior, not live answer quality.
 
-Choose `fal`, `google`, `runway`, or `custom` after `video`; omitting the name
-selects fal. These install app-owned source, not core vendor dependencies.
-The fal and Runway references use `FAL_KEY` and `RUNWAY_API_KEY`; Google uses
-`GEMINI_API_KEY`. `custom` leaves a callback skeleton for any vendor.
-
-Before enabling generated video, configure `providers/video-delivery.ts` with
-your storage. Its example accepts your `VIDEO_UPLOAD_URL` and
-`VIDEO_STORAGE_TOKEN`; that upload service is not supplied by VanillaSky.
-See [provider integration](provider-integration.md#video-delivery-and-cancellation)
-for the callback contract. Provider credentials alone do not enable the
-starter's generated-video capability.
-
-Speech and transcription are independent upgrades. Speech installs the optional
-xAI/AI SDK adapter and uses `XAI_API_KEY`; Whisper transcription uses `FAL_KEY`
-without selecting fal for video. Doctor inspects the selected configuration
-locally; it never tests a paid generation.
-
-Configure keys locally and restart the server. Generated speech is
-optional; browser speech remains the default. Without usable footage, chapter
-scenes retain the narration and subtitles. See [provider integration](provider-integration.md)
-and [media and voice](media-and-audio.md) for callback and storage responsibilities.
-
-To use an existing assistant rather than ask the planner to answer directly,
-add [`resolveAnswer`](provider-integration.md#use-an-existing-assistant) to
-`server.ts`. The UI does not change.
-
-## Verify the result
-
-Use the real browser with normal motion enabled. Check one complete response
-and a follow-up, pause/mute, visible error recovery, and the console.
-If generated video is ready, verify that the footage actually moves and that
-the final spoken sentence completes. A passing mocked test does not prove
-provider latency or video quality.
-Google/Runway job APIs can take minutes; the SDK cannot turn that wait into
-real-time footage. Narration aims to finish 0.8 seconds before each clip ends;
-if a bounded rewrite cannot fit it, chapter recovery preserves the full speech.
-
-Before exposing the endpoint publicly, add application authentication, request
-limits, media policy, and spending controls. The local starter is not a
-production authorization policy. See [production](production.md) and
-[security](security.md).
-
-[Documentation home](../README.md)
+See [customization](customization.md) before changing the interface and
+[production](production.md) before exposing your deployment publicly.

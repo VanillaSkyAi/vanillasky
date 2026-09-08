@@ -2,7 +2,7 @@
 
 # Media, voice, and audio
 
-VanillaSky keeps provider choice in the application. The SDK defines small
+VanillaSky keeps provider choice in the application. The chat runtime defines small
 server callbacks, advertises only the capabilities you configure, and keeps
 all credentials out of React and the browser bundle.
 
@@ -11,13 +11,15 @@ all credentials out of React and the browser bundle.
 The default chat displays the real chapter template immediately, then prepares
 speech and footage concurrently. Choose `mode: "cinematic"` for AI video or
 `mode: "pexels"` for stock. The UI labels these choices **AI video** and **Pexels**.
-Each mode uses only its selected media provider. A failure, exhausted video
-allowance, or missed deadline becomes an authored chapter with complete narration.
-The chapter retains narration and subtitles for the whole beat.
+Pexels mode never generates video. Failed or late AI clips become authored
+chapters with complete narration and subtitles. Separately, the application can
+use configured Pexels when a public viewer exhausts their personal AI-video
+allowance, including during an answer; unavailable Pexels is never selected.
+Other exhausted generation budgets retain chapter recovery.
 
 ## Pexels search
 
-The starter performs bounded full-catalog Pexels video search with subject
+The application performs bounded full-catalog Pexels video search with subject
 matching, orientation-aware renditions and a bounded cache. Add `PEXELS_API_KEY`
 on the server and choose Pexels in Settings. The default header has no Pexels
 link; the application owns any attribution required by its media provider.
@@ -44,7 +46,7 @@ createVideoChatHandler({
 ```
 
 The planner emits a short semantic keyword, not a URL. The callback returns an
-application-approved image or video URL, and the SDK validates it before it
+application-approved image or video URL, and the chat runtime validates it before it
 reaches a scene. Return `null` when no licensed, safe, relevant asset exists;
 default chat displays an authored chapter while retaining the spoken answer.
 
@@ -59,14 +61,10 @@ explanation (including comparisons), practical instruction, story, comedy, or
 imagination. These shape the content and pacing; they do not change knowledge
 rules or provider allowances.
 
-The same brief selects one of three generated-video treatments:
-
-- **Illustrated:** clear drawn forms, consistent materials and a restrained palette;
-  the default for explanations.
-- **Realistic:** believable lighting, proportions and movement with useful framing;
-  the default for practical instruction.
-- **Cinematic:** deliberate composition, lighting and motivated camera movement;
-  the default for stories, comedy and imagined worlds.
+The same brief can select realistic, illustrated or cinematic treatment.
+Realistic is the fallback when no valid style is selected. Answer intent does
+not force a particular appearance. The planner can use illustrated or cinematic
+footage when the request calls for it.
 
 An explicit style request in the prompt takes priority over the default. The
 planner carries its response-specific subjects, palette and setting in the
@@ -169,7 +167,7 @@ generateSpeech: async ({ text, signal }) => {
 },
 ```
 
-The SDK measures or estimates each line, keeps narration synchronized with the
+The chat runtime measures or estimates each line, keeps narration synchronized with the
 picture, and prevents a new scene from replacing speech that is still playing.
 If generated speech fails, the interface can fall back to browser speech.
 

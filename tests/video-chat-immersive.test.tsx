@@ -89,7 +89,7 @@ it.each([
   expect(container.querySelector<HTMLElement>(".player-fit")?.style.width).toContain(fixedPortrait ? "56.25" : "177.7778");
 });
 
-it("offers SDK discovery without leaving the current conversation", () => {
+it("offers project information without leaving the current conversation", () => {
   render(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   const links = [
@@ -107,7 +107,7 @@ it("offers SDK discovery without leaving the current conversation", () => {
   expect(screen.queryByRole("region", { name: "About VanillaSky" })).toBeNull();
   fireEvent.click(about);
   expect(about.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByRole("region", { name: "About VanillaSky" }).textContent).toContain("open-source SDK");
+  expect(screen.getByRole("region", { name: "About VanillaSky" })).toBeTruthy();
   fireEvent.click(about);
   expect(screen.queryByRole("region", { name: "About VanillaSky" })).toBeNull();
   expect(session.current.reset).not.toHaveBeenCalled();

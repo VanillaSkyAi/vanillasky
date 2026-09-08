@@ -51,15 +51,14 @@ voice/language finishes inside its clip.
 | Media readiness, timeline and narration | `src/player/` |
 | Shared speech/clip budget | `src/protocol/clip-budget.ts` |
 | Footage and chapter rendering | `src/visual-system/scene-templates/` |
-| CLI setup and doctor | `src/cli/` |
-| Application-owned provider examples | `starters/video-chat/` |
-| Local real-chat harness | `dev/chat/` |
-| Public entry points | `src/index.ts`, `src/server.ts`, `src/react.ts`, `src/test.ts` |
-| Scoped UI styles and packaged fonts | `styles/` |
+| Application API and admission | `functions/api/video-chat.mjs` |
+| Live provider implementation and quotas | `functions/_video-chat/` |
+| Internal module boundaries | `src/index.ts`, `src/server.ts`, `src/react.ts` |
+| Scoped UI styles and fonts | `styles/` |
 
 The root and test entry points are React-free. Server imports must not pull in
 React; browser entries must not pull in Node or provider libraries.
-[PUBLIC-API.md](../PUBLIC-API.md) and the packed API checks enforce that boundary.
+Keep import-isolation tests for those boundaries as the application evolves.
 
 ## Prompts and ownership
 
@@ -70,9 +69,9 @@ The model emits structured directions, never React, HTML, or executable code.
 Approved media URLs enter only through server callbacks.
 
 Providers can return an async text iterable directly or an AI SDK-shaped result.
-No particular host, model SDK, database, or storage vendor is required.
-Authentication, spending limits, licensing, and persistent media delivery belong
-to the application.
+The application includes the website's Cloudflare API, Anthropic planner, Pexels,
+fal and xAI adapters. Authentication, spending limits and media policy stay in
+that application boundary; provider modules remain straightforward to replace.
 
 The optional `resolveAnswer({ prompt, conversation, signal })` accepts one
 completed, nonempty string of at most 32,000 characters. It has a fixed,
@@ -84,12 +83,12 @@ The generated-video callback receives `requestedDurationSec`, `shotDirection`
 and an absolute `deadlineAt`, alongside orientation, look and cancellation.
 Its result can report `durationSec`. Model selection, supported duration and
 resolution, concurrency, submission/polling and durable delivery stay in the
-adapter. The SDK does not own provider jobs or a storage service.
+adapter. The chat runtime does not own provider jobs or a storage service.
 
 Progressive scene delivery cannot remove a vendor's generation delay. A
 minutes-long job API remains minutes-long even when the next scene is prepared
-early. Scope is the beta npm SDK, its documented React/browser boundaries and
-best-effort integration support—not a hosted video service or vendor uptime SLA.
+early. This repository supplies a runnable application with best-effort support;
+your configured providers determine generation availability and latency.
 
 See [development](development.md) for the fast edit loop and
-[testing](testing.md) for deterministic public helpers.
+[testing](testing.md) for deterministic test helpers.

@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-Security fixes target the latest published version of `@vanillaskyai/video`.
-Upgrade to the current release before reporting behavior that may already have
-been corrected.
+Security fixes target the current application source. Include the exact Git
+commit and deployment context when reporting a problem. Previously published
+npm versions are historical artifacts, not the current maintenance target.
 
 ## Report a vulnerability
 
@@ -13,7 +13,7 @@ to report a suspected vulnerability. Do not open a public issue, discussion,
 or pull request containing exploit details, credentials, customer data, or an
 unannounced vulnerability.
 
-Include the affected version, impact, reproduction steps, and any suggested
+Include the affected commit, impact, reproduction steps, and any suggested
 mitigation. Maintainers will validate the report and coordinate remediation and
 disclosure when appropriate, without a guaranteed response time.
 

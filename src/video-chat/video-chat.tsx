@@ -55,7 +55,7 @@ export interface VideoChatProps {
     logo?: ReactNode;
     /** HTTP(S) or root-relative destination. Omit to preserve the Home/reset shortcut. */
     homeUrl?: string;
-    /** Keep the SDK's Docs/About/GitHub section in Settings. Defaults to true. */
+    /** Keep the Docs/About/GitHub section in Settings. Defaults to true. */
     showDeveloperLinks?: boolean;
   };
   /** Show a dismissible safe notice when generated visuals fall back. Defaults to false. */
@@ -378,7 +378,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
           <p className="section-label">Build with VanillaSky</p>
           <a href="https://github.com/VanillaSkyAi/video/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Docs<span aria-hidden="true">↗</span></a>
           <button type="button" aria-expanded={aboutOpen} aria-controls={`${instanceId}-about`} onClick={() => setAboutOpen((open) => !open)}>About<span aria-hidden="true">{aboutOpen ? "−" : "+"}</span></button>
-          <div id={`${instanceId}-about`} className="developer-about" role="region" aria-label="About VanillaSky" hidden={!aboutOpen}><p>VanillaSky is an open-source SDK for conversations that answer in video. Developers connect their own AI providers through their application server.</p></div>
+          <div id={`${instanceId}-about`} className="developer-about" role="region" aria-label="About VanillaSky" hidden={!aboutOpen}><p>VanillaSky is an open-source application for conversations that answer in video. Run it with your own AI providers and make it yours.</p></div>
           <a href="https://github.com/VanillaSkyAi/video" target="_blank" rel="noopener noreferrer">GitHub<span aria-hidden="true">↗</span></a>
         </nav>}
       </div>}

@@ -1,174 +1,92 @@
 # Provider integration
 
-Follow [Getting started](getting-started.md) for setup. Keep one `VideoChat`
-client and one `createVideoChatHandler` endpoint. Models, credentials,
-authentication, retrieval, tools, storage and spending belong to the application;
-the SDK owns shot planning, validation, streaming and playback.
+The running app connects one `VideoChat` to `functions/api/video-chat.mjs`.
+Provider code lives in `functions/_video-chat/`; planner, validation and playback
+remain separate internal modules. Start with the existing working configuration
+before changing providers.
 
-The generated `providers/text.ts` is an editable Vercel AI SDK example.
-`init --native` instead installs native Gemini REST callbacks with no `ai` or
-`@ai-sdk/anthropic` dependency. Neither integration is required by the core.
-Any native API, vendor SDK or application service can implement the callbacks.
+## Current providers
+
+- `provider.mjs`: Anthropic Haiku 4.5 for streaming planning and small text tasks.
+- `stock.mjs`: bounded Pexels video search and selection.
+- `fal.mjs`: MiniMax H3 Max Turbo, five-second 768P generated footage.
+- `speech.mjs`: optional xAI Eve speech; the browser speaks when unavailable.
+
+Set server-side keys in ignored `.dev.vars` locally or your deployment secret
+store. The API advertises configured capabilities before a turn. Missing planning
+or footage configuration gives a setup requirement. No generated-video provider
+means configured Pexels; no generated voice means browser speech. Once a footage
+mode is selected, a failed or late clip uses chapter recovery. The application's
+separate quota policy can use configured Pexels when a public viewer exhausts
+their personal generated-video allowance, including during an answer. It never
+selects unavailable Pexels. Stock mode never submits generated-video jobs.
 
 ## Text callbacks
 
-`streamText` receives the SDK's `systemPrompt`, `userPrompt` and `signal`.
-Return an `AsyncIterable<string>` directly, or an AI SDK-shaped object with a
-`textStream`. The stream contains the model's answer brief and shot records,
-not React components or pre-generated MP4 bytes.
+`streamText` receives `systemPrompt`, `userPrompt` and `signal`; return an
+`AsyncIterable<string>` or an object with `textStream`. The planner emits a
+complete answer brief followed by shot records as NDJSON. Keep incremental
+validation: do not buffer the entire answer before announcing ready scenes.
 
-`generateText` handles bounded helper tasks. Honor its `systemPrompt`,
-`userPrompt`, `maxOutputTokens` and `signal`; return a string. If you dispatch by
-`task`, handle `narration`, `narration-rewrite` and `suggestions`. The rewrite
-task is an intentional part of the speech/clip budget, not a second answer.
+`generateText` handles bounded helper tasks. Honor `systemPrompt`, `userPrompt`,
+`maxOutputTokens` and `signal`. Handle `narration`, `narration-rewrite` and
+`suggestions` if dispatching by task. A narration rewrite is at most one short
+attempt to fit an existing spoken beat, not another answer-planning run.
 
-Model IDs, reasoning effort, sampling, prompt caching and provider timeouts
-remain in the adapter. Measure first usable scene and answer quality, not only
-time to first token. Keep credentials and raw provider metadata server-side.
-See the [adapter reference](reference/provider-adapters.md) for lower-level
-text stream and completion fields.
+Keep models, token limits, timeouts and usage accounting together in the provider
+module. Propagate cancellation, preserve both prompts and avoid automatic
+resubmission of ambiguous paid requests. See the
+[callback reference](reference/provider-adapters.md).
 
 ## Use an existing assistant
 
-Add `resolveAnswer` when your application already decides what the assistant
-should say. For example, in your generated `server.ts`:
+The internal handler's optional `resolveAnswer({ prompt, conversation, signal })`
+callback accepts your assistant's completed answer. Add it where the application
+constructs `createVideoChatHandler`. Keep retrieval, tools, tenant authorization
+and answer policy in that callback's implementation.
 
-```ts
-import { createVideoChatHandler } from "@vanillaskyai/video/server";
-import { textProvider } from "./providers/text";
-import { providers } from "./providers";
-import { answerQuestion } from "./assistant";
-import { verifySession } from "./auth";
+Return one completed, nonempty string of at most 32,000 characters after trimming.
+The handler waits at most 30 seconds and forwards cancellation. A failed, empty,
+oversized or timed-out answer returns `answer_unavailable`; it never silently
+substitutes a different answer. The completed answer becomes the planner's sole
+factual source. The planner still uses `streamText` to present it as video.
+Without this callback, the planner answers the prompt and conversation directly.
 
-export const handleVideoChat = createVideoChatHandler({
-  authorize: verifySession,
-  ...textProvider,
-  ...providers,
-  resolveAnswer: ({ prompt, conversation, signal }) =>
-    answerQuestion({ prompt, conversation, signal }),
-});
-```
+## Footage, speech and delivery
 
-`answerQuestion` and `verifySession` above are functions supplied by **your app**.
-Keep tenant lookup, retrieval, tool execution and answer policy there. The
-callback receives the validated prompt, bounded prior conversation and an
-abort signal. It must return one completed, nonempty string of at most 32,000
-characters after trimming—not an event stream, agent object or partial answer.
+The internal `generateVideo`, `searchMedia`, `generateSpeech` and `transcribe`
+callbacks keep provider details out of the player. When changing providers,
+retain admission and quota reservations around every billable call. Local
+development uses the bounded owner reservation path only with the explicit local
+server flag and a loopback request URL. Production still requires verified owner
+identity; public limits remain unchanged.
 
-The SDK waits up to 30 seconds and forwards cancellation. A failed, empty,
-oversized or timed-out answer returns HTTP 502 with `answer_unavailable`;
-request cancellation returns `aborted`. It does not silently replace your
-assistant's failure with a different answer. Provider work that ignores the
-signal may continue, so your assistant adapter must honor it.
+Video callbacks receive the visual query, `requestedDurationSec`, `shotDirection`,
+orientation, `generatedLook`, cancellation `signal` and absolute `deadlineAt`.
+Return browser-safe media such as `{ type: "video", url, durationSec }`. Keep
+model, duration, resolution, concurrency and deadline settings aligned.
 
-The completed answer becomes the planner's sole factual source in input-only
-mode. Planning still uses `streamText` to present that source as video; it is
-not a second retrieval/tool run or a fact-checking guarantee. The video plan
-streams after the answer has completed. Without `resolveAnswer`, the normal
-planner answers from the prompt and conversation directly.
+fal returns a browser-playable URL directly. There is no required upload service.
+If a different provider returns private or short-lived assets, your delivery
+code must supply a browser-safe URL with an appropriate replay lifetime. Storage
+is a customization for that requirement, not part of the default setup.
 
-## Video, speech and transcription
+The planner leaves a 0.8-second visual tail. Five-second clips target six ordinary
+spoken words and one idea. A bounded rewrite can use the full safe speech budget;
+if it fails or still cannot fit, the original speech plays over a chapter without
+submitting a video job. Measured speech and physical clip duration remain
+responsible for playback recovery. See [media and voice](media-and-audio.md).
 
-`generateVideo`, `searchMedia`, `generateSpeech` and `transcribe` are separate
-optional callbacks. Their availability advertises the relevant capabilities;
-changing providers does not require a new React interface.
+Stock footage has its own lookup deadline and no generated-video duration cap.
+Return its duration when known; the player checks the decoded duration too.
+Neither mode requests additional generation simply to extend narration time.
 
-`providers add video fal`, `google` or `runway` copies an app-owned REST reference
-into `providers/video.ts`. `custom` supplies a callback skeleton. These names
-are onboarding examples, not a core allowlist. Keep any other SDK dependency
-inside your application's adapter.
+Submit each paid job once. Preserve its identifier and uncertain quota reservation
+if the response is ambiguous. Cancellation is best effort and does not establish
+that accepted work was free. Return safe errors; never expose provider payloads
+or credentials to the browser.
 
-Setup never overwrites an edited adapter. To switch an existing vendor, edit
-`providers/video.ts` and the app manifest's `vanillasky.videoVendor` deliberately;
-keep duration, timeout, concurrency and delivery settings together. No client
-edit or SDK release is needed. Doctor follows that selected configuration.
-
-The video callback receives the visual query plus `requestedDurationSec`,
-`shotDirection`, orientation, `generatedLook`, `signal`, and an absolute
-epoch-millisecond `deadlineAt`. Return browser-safe media such as
-`{ type: "video", url, durationSec }`; report the actual delivered duration when
-known. Keep `generatedClipDurationSec`, `mediaConcurrency` and
-`generateVideoTimeoutMs` aligned with the adapter's model, supported duration,
-resolution and account limits. A model-name change alone is not always enough.
-
-The planner targets speech ending at least 0.8 seconds before each clip ends.
-First-pass writing leaves additional headroom: a five-second clip targets six
-ordinary words and one distinct idea, while repair can use up to eight words
-when needed for meaning. These are authoring guides, not guarantees from a
-text or voice model; the duration checks remain authoritative.
-Compact numeric measurements get a conservative expansion estimate. Authoring
-and repair request spoken numbers and units so short notation cannot conceal
-long speech; the SDK does not translate or alter the provider's spoken text.
-An oversized beat gets at most one bounded `narration-rewrite` call before
-footage generation. If the rewrite fails or still cannot fit, no video job is
-submitted for that beat: its complete original narration plays over a chapter.
-Rewrites are instructed to preserve facts and qualifications; applications
-should still evaluate meaning and timing with their actual models and voices.
-Measured speech can overrun the estimate. A small measured overrun may repeat
-healthy footage once until speech finishes; other overruns recover to a chapter
-without cutting off the sentence. See the [playback bounds](media-and-audio.md#timing-and-recovery).
-Requested duration constrains
-the paid submission; a valid returned duration describes the footage actually
-available for playback. The mounted decoder also checks its physical duration.
-Without reported duration, generated footage keeps its requested budget.
-
-Stock search has its own bounded lookup deadline and no generated-video duration
-cap. Return `durationSec` when known: the SDK selects footage first, then checks
-the spoken beat against that duration. Unknown stock duration is checked by the
-mounted decoder, not replaced with an unrelated video vendor's clip setting.
-Neither path submits another video job to make narration fit.
-
-`onDiagnostic` includes a `narration-rewrite` phase with elapsed work time, clip
-budget and a fixed `rewritten`, `empty`, `oversized`, `timeout`, `provider-error`
-or `cancelled` reason. It never includes the original or rewritten text. Keep
-normal rewrite latency within its 2.5-second bound; shortening the first-pass
-plan avoids that additional call in the common path.
-
-Speech setup uses the optional xAI/AI SDK adapter. Transcription setup uses
-Whisper via fal REST independently of the selected video vendor. Stock footage
-uses `searchMedia`; AI-video mode never silently calls stock, and stock mode
-does not spend on generated video.
-
-## Video delivery and cancellation
-
-Direct references require an app-owned delivery callback. The starter's
-`providers/video-delivery.ts` receives downloaded video bytes, job ID, duration
-and signal. Replace it with your storage code, or implement its example upload
-endpoint: `PUT` MP4 bytes to `VIDEO_UPLOAD_URL` with `VIDEO_STORAGE_TOKEN`, then
-return a public HTTPS `{ url }`. VanillaSky does not host that endpoint.
-
-Google video downloads require a private API key. Keep it server-side, strip
-credentials when following off-origin redirects, and never pass the private
-provider URI to the player. Copy temporary vendor outputs into storage with an
-appropriate replay lifetime. Deliver H.264 MP4 with the moov atom first,
-Content-Type/Content-Length, byte ranges and CORS. Access rules, retention and
-deletion remain application responsibilities.
-
-The references submit each paid job once, retain its ID and poll to a deadline.
-Persist the ID through the helper's `onSubmitted` callback if jobs must survive
-server restarts. Never automatically resubmit an ambiguous network failure;
-check the provider dashboard first. Cancellation is best effort for fal and
-Runway. Gemini Veo has no documented cancellation operation: accepted work may
-finish and be billed even after local polling stops. No cancellation promises
-a refund.
-
-Initial policies are fal: 5s/480P, concurrency 3, 120s deadline; Google:
-6s/720p, concurrency 2, 360s; Runway: 5s/720p, concurrency 2, 180s. These are
-editable settings, not measured latency guarantees. Google and Runway may take
-minutes. Early media preparation enables progressive scene playback, not
-real-time streaming from a provider that only returns completed jobs.
-
-## Completion and integration scope
-
-Use `onComplete` for successful server-side completion and usage summaries;
-it does not fire for terminal failure or cancellation. Use safe diagnostics
-and `onError` for failures without exposing raw provider payloads to browsers.
-Stored completed responses can be validated with `parseVideo` and replayed
-without another generation.
-
-This is a beta npm SDK with [best-effort support](../SUPPORT.md), not a hosted
-generation service or a guarantee for every vendor/model combination. Offline
-fixtures establish callback contracts; live model availability, output quality,
-cost and latency require an explicitly budgeted check in your own account.
-See [production](production.md) before exposing the endpoint publicly and
-[customization](customization.md) for branding or application-owned controls.
+Use `onComplete` for successful completion and usage summaries. It does not fire
+for terminal failure or cancellation. Validate saved responses with `parseVideo`
+before replay. Deterministic tests prove callback behavior, not live quality,
+cost or latency.

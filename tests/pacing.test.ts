@@ -5,7 +5,7 @@ import {
   getCloserReserve,
   getReadableSceneDuration,
   paceScene,
-} from "../src/server/pacing";
+} from "../src/protocol/pacing";
 
 function scene(variables: Record<string, unknown>, fixedDuration = 4): VideoScene {
   return { id: "scene", templateId: "template", variables, timing: { fixedDuration } };

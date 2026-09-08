@@ -13,7 +13,7 @@ import {
   type VideoScene,
 } from "../protocol/types.js";
 import type { VideoWarning } from "../protocol/warnings.js";
-import { getReadableSceneDuration, paceScene } from "./pacing.js";
+import { getReadableSceneDuration, paceScene } from "../protocol/pacing.js";
 
 const DEFAULT_OPENING_TEXT = "Creating your video...";
 

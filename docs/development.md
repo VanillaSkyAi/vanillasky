@@ -1,24 +1,32 @@
 # Development
 
-Use Node 22+ and the locked npm version. Run `npm ci` once in your worktree.
+Use Node 22+ and the npm version in `package.json`. Run `npm ci`, copy
+`.dev.vars.example` to ignored `.dev.vars`, and add your provider keys.
 
 ```bash
-npm run dev:chat
+npm run dev
 ```
 
-The local chat harness imports source directly for HMR. Keep media fixtures:
-they exercise real decoder, readiness, audio-clock, and replay boundaries.
-There is no catalog generation or registry synchronization step.
+This starts the actual application at [localhost:4200](http://localhost:4200),
+with source HMR and a local Cloudflare API. The command initializes isolated
+local D1 quota data and a local salt. Exiting stops both processes. Missing
+provider keys show setup requirements; no fake answer path is enabled.
 
-For an ordinary edit, run the affected test files, lint, and typecheck. Add a
-focused regression for a behavior change. Run browser tests when playback or UI
-behavior changes; use the packed-consumer gates when exports, starter code, or
-public examples change. Do not run the complete release matrix repeatedly during
-the edit loop.
+Own-key localhost uses up to five generated clips per answer through the existing
+owner reservation path, without the public pilot's permanent personal allowance.
+It requires both the local server flag and a loopback URL. The API stays bound
+to loopback, request admission remains active, and production still requires
+verified owner identity for that path.
 
-`npm run verify:release` is the final candidate gate: it builds one artifact and
-reuses it for clean-room consumers. `verify:package` already verifies public API
-declarations/runtime boundaries; `verify:api` is a targeted shortcut, not an
-additional full-release pass.
+For an ordinary edit, run affected tests, lint and typecheck. Build the app and
+API before handoff. Run `npm run verify` on the final candidate; it covers
+unit/API checks, builds and the application browser journey. Playback/UI changes
+also need the relevant `npm run browser:test` media scenarios. Do not repeatedly run the
+whole matrix while editing. Keep the candidate and HEAD unchanged during browser
+runs so identity checks and media traces refer to one build.
 
-[Architecture](architecture.md) · [Contributing](https://github.com/VanillaSkyAi/video/blob/main/CONTRIBUTING.md)
+Keep test media: it exercises actual decoder, readiness, speech-clock and replay
+boundaries. Keyless provider doubles belong in tests only. Manual provider tests
+use the same app with your keys and need an explicitly authorized spending bound.
+
+[Architecture](architecture.md) · [Contributing](../CONTRIBUTING.md)

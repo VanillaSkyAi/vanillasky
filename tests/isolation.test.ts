@@ -1,70 +1,23 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { extname, join } from "node:path";
+import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
 
-function sourceFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    return entry.isDirectory()
-      ? sourceFiles(path)
-      : [".ts", ".tsx"].includes(extname(path)) ? [path] : [];
-  });
-}
-
-describe("standalone package boundary", () => {
-  it("does not ship private app, database, skill, or editor implementation residue", () => {
-    const forbidden = [
-      "studio",
-      "db owns",
-      "shared_configs",
-      "the skill",
-      "trigger.dev",
-      "savedconfigid",
-      "exported_at",
-      "chatid?:",
-    ];
-    const files = [
-      ...sourceFiles(join(process.cwd(), "src")),
-    ];
-    const hits = files.flatMap((path) => {
-      const source = readFileSync(path, "utf8").toLowerCase();
-      return forbidden.filter((marker) => source.includes(marker)).map((marker) => ({ path, marker }));
+// Exercise the bundler boundary used by the application, not a published export list.
+describe("application module boundaries", () => {
+  it("bundles the browser entry without server code, provider clients or Node builtins", async () => {
+    const result = await build({
+      entryPoints: ["src/react.ts"], bundle: true, write: false, platform: "browser", format: "esm",
+      external: ["react", "react-dom", "react/jsx-runtime"], loader: { ".svg": "dataurl" }, metafile: true,
     });
-    expect(hits).toEqual([]);
+    const inputs = Object.keys(result.metafile!.inputs);
+    expect(inputs.some(path => path.startsWith("src/server/") || path.startsWith("functions/"))).toBe(false);
+    expect(Object.values(result.metafile!.outputs).flatMap(output => output.imports)
+      .every(item => ["react", "react-dom", "react/jsx-runtime"].includes(item.path))).toBe(true);
   });
-
-  it("contains no VanillaSky service, Supabase, or private-app import dependency", () => {
-    const banned = [
-      ["vanillasky", ".ai"].join(""),
-      ["supa", "base"].join(""),
-      ["VITE", "_"].join(""),
-      ["@", "/"].join(""),
-      ["/Users", "/example-builder"].join(""),
-    ];
-    const hits = sourceFiles(join(process.cwd(), "src")).flatMap((path) => {
-      const source = readFileSync(path, "utf8");
-      return banned.filter((marker) => source.includes(marker)).map((marker) => ({ path, marker }));
-    });
-    const manifest = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
-
-    expect(hits).toEqual([]);
-    expect(Object.keys(manifest.dependencies ?? {})).toEqual([]);
-    expect(manifest.peerDependencies).not.toHaveProperty("tsx");
-  });
-
-  it("packages the focused SDK and executable", async () => {
-    const manifest = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
-
-    expect(manifest.bin).toEqual({ vanillasky: "bin/vanillasky.js" });
-    expect(manifest.files).toContain("bin");
-    expect(manifest.files).not.toContain("registry/items");
-    expect(manifest.files).not.toContain("registry");
-    expect(Object.keys(manifest.exports).sort()).toEqual([
-      ".",
-      "./react",
-      "./server",
-      "./test",
-      "./video-chat.css",
-    ]);
+  it("bundles the server entry without React or browser player modules", async () => {
+    const result = await build({ entryPoints: ["src/server.ts"], bundle: true, write: false,
+      platform: "neutral", format: "esm", metafile: true });
+    const inputs = Object.keys(result.metafile!.inputs);
+    expect(inputs.some(path => path.includes("node_modules/react") || path.startsWith("src/player/"))).toBe(false);
+    expect(Object.values(result.metafile!.outputs).flatMap(output => output.imports)).toEqual([]);
   });
 });

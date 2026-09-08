@@ -3,7 +3,7 @@
 # Prompt and conversation input
 
 VanillaSky turns the same things people ask an AI chat into spoken video
-answers. The SDK owns the video-planning prompt and conversation formatting;
+answers. The chat runtime owns the video-planning prompt and conversation formatting;
 the application owns the model, product guidance, authentication, and data.
 
 ## What the viewer sends
