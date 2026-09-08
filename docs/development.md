@@ -21,4 +21,4 @@ reuses it for clean-room consumers. `verify:package` already verifies public API
 declarations/runtime boundaries; `verify:api` is a targeted shortcut, not an
 additional full-release pass.
 
-[Architecture](architecture.md) · [Contributing](../CONTRIBUTING.md)
+[Architecture](architecture.md) · [Contributing](https://github.com/VanillaSkyAi/video/blob/main/CONTRIBUTING.md)

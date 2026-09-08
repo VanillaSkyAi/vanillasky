@@ -65,12 +65,12 @@ system, or hosted service dependency.
 ## Documentation
 
 - [Agent integration](docs/agent-integration.md) and the optional
-  [integration skill](skills/vanillasky/SKILL.md)
+  [integration skill](https://github.com/VanillaSkyAi/video/blob/main/skills/vanillasky/SKILL.md)
 - [Provider integration](docs/provider-integration.md), [adapter reference](docs/reference/provider-adapters.md), and [media and voice](docs/media-and-audio.md)
 - [Customization](docs/customization.md) and [prompt guidance](docs/prompt-and-input.md)
 - [Persistence and replay](docs/persistence.md), [protocol](docs/reference/protocol.md), and [testing](docs/testing.md)
 - [Performance](docs/performance.md), [production](docs/production.md), [security](docs/security.md), and [errors](docs/errors.md)
-- [Architecture](docs/architecture.md), [development](docs/development.md), and [contributing](CONTRIBUTING.md)
+- [Architecture](docs/architecture.md), [development](docs/development.md), and [contributing](https://github.com/VanillaSkyAi/video/blob/main/CONTRIBUTING.md)
 
 Node 22+; React 18 or 19. The four code entry points are the root package,
 `/server`, `/react`, and `/test`, plus the scoped `/video-chat.css` stylesheet.
