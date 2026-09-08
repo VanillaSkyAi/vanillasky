@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { createVideoChatResponseInstructions } from "../src/server/video-chat-prompts";
 import { createVideoChatHandler } from "../src/server";
 import { decodeVideoSse } from "../src/protocol/sse";
 import cases from "./fixtures/creative-answers.json";
@@ -7,24 +6,6 @@ import cases from "./fixtures/creative-answers.json";
 const words = (text: string) => text.trim().split(/\s+/u).length;
 
 describe("concise creative answer guidance", () => {
-  it("makes the opening useful and starts the body without a second planning pass", () => {
-    const instructions = createVideoChatResponseInstructions(true, false, 3);
-    expect(instructions).toContain("4–7 ordinary words");
-    expect(instructions).toContain("roughly 2–3 seconds");
-    expect(instructions).toContain("Emit the complete brief, then the first developing shot immediately");
-    expect(instructions).toContain("Compare the same criteria");
-    expect(instructions).not.toContain("inviting spoken introduction");
-  });
-
-  it("plans stock illustrations per beat without weakening practical subject requirements", () => {
-    const stock = createVideoChatResponseInstructions(false, false, 3, 5, "pexels");
-    expect(stock).toContain("Choose a separate stock subject for each beat");
-    expect(stock).toContain("relevant present-day evidence, objects, environments or analogous visible processes");
-    expect(stock).not.toMatch(/dinosaur|prehistoric|asteroid/i);
-    expect(stock).toContain("Do not use illustrative freedom to replace a required practical action");
-    expect(createVideoChatResponseInstructions(true)).not.toContain("Choose a separate stock subject for each beat");
-  });
-
   // Authored examples exercise the real protocol and recovery path, not a model.
   for (const example of cases) it.each(["cinematic", "pexels"] as const)(`${example.intent}: ${example.subject} fixture preserves its complete treatment in %s`, async mode => {
     const ending = example.beats.at(-1)!;

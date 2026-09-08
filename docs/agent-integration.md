@@ -23,4 +23,11 @@ Use `useVideoChat` only when the host needs a custom UI; use `parseVideo` and
 `VideoPlayer` for saved responses. Renderer plugins and template authoring are
 not supported.
 
+Chat planning uses a shared answer contract plus the selected AI-video or stock
+mode instructions. Application `instructions` guide the answer within that
+contract. With `resolveAnswer`, the completed answer is the sole factual source;
+user and conversation content cannot replace the planning contract. Narration
+budgets come from the configured generated clip duration, while stock footage
+uses its available duration.
+
 [Getting started](getting-started.md) · [Documentation home](../README.md)
