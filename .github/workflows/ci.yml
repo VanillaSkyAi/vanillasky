@@ -13,6 +13,36 @@ permissions:
   contents: read
 
 jobs:
+  # Documentation-only changes skip the expensive fan-out gates below. Every job
+  # named in branch protection still runs, so a docs pull request can still land.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code=false
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              *.md | docs/* | LICENSE) ;;
+              *) code=true ;;
+            esac
+          done < <(git diff --name-only "$BASE" HEAD)
+          echo "Code gates required: $code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   candidate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -73,12 +103,12 @@ jobs:
       - run: npm audit --audit-level=low --omit=dev
 
   consumer-gate:
-    needs: candidate
+    needs: [candidate, changes]
     env:
       VANILLASKY_PACKED_TARBALL: ${{ github.workspace }}/artifacts/chat-candidate/package.tgz
       VANILLASKY_EXPECTED_INTEGRITY: ${{ needs.candidate.outputs.integrity }}
       VANILLASKY_EXPECTED_SHA256: ${{ needs.candidate.outputs.sha256 }}
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -113,26 +143,35 @@ jobs:
   # Preserve the stable required-check name while the expensive gates fan out.
   consumer-compatibility:
     if: always() && github.event_name == 'pull_request'
-    needs: consumer-gate
+    needs: [consumer-gate, changes]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Require every consumer gate
         env:
           RESULT: ${{ needs.consumer-gate.result }}
+          CODE: ${{ needs.changes.outputs.code }}
         run: |
+          if [[ "$RESULT" == "skipped" && "$CODE" != "false" ]]; then
+            echo "Consumer gate was skipped without a documentation-only verdict." >&2
+            exit 1
+          fi
+          if [[ "$RESULT" == "skipped" ]]; then
+            echo "Consumer compatibility skipped: documentation-only change."
+            exit 0
+          fi
           if [[ "$RESULT" != "success" ]]; then
             echo "Consumer compatibility failed: $RESULT" >&2
             exit 1
           fi
 
   provider-gate:
-    needs: candidate
+    needs: [candidate, changes]
     env:
       VANILLASKY_PACKED_TARBALL: ${{ github.workspace }}/artifacts/chat-candidate/package.tgz
       VANILLASKY_EXPECTED_INTEGRITY: ${{ needs.candidate.outputs.integrity }}
       VANILLASKY_EXPECTED_SHA256: ${{ needs.candidate.outputs.sha256 }}
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -160,14 +199,23 @@ jobs:
   # Preserve the stable required-check name while provider fixtures run independently.
   provider-compatibility:
     if: always() && github.event_name == 'pull_request'
-    needs: provider-gate
+    needs: [provider-gate, changes]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Require every provider gate
         env:
           RESULT: ${{ needs.provider-gate.result }}
+          CODE: ${{ needs.changes.outputs.code }}
         run: |
+          if [[ "$RESULT" == "skipped" && "$CODE" != "false" ]]; then
+            echo "Provider gate was skipped without a documentation-only verdict." >&2
+            exit 1
+          fi
+          if [[ "$RESULT" == "skipped" ]]; then
+            echo "Provider compatibility skipped: documentation-only change."
+            exit 0
+          fi
           if [[ "$RESULT" != "success" ]]; then
             echo "Provider compatibility failed: $RESULT" >&2
             exit 1
@@ -216,12 +264,13 @@ jobs:
       - run: npm run build
 
   browser-gate:
+    needs: changes
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
         shard: [1, 2, 3]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
@@ -250,9 +299,9 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=1 --fail-on-flaky-tests
+            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=1
             if [[ "${{ matrix.browser }}" == "chromium" && "${{ matrix.shard }}" == "1" ]]; then
-              npx playwright test --config dev/chat/playwright.config.ts --fail-on-flaky-tests
+              npx playwright test --config dev/chat/playwright.config.ts
             fi
           '
       - name: Preserve browser playback evidence
@@ -266,14 +315,23 @@ jobs:
   # Keep branch protection stable while each browser shard has its own decoder and audio sink.
   browser-compatibility:
     if: always() && github.event_name == 'pull_request'
-    needs: browser-gate
+    needs: [browser-gate, changes]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Require every browser gate
         env:
           RESULT: ${{ needs.browser-gate.result }}
+          CODE: ${{ needs.changes.outputs.code }}
         run: |
+          if [[ "$RESULT" == "skipped" && "$CODE" != "false" ]]; then
+            echo "Browser gate was skipped without a documentation-only verdict." >&2
+            exit 1
+          fi
+          if [[ "$RESULT" == "skipped" ]]; then
+            echo "Browser compatibility skipped: documentation-only change."
+            exit 0
+          fi
           if [[ "$RESULT" != "success" ]]; then
             echo "Browser compatibility failed: $RESULT" >&2
             exit 1

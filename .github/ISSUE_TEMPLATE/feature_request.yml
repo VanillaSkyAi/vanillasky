@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a capability or an API change.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to build that the SDK makes hard today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: >
+        If this touches the public API, show the call you want to write.
+        `PUBLIC-API.md` defines the current contract and its compatibility promise.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Workarounds, `useVideoChat`, a custom provider, a source-owned template.

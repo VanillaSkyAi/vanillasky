@@ -5,18 +5,25 @@ the versioned event protocol and keep external services behind explicit adapters
 
 ## Local checks
 
-Use Node.js 22 for development and run:
+Use Node.js 22. Before opening a pull request, run:
 
 ```bash
 npm ci
 npm run lint
 npm run typecheck
 npm test
-npm run acceptance:chat
-npm run build
-npm run verify:package
-npm run verify:onboarding
-npm run browser:test
+```
+
+That is the whole local contract. CI runs the slower gates for you — the packed
+package, clean-room onboarding, provider fixtures, Node 24, React 18, and the
+Chromium/Firefox/WebKit suites — so you do not need browsers installed to
+contribute. Run them locally only when you are changing what they cover:
+
+```bash
+npm run acceptance:chat     # deterministic chat quality with mocked providers
+npm run verify:package      # the exact packed artifact
+npm run verify:onboarding   # npx init in a blank folder
+npm run browser:test        # Playwright, needs npm run browser:install first
 ```
 
 Protocol changes need reducer and stream tests. Runtime code must never import

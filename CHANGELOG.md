@@ -4,6 +4,9 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Stop shipping the maintainer-only cinematic migration note in the published
+  package. The changelog now links it on GitHub.
+
 ## 0.10.22
 
 - Offer eight diverse homepage prompts with curated footage, a balanced fresh-page shuffle, and stable ordering when returning Home.
@@ -175,7 +178,7 @@ Before:
 
 ### Adoption
 
-Remove brand options and regenerate source-owned templates from the new catalog. Re-author or regenerate saved videos from retained source material; do not rename old IDs or change their version field blindly. See [cinematic migration](docs/maintainers/cinematic-migration.md).
+Remove brand options and regenerate source-owned templates from the new catalog. Re-author or regenerate saved videos from retained source material; do not rename old IDs or change their version field blindly. See [cinematic migration](https://github.com/VanillaSkyAi/video/blob/main/docs/maintainers/cinematic-migration.md).
 
 ```tsx
 <VideoChat options={{ endpoint: "/api/video-chat" }} />

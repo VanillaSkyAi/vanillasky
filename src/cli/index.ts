@@ -166,11 +166,6 @@ export function runVanillaSkyCli(
   }
 
   if (rootCommand !== "templates") {
-    const removed = new Set(["list", "describe", "add", "sync", "check", "create"]);
-    if (rootCommand && removed.has(rootCommand)) {
-      write(`Template commands moved. Use: vanillasky templates ${argv.join(" ")}`);
-      return 1;
-    }
     write(help());
     return rootCommand == null || rootCommand === "help" || rootCommand === "--help" || rootCommand === "-h" ? 0 : 1;
   }

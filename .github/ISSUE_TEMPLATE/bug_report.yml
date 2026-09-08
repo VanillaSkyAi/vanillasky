@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in @vanillaskyai/video does not behave as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include API keys, customer data, or private media URLs.
+        For a suspected vulnerability, use
+        [private vulnerability reporting](https://github.com/VanillaSkyAi/video/security/advisories/new)
+        instead of a public issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: The exact `@vanillaskyai/video` version. `npx vanillasky doctor` prints it.
+      placeholder: 0.10.22
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Node, React, framework, and browser versions.
+      placeholder: Node 22.14, React 19.2, Vite 7, Chrome 141
+    validations:
+      required: true
+
+  - type: dropdown
+    id: providers
+    attributes:
+      label: Providers in use
+      multiple: true
+      options:
+        - Packaged templates and browser voice only
+        - Anthropic (text)
+        - OpenAI (text)
+        - Google (text)
+        - OpenRouter (text)
+        - xAI (speech)
+        - fal (video and transcription)
+        - Pexels (stock)
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >
+        The smallest steps that reproduce it. A blank `npx @vanillaskyai/video init`
+        folder plus the prompt you sent is ideal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Server or browser console output. Redact keys and personal data.
+      render: text

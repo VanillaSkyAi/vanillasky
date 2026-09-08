@@ -56,8 +56,7 @@
     "docs/reference/protocol.md",
     "CHANGELOG.md",
     "docs/*.md",
-    "docs/reference",
-    "docs/maintainers/cinematic-migration.md"
+    "docs/reference"
   ],
   "bin": {
     "vanillasky": "bin/vanillasky.js"
