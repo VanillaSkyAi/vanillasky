@@ -30,4 +30,10 @@ user and conversation content cannot replace the planning contract. Narration
 budgets come from the configured generated clip duration, while stock footage
 uses its available duration.
 
+Automatic generated style follows the content: realistic for observable action,
+illustrated for mechanisms or abstract relationships, cinematic for fiction or
+atmosphere. Missing or invalid model styles fall back to realistic. A caller
+`style.generatedLook` takes precedence; stock searches remain literal footage
+selection and cannot apply a generated rendering style.
+
 [Getting started](getting-started.md) · [Documentation home](../README.md)
