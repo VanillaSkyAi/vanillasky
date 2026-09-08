@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { assertAppIdentity } from "./deployment-app-identity.mjs";
 
 const required = (name) => {
@@ -60,7 +61,8 @@ if (process.argv[2] === "rollback") {
   let deploymentAttempted = false;
   try {
     deploymentAttempted = true;
-    const output = execFileSync("npx", ["wrangler", "pages", "deploy", "dist", "--config", "wrangler.deploy.json", "--project-name", project,
+    const output = execFileSync(process.execPath, [resolve("node_modules/wrangler/bin/wrangler.js"),
+      "--cwd", resolve(".generated/deployment"), "pages", "deploy", "dist", "--no-bundle", "--project-name", project,
       "--branch", target === "production" ? "main" : `preview-${identity.commit.slice(0, 12)}`, "--commit-hash", identity.commit],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 300_000 });
     const immutableUrl = output.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev/i)?.[0];
@@ -72,7 +74,9 @@ if (process.argv[2] === "rollback") {
       env: { ...process.env, DEPLOYMENT_URL: productionUrl }, stdio: "inherit", timeout: 300_000,
     });
     console.log(`Deployed ${identity.commit} to ${immutableUrl}`);
-  } catch {
+  } catch (error) {
+    const detail = [error?.stdout, error?.stderr, error?.message].filter(Boolean).map(String).join("\n");
+    console.error(detail.replaceAll(token, "[REDACTED]").slice(-16000));
     if (deploymentAttempted && previous) await restore(previous.id);
     throw new Error("Application deployment failed; inspect verification output and rollback status");
   }
