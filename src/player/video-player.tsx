@@ -127,7 +127,9 @@ export function VideoPlayerRuntime({
   const sceneIndexRef = useRef(-1);
   const mediaFrameReportedRef = useRef(false);
   const visualReadyRef = useRef<string | undefined>(undefined);
-  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false) => {
+  const activeMediaRef = useRef<{ key: string; video: HTMLVideoElement } | undefined>(undefined);
+  const reportVisualReady = useMemo(() => (key: string, error?: Error, actualVideoFrame = false, media?: HTMLVideoElement) => {
+    activeMediaRef.current = !error && actualVideoFrame && media ? { key, video: media } : undefined;
     if (error) {
       setIsPlaying(false);
       callbacksRef.current.onError?.(error, stateRef.current);
@@ -198,6 +200,7 @@ export function VideoPlayerRuntime({
     setActiveStream(stream);
     setActiveSavedVideo(video);
     mediaFrameReportedRef.current = false;
+    activeMediaRef.current = undefined;
     sceneIndexRef.current = -1;
     setReplacementPending(stream != null);
     setState(video ? savedVideoState(video) : createVideoState());
@@ -331,6 +334,7 @@ export function VideoPlayerRuntime({
     loopRef,
     sceneIndexRef,
     visualReadyRef,
+    activeMediaRef,
     callbacksRef,
     setCurrentTime,
     setIsPlaying,
@@ -501,6 +505,7 @@ export function VideoPlayerRuntime({
       return;
     }
     if (!isPlaying && ended) {
+      activeMediaRef.current = undefined;
       timeRef.current = 0;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.currentTime = 0;

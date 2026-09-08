@@ -49,6 +49,8 @@ test("offline HMR harness plays through the actual local handler without externa
   await info.attach("opening-paint-opportunity", {body: JSON.stringify({openingPaintOpportunityMs}), contentType: "application/json"});
   expect(openingPaintOpportunityMs).toBeLessThan(200);
   await page.screenshot({path: info.outputPath("immediate-chapter.png")});
+  await expect(page.locator(".line")).toHaveText("Wind gives ocean waves their energy.");
+  await page.screenshot({path: info.outputPath("opening-subtitle.png")});
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible({timeout: 12000});
   await expect(page.getByText(/Body rendered:/)).toBeVisible();
   await expect(page.getByText(/Video decoded:/)).toBeVisible();
@@ -56,6 +58,11 @@ test("offline HMR harness plays through the actual local handler without externa
   await expect(page.locator("[data-opening-chapter]")).toHaveCount(0);
   await page.screenshot({path: info.outputPath("prepared-footage.png")});
   await expect(page.locator('[data-testid="video-player"][data-ended="true"]')).toBeVisible({timeout: 15000});
+  const suggestions = page.getByRole("list", {name: "Follow-up prompts"});
+  await expect(suggestions.getByRole("button")).toHaveCount(4);
+  await page.screenshot({path: info.outputPath("ending-suggestions.png")});
+  await page.getByRole("button", {name: "Show transcript", exact: true}).click();
+  await expect(page.getByRole("region", {name: "Expanded subtitles"}).locator("p").first()).toHaveText("Wind gives ocean waves their energy.");
   const spokenDurations = await page.evaluate(() => (window as unknown as {offlineSpeechDurations: number[]}).offlineSpeechDurations);
   const diagnostics = JSON.stringify({
     externalOrigins: external.map(value => {const url = new URL(value); return {protocol: url.protocol, origin: url.origin};}),

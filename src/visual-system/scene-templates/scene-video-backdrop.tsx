@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
+import { measuredClipPlayback } from "../../player/clip-repeat.js";
 
 export interface SceneVideoBackdropProps {
   mediaUrl: string;
   mediaPoster?: string;
   mediaPosition?: string;
   progress: number;
-  /** Prepared narration duration including its quiet tail; must fit the native clip. */
+  /** Prepared narration duration; quiet tails never require a repeat. */
   sceneDuration?: number;
+  /** Fresh measured voice evidence supplied by client scene preparation. */
+  measuredSpeechDurationSec?: number;
   /** Internal player-owned decoder priming, distinct from viewer pause. */
   preparingNarration?: boolean;
   isPlaying: boolean;
@@ -25,6 +28,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   mediaPosition = "center",
   progress,
   sceneDuration,
+  measuredSpeechDurationSec,
   preparingNarration = false,
   isPlaying,
   muted,
@@ -43,6 +47,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>();
   const [waitingKey, setWaitingKey] = useState<string>();
   const [exhaustedKey, setExhaustedKey] = useState<string>();
+  const [repeatingKey, setRepeatingKey] = useState<string>();
+  const [endedKey, setEndedKey] = useState<string>();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playableVideoUrl = useRef<string | undefined>(undefined);
@@ -50,10 +56,11 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const startedPlaybackId = useRef<string | undefined>(undefined);
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
 
-  const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying });
+  const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying, progress });
   const failedPresentationRef = useRef<string | undefined>(undefined);
+  const repeatedPresentationRef = useRef<string | undefined>(undefined);
   const previousProgressRef = useRef({ key: videoPresentationKey, progress });
-  presentationRef.current = { key: videoPresentationKey, playing: isPlaying };
+  presentationRef.current = { key: videoPresentationKey, playing: isPlaying, progress };
   const unavailable = (reason: MediaRecoveryReason = "playback-error") => {
     if (presentationRef.current.key === videoPresentationKey && failedPresentationRef.current !== videoPresentationKey
       && (presentationRef.current.playing || reason === "duration-mismatch")) {
@@ -159,22 +166,72 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     };
   }, [mediaUrl, videoPresentationKey]);
 
+  const allowsRepeat = (video: HTMLVideoElement) => {
+    const fit = measuredClipPlayback(measuredSpeechDurationSec, video.duration);
+    return fit?.repeat === true && sceneDuration !== undefined && sceneDuration <= fit.durationSec + 1e-6;
+  };
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     video.playbackRate = 1;
-    if (sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05) {
+    if (sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05 && !allowsRepeat(video)) {
       video.pause();
       unavailable("duration-mismatch");
       return false;
     }
     return true;
-  }, [sceneDuration, videoPresentationKey]);
+  }, [sceneDuration, measuredSpeechDurationSec, videoPresentationKey]);
   useEffect(() => {
     if (videoRef.current) fitDuration(videoRef.current);
   }, [fitDuration]);
+  useEffect(() => {
+    if (!isPlaying || endedKey !== videoPresentationKey) return;
+    // Let the final clock tick commit, but never hold an exhausted outgoing
+    // clip indefinitely while the next scene is still cold.
+    const timer = setTimeout(() => {
+      if (videoRef.current?.ended) unavailable();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [endedKey, videoPresentationKey, isPlaying]);
+  useEffect(() => {
+    if (!isPlaying || repeatingKey !== videoPresentationKey) return;
+    let frame: number;
+    const observe = () => {
+      const video = videoRef.current;
+      const fit = video && measuredClipPlayback(measuredSpeechDurationSec, video.duration);
+      if (!video || presentationRef.current.progress >= 1) return;
+      // The same decoder bounds actual recovery too: a voice that outlives
+      // its measurement must not spend the rest of a second full clip.
+      if (!fit?.repeat || video.currentTime > fit.durationSec - video.duration + .05) {
+        unavailable("duration-mismatch");
+        return;
+      }
+      frame = requestAnimationFrame(observe);
+    };
+    frame = requestAnimationFrame(observe);
+    return () => cancelAnimationFrame(frame);
+  }, [repeatingKey, videoPresentationKey, isPlaying, measuredSpeechDurationSec]);
   const finishMotion = () => {
     if (!isPlaying) return;
-    // If speech unexpectedly outlasts measured footage, keep its complete line
-    // on the recovery chapter. Never replay footage to buy narration time.
+    const video = videoRef.current;
+    const fit = video && measuredClipPlayback(measuredSpeechDurationSec, video.duration);
+    // Native ended may precede the final animation-frame commit. A completed
+    // fitting line needs neither recovery nor a repeat during that last tick.
+    if (video?.ended && fit && !fit.repeat && sceneDuration !== undefined
+      && sceneDuration <= video.duration + .05 && (1 - progress) * sceneDuration <= .05) {
+      setEndedKey(videoPresentationKey);
+      return;
+    }
+    if (video && video.ended && !video.error && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      && video.currentSrc === video.src && playableVideoUrl.current === mediaUrl
+      && failedPresentationRef.current !== videoPresentationKey && waitingKey !== videoPresentationKey
+      && repeatedPresentationRef.current !== videoPresentationKey && progress < 1 && allowsRepeat(video)) {
+      repeatedPresentationRef.current = videoPresentationKey;
+      setRepeatingKey(videoPresentationKey);
+      video.currentTime = 0;
+      void video.play().catch(() => unavailable());
+      return;
+    }
+    // Unknown, larger or unhealthy overruns retain the complete spoken line
+    // on a chapter. A second exhaustion cannot purchase another repetition.
     unavailable();
   };
 
@@ -186,11 +243,17 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // an ended clip, or an active/next promotion must never cause a replay.
     if (!video || rewindPreroll || previous.key !== videoPresentationKey || progress >= previous.progress - .05
       || !sceneDuration || !Number.isFinite(sceneDuration)) return;
-    video.currentTime = Math.max(0, progress * sceneDuration);
+    const target = Math.max(0, progress * sceneDuration);
+    setEndedKey(undefined);
+    const seekingRepeated = allowsRepeat(video) && target >= video.duration;
+    setRepeatingKey(seekingRepeated ? videoPresentationKey : undefined);
+    if (seekingRepeated) repeatedPresentationRef.current = videoPresentationKey;
+    else if (progress <= .001) repeatedPresentationRef.current = undefined;
+    video.currentTime = seekingRepeated ? target % video.duration : target;
     failedPresentationRef.current = undefined;
     setExhaustedKey(undefined);
     if (isPlaying && video.paused) void video.play().catch(() => unavailable());
-  }, [progress, videoPresentationKey, sceneDuration, rewindPreroll, isPlaying]);
+  }, [progress, videoPresentationKey, sceneDuration, measuredSpeechDurationSec, rewindPreroll, isPlaying]);
 
   useEffect(() => {
     const video = videoRef.current;

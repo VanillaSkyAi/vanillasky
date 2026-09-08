@@ -152,18 +152,23 @@ test("cold replacement footage decodes before its narration cue without losing t
   const codec = process.platform === "linux" ? "VP8" : "H264";
   const secondFile = codec === "VP8" ? "tram.webm" : "tram.mp4";
   const requests: { range: string | undefined; at: number }[] = [];
-  const delayMs = 5500;
-  let releaseAt: number | undefined;
+  const delayMs = 400;
+  let releaseMedia = () => {};
+  const mediaGate = new Promise<void>(resolve => { releaseMedia = resolve; });
   try {
     await page.route(`**/${secondFile}`, async route => {
-      releaseAt ??= Date.now() + delayMs;
       requests.push({ range: route.request().headers()["range"], at: Date.now() });
-      // Preparation now starts before the four-second cut. Hold all ranges
-      // past that cut, without multiplying the delay for native range retries.
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, releaseAt! - Date.now())));
+      await mediaGate;
       await route.continue();
     });
     await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/mobile-media-transition.html${codec === "VP8" ? "?webm" : ""}`);
+    // Hold every range beyond the actual four-second cut, but within the
+    // outgoing five-second clip's physical headroom. Exhaustion recovery has
+    // its own 9000ms prepared-handoff case; this one proves healthy motion.
+    await page.waitForFunction(() => window.__mobileMediaTransitionProbe?.some(event => event.kind === "animation-frame"
+      && Number.parseFloat(String(event.playerTime)) >= 4 && event.sceneId === "first-video"), undefined, { timeout: 8000 });
+    await page.waitForTimeout(delayMs);
+    releaseMedia();
     await expect.poll(() => page.evaluate(() => window.__mobileMediaTransitionProbe?.some(event => event.kind === "scene-narration-cue" && event.sceneId === "second-video") ?? false), { timeout: 12000 }).toBe(true);
     const events = await page.evaluate(() => window.__mobileMediaTransitionProbe ?? []);
     const cue = events.find(event => event.kind === "scene-narration-cue" && event.sceneId === "second-video")!;
@@ -209,10 +214,11 @@ test("cold replacement footage decodes before its narration cue without losing t
     await expect(page.locator('[data-scene-fallback="true"]')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => (window.__mobileMediaTransitionProbe ?? []).filter(event => event.kind === "presented-frame" && event.sceneId === "second-video" && Number(event.mediaTime) > .5).length)).toBeGreaterThanOrEqual(3);
   } finally {
+    releaseMedia();
     const events = await page.evaluate(() => window.__mobileMediaTransitionProbe ?? []);
     const cut = events.find(event => event.kind === "animation-frame" && Number.parseFloat(String(event.playerTime)) >= 4 && event.sceneId === "first-video");
     const frame = events.find(event => event.kind === "presented-frame" && event.sceneId === "second-video" && String(event.currentSrc).includes(secondFile));
-    const proof = { codec, delayMs, requests, handoffWaitMs: cut && frame ? frame.at - cut.at : null, events };
+    const proof = { codec, holdAfterBoundaryMs: delayMs, requests, handoffWaitMs: cut && frame ? frame.at - cut.at : null, events };
     await writeFile(info.outputPath("cold-source-handoff.json"), JSON.stringify(proof));
     await info.attach("cold-source-handoff", { body: JSON.stringify(proof), contentType: "application/json" });
     await context.close();

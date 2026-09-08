@@ -94,7 +94,11 @@ describe("useVideoChat", () => {
     vi.unstubAllGlobals();
   });
 
-  it("recovers measured speech that cannot fit the delivered clip without losing its line", async () => {
+  it.each([
+    { seconds: 6.2, supportsOffsets: true, recovered: true, duration: 7 },
+    { seconds: 5.5, supportsOffsets: true, recovered: false, duration: 5.5 },
+    { seconds: 5.5, supportsOffsets: undefined, recovered: true, duration: 6.3 },
+  ])("preserves speech with $seconds seconds and measured evidence $supportsOffsets", async ({ seconds, supportsOffsets, recovered, duration }) => {
     const { useVideoChat } = await import("../src/react");
     const line = "The complete explanation still matters, including this qualification.";
     const clip: VideoScene = { id: "short", templateId: "cinemaMedia", narration: line,
@@ -103,11 +107,12 @@ describe("useVideoChat", () => {
     const fetcher: typeof fetch = async (input, init) => String(input).includes("action=response")
       ? responseStream("short", [clip], { line: "", keyword: "", fallbackKeyword: "" }) : base(input, init);
     const metrics = vi.fn();
-    const { result } = renderHook(() => useVideoChat({ fetcher, onPlaybackMetric: metrics, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 5 })) } }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, onPlaybackMetric: metrics, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds, supportsOffsets })) } }));
     await act(async () => { await result.current.ask("Explain it"); });
-    expect(result.current.currentTurn?.video?.scenes[0]).toMatchObject({ templateId: "chapterTitle", narration: line, timing: { fixedDuration: 5.8 } });
+    expect(result.current.currentTurn?.video?.scenes[0]).toMatchObject({ templateId: recovered ? "chapterTitle" : "cinemaMedia", narration: line, timing: { fixedDuration: duration } });
+    if (!recovered) expect(result.current.currentTurn?.video?.scenes[0]?.variables.measuredSpeechDurationSec).toBe(seconds);
     expect(result.current.playerProps?.narrationActive).toBeTypeOf("function");
-    expect(metrics).toHaveBeenCalledWith(expect.objectContaining({ type: "scene-duration", speechDurationSec: 5, clipDurationSec: 5, recovered: true }));
+    expect(metrics).toHaveBeenCalledWith(expect.objectContaining({ type: "scene-duration", speechDurationSec: seconds, clipDurationSec: 5, recovered }));
   });
 
   it("does not resubmit an ambiguous cinematic response request", async () => {
@@ -942,7 +947,7 @@ describe("useVideoChat", () => {
   it("restores archived completed turns after reset and can select an earlier answer", async () => {
     const { useVideoChatSession } = await import("../src/video-chat/use-video-chat");
     const { result } = renderHook(() => useVideoChatSession({ fetcher: videoChatFetcher(), voice: fakeVoice() }));
-    await act(async () => { await result.current.chat.ask("First question"); });
+    await act(async () => { await result.current.chat.ask("First question", { opening: "The opening belongs to the full answer." }); });
     await act(async () => { await result.current.chat.ask("Second question"); });
     const saved = result.current.chat.turns;
     act(() => result.current.chat.reset());
@@ -954,6 +959,8 @@ describe("useVideoChat", () => {
     act(() => result.current.chat.selectTurn(saved[0]!.id));
     expect(result.current.chat.shownTurn?.id).toBe(saved[0]!.id);
     expect(result.current.chat.playerProps?.video).toEqual(saved[0]!.video);
+    expect(result.current.chat.transcript[0]).toBe("The opening belongs to the full answer.");
+    expect(result.current.chat.transcript.filter(line => line === "The opening belongs to the full answer.")).toHaveLength(1);
     expect(Object.keys(result.current.chat)).not.toContain("restoreSession");
     const longHistory = Array.from({ length: 105 }, (_, index) => ({ ...saved[0]!, id: `saved-${index}` }));
     act(() => result.current.restoreSession([...longHistory, { ...saved[1]!, id: "unfinished", completed: false }]));

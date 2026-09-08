@@ -72,6 +72,10 @@ await chat.ask(card.prompt, { opening: card.opening, openingMedia: card.media })
 
 Typed prompts receive their opening from the same model stream as the answer.
 The opening holds until its narration completes and the first scene is ready.
+When subtitles are enabled, the spoken opening also appears in the standard
+subtitle line. The full transcript includes that opening once, followed by the
+scene narration, including on replay and when restoring an in-memory session.
+At the end, the "Ask next" label stays directly above its follow-up cards.
 
 `portrait` reserves a 9:16 response frame; `landscape` reserves 16:9.
 The saved orientation stays stable. For responsive display without changing the

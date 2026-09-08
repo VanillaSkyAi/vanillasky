@@ -31,7 +31,8 @@ describe("VideoFrame media handoff", () => {
       await waitFor(() => expect(view.container.querySelector(selector)).not.toBeNull());
       fireEvent.error(view.container.querySelector(selector)!);
       await waitFor(() => expect(view.container.textContent).toContain("A changing shoreline"));
-      await waitFor(() => expect(report).toHaveBeenCalledWith("failed\0https://media.example/broken.mp4", undefined, false));
+      // A fallback is ready, but must not certify a native decoder clock.
+      await waitFor(() => expect(report).toHaveBeenCalledWith("failed\0https://media.example/broken.mp4", undefined, false, undefined));
       expect(view.container.textContent).not.toContain(scene.narration);
       expect(view.container.querySelectorAll("video")).toHaveLength(0);
       view.unmount();

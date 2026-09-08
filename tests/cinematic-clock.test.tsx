@@ -6,7 +6,52 @@ import { createVideoState } from "../src/protocol/state";
 import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { prepareNarratedScene } from "../src/player/scene-readiness";
 afterEach(() => {cleanup(); vi.useRealTimers();});
+it.each(["completed", "speaking", "not ready", "different scene", "unobserved", "repeat"])("uses the native quiet-tail clock only after measured speech completes: %s", async state => {
+  vi.useFakeTimers();
+  let active = true;
+  let ready = true;
+  let audioTime: number | undefined = state === "unobserved" ? undefined : 4.695;
+  const prepared = prepareNarratedScene({ id: "one", templateId: "cinemaMedia", variables: { mediaUrl: "/clip.mp4", mediaDurationSec: 5 }, narration: "The complete line.", timing: { fixedDuration: 5 } }, state === "repeat" ? 5.5 : 4.714, true).scene;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [prepared] };
+  const native = document.createElement("video");
+  native.src = "/clip.mp4"; document.body.append(native);
+  Object.defineProperties(native, { duration: { value: 5 }, currentTime: { value: 5 }, readyState: { value: 4 }, currentSrc: { get: () => native.src } });
+  const timeRef = { current: 4.9 };
+  const options = { isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete" as const, config: video } }, timeRef,
+    activeMediaRef: { current: { key: state === "different scene" ? "next" : sceneReadinessKey(prepared), video: native } },
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: 0 },
+    callbacksRef: { current: { narrationTime: () => audioTime, narrationReady: () => ready, narrationActive: () => active } }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() };
+  if (state === "unobserved") active = false;
+  const hook = renderHook(() => usePlaybackClock(options));
+  await act(() => vi.advanceTimersByTimeAsync(16));
+  expect(timeRef.current).toBeLessThan(5);
+  audioTime = undefined;
+  active = state === "speaking";
+  ready = state !== "not ready";
+  await act(() => vi.advanceTimersByTimeAsync(16));
+  if (state === "completed") expect(timeRef.current).toBe(5);
+  else expect(timeRef.current).toBeLessThan(5);
+  hook.unmount(); native.remove();
+});
+it("ends an exceptional repeat when an unclocked measured voice finishes, without another quiet tail", async () => {
+  vi.useFakeTimers();
+  let active = true;
+  const prepared = prepareNarratedScene({ id: "one", templateId: "cinemaMedia", variables: { mediaDurationSec: 5 }, narration: "The whole line finishes.", timing: { fixedDuration: 5 } }, 6, true).scene;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [prepared] };
+  const timeRef = { current: 0 }; const stop = vi.fn();
+  renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef,
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: 0 },
+    callbacksRef: { current: { narrationActive: () => active } }, setCurrentTime: vi.fn(), setIsPlaying: stop }));
+  await act(() => vi.advanceTimersByTimeAsync(6100));
+  expect(timeRef.current).toBeLessThan(6);
+  expect(stop).not.toHaveBeenCalled();
+  active = false;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(timeRef.current).toBe(6);
+  expect(stop).toHaveBeenCalledWith(false);
+});
 it("adopts a late narration clock without rewinding footage, but preserves an actual audio rewind", async () => {
   vi.useFakeTimers();
   let audioTime: number | undefined;

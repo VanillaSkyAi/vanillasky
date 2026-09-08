@@ -4,6 +4,12 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+## 0.11.2
+
+- Show the spoken introduction in the normal subtitle line when subtitles are enabled. Keep the opening once in the full transcript, including replay and restored sessions.
+- Keep “Ask next” directly above its follow-up thumbnails on desktop and phone layouts.
+- Allow one native-speed repeat for a small measured speech overrun on healthy footage, ending when speech finishes. Never repeat solely for the quiet tail; retain chapter recovery for larger or unmeasured overruns and failed media. Planning still targets a 0.8-second tail and never buys an extra clip to fit narration.
+
 ## 0.11.1
 
 - Plan single-idea narration with voice headroom against the configured video duration; keep the full repair budget for necessary meaning. Give the single rewrite explicit speech/word budgets and report content-free outcomes instead of silently collapsing timeout, empty, failed and oversized results.

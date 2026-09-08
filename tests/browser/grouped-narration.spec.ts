@@ -3,8 +3,9 @@ import { writeFile } from "node:fs/promises";
 for (const delayedOnset of [false, true]) test(`one prerecorded paragraph survives two visual cuts (delayed onset: ${delayedOnset})`, async ({ browser, browserName }, info) => {
   const context = await browser.newContext(browserName === "webkit" ? { ...devices["iPhone 13"] } : {});
   const page = await context.newPage();
+  const webm = process.platform === "linux" && browserName === "webkit";
   test.setTimeout(30000);
-  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html${delayedOnset ? "?delayedOnset" : ""}`);
+  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html?${delayedOnset ? "delayedOnset&" : ""}${webm ? "webm" : ""}`);
   await page.getByText("Play prerecorded paragraph").click();
   try {
     await expect.poll(() => page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string }> }).narrationProbe.filter((event) => event.kind === "ended").length), { timeout: 15000 }).toBe(1);
@@ -21,7 +22,7 @@ for (const delayedOnset of [false, true]) test(`one prerecorded paragraph surviv
     expect(cuts.map((event) => event.index)).toEqual([0, 1, 2]);
     expect(cuts[1]!.audioTime).toBeGreaterThan(1);
     expect(cuts[2]!.audioTime).toBeGreaterThan(cuts[1]!.audioTime!);
-    await writeFile(info.outputPath("grouped-audio.json"), JSON.stringify({ commit: process.env.TEST_SOURCE_COMMIT, browser: info.project.name, browserVersion: browser.version(), audio: "offline macOS Samantha prerecorded paragraph", probe }, null, 2));
+    await writeFile(info.outputPath("grouped-audio.json"), JSON.stringify({ commit: process.env.TEST_SOURCE_COMMIT, browser: info.project.name, browserVersion: browser.version(), platform: process.platform, codec: webm ? "VP8" : "H264", audio: "offline macOS Samantha prerecorded paragraph", probe }, null, 2));
     await page.screenshot({ path: info.outputPath("grouped-audio.png") });
   } catch (error) {
     const diagnostics = await page.evaluate(() => ({
@@ -40,16 +41,18 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
   test.skip(browserName !== 'webkit', 'Exercises bounded mobile preparation.');
   const context=await browser.newContext({...devices['iPhone 13']});
   const page=await context.newPage();
+  const webm = process.platform === "linux";
+  const tramSource = webm ? "tram.webm" : "tram.mp4";
   let releaseMedia = () => {};
   try {
     const mediaGate = new Promise<void>(resolve => { releaseMedia = resolve; });
     const requests: {range?:string;at:number}[] = [];
-    await page.route('**/tram.mp4',async route=>{
+    await page.route(`**/${tramSource}`,async route=>{
       requests.push({range:route.request().headers()['range'],at:Date.now()});
       await mediaGate;
       await route.continue();
     });
-    await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html');
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html${webm ? "?webm" : ""}`);
     await page.getByText('Play prerecorded paragraph').click();
     // Preparation starts during the outgoing scene. Keep all Range responses
     // blocked until 1.5s after the real visual boundary, not request start.
@@ -95,7 +98,7 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     expect(advanced).toBeGreaterThan(1);
     expect(pause.at).toBeLessThan(released.at);
     const cut=probe.find(event=>event.kind==='cut' && event.index===1)!;
-    const frame=probe.find(event=>event.kind==='video-frame' && event.source==='tram.mp4')!;
+    const frame=probe.find(event=>event.kind==='video-frame' && event.source===tramSource)!;
     expect(frame).toBeDefined();
     expect(cut.at).toBeGreaterThanOrEqual(frame.at);
     expect(cut.at-pause.at).toBeGreaterThan(200);
@@ -103,6 +106,13 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(1);
     expect(probe.filter(event=>event.kind==='ended')).toHaveLength(1);
     expect(probe.find(event=>event.kind==='ended')!.audioTime).toBeGreaterThan(6.4);
-    await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify({requests,probe},null,2));
-  }finally{releaseMedia();await context.close();}
+    await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify({platform:process.platform,codec:webm ? "VP8" : "H264",requests,probe},null,2));
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => ({
+      probe: (window as unknown as { narrationProbe: unknown[] }).narrationProbe,
+      video: [...document.querySelectorAll("video")].map(media => ({readyState:media.readyState,currentTime:media.currentTime,duration:media.duration,paused:media.paused,error:media.error?.message})),
+    }));
+    await info.attach("cold-grouped-handoff-failure", {body:JSON.stringify(diagnostics),contentType:"application/json"});
+    throw error;
+  } finally { releaseMedia(); await context.close(); }
 });
