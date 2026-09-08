@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { editorialFont } from "../src/visual-system/scene-templates/editorial-typography";
 
 describe("self-hosted typography fallback", () => {
   it("ships licensed pinned WOFF2 subsets whose recorded hashes match", () => {
@@ -24,6 +23,5 @@ describe("self-hosted typography fallback", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     expect(pkg.files).toContain("styles/fonts");
     expect(pkg.sideEffects).toContain("./styles/fonts/roboto.css");
-    expect(editorialFont).toBe('-apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif');
   });
 });

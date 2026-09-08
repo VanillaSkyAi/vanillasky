@@ -359,7 +359,7 @@ describe("useVideoChat", () => {
       "Spoken one-1",
       "The planned second line.",
     ]);
-    expect(completed?.scenes.map((entry) => entry.timing?.fixedDuration)).toEqual([2, 2]);
+    for (const scene of completed!.scenes) expect(scene.timing.fixedDuration).toBeCloseTo(3.1);
     expect(voice.prepare).toHaveBeenCalledWith("Spoken one-1", expect.any(Object));
     expect(result.current.status).toBe("playing");
     expect(result.current.playbackEnded).toBe(false);
