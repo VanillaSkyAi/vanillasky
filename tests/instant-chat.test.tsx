@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { VideoChat, useVideoChat } from "../src/react";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 import { checksumVideo } from "../src/protocol/checksum";
-import type { Video } from "../src/index";
+import type { Video } from "../src/protocol/types";
 
 afterEach(cleanup);
 const voice = () => ({ prepare: vi.fn(async () => ({ seconds: 1 })), speak: vi.fn(async () => {}), pause() {}, resume() {}, setMuted() {} });

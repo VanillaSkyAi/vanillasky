@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { VideoChat } from '../../../src/react';
-import type { Video, VideoScene } from '../../../src/index';
+import type { Video, VideoScene } from "../../../src/protocol/types";
 import { checksumVideo } from '../../../src/protocol/checksum';
 import { TEST_VIDEO_STYLE } from '../../semantic-brand-fixture';
 import '../../../styles/video-chat.css';

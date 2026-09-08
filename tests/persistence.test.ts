@@ -2,13 +2,9 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import {
-  getVideoDuration,
-  VideoValidationError,
-  parseVideo,
-  type Video,
-  type VideoValidationErrorCode,
-} from "../src/index";
+import { getVideoDuration } from "../src/protocol/timeline";
+import { VideoValidationError, parseVideo, type VideoValidationErrorCode } from "../src/protocol/persistence";
+import { type Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 import { checksumVideo } from "../src/protocol/checksum";
 
@@ -544,7 +540,7 @@ describe("persisted Video contract", () => {
   });
 
   it("parses a generated terminal snapshot after native JSON serialization", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Grounded persistence fixture" }, {
       generate: async function* () {
         yield {

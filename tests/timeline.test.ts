@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getVideoDuration } from "../src/index";
+import { getVideoDuration } from "../src/protocol/timeline";
 import { resolveVideoTimeline } from "../src/protocol/timeline";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE as style } from "./semantic-brand-fixture";

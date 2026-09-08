@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseVideoEvent,
-  parseVideoPlanPart,
-  VIDEO_PROTOCOL_VERSION,
-} from "../src/internal";
+import { parseVideoEvent, parseVideoPlanPart } from "../src/protocol/validation";
+import { VIDEO_PROTOCOL_VERSION } from "../src/protocol/types";
 
 describe("immutable planning protocol", () => {
   it("uses protocol version 0.6 for the breaking wire contract", () => {

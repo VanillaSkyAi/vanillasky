@@ -8,7 +8,9 @@ function createLifecycleHandler({streamText, includeRawProviderData, ...options}
 }
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { createVideo, createVideoRequest, decodeVideoSse } from "../src/internal";
+import { createVideo } from "../src/server/compose-video";
+import { createVideoRequest } from "../src/protocol/types";
+import { decodeVideoSse } from "../src/protocol/sse";
 import {
   type VideoGenerationSummary,
   type VideoProviderUsage,
@@ -187,7 +189,13 @@ describe("typed generation lifecycle", () => {
 
     const events = await eventsFrom(await handler(request()));
 
-    expect(events.at(-1)).toMatchObject({ type: "response.complete", data: { finishReason } });
+    expect(events.at(-1)).toMatchObject({
+      type: "response.complete",
+      data: {
+        finishReason,
+        snapshot: { scenes: expect.arrayContaining([expect.objectContaining({ id: providerReason })]) },
+      },
+    });
     expect(completed).toHaveLength(1);
     expect(completed[0].finishReason).toBe(finishReason);
   });

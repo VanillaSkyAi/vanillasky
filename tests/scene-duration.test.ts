@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSceneDuration, getSceneDurationBounds } from "../src/index";
+import { getSceneDuration, getSceneDurationBounds } from "../src/protocol/scene-duration";
 
 /**
  * How long to hold a scene.

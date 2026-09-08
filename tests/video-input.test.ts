@@ -1,8 +1,6 @@
-import type { VideoInput } from "../src/protocol/types";
+import type { VideoAudio, VideoInput, VideoStyle } from "../src/protocol/types";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import type { VideoStyle } from "../src/index";
-import type { VideoAudio } from "../src/internal";
 
 const complete = async function* () {
   yield { type: "plan.complete" as const };
@@ -10,7 +8,7 @@ const complete = async function* () {
 
 describe("VideoInput", () => {
   it("uses a deterministic chapter opening when opening is omitted", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Activation increased to 58%.",
       maxDurationSec: 12,
@@ -29,7 +27,7 @@ describe("VideoInput", () => {
   });
 
   it("lets the host replace the deterministic opening with application loading UI", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Activation increased to 58%.",
       opening: false,
@@ -65,7 +63,7 @@ describe("VideoInput", () => {
   });
 
   it("turns an intent-level opening into the deterministic opening scene", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({
       input: "Activation increased to 58%.",
       opening: "  Your activation update is ready.  ",
@@ -85,7 +83,7 @@ describe("VideoInput", () => {
   });
 
   it("infers deterministic output audio metadata from a supplied src", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const selectAudio = vi.fn(() => undefined);
     const response = createVideo({
       input: "A concise update.",
@@ -106,7 +104,7 @@ describe("VideoInput", () => {
   });
 
   it("uses host audio by default and lets audio false disable it", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const selected: VideoAudio = {
       trackId: "catalog-calm",
       audioUrl: "https://cdn.example.com/catalog-calm.mp3",
@@ -131,7 +129,7 @@ describe("VideoInput", () => {
   });
 
   it("never emits a completed snapshot that parseVideo rejects", async () => {
-    const { createVideo } = await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
     const response = createVideo({ input: "Reject an unreplayable host soundtrack." }, {
       selectAudio: () => ({
         trackId: "oversized",
@@ -159,7 +157,9 @@ describe("VideoInput", () => {
   });
 
   it("does not expose or persist a configurable brand", async () => {
-    const {createVideo,createVideoRequest,parseVideoRequest}=await import("../src/internal");
+    const { createVideo } = await import("../src/server/compose-video");
+    const { createVideoRequest } = await import("../src/protocol/types");
+    const { parseVideoRequest } = await import("../src/server/request-validation");
     const response=createVideo({input:"A grounded story."},{generate:complete});
     expect(response.initialConfig.style).not.toHaveProperty("brand");
     const request=createVideoRequest({input:"A grounded story."},{requestId:"brand-rejection"});
@@ -167,10 +167,8 @@ describe("VideoInput", () => {
   });
 
   it("validates only the simplified opening and audio request shapes", async () => {
-    const {
-      createVideoRequest,
-      parseVideoRequest,
-    } = await import("../src/internal");
+    const { createVideoRequest } = await import("../src/protocol/types");
+    const { parseVideoRequest } = await import("../src/server/request-validation");
     const valid = createVideoRequest({
       input: "Grounded source.",
       knowledgeMode: "general",
@@ -232,7 +230,8 @@ describe("VideoInput", () => {
     [{ maxDurationSec: 4 }, "request.input.maxDurationSec must be a number between 5 and 120"],
     [{ maxDurationSec: 121 }, "request.input.maxDurationSec must be a number between 5 and 120"],
   ])("rejects malformed intent-level input option %j", async (option, message) => {
-    const { createVideoRequest, parseVideoRequest } = await import("../src/internal");
+    const { createVideoRequest } = await import("../src/protocol/types");
+    const { parseVideoRequest } = await import("../src/server/request-validation");
     const valid = createVideoRequest({ input: "Grounded source." }, { requestId: "request-options" });
 
     expect(() => parseVideoRequest({
@@ -247,7 +246,8 @@ describe("VideoInput", () => {
     ["textArchetype", "bounce", "subtle, typewriter, wordStagger, slam, cinematic, or heroWord"],
     ["backgroundEffect", "spin", "static, slow-zoom-in, slow-zoom-out, ken-burns, drift, pulse, breathe, slow-tilt, or camera-shake"],
   ])("rejects an unsupported style %s", async (field, value, choices) => {
-    const { createVideoRequest, parseVideoRequest } = await import("../src/internal");
+    const { createVideoRequest } = await import("../src/protocol/types");
+    const { parseVideoRequest } = await import("../src/server/request-validation");
     const valid = createVideoRequest({ input: "Grounded source." }, { requestId: "request-style" });
 
     expect(() => parseVideoRequest({
@@ -261,7 +261,8 @@ describe("VideoInput", () => {
     ["treatment", "loud", "subtle, cinematic, or text-safe"],
     ["role", "hero", "product, proof, background, or logo"],
   ])("rejects an unsupported supplied-media %s", async (field, value, choices) => {
-    const { createVideoRequest, parseVideoRequest } = await import("../src/internal");
+    const { createVideoRequest } = await import("../src/protocol/types");
+    const { parseVideoRequest } = await import("../src/server/request-validation");
     const valid = createVideoRequest({ input: "Grounded source." }, { requestId: "request-media" });
 
     expect(() => parseVideoRequest({
@@ -291,13 +292,9 @@ describe("VideoInput", () => {
 type _RemovedResponseType = VideoInput["type"];
 // @ts-expect-error VideoInput no longer accepts scene-level opening configuration.
 type _RemovedFirstScene = VideoInput["firstScene"];
-// @ts-expect-error VideoOpening is intentionally absent from the package root.
-type _RemovedOpeningAlias = import("../src/index").VideoOpening;
-// @ts-expect-error VideoTiming is intentionally absent from the package root.
-type _RemovedTimingAlias = import("../src/index").VideoTiming;
 // @ts-expect-error Resolved style no longer exposes a duplicate font path.
 type _RemovedStyleFont = VideoStyle["font"];
 // @ts-expect-error Resolved style no longer exposes brandKit.
 type _RemovedBrandKit = VideoStyle["brandKit"];
 // @ts-expect-error Scene-level visual background overrides are not planner-authored.
-type _RemovedBackgroundOverride = import("../src/index").VideoScene["backgroundOverride"];
+type _RemovedBackgroundOverride = import("../src/protocol/types").VideoScene["backgroundOverride"];
