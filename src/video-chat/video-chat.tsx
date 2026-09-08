@@ -388,7 +388,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
       <div className="panel-inner">
         <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
           <div className="caption-clip">
-            {chat.playbackEnded && !captionsExpanded ? <button type="button" className="transcript-toggle" aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-opening-copy={openingChapter && line === shown?.opening && !captionsExpanded} data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
+            {chat.playbackEnded && !captionsExpanded ? <button type="button" className="transcript-toggle" aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
               {captionsOn && line && <div className="caption-actions">
@@ -397,7 +397,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
               </div>}
               {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={openingChapter && line === shown?.opening ? "" : line} getProgress={getCaptionProgress} />}
+              </div> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
             </div>}
           </div>
         </div>

@@ -160,12 +160,12 @@ it("does not let a final caption hide the input after playback has already ended
   }
 });
 
-it("shows the spoken opening as a held chapter when opening media is absent", () => {
+it("shows the spoken opening in both the held chapter and subtitle line", () => {
   session.current = { ...session.current, caption: session.current.shownTurn!.opening };
   const { container, rerender } = render(<VideoChat />);
   const title = container.querySelector('[data-opening-chapter] [data-title-composition="centered"]');
   expect(title?.textContent).toBe("The Moon moves our oceans.");
-  expect(container.querySelector('.line')?.textContent).toBe("");
+  expect(container.querySelector('.line')?.textContent).toBe("The Moon moves our oceans.");
   expect(screen.getByRole("button", { name: "Expand subtitles" })).toBeTruthy();
   session.current = { ...session.current, playerProps: { video: { schemaVersion: "0.2", scenes: [], style: {} } } };
   rerender(<VideoChat />);

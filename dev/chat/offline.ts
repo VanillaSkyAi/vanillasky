@@ -34,7 +34,12 @@ export function createOfflineChatHandler(options: FixtureOptions, origin = "http
     maxGeneratedVideos: options.scenario === "allowance" ? 0 : 5,
     generateVideo: media, searchMedia: media,
     welcome: {heroQuery: "local flowing water", prompts: [{prompt: "Try the selected fixture"}]},
-    generateText: ({task}) => task === "narration-rewrite" ? "" : "[]",
+    generateText: ({task}) => task === "suggestions" ? JSON.stringify({suggestions: [
+      "Explain that in another way",
+      "Show me a practical example",
+      "What happens in the next scene",
+      "Explore the idea in more detail",
+    ].map(prompt => ({prompt, keyword: "local flowing water"}))}) : task === "narration-rewrite" ? "" : "[]",
     generateSpeech: async ({text, signal}) => {
       if (options.scenario === "speech-error") throw new Error("Fixture speech failure");
       signal.throwIfAborted();

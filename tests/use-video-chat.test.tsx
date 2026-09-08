@@ -942,7 +942,7 @@ describe("useVideoChat", () => {
   it("restores archived completed turns after reset and can select an earlier answer", async () => {
     const { useVideoChatSession } = await import("../src/video-chat/use-video-chat");
     const { result } = renderHook(() => useVideoChatSession({ fetcher: videoChatFetcher(), voice: fakeVoice() }));
-    await act(async () => { await result.current.chat.ask("First question"); });
+    await act(async () => { await result.current.chat.ask("First question", { opening: "The opening belongs to the full answer." }); });
     await act(async () => { await result.current.chat.ask("Second question"); });
     const saved = result.current.chat.turns;
     act(() => result.current.chat.reset());
@@ -954,6 +954,8 @@ describe("useVideoChat", () => {
     act(() => result.current.chat.selectTurn(saved[0]!.id));
     expect(result.current.chat.shownTurn?.id).toBe(saved[0]!.id);
     expect(result.current.chat.playerProps?.video).toEqual(saved[0]!.video);
+    expect(result.current.chat.transcript[0]).toBe("The opening belongs to the full answer.");
+    expect(result.current.chat.transcript.filter(line => line === "The opening belongs to the full answer.")).toHaveLength(1);
     expect(Object.keys(result.current.chat)).not.toContain("restoreSession");
     const longHistory = Array.from({ length: 105 }, (_, index) => ({ ...saved[0]!, id: `saved-${index}` }));
     act(() => result.current.restoreSession([...longHistory, { ...saved[1]!, id: "unfinished", completed: false }]));
