@@ -48,3 +48,9 @@
   short clip. Give first-pass writing headroom and one idea per beat, with a
   single new payoff instead of a multi-claim closing recap. Keep repair's full
   safe budget for qualifiers; test live output as well as mocked fit checks.
+
+- A narration clock taking over can initially trail the visual clock. Keep
+  ordinary clock adoption monotonic; only an actual audio/playhead reset should
+  rewind the decoder. A small automatic seek can stall WebKit even with fully
+  fitted prerecorded speech. Inspect retained frames and clock telemetry before
+  calling a retrying browser failure a flaky assertion.
