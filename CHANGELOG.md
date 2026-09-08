@@ -5,6 +5,8 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Patch development image and YAML dependencies flagged by the release security gate.
+
 - Remove the retired SDK test kit, test-only package entry points and redundant
   composition prompt construction. Keep app behavior and provider callbacks intact.
 - Deploy the exact successful main CI artifact without repeating CI or rebuilding;
