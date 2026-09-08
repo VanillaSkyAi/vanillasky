@@ -45,6 +45,8 @@ export interface Narration {
   /** Pair with VideoPlayer.narrationReady to hold grouped cuts until actual audio onset. */
   isReady: () => boolean;
   getTime: (scene: VideoScene) => number | undefined;
+  /** Pair with VideoPlayer.narrationActive to respect unclocked speech completion. */
+  isSpeaking: (scene: VideoScene) => boolean;
   /**
    * Hand this to the player's `onSceneChange`.
    *
@@ -86,6 +88,8 @@ export function useNarration(options: NarrationOptions): Narration {
   const isReady = useCallback(() => optionsRef.current.enabled === false || readyRef.current
     || (clockRef.current !== undefined && clockRef.current >= (groupRef.current?.offsetSeconds ?? 0) + 0.04), []);
   const currentRef = useRef<AbortController | undefined>(undefined);
+  const isSpeaking = useCallback((scene: VideoScene) => optionsRef.current.enabled !== false
+    && Boolean(currentRef.current) && (groupRef.current ? scene.narrationGroup?.id === groupRef.current.id : scene.id === clockSceneRef.current), []);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.
   const spokenIndexRef = useRef<number | undefined>(undefined);
@@ -163,5 +167,5 @@ export function useNarration(options: NarrationOptions): Narration {
     })();
   }, [stop]);
 
-  return { onSceneChange, interrupt, speaking, isReady, getTime };
+  return { onSceneChange, interrupt, speaking, isReady, getTime, isSpeaking };
 }

@@ -31,7 +31,7 @@ describe("concise creative answer guidance", () => {
     const brief = {type:"answer", intent:example.intent, opening:example.opening, subject:example.subject, development:example.development, visualDirection:example.visualDirection, ending};
     const searchMedia = vi.fn(async () => null), generateVideo = vi.fn(async () => null);
     const generateText = vi.fn(async () => { throw new Error("No second model pass in this fixture"); });
-    const handler = createVideoChatHandler({authorize:"none", heartbeatMs:false, searchMedia, generateVideo, generateText,
+    const handler = createVideoChatHandler({authorize:"none", heartbeatMs:false, generatedClipDurationSec:8, searchMedia, generateVideo, generateText,
       maxGeneratedVideos:3,
       streamText: async function* () {
         yield JSON.stringify(brief) + "\n";
@@ -86,13 +86,13 @@ describe("authored creative treatment reaches the media adapter", () => {
     // extra scene or model call. This is an adapter contract, not generated art.
     const beats = example.beats.map((beat, index) => ({...beat, continuity:index === 1 ? "continue" : "cut", stockSelection:{subject:example.subject}}));
     const calls: MediaCall[] = [];
-    const media: NonNullable<import("../src/server").VideoChatHandlerOptions["generateVideo"]> = async (query, context) => {
+    const media: NonNullable<import("../src/server").VideoChatHandlerOptions["searchMedia"]> = async (query, context) => {
       calls.push({query, narration:context.scene?.narration, variables:structuredClone(context.scene?.variables ?? {})});
       return {type:"video", url:`https://fixture.example/clip-${calls.length}.mp4`};
     };
     const searchMedia = vi.fn(media), generateVideo = vi.fn(media);
     const generateText = vi.fn(async () => { throw new Error("No extra model call"); });
-    const handler = createVideoChatHandler({authorize:"none", heartbeatMs:false, maxGeneratedVideos:3, searchMedia, generateVideo, generateText,
+    const handler = createVideoChatHandler({authorize:"none", heartbeatMs:false, generatedClipDurationSec:8, maxGeneratedVideos:3, searchMedia, generateVideo, generateText,
       streamText: async function* () {
         yield JSON.stringify({type:"answer", intent:example.intent, opening:example.opening, subject:example.subject, development:example.development, visualDirection:example.visualDirection, ending:beats.at(-1)}) + "\n";
         for (const beat of beats.slice(0,-1)) yield JSON.stringify({type:"shot", ...beat}) + "\n";

@@ -1,91 +1,69 @@
-/**
- * Warms a scene's backdrop before the scene is on screen.
- *
- * SceneBackground holds its scrim back until the backdrop actually paints, so
- * a cold backdrop degrades to a clean brand gradient rather than a muddy one.
- * That is the safety net. This is what keeps the net from being needed: by the
- * time the scene mounts the bytes are in the browser cache, and the first
- * frame is already the picture instead of a gradient that flashes and pops.
- */
-import {
-  limitsConcurrentVideoDecoders,
-  resolveMediaType,
-} from "../visual-system/scene-templates/media-source.js";
+import { resolveMediaType } from "../visual-system/scene-templates/media-source.js";
+import { withDeadline } from "../video-chat/deadline.js";
 
-/** URLs already warmed this session. Preloading twice costs a request. */
+const MAX_QUEUED_URLS = 64;
+const MAX_REMEMBERED_URLS = 64;
+const MAX_WARM_BYTES = 32 * 1024 * 1024;
 const warmed = new Set<string>();
+const pending = new Map<string, Promise<void>>();
+const queue: Array<{ url: string; signal?: AbortSignal; done: () => void }> = [];
+let running = false;
 
-/**
- * In-flight warms, held so the browser cannot collect them mid-request.
- * A detached Image or HTMLVideoElement with no reference is eligible for
- * garbage collection, and browsers are free to cancel its load when that
- * happens — which is how a preloader ends up doing nothing at all.
- */
-const inFlight = new Set<HTMLImageElement | HTMLVideoElement>();
-
-function warmImage(url: string): void {
-  const trimmed = url.trim();
-  if (!trimmed || warmed.has(trimmed)) return;
-  warmed.add(trimmed);
-  const image = new Image();
-  const release = () => inFlight.delete(image);
-  image.onload = release;
-  image.onerror = release;
-  inFlight.add(image);
-  image.src = trimmed;
-}
-
-/**
- * Only one video is fetched at a time, and its element is torn down the moment
- * the first frame is available. Releasing the warmer bounds its memory use
- * rather than keeping a decoder alive for every future scene.
- */
-let videoWarmInFlight = false;
-
-function warmVideo(url: string): void {
-  const trimmed = url.trim();
-  if (!trimmed || warmed.has(trimmed) || videoWarmInFlight) return;
-  warmed.add(trimmed);
-  videoWarmInFlight = true;
-  const video = document.createElement("video");
-  video.preload = "auto";
-  video.muted = true;
-  video.playsInline = true;
-  const release = () => {
-    videoWarmInFlight = false;
-    inFlight.delete(video);
-    video.removeAttribute("src");
-    video.load();
-  };
-  video.onloadeddata = release;
-  video.onerror = release;
-  inFlight.add(video);
-  video.src = trimmed;
-}
-
-/**
- * Preload whatever paints this scene's backdrop. Safe to call for every scene,
- * repeatedly, and on any template: scenes without media do nothing.
- */
-export function preloadSceneMedia(variables: Record<string, unknown>): void {
-  if (typeof window === "undefined" || typeof Image === "undefined") return;
-
-  const mediaUrl = String(variables.mediaUrl || "").trim();
-  if (!mediaUrl) return;
-
-  const resolved = resolveMediaType(String(variables.mediaType || "auto"), mediaUrl);
-  if (resolved === "gradient") return;
-
-  if (resolved === "video") {
-    // The poster is what paints the first frame, so it comes first and is
-    // never blocked behind the stream warm.
-    warmImage(String(variables.mediaPoster || ""));
-    // Mobile preparation owns the active and immediate-next mounted videos.
-    // A detached warmer would add another resource outside that bound and
-    // cannot supply the prepared element that must survive the cut.
-    if (limitsConcurrentVideoDecoders()) return;
-    warmVideo(mediaUrl);
+/** Fetch bytes into the browser cache without allocating a media decoder or retaining blobs. */
+function pump(): void {
+  if (running) return;
+  const job = queue.shift();
+  if (!job) return;
+  if (job.signal?.aborted) {
+    pending.delete(job.url);
+    job.done();
+    pump();
     return;
   }
-  warmImage(mediaUrl);
+  running = true;
+  void withDeadline(async signal => {
+    const response = await fetch(job.url, { signal, cache: "force-cache" });
+    if (!response.ok) throw new Error("Media warm failed");
+    const reader = response.body?.getReader();
+    if (reader) {
+      let bytes = 0;
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          bytes += part.value.byteLength;
+          if (bytes > MAX_WARM_BYTES) throw new Error("Media warm exceeded its byte allowance");
+        }
+      } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
+    }
+    warmed.add(job.url);
+    while (warmed.size > MAX_REMEMBERED_URLS) warmed.delete(warmed.values().next().value!);
+  }, 8_000, job.signal).catch(() => undefined).finally(() => {
+    running = false;
+    pending.delete(job.url);
+    job.done();
+    pump();
+  });
+}
+
+function warm(url: string, signal?: AbortSignal): Promise<void> {
+  if (!url || signal?.aborted || warmed.has(url)) return Promise.resolve();
+  const existing = pending.get(url);
+  if (existing) return existing;
+  if (queue.length >= MAX_QUEUED_URLS) return Promise.resolve();
+  let done!: () => void;
+  const result = new Promise<void>(resolve => { done = resolve; });
+  pending.set(url, result);
+  queue.push({ url, signal, done });
+  pump();
+  return result;
+}
+
+/** Preparation is best effort; only mounted media can prove playback readiness. */
+export async function preloadSceneMedia(variables: Record<string, unknown>, signal?: AbortSignal): Promise<void> {
+  if (typeof window === "undefined" || typeof fetch === "undefined") return;
+  const url = typeof variables.mediaUrl === "string" ? variables.mediaUrl.trim() : "";
+  if (!url || resolveMediaType(String(variables.mediaType || "auto"), url) === "gradient") return;
+  const poster = typeof variables.mediaPoster === "string" ? variables.mediaPoster.trim() : "";
+  await Promise.all([warm(poster, signal), warm(url, signal)]);
 }

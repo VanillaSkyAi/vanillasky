@@ -24,7 +24,7 @@ test("reports speech onset, first presentation and controlled stream starvation 
   expect(observed.find((metric) => metric.type === "stall")!.durationMs).toBeGreaterThan(500);
   for (const metric of observed) {
     expect(metric.elapsedMs).toBeGreaterThanOrEqual(0);
-    expect(Object.keys(metric).every((key) => ["type", "turnId", "mode", "elapsedMs", "source", "durationMs", "reason"].includes(key))).toBe(true);
+    expect(Object.keys(metric).every((key) => ["type", "turnId", "mode", "elapsedMs", "source", "durationMs", "reason", "speechDurationSec", "clipDurationSec", "sceneDurationSec", "recovered", "bufferedSeconds", "repeatCount"].includes(key))).toBe(true);
   }
   expect(JSON.stringify(observed)).not.toMatch(/private-prompt|private-provider|https?:|narration|An opening/);
   await testInfo.attach("controlled-browser-metrics", {

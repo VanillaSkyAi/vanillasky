@@ -14,7 +14,12 @@ it("exercises the actual handler with a deterministic creative ending and only l
     const scenes = events.flatMap(event => event.type === "scene.add" ? [event.data.scene] : []);
     expect(scenes.length).toBeGreaterThan(1);
     expect(scenes.at(-1)?.narration).toContain("garden");
-    expect(scenes.every(scene => String(scene.variables.mediaUrl).startsWith("http://127.0.0.1:4281/tests/browser/fixtures/"))).toBe(true);
+    const footage = scenes.filter(scene => scene.templateId === "cinemaMedia");
+    expect(footage.length).toBeGreaterThan(0);
+    expect(footage.every(scene => String(scene.variables.mediaUrl).startsWith("http://127.0.0.1:4281/tests/browser/fixtures/"))).toBe(true);
+    // The longer authored line stays complete on a chapter; offline fixtures
+    // never rewrite speech or buy extra footage merely to fit it.
+    expect(scenes[0]).toMatchObject({templateId:"chapterTitle",narration:"The robot plants its seed beside an empty house."});
     expect(network).not.toHaveBeenCalled();
   } finally {network.mockRestore();}
 });

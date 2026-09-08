@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
 
-const ending = { narration: "The robot finally shares its garden with the town.", subject: "robot flower garden", action: "Wide shot: the robot opens the garden gate for its neighbours.", durationSec: 5, continuity: "continue" };
+const ending = { narration: "The robot opens its garden to everyone.", subject: "robot flower garden", action: "Wide shot: the robot opens the garden gate for its neighbours.", durationSec: 5, continuity: "continue" };
 const brief = { type: "answer", intent: "story", opening: "A lonely robot plants something unexpected.", subject: "robot garden", development: "A robot grows a garden and invites its neighbours.", visualDirection: "A small copper robot with a blue scarf, warm hand-built miniature world.", ending };
-const shot = { type: "shot", narration: "A robot plants a seed beside its empty house.", subject: "robot planting seed", action: "Close shot: copper fingers lower a seed into damp soil.", durationSec: 5, continuity: "cut" };
+const shot = { type: "shot", narration: "A robot plants a seed by its house.", subject: "robot planting seed", action: "Close shot: copper fingers lower a seed into damp soil.", durationSec: 5, continuity: "cut" };
 async function run(options: { allowance?: number; miss?: boolean; parts?: unknown[] } = {}) {
  const calls: string[] = [], errors: string[] = [];
  let system = "", user = "";

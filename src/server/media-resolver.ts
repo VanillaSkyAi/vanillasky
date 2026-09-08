@@ -4,6 +4,8 @@ export interface ResolvedMedia {
   url: string;
   type: "image" | "video";
   posterUrl?: string;
+  /** Actual footage duration when the provider or delivery pipeline knows it. */
+  durationSec?: number;
 }
 
 export interface MediaResolverContext {

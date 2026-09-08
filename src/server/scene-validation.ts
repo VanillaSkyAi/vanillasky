@@ -20,6 +20,8 @@ export function validateBuiltinScene(scene: Pick<VideoScene, "templateId" | "var
   if (variables.fallbackText !== undefined && !boundedText(variables.fallbackText, 65)) {
     throw new Error("Media recovery title must contain 1–65 characters");
   }
-  const allowed = new Set(["mediaUrl", "mediaType", "mediaPoster", "fallbackText"]);
+  if (variables.mediaDurationSec !== undefined && (typeof variables.mediaDurationSec !== "number"
+    || !Number.isFinite(variables.mediaDurationSec) || variables.mediaDurationSec <= 0 || variables.mediaDurationSec > 3600)) throw new Error("Invalid media duration");
+  const allowed = new Set(["mediaUrl", "mediaType", "mediaPoster", "fallbackText", "mediaDurationSec"]);
   if (Object.keys(variables).some(key => !allowed.has(key))) throw new Error("Unsupported media variable");
 }

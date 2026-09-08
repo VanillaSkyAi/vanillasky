@@ -7,7 +7,7 @@ export interface SceneVideoBackdropProps {
   mediaPoster?: string;
   mediaPosition?: string;
   progress: number;
-  /** Narration-led visible duration; muted or pitch-preserving footage may be gently retimed. */
+  /** Prepared narration duration including its quiet tail; must fit the native clip. */
   sceneDuration?: number;
   /** Internal player-owned decoder priming, distinct from viewer pause. */
   preparingNarration?: boolean;
@@ -51,9 +51,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const videoPresentationKey = `${playbackId}\0${mediaUrl}`;
 
   const presentationRef = useRef({ key: videoPresentationKey, playing: isPlaying });
+  const failedPresentationRef = useRef<string | undefined>(undefined);
+  const previousProgressRef = useRef({ key: videoPresentationKey, progress });
   presentationRef.current = { key: videoPresentationKey, playing: isPlaying };
   const unavailable = (reason: MediaRecoveryReason = "playback-error") => {
-    if (presentationRef.current.key === videoPresentationKey && presentationRef.current.playing) {
+    if (presentationRef.current.key === videoPresentationKey && failedPresentationRef.current !== videoPresentationKey
+      && (presentationRef.current.playing || reason === "duration-mismatch")) {
+      failedPresentationRef.current = videoPresentationKey;
       setExhaustedKey(videoPresentationKey);
       onError?.();
       reportMediaFailure?.(reason);
@@ -126,7 +130,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     let frame: number | undefined;
     const markPresented = () => {
       if (stopped || !video.isConnected || presentationRef.current.key !== videoPresentationKey
-        || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src) return false;
+        || video.getAttribute("src") !== mediaUrl || video.currentSrc !== video.src
+        || failedPresentationRef.current === videoPresentationKey) return false;
       if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) playableVideoUrl.current = mediaUrl;
       video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true }));
       onReadyRef.current?.();
@@ -155,24 +160,37 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   }, [mediaUrl, videoPresentationKey]);
 
   const fitDuration = useCallback((video: HTMLVideoElement) => {
-    // Allow a small decode-to-speech onset margin without changing narration.
-    video.playbackRate = (resolvedMuted || video.preservesPitch === true) && sceneDuration && Number.isFinite(video.duration) && video.duration > 0
-      ? Math.max(.75, Math.min(1, video.duration / (sceneDuration + .2))) : 1;
-  }, [resolvedMuted, sceneDuration]);
+    video.playbackRate = 1;
+    if (sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05) {
+      video.pause();
+      unavailable("duration-mismatch");
+      return false;
+    }
+    return true;
+  }, [sceneDuration, videoPresentationKey]);
   useEffect(() => {
     if (videoRef.current) fitDuration(videoRef.current);
   }, [fitDuration]);
-  const continueMotion = (video: HTMLVideoElement) => {
+  const finishMotion = () => {
     if (!isPlaying) return;
-    // The finite scene clock bounds silent coverage. Speech may outlast a
-    // short clip; repeat motion until the scene ends, never audible dialogue.
-    if (!resolvedMuted) {
-      unavailable();
-      return;
-    }
-    video.currentTime = 0;
-    void video.play().catch(() => unavailable());
+    // If speech unexpectedly outlasts measured footage, keep its complete line
+    // on the recovery chapter. Never replay footage to buy narration time.
+    unavailable();
   };
+
+  useEffect(() => {
+    const previous = previousProgressRef.current;
+    previousProgressRef.current = { key: videoPresentationKey, progress };
+    const video = videoRef.current;
+    // Only an explicit backward playhead move rewinds this decoder. A pause,
+    // an ended clip, or an active/next promotion must never cause a replay.
+    if (!video || rewindPreroll || previous.key !== videoPresentationKey || progress >= previous.progress - .05
+      || !sceneDuration || !Number.isFinite(sceneDuration)) return;
+    video.currentTime = Math.max(0, progress * sceneDuration);
+    failedPresentationRef.current = undefined;
+    setExhaustedKey(undefined);
+    if (isPlaying && video.paused) void video.play().catch(() => unavailable());
+  }, [progress, videoPresentationKey, sceneDuration, rewindPreroll, isPlaying]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -216,12 +234,12 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       return;
     }
     if (startedPlaybackId.current === playbackId) {
-      if (video.ended) continueMotion(video);
+      if (video.ended) finishMotion();
       else void video.play().catch(() => unavailable());
       return;
     }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
-    fitDuration(video);
+    if (!fitDuration(video)) return;
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
     video.play().catch(() => unavailable());
     startedVideoUrl.current = mediaUrl;
@@ -233,7 +251,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
     event.currentTarget.pause();
-    if (rewindPreroll && !resolvedMuted && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+    // A late start can advance WebKit's decoded frames while its paused clock
+    // stays pinned. Reset this unexpected preroll, including silent footage,
+    // so resuming narration does not wait for the clock to catch stale pixels.
+    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
   };
 
   const mediaStyle: React.CSSProperties = {
@@ -255,13 +276,11 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         src={mediaUrl}
         poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
         muted={resolvedMuted}
-        // Let the decoder repeat without an ended → script seek/play round trip.
-        // The finite scene clock still owns pause and disposal; never loop speech.
-        loop={resolvedMuted && isPlaying && Number.isFinite(sceneDuration) && Number(sceneDuration) > 0}
+        loop={false}
         playsInline
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
-        onEnded={event => continueMotion(event.currentTarget)}
+        onEnded={finishMotion}
         onPlay={enforceRequestedPause}
         onPlaying={event => {
           if (event.currentTarget.currentSrc === event.currentTarget.src

@@ -7,6 +7,23 @@ import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
 afterEach(() => {cleanup(); vi.useRealTimers();});
+it.each([1800, 3000])("waits for actual speech completion at %dms and a short tail before cutting", async finishAt => {
+  vi.useFakeTimers();
+  let active = true;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [0, 1].map(index => ({ id: String(index), templateId: "chapterTitle", variables: { title: "A thought" }, narration: "A thought.", timing: { fixedDuration: 2 } })) };
+  const timeRef = { current: 0 }; const change = vi.fn();
+  renderHook(() => usePlaybackClock({ isPlaying: true, stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef,
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: -1 },
+    callbacksRef: { current: { narrationActive: () => active, onSceneChange: change } }, setCurrentTime: vi.fn(), setIsPlaying: vi.fn() }));
+  await act(() => vi.advanceTimersByTimeAsync(finishAt));
+  expect(change).toHaveBeenCalledTimes(1);
+  expect(timeRef.current).toBeLessThan(2);
+  active = false;
+  await act(() => vi.advanceTimersByTimeAsync(400));
+  expect(change).toHaveBeenCalledTimes(1);
+  await act(() => vi.advanceTimersByTimeAsync(500));
+  expect(change).toHaveBeenCalledTimes(2);
+});
 it("holds first-frame and cut narration until the mounted scene is ready, then resumes without accumulating wall time", async () => {
   vi.useFakeTimers();
   const video: Video = {schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE, scenes: [0,1].map(index => ({id: `scene-${index}`, templateId: "media", variables: {mediaUrl: `https://example.com/${index}.mp4`, mediaType: "video"}, timing: {fixedDuration: 1}}))};
@@ -21,7 +38,7 @@ it("holds first-frame and cut narration until the mounted scene is ready, then r
   hook.rerender({isPlaying: false}); await act(() => vi.advanceTimersByTimeAsync(1000)); expect(timeRef.current).toBe(1);
   visualReadyRef.current = sceneReadinessKey(video.scenes[1]); hook.rerender({isPlaying: true});
   await act(() => vi.advanceTimersByTimeAsync(100)); expect(timeRef.current).toBeLessThan(1.12); expect(change).toHaveBeenCalledTimes(2);
-  expect(stall).toHaveBeenCalledWith(true); expect(stall).toHaveBeenCalledWith(false);
+  expect(stall).toHaveBeenCalledWith(true, "media-decoding"); expect(stall).toHaveBeenCalledWith(false, undefined);
 });
 
 it("cues the first scene before holding for actual narration onset, excludes pause time and bounds a missing onset", async () => {
@@ -37,7 +54,7 @@ it("cues the first scene before holding for actual narration onset, excludes pau
   await act(() => vi.advanceTimersByTimeAsync(1600));
   expect(change).toHaveBeenCalledOnce();
   expect(timeRef.current).toBeLessThan(0.04);
-  expect(stall).not.toHaveBeenCalledWith(true);
+  expect(stall).not.toHaveBeenCalledWith(true, "media-decoding");
   hook.rerender({ isPlaying: false });
   await act(() => vi.advanceTimersByTimeAsync(10000));
   expect(error).not.toHaveBeenCalled();
@@ -79,14 +96,14 @@ it("uses actual narration time across cold output stalls, visual cuts, pause, an
   audioTime = 3.1;
   await act(() => vi.advanceTimersByTimeAsync(50));
   expect(timeRef.current).toBe(3); expect(change).toHaveBeenCalledOnce();
-  expect(stall).not.toHaveBeenCalledWith(true);
+  expect(stall).not.toHaveBeenCalledWith(true, "media-decoding");
   await act(() => vi.advanceTimersByTimeAsync(250));
-  expect(stall).toHaveBeenCalledWith(true);
+  expect(stall).toHaveBeenCalledWith(true, "media-decoding");
   await act(() => vi.advanceTimersByTimeAsync(1750)); expect(error).not.toHaveBeenCalled();
   visualReadyRef.current = sceneReadinessKey(video.scenes[1]);
   await act(() => vi.advanceTimersByTimeAsync(50));
   expect(timeRef.current).toBe(3.1); expect(change).toHaveBeenCalledTimes(2);
-  expect(stall).toHaveBeenCalledWith(false);
+  expect(stall).toHaveBeenCalledWith(false, undefined);
   hook.rerender({ isPlaying: false });
   await act(() => vi.advanceTimersByTimeAsync(10000));
   expect(error).not.toHaveBeenCalled();
@@ -124,20 +141,20 @@ it.each([false, true])('keeps paragraph audio continuous only for a brief actual
   await act(()=>vi.advanceTimersByTimeAsync(160));
   expect(timeRef.current).toBe(1);
   expect(change).toHaveBeenCalledTimes(1);
-  expect(stall).not.toHaveBeenCalledWith(true);
+  expect(stall).not.toHaveBeenCalledWith(true, "media-decoding");
   if(cold){
     // Streaming appends clone config/scenes; that must not renew the budget.
     options.stateRef.current={...options.stateRef.current,config:{...video,scenes:[...video.scenes]}};
     await act(()=>vi.advanceTimersByTimeAsync(100));
-    expect(stall).toHaveBeenCalledWith(true);
+    expect(stall).toHaveBeenCalledWith(true, "media-decoding");
     expect(change).toHaveBeenCalledTimes(1);
   }
   visualReadyRef.current=sceneReadinessKey(video.scenes[1]);
   await act(()=>vi.advanceTimersByTimeAsync(32));
   expect(change).toHaveBeenCalledTimes(2);
   expect(timeRef.current).toBe(1.05);
-  if(!cold)expect(stall).not.toHaveBeenCalledWith(true);
-  else expect(stall).toHaveBeenLastCalledWith(false);
+  if(!cold)expect(stall).not.toHaveBeenCalledWith(true, "media-decoding");
+  else expect(stall).toHaveBeenLastCalledWith(false, undefined);
 });
 
 it.each(['pause','seek','replacement','different group'] as const)('resets the paragraph handoff window on %s', async (changeKind) => {
@@ -149,13 +166,13 @@ it.each(['pause','seek','replacement','different group'] as const)('resets the p
   await act(()=>vi.advanceTimersByTimeAsync(32));
   audioTime=1.05;
   await act(()=>vi.advanceTimersByTimeAsync(160));
-  expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true);
+  expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true, "media-decoding");
   if(changeKind==='pause'){
     hook.rerender({isPlaying:false});
     await act(()=>vi.advanceTimersByTimeAsync(1000));
     hook.rerender({isPlaying:true});
     await act(()=>vi.advanceTimersByTimeAsync(100));
-    expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true);
+    expect(options.callbacksRef.current.onStallChange).not.toHaveBeenCalledWith(true, "media-decoding");
     await act(()=>vi.advanceTimersByTimeAsync(140));
   }else{
     if(changeKind==='seek')options.timeRef.current=.99;
@@ -163,5 +180,5 @@ it.each(['pause','seek','replacement','different group'] as const)('resets the p
     if(changeKind==='different group')options.stateRef.current={...options.stateRef.current,config:{...video,scenes:[video.scenes[0],{...video.scenes[1],narrationGroup:{...video.scenes[1].narrationGroup!,id:'different'}}]}};
     await act(()=>vi.advanceTimersByTimeAsync(32));
   }
-  expect(options.callbacksRef.current.onStallChange).toHaveBeenCalledWith(true);
+  expect(options.callbacksRef.current.onStallChange).toHaveBeenCalledWith(true, "media-decoding");
 });

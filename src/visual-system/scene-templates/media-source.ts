@@ -19,13 +19,6 @@ function isVideoUrl(url: string): boolean {
 
 export type ResolvedMediaType = "photo" | "video" | "gradient";
 
-/** Apple mobile browsers share WebKit's conservative video-decoder ceiling. */
-export function limitsConcurrentVideoDecoders(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-}
-
 export function resolveMediaType(
   mediaType: string,
   mediaUrl: string,

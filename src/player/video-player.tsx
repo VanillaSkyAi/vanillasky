@@ -19,6 +19,7 @@ import { getVideoDuration, resolveVideoTimeline } from "../protocol/timeline.js"
 import { parseVideo } from "../protocol/persistence.js";
 import { preloadBuiltinTemplate } from "../visual-system/catalog/builtin-player.js";
 import { warmSceneMedia } from "./warm-scene-media.js";
+import { usePlaybackDiagnostics } from "./use-playback-diagnostics.js";
 import { resolvePlaybackPolicy } from "./playback-policy.js";
 import {
   EndedOverlay,
@@ -66,6 +67,8 @@ export function VideoPlayerRuntime({
   onSceneChange,
   narrationReady,
   narrationTime,
+  narrationActive,
+  onPlaybackMetric,
   onFramePresented,
   onMediaFramePresented,
   onStallChange,
@@ -95,6 +98,17 @@ export function VideoPlayerRuntime({
   const [fullscreenMode, setFullscreenMode] = useState<FullscreenMode>("none");
   const [state, setState] = useState<VideoState>(() => video ? savedVideoState(video) : createVideoState());
   const [currentTime, setCurrentTime] = useState(0);
+  const savedActiveIndex = video ? resolveVideoTimeline(video).findIndex(range => currentTime >= range.start && currentTime < range.end) : -1;
+  const savedPreparationIndex = savedActiveIndex >= 0 ? savedActiveIndex : Math.max(0, (video?.scenes.length ?? 1) - 1);
+  useEffect(() => {
+    if (!video) return;
+    const controller = new AbortController();
+    for (const scene of video.scenes.slice(savedPreparationIndex, savedPreparationIndex + 2)) {
+      preloadBuiltinTemplate(scene.templateId);
+      warmSceneMedia(scene.variables, controller.signal);
+    }
+    return () => controller.abort();
+  }, [video, savedPreparationIndex]);
   const [activeStream, setActiveStream] = useState(stream);
   const [activeSavedVideo, setActiveSavedVideo] = useState(video);
   const [replacementPending, setReplacementPending] = useState(false);
@@ -103,11 +117,12 @@ export function VideoPlayerRuntime({
   const [generationIntroComplete, setGenerationIntroComplete] = useState(() => !playbackMode || !stream);
   const [observedWidth, setObservedWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  usePlaybackDiagnostics(containerRef, state.config ?? undefined, onPlaybackMetric);
   const stateRef = useRef(state);
   const timeRef = useRef(currentTime);
   const audioRef = useRef<HTMLAudioElement>(null);
   const introStartedAtRef = useRef<number | null>(autoStartGeneration ? performance.now() : null);
-  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
+  const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, narrationActive, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
   const sceneIndexRef = useRef(-1);
   const mediaFrameReportedRef = useRef(false);
@@ -138,7 +153,7 @@ export function VideoPlayerRuntime({
 
   stateRef.current = state;
   timeRef.current = currentTime;
-  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
+  callbacksRef.current = { onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, narrationActive, onFramePresented, onMediaFramePresented, onStallChange, onStateChange };
   loopRef.current = loop;
 
   const reportFramePresented = useMemo(() => {
@@ -255,13 +270,7 @@ export function VideoPlayerRuntime({
     setState(reset);
     setCurrentTime(0);
 
-    if (video) {
-      for (const scene of video.scenes) {
-        preloadBuiltinTemplate(scene.templateId);
-        warmSceneMedia(scene.variables);
-      }
-      return;
-    }
+    if (video) return;
     if (!stream) return;
 
     const consume = async () => {

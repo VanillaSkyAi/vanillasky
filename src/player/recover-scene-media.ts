@@ -4,11 +4,8 @@ import type { VideoScene } from "../protocol/types.js";
 export function recoverSceneMedia(scene: VideoScene): VideoScene | undefined {
   if (scene.templateId === "cinemaMedia") {
     const title = scene.variables.fallbackText;
-    if (typeof title !== "string" || !title.trim() || [...title].length > 65) return { ...scene, variables: { mediaType: "video", mediaUrl: "" } };
-    return { ...scene, templateId: "chapterTitle", variables: { title: title.trim() } };
+    const fallback = typeof title === "string" && title.trim() && [...title].length <= 65 ? title.trim() : "Your response continues.";
+    return { ...scene, templateId: "chapterTitle", variables: { title: fallback } };
   }
-  if (!["comparison", "editorialTimeline", "quote", "keyFigure"].includes(scene.templateId)) return undefined;
-  const variables = { ...scene.variables };
-  for (const key of ["mediaUrl", "mediaPoster", "mediaType", "mediaKeyword", "mediaSource"]) delete variables[key];
-  return { ...scene, variables };
+  return undefined;
 }

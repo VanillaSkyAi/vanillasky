@@ -4,7 +4,8 @@ import { VideoPlayer } from "../../../src/player/video-player";
 import { useNarration } from "../../../src/player/use-narration";
 import { createVideoChatVoice } from "../../../src/video-chat/voice";
 import type { Video } from "../../../src/protocol/types";
-import audioUrl from "./media-transition/paragraph.wav?url";
+import audioUrl from "./media-transition/clip-narration.wav?url";
+import { prepareNarratedScene } from "../../../src/player/scene-readiness";
 import waterfallPoster from "./media-transition/waterfall.jpg?url";
 import tramPoster from "./media-transition/tram.jpg?url";
 import flowersPoster from "./media-transition/sunflowers.jpg?url";
@@ -46,7 +47,7 @@ function observe() {
     video.requestVideoFrameCallback(frame);
     probe.push({kind:"connected",id,source:video.src,at:performance.now()});
   }
-  if (probe.length < 5000) probe.push({kind:"surface", audioTime:playingAudio?.currentTime ?? 0, sources:videos.filter(v=>v.getAttribute("src")).length, active:document.querySelector('[data-scene-layer="active"]')?.getAttribute("data-layer-scene-id"), at:performance.now()});
+  if (probe.length < 5000) probe.push({kind:"surface", recovery: Boolean(document.querySelector('[data-scene-layer="active"] [data-template="title"]')), audioTime:playingAudio?.currentTime ?? 0, sources:videos.filter(v=>v.getAttribute("src")).length, active:document.querySelector('[data-scene-layer="active"]')?.getAttribute("data-layer-scene-id"), at:performance.now()});
   requestAnimationFrame(observe);
 }
 requestAnimationFrame(observe);
@@ -57,7 +58,7 @@ if (nativeVideoFrame) HTMLVideoElement.prototype.requestVideoFrameCallback = fun
     callback(now, metadata);
   });
 };
-const text = "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light.";
+const text = "Water keeps flowing through the forest.";
 const NativeAudio = window.Audio;
 let playingAudio: HTMLAudioElement | undefined;
 window.Audio = function (src?: string) {
@@ -81,11 +82,10 @@ function App() {
     narration.interrupt();
     const prepared = await voice.prepare(text);
     probe.push({ kind: "prepared", ...prepared });
-    const segment = prepared.seconds;
-    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: footage.map((mediaUrl, index) => ({
-      id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", fallbackText: ["Water keeps moving", "The tram crosses the city", "Flowers turn toward the light"][index], mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: segment },
+    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: footage.map((mediaUrl, index) => prepareNarratedScene({
+      id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", fallbackText: ["Water keeps moving", "The tram crosses the city", "Flowers turn toward the light"][index], mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: 5 },
       narration: text,
-    })) });
+    }, prepared.seconds).scene) });
     setRun((value) => value + 1);
   };
   return <><button onClick={() => void start().catch(error => probe.push({ kind: "prepare-error", message: String(error) }))}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>
@@ -93,7 +93,8 @@ function App() {
       onError={(error) => { narration.interrupt(); probe.push({ kind: "player-error", message: String(error) }); }}
       narrationReady={narration.isReady}
       narrationTime={narration.getTime}
-      onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
+      narrationActive={narration.isSpeaking}
+      onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}
       onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0, at:performance.now() }); narration.onSceneChange(scene, index); }}
     />}</div></>;
 }

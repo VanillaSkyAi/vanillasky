@@ -1,5 +1,9 @@
 import type { VideoChatPlaybackMetric } from "../../src/video-chat/use-video-chat";
-export interface DiagnosticRow { phase: string; elapsedMs: number; durationMs?: number; status?: number; reason?: string }
+export interface DiagnosticRow {
+  phase: string; elapsedMs: number; durationMs?: number; status?: number; reason?: string;
+  speechDurationSec?: number; clipDurationSec?: number; sceneDurationSec?: number;
+  bufferedSeconds?: number; repeatCount?: number; recovered?: boolean;
+}
 const phases: Record<string, string> = {
   "response.start": "request accepted", "data.video-chat-opening": "opening authored",
   "data.video-chat-preparation": "shot authored", "scene.add": "scene prepared",
@@ -20,7 +24,7 @@ export function createChatDiagnostics(changed: (rows: DiagnosticRow[]) => void) 
     observeRecoveries(target: EventTarget) {
       const observe = (event: Event) => {
         const reason: unknown = (event as CustomEvent<{reason?: unknown}>).detail?.reason;
-        if (typeof reason === "string" && ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error"].includes(reason)) {
+        if (typeof reason === "string" && ["decode-error", "frame-readiness-timeout", "stalled-media", "playback-error", "duration-mismatch"].includes(reason)) {
           mark("media recovery", generation, {reason});
         }
       };
@@ -29,8 +33,14 @@ export function createChatDiagnostics(changed: (rows: DiagnosticRow[]) => void) 
     },
     dispose() {disposed = true; generation++; rows = [];},
     playback(metric: VideoChatPlaybackMetric) {
-      const phase = {"first-frame": "body rendered", "first-media-frame": "video decoded", "first-speech": "first speech", stall: "buffer pause"}[metric.type];
-      emit({phase, elapsedMs: metric.elapsedMs, ...(metric.type === "stall" ? {durationMs: metric.durationMs} : {})});
+      const phase = {"first-frame": "body rendered", "first-media-frame": "video decoded", "first-speech": "first speech",
+        stall: "playback wait", "scene-duration": "speech fit", buffer: "buffered media", "media-playback": "media playback"}[metric.type];
+      emit({phase, elapsedMs: metric.elapsedMs,
+        ...(metric.type === "stall" ? {durationMs: metric.durationMs,reason:metric.reason} : {}),
+        ...(metric.type === "scene-duration" ? {speechDurationSec:metric.speechDurationSec,clipDurationSec:metric.clipDurationSec,recovered:metric.recovered} : {}),
+        ...(metric.type === "buffer" ? {bufferedSeconds:metric.bufferedSeconds} : {}),
+        ...(metric.type === "media-playback" ? {clipDurationSec:metric.clipDurationSec,sceneDurationSec:metric.sceneDurationSec,repeatCount:metric.repeatCount} : {}),
+      });
     },
     wrapFetch(fetcher: typeof fetch): typeof fetch {
       return async (input, init) => {

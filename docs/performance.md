@@ -39,10 +39,15 @@ playback. It is not the time a speech request finishes. Custom voices must call
 `onStart()` when sound begins; otherwise this measurement remains unavailable.
 Muted responses do not produce a speech-start event.
 
-`stall` measures a wait after the player reaches the end of its available scenes
-while more scenes are being prepared. A completed interval includes `durationMs`.
-Deliberate pauses are excluded. This does not measure network buffering inside
-an image or video, because those assets do not control the scene clock.
+`stall` measures a completed wait interval with `durationMs` and a fixed reason:
+`scene-generation`, `speech`, or `media-decoding`. Deliberate pauses are excluded.
+Custom player owners must not pause voice for a `speech` wait.
+
+`scene-duration` compares prepared speech and clip seconds and records chapter
+recovery. `media-playback` reports the actual decoded clip duration, scene duration
+and observed repeat count. `buffer` samples ready buffered seconds across the
+active and next mounted media elements, not total downloaded bytes. The local
+development chat displays these measurements without retaining response content.
 
 Elapsed times start at prompt submission and can include user pauses. Compare
 unpaused runs with the same mode and voice configuration. Treat missing speech
@@ -75,6 +80,6 @@ chapter scenes. Neither callback measures the immediate opening template;
 measure that surface separately when checking submit-to-template latency.
 
 AI and Pexels modes remain separate. Missing, late, or unplayable footage uses
-the authored chapter and complete narration. Silent clips loop for the finite
-narrated scene. See [the local chat harness](development.md) for fixture timing
+the authored chapter and complete narration. Normal clips play once at native
+speed; overlong narration recovers to a chapter. See [the local chat harness](development.md) for fixture timing
 and explicit live-provider checks.

@@ -1,5 +1,13 @@
 # Continuous playback fixture
 
+`clip-narration.wav` is an offline macOS Samantha recording of “Water keeps
+flowing through the forest.” at 170 words per minute, converted to mono 24 kHz
+PCM WAV. Its measured 1.965 seconds plus the 0.8-second tail fits the five-second
+normal clip without slowing or repeating it. The `oversized` case keeps the full
+6.419-second paragraph and verifies recovery before footage playback; the
+`short` case verifies the mounted decoder's actual-duration recovery. Neither
+case truncates its original audio. No paid generation is involved.
+
 `waterfall-hold.webm` is a VP8, 360 × 640, 30 fps, five-second derivative of
 `waterfall.mp4`, showing the same waterfall footage. Its source attribution is
 https://www.pexels.com/video/serene-waterfall-flowing-through-forest-37625941/.

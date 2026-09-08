@@ -20,10 +20,10 @@ async function run(failure?: 'provider' | 'timeout' | 'allowance', observer?: (e
 describe('safe host chat diagnostics',()=>{
   it('reports successful phases without retaining answer or provider data',async()=>{
     const {events,text}=await run();
-    expect(events.map(e=>e.phase)).toEqual(['request-accepted','opening-authored','shot-authored','media-start','media-end']);
+    expect(events.map(e=>e.phase)).toEqual(['request-accepted','opening-authored','narration-fit','shot-authored','media-start','media-end']);
     expect(events.at(-1)).toMatchObject({reason:'ready',durationMs:expect.any(Number)});
     expect(events.every(e=>typeof e.requestId==='string' && e.mode==='cinematic' && typeof e.elapsedMs==='number' && e.elapsedMs>=0)).toBe(true);
-    expect(JSON.stringify(events)).not.toMatch(/private|https:|narration|subject|prompt/);
+    expect(JSON.stringify(events)).not.toMatch(/private|https:|"narration":|subject|prompt/);
     expect(text).not.toContain('media-start');
   });
   it.each([['provider','provider-error'],['timeout','timeout'],['allowance','allowance']] as const)('distinguishes %s recovery',async(failure,reason)=>{

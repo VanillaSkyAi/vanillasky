@@ -16,6 +16,24 @@ describe("VideoPlayer", () => {
     vi.unstubAllGlobals();
   });
 
+  it("reports actual clip duration and decoded buffered playback without URLs", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+    await preloadBuiltinTemplate("cinemaMedia");
+    const { VideoPlayer } = await import("../src/player/video-player");
+    const metrics = vi.fn();
+    const video: Video = { schemaVersion: "0.2", orientation: "portrait", style: TEST_VIDEO_STYLE,
+      scenes: [{ id: "native-metric", templateId: "cinemaMedia", variables: { mediaUrl: "https://media.example/clip.mp4", mediaType: "video" }, timing: { fixedDuration: 4 } }] };
+    const view = render(createElement(VideoPlayer, { video, autoPlay: false, onPlaybackMetric: metrics }));
+    const clip = view.container.querySelector("video")!;
+    Object.defineProperties(clip, { duration: { value: 5 }, readyState: { value: 3 },
+      buffered: { value: { length: 1, start: () => 0, end: () => 5 } } });
+    await waitFor(() => expect(metrics).toHaveBeenCalledWith({ type: "media-playback", clipDurationSec: 5, sceneDurationSec: 4, repeatCount: 0 }));
+    expect(metrics).toHaveBeenCalledWith({ type: "buffer", bufferedSeconds: 4 });
+    expect(JSON.stringify(metrics.mock.calls)).not.toContain("media.example");
+  });
+
   it("renders nothing before a stream starts", async () => {
     const { VideoPlayer } = await import("../src/player/video-player");
     const view = render(createElement(VideoPlayer, {

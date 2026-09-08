@@ -9,6 +9,11 @@ export interface NativeMediaAudioOptions {
   volume?: number;
 }
 
+export type PlaybackWaitReason = "scene-generation" | "speech" | "media-decoding";
+export type MediaPlaybackMetric =
+  | { type: "media-playback"; clipDurationSec: number; sceneDurationSec: number; repeatCount: number }
+  | { type: "buffer"; bufferedSeconds: number };
+
 interface VideoPlayerSharedProps {
   /** High-level startup policy. When set, this overrides autoPlay and startMuted. */
   playbackMode?: VideoPlaybackMode;
@@ -41,6 +46,8 @@ interface VideoPlayerSharedProps {
   narrationReady?: () => boolean;
   /** Active audio time: paragraph-relative for a narration group, scene-relative otherwise. Undefined resumes the normal clock. */
   narrationTime?: (scene: VideoScene) => number | undefined;
+  /** Actual utterance completion when a voice has no audio clock. Pair with useNarration.isSpeaking. */
+  narrationActive?: (scene: VideoScene) => boolean;
   /**
    * Hold the playhead where it is, and release it again.
    *
@@ -67,7 +74,9 @@ interface VideoPlayerSharedProps {
   /** First actual mounted video frame; excludes graphics, posters and safe fallbacks. */
   onMediaFramePresented?: () => unknown;
   /** Stream playback has reached its available scenes; excludes initial waiting and deliberate pauses. */
-  onStallChange?: (stalled: boolean) => unknown;
+  onStallChange?: (stalled: boolean, reason?: PlaybackWaitReason) => unknown;
+  /** Opt-in local native-media diagnostics; contains no scene IDs, URLs, or content. */
+  onPlaybackMetric?: (metric: MediaPlaybackMetric) => unknown;
   /** Fires when the scene under the playhead changes, including on a loop wrap. */
   onSceneChange?: (scene: VideoScene, index: number) => void;
 }

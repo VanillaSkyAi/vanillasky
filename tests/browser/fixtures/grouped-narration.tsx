@@ -78,7 +78,7 @@ function App() {
       onError={(error) => { narration.interrupt(); probe.push({ kind: "player-error", message: String(error) }); }}
       narrationReady={narration.isReady}
       narrationTime={narration.getTime}
-      onStallChange={(stalled) => stalled ? voice.pause() : voice.resume()}
+      onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}
       onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0, at:performance.now() }); narration.onSceneChange(scene, index); }}
     />}</div></>;
 }

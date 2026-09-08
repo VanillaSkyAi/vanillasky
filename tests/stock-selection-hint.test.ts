@@ -10,7 +10,7 @@ async function run(hint: unknown, mode = "pexels") {
   };
   const handler = createVideoChatHandler({authorize:"none",heartbeatMs:false,generateText:async()=>"",searchMedia:capture(stock),generateVideo:capture(ai),
     streamText:async function* () {
-      yield JSON.stringify({type:"answer",opening:"One dog meets a very large ocean.",subject:"dog at beach",development:"",ending:{title:"Enough ocean",narration:"The dog decided the ocean was a terrible idea.",subject:"dog beach waves",action:"A dog retreats from the water.",durationSec:5,stockSelection:hint}})+"\n";
+      yield JSON.stringify({type:"answer",opening:"One dog meets a very large ocean.",subject:"dog at beach",development:"",ending:{title:"Enough ocean",narration:"The dog decided the ocean was terrible.",subject:"dog beach waves",action:"A dog retreats from the water.",durationSec:5,stockSelection:hint}})+"\n";
     },
   });
   const response = await handler(new Request("https://app.example/?action=response",{method:"POST",body:JSON.stringify({prompt:"Tell a tiny dog comedy",mode})}));

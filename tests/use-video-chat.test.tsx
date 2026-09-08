@@ -94,6 +94,37 @@ describe("useVideoChat", () => {
     vi.unstubAllGlobals();
   });
 
+  it("recovers measured speech that cannot fit the delivered clip without losing its line", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const line = "The complete explanation still matters, including this qualification.";
+    const clip: VideoScene = { id: "short", templateId: "cinemaMedia", narration: line,
+      variables: { mediaUrl: "https://media.example/short.mp4", mediaType: "video", mediaDurationSec: 5, fallbackText: "The full explanation" }, timing: { fixedDuration: 6 } };
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = async (input, init) => String(input).includes("action=response")
+      ? responseStream("short", [clip], { line: "", keyword: "", fallbackKeyword: "" }) : base(input, init);
+    const metrics = vi.fn();
+    const { result } = renderHook(() => useVideoChat({ fetcher, onPlaybackMetric: metrics, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 5 })) } }));
+    await act(async () => { await result.current.ask("Explain it"); });
+    expect(result.current.currentTurn?.video?.scenes[0]).toMatchObject({ templateId: "chapterTitle", narration: line, timing: { fixedDuration: 5.8 } });
+    expect(result.current.playerProps?.narrationActive).toBeTypeOf("function");
+    expect(metrics).toHaveBeenCalledWith(expect.objectContaining({ type: "scene-duration", speechDurationSec: 5, clipDurationSec: 5, recovered: true }));
+  });
+
+  it("does not resubmit an ambiguous cinematic response request", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const base = videoChatFetcher();
+    let submitted = 0;
+    const fetcher: typeof fetch = async (input, init) => {
+      if (!String(input).includes("action=response")) return base(input, init);
+      submitted++;
+      throw new TypeError("Network disconnected after submission");
+    };
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "cinematic" }));
+    await act(async () => { await result.current.ask("One paid request"); });
+    expect(submitted).toBe(1);
+    expect(result.current.status).toBe("error");
+  });
+
   it("prepares speech alongside a pending photo and keeps the full answer when it fails", async () => {
     const { useVideoChat } = await import("../src/react");
     const images: Array<{ onerror: (() => void) | null }> = [];
@@ -683,7 +714,7 @@ describe("useVideoChat", () => {
     expect(result.current.currentTurn?.video?.scenes[0]?.id).not.toBe("late");
   });
 
-  it("retries once before playback starts", async () => {
+  it("retries stock planning once before playback starts", async () => {
     const { useVideoChat } = await import("../src/react");
     const base = videoChatFetcher();
     let responses = 0;
@@ -694,7 +725,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "pexels" }));
 
     await act(async () => { await result.current.ask("Recover this response"); });
 
