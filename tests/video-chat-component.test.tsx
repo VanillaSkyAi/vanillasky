@@ -103,7 +103,7 @@ describe("VideoChat", () => {
         pause() {}, resume() {}, setMuted() {} },
     }} />);
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    await waitFor(() => expect(screen.getByText("Tonight, the impossible feels close enough to touch.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Tonight, the impossible feels close enough to touch.", { selector: ".line" })).toBeTruthy());
     expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
     await act(async () => { finishOpening(); });
     expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();

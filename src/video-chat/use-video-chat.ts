@@ -844,7 +844,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
             const withNarration = line ? { ...visual, narration: line } : visual;
             const group = plannedScene.narrationGroup;
             if (group && (spoken?.supportsOffsets !== true || voiceRef.current.supportsOffsets !== true || Math.abs(spoken.seconds - group.totalSeconds) > 0.1)) throw new VideoError("Narration group requires matching measured audio with offset support", { code: "narration_group_invalid" });
-            ready[position] = group ? withNarration : preparation.pace(withNarration, spoken?.seconds);
+            ready[position] = group ? withNarration : preparation.pace(withNarration, spoken?.seconds, spoken?.supportsOffsets === true);
             flush();
           }).catch((cause: unknown) => {
             if (!isCurrent() || currentAttempt !== attempt) return;

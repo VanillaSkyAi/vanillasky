@@ -147,6 +147,11 @@ another clip. The mounted decoder rechecks the bound against actual footage;
 pause/resume does not grant another repeat, and explicit replay starts a fresh
 playback lifecycle.
 
+Repeat eligibility uses the prepared audio's decoded duration, not a browser
+speech estimate. A custom voice must return `supportsOffsets: true` from
+`prepare` only when its audio is measured and seekable. In-memory replay keeps
+that prepared timing; the mounted decoder still enforces the repeat bound.
+
 `generateVideoTimeoutMs` sets the first-shot preparation budget (default 15 seconds).
 Later deadlines account for their position in the answer rather than restarting
 an unlimited wait. Hosts must honor cancellation. A missed deadline selects the
