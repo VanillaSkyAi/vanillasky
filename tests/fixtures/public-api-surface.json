@@ -32,12 +32,9 @@
     "runtime": "dist/server.js",
     "environment": "server",
     "runtimeExports": [
-      "createServerTemplateRegistry",
       "createVideoChatHandler"
     ],
     "typeExports": [
-      "ServerTemplateMetadata",
-      "ServerTemplateRegistry",
       "VideoFinishReason",
       "VideoGenerationSummary",
       "VideoChatCapabilities",
@@ -84,41 +81,6 @@
       "VideoErrorOptions",
       "VideoPlaybackMode",
       "VideoPlayerProps"
-    ]
-  },
-  "@vanillaskyai/video/templates": {
-    "source": "src/templates.ts",
-    "declaration": "dist/templates.d.ts",
-    "runtime": "dist/templates.js",
-    "environment": "browser",
-    "runtimeExports": [
-      "createTemplateRegistry",
-      "defineTemplate"
-    ],
-    "typeExports": [
-      "SceneTemplate",
-      "SceneTemplateMetadata",
-      "SceneTemplateProps",
-      "TemplateTransitionTiming",
-      "TemplateDefinition",
-      "TemplateExample",
-      "TemplateFamily",
-      "TemplateJsonSchema",
-      "TemplateRegistry",
-      "TemplateTimingMetadata"
-    ]
-  },
-  "@vanillaskyai/video/templates/catalog": {
-    "source": "src/template-catalog.ts",
-    "declaration": "dist/template-catalog.d.ts",
-    "runtime": "dist/template-catalog.js",
-    "environment": "universal",
-    "runtimeExports": [
-      "builtinTemplates"
-    ],
-    "typeExports": [
-      "BuiltinTemplateId",
-      "BuiltinTemplateMetadata"
     ]
   },
   "@vanillaskyai/video/test": {

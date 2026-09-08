@@ -9,8 +9,8 @@ import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
 // and speech are simulated; timings describe this controlled browser journey.
 let releaseScene = () => {};
 const scenes: VideoScene[] = [1, 2].map((value) => ({
-  id: `scene-${value}`, templateId: "keyFigure",
-  variables: { value: String(value), label: "A controlled response" },
+  id: `scene-${value}`, templateId: "chapterTitle",
+  variables: { title: `A controlled response ${value}` },
   timing: { fixedDuration: 8 }, narration: "A short line.",
 }));
 const fetcher: typeof fetch = async (input) => {
@@ -29,7 +29,7 @@ const fetcher: typeof fetch = async (input) => {
         const event = { protocolVersion: "0.6", type, eventId: `controlled:${sequence}`, runId: "controlled", sequence: sequence++, data };
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       };
-      emit("response.start", { requestId: "controlled", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["keyFigure"], extensions: ["data.video-chat-opening"] } });
+      emit("response.start", { requestId: "controlled", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"], extensions: ["data.video-chat-opening"] } });
       emit("data.video-chat-opening", { line: "An opening hook.", keyword: "" });
       emit("scene.add", { scene: scenes[0], position: 0 });
       releaseScene = () => {

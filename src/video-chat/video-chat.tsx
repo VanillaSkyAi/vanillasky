@@ -303,7 +303,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, showRecoveryN
           key={chat.playerKey}
           {...chat.playerProps}
           onSceneChange={cueBody}
-          templates={options.templates}
           orientation={stageOrientation}
           responsiveBreakpoint={DESKTOP_WIDTH}
           ariaLabel={chat.playerProps.video ? "Replay" : "The response"}

@@ -4,25 +4,13 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { Video, VideoScene } from "../src/index";
 import { checksumVideo } from "../src/protocol/checksum";
-import { createRenderTemplateRegistry, defineTemplate } from "../src/visual-system/catalog/internal";
 import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
-
-const kit = createRenderTemplateRegistry({ templates: [defineTemplate({
-  id: "metric",
-  schema: {
-    type: "object",
-    properties: { value: { type: "string", default: "" } },
-    required: ["value"],
-    additionalProperties: false,
-  },
-  component: () => null,
-})] });
 
 function scene(id: string, value: string, narration?: string): VideoScene {
   return {
     id,
-    templateId: "metric",
-    variables: { value },
+    templateId: "chapterTitle",
+    variables: { title: value },
     timing: { fixedDuration: 4 },
     ...(narration ? { narration } : {}),
   };
@@ -40,7 +28,7 @@ function responseStream(
     style: TEST_VIDEO_STYLE,
   };
   const events = [
-    { protocolVersion: "0.6", type: "response.start", eventId: `${requestId}:0`, runId: requestId, sequence: 0, data: { requestId, format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"], extensions: ["data.video-chat-opening"] } } },
+    { protocolVersion: "0.6", type: "response.start", eventId: `${requestId}:0`, runId: requestId, sequence: 0, data: { requestId, format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"], extensions: ["data.video-chat-opening"] } } },
     { protocolVersion: "0.6", type: "data.video-chat-opening", eventId: `${requestId}:1`, runId: requestId, sequence: 1, data: opening },
     ...scenes.map((entry, position) => ({ protocolVersion: "0.6", type: "scene.add", eventId: `${requestId}:${position + 2}`, runId: requestId, sequence: position + 2, data: { scene: entry, position } })),
     { protocolVersion: "0.6", type: "response.complete", eventId: `${requestId}:${scenes.length + 2}`, runId: requestId, sequence: scenes.length + 2, data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
@@ -140,28 +128,6 @@ describe("useVideoChat", () => {
     expect(result.current.currentTurn?.completed).toBe(true);
   });
 
-  it("does not rewrite a customer comparison override when its required photo fails", async () => {
-    const { useVideoChat } = await import("../src/react");
-    vi.stubGlobal("Image", class {
-      onload = null; onerror: (() => void) | null = null; complete = false; naturalWidth = 0;
-      set src(_value: string) { queueMicrotask(() => this.onerror?.()); }
-    });
-    const custom = createRenderTemplateRegistry({ templates: [defineTemplate({
-      id: "comparison", schema: { type: "object", properties: { mediaUrl: { type: "string" }, mediaType: { type: "string" } }, required: ["mediaUrl", "mediaType"] }, component: () => null,
-    })] });
-    const shot: VideoScene = { id: "custom", templateId: "comparison", variables: {
-      mediaUrl: "https://media.example/required.jpg", mediaType: "photo",
-    }, narration: "This custom comparison requires its source photo.", timing: { fixedDuration: 5 } };
-    const base = videoChatFetcher();
-    const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
-      ? Promise.resolve(responseStream("custom-failure", [shot])) : base(input, init);
-    const { result } = renderHook(() => useVideoChat({ templates: custom, fetcher, voice: fakeVoice() }));
-    let answer: Video | undefined;
-    await act(async () => { answer = await result.current.ask("Compare these photos"); });
-    expect(answer).toBeUndefined();
-    expect(result.current.currentTurn?.completed).not.toBe(true);
-    expect(result.current.error).toBeDefined();
-  });
 
   it("completes before suggestions and retains context while late suggestions are discarded", async () => {
     const { useVideoChat } = await import("../src/react");
@@ -176,7 +142,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     };
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
     let first: Promise<Video | undefined>;
     act(() => { first = result.current.ask("Explain the Moon"); });
     await waitFor(() => expect(result.current.currentTurn?.completed).toBe(true));
@@ -200,7 +166,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = (input, init) => String(input).includes("action=narration")
       ? new Promise(() => undefined) : base(input, init);
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
     try {
       act(() => { void result.current.ask("Explain the Moon"); });
       await act(async () => { await vi.advanceTimersByTimeAsync(3_100); });
@@ -214,7 +180,7 @@ describe("useVideoChat", () => {
     const { useVideoChat } = await import("../src/react");
     vi.useFakeTimers();
     const voice = { ...fakeVoice(), prepare: vi.fn(() => new Promise<{ seconds: number }>(() => undefined)) };
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher(), voice }));
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice }));
     try {
       act(() => { void result.current.ask("Explain the Moon"); });
       await act(async () => { await vi.advanceTimersByTimeAsync(3_100); });
@@ -235,7 +201,7 @@ describe("useVideoChat", () => {
       if (text.startsWith("Let us begin")) return Promise.resolve();
       return new Promise<void>((resolve) => { speechStarted = () => { options.onStart?.(); resolve(); }; });
     }) };
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher(), voice,
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice,
       createTurnId: () => "opaque-turn", onFirstFrame: firstFrame, onPlaybackMetric: (metric) => { metrics.push(metric); },
     }));
     await act(async () => { await result.current.ask("private prompt"); });
@@ -273,7 +239,7 @@ describe("useVideoChat", () => {
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
     const observer = vi.fn(() => Promise.reject(new Error("observer failure")));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher(), voice: fakeVoice(),
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice: fakeVoice(),
       onPlaybackMetric: observer, onFirstFrame: () => { throw new Error("frame observer failure"); },
     }));
     await act(async () => { await result.current.ask("A response"); });
@@ -306,7 +272,7 @@ describe("useVideoChat", () => {
       if (String(input).includes("action=response") && ++count === 2) return new Promise((resolve) => { release = resolve; });
       return base(input, init);
     };
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(),
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(),
       createTurnId: () => `turn-${++turn}`, onPlaybackMetric: (metric) => { metrics.push(metric); },
     }));
     await act(async () => { await result.current.ask("First"); });
@@ -324,7 +290,7 @@ describe("useVideoChat", () => {
   it("loads capabilities and welcome content from the one default endpoint", async () => {
     const { useVideoChat } = await import("../src/react");
     const requests: Array<{ action: string | null; body?: unknown }> = [];
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher({ requests }), voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher({ requests }), voice: fakeVoice() }));
 
     expectTypeOf(useVideoChat).toBeFunction();
     await waitFor(() => expect(result.current.capabilities?.modes).toEqual(["cinematic"]));
@@ -339,7 +305,6 @@ describe("useVideoChat", () => {
     const requests: Array<{ action: string | null; body?: unknown }> = [];
     const voice = fakeVoice();
     const { result } = renderHook(() => useVideoChat({
-      templates: kit,
       fetcher: videoChatFetcher({ requests }),
       voice,
     }));
@@ -358,7 +323,6 @@ describe("useVideoChat", () => {
     const { useVideoChat } = await import("../src/react");
     const onFirstFrame = vi.fn();
     const { result } = renderHook(() => useVideoChat({
-      templates: kit,
       fetcher: videoChatFetcher(),
       voice: fakeVoice(),
       createTurnId: () => "measured-turn",
@@ -381,7 +345,6 @@ describe("useVideoChat", () => {
     const { useVideoChat } = await import("../src/react");
     const voice = fakeVoice();
     const { result } = renderHook(() => useVideoChat({
-      templates: kit,
       fetcher: videoChatFetcher(),
       voice,
       mode: "cinematic",
@@ -422,7 +385,7 @@ describe("useVideoChat", () => {
   it("sends completed turns as bounded conversation context on follow-ups", async () => {
     const { useVideoChat } = await import("../src/react");
     const requests: Array<{ action: string | null; body?: unknown }> = [];
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher({ requests }), voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher({ requests }), voice: fakeVoice() }));
 
     await act(async () => { await result.current.ask("Create a fox hero"); });
     await act(async () => { await result.current.ask("Now make it mysterious"); });
@@ -448,7 +411,6 @@ describe("useVideoChat", () => {
       speak: vi.fn(() => openingFinished),
     };
     const { result } = renderHook(() => useVideoChat({
-      templates: kit,
       fetcher: videoChatFetcher({ requests }),
       voice,
     }));
@@ -491,7 +453,6 @@ describe("useVideoChat", () => {
       speak: vi.fn(() => openingFinished),
     };
     const { result } = renderHook(() => useVideoChat({
-      templates: kit,
       fetcher: videoChatFetcher({ requests }),
       voice,
     }));
@@ -516,7 +477,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = (input, init) => String(input).includes("action=opening-media")
       ? delayed : base(input, init);
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
     await act(async () => { await result.current.ask("First response"); });
     expect(result.current.playerProps?.stream).toBeDefined();
     expect(result.current.currentTurn?.openingMedia).toBeUndefined();
@@ -543,7 +504,7 @@ describe("useVideoChat", () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           const events = [
-            { protocolVersion: "0.6", type: "response.start", eventId: "partial:0", runId: "partial", sequence: 0, data: { requestId: "partial", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "partial:0", runId: "partial", sequence: 0, data: { requestId: "partial", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
             { protocolVersion: "0.6", type: "scene.add", eventId: "partial:1", runId: "partial", sequence: 1, data: { scene: scene("partial", "Partial", "Abandoned"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
@@ -552,7 +513,7 @@ describe("useVideoChat", () => {
       });
       return new Response(stream, { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let first!: Promise<Video | undefined>;
     act(() => { first = result.current.ask("Abandon this response"); });
@@ -576,7 +537,7 @@ describe("useVideoChat", () => {
       response.headers.set("x-vanillasky-resolved-video-mode", resolved);
       return response;
     };
-    const { result } = renderHook(() => useVideoChat({templates: kit, fetcher, voice: fakeVoice(), mode: "cinematic"}));
+    const { result } = renderHook(() => useVideoChat({fetcher, voice: fakeVoice(), mode: "cinematic"}));
     await act(async () => { await result.current.ask("Explain a topic"); });
     expect(result.current.shownTurn?.mode).toBe(expected);
   });
@@ -596,7 +557,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(), mode: "cinematic" }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "cinematic" }));
 
     await act(async () => { await result.current.ask("Use generated video immediately"); });
     expect(responseBody?.mode).toBe("cinematic");
@@ -606,7 +567,7 @@ describe("useVideoChat", () => {
   it("keeps pause, voice, replay, and history selection synchronized with the player", async () => {
     const { useVideoChat } = await import("../src/react");
     const voice = fakeVoice();
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher(), voice }));
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice }));
 
     await act(async () => { await result.current.ask("First response"); });
     const firstId = result.current.currentTurn!.id;
@@ -649,7 +610,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Still composing"); });
@@ -676,7 +637,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Still composing"); });
@@ -708,7 +669,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     let first: Promise<Video | undefined>;
     act(() => { first = result.current.ask("Old prompt"); });
@@ -733,7 +694,7 @@ describe("useVideoChat", () => {
       }
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     await act(async () => { await result.current.ask("Recover this response"); });
 
@@ -753,7 +714,7 @@ describe("useVideoChat", () => {
       });
     });
     const { result, rerender } = renderHook(
-      ({ timeoutMs }) => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(), timeoutMs }),
+      ({ timeoutMs }) => useVideoChat({ fetcher, voice: fakeVoice(), timeoutMs }),
       { initialProps: { timeoutMs: 5 } },
     );
 
@@ -780,7 +741,7 @@ describe("useVideoChat", () => {
       return new Response(new ReadableStream<Uint8Array>({
         start(controller) {
           const events = [
-            { protocolVersion: "0.6", type: "response.start", eventId: "cancel:0", runId: "cancel", sequence: 0, data: { requestId: "cancel", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "cancel:0", runId: "cancel", sequence: 0, data: { requestId: "cancel", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
             { protocolVersion: "0.6", type: "scene.add", eventId: "cancel:1", runId: "cancel", sequence: 1, data: { scene: scene("cancelled", "Partial", "First line"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
@@ -788,7 +749,7 @@ describe("useVideoChat", () => {
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Cancel after playback starts"); });
@@ -816,7 +777,7 @@ describe("useVideoChat", () => {
       return new Response(new ReadableStream<Uint8Array>({
         start(controller) {
           const first = [
-            { protocolVersion: "0.6", type: "response.start", eventId: "terminal:0", runId: "terminal", sequence: 0, data: { requestId: "terminal", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["metric"] } } },
+            { protocolVersion: "0.6", type: "response.start", eventId: "terminal:0", runId: "terminal", sequence: 0, data: { requestId: "terminal", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
             { protocolVersion: "0.6", type: "scene.add", eventId: "terminal:1", runId: "terminal", sequence: 1, data: { scene: scene("terminal", "Partial", "First line"), position: 0 } },
           ];
           controller.enqueue(encoder.encode(first.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")));
@@ -828,7 +789,7 @@ describe("useVideoChat", () => {
         },
       }), { headers: { "content-type": "text/event-stream" } });
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
 
     let pending!: Promise<Video | undefined>;
     act(() => { pending = result.current.ask("Fail after playback starts"); });
@@ -851,7 +812,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=narration")
       ? Response.json({ line: "" }, { status }) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds: 8 })) } }));
     await act(async () => { await result.current.ask("Keep going"); });
     expect(result.current.currentTurn?.video?.scenes[0]?.narration).toBe("First");
     expect(result.current.warnings.length).toBeGreaterThan(0);
@@ -862,7 +823,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=narration")
       ? new Promise<Response>(() => undefined) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice(), timeoutMs: 30 }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), timeoutMs: 30 }));
     await act(async () => { await result.current.ask("Keep completed scenes"); });
     expect(result.current.currentTurn?.video?.scenes).toHaveLength(2);
     expect(result.current.currentTurn?.completed).toBe(true);
@@ -874,7 +835,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=response")
       ? responseStream("empty", []) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
     await act(async () => { await result.current.ask("Keep the opening"); });
     expect(result.current.currentTurn?.video).toBeUndefined();
     expect(result.current.error?.code).toBe("empty_response");
@@ -886,7 +847,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=response")
       ? new Response("private provider details", { status }) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
     await act(async () => { await result.current.ask("Explain the Moon", { opening: "The Moon keeps one face toward us." }); });
     expect(result.current.currentTurn?.video).toBeUndefined();
     expect(result.current.currentTurn?.completed).toBe(false);
@@ -901,7 +862,7 @@ describe("useVideoChat", () => {
     const base = videoChatFetcher();
     const fetcher: typeof fetch = vi.fn(async (input, init) => String(input).includes("action=speech")
       ? new Response("private provider failure", { status: 502 }) : base(input, init));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher }));
+    const { result } = renderHook(() => useVideoChat({ fetcher }));
     await act(async () => { await result.current.ask("Keep speaking"); });
     expect(result.current.currentTurn?.video?.scenes).toHaveLength(2);
     expect(result.current.warnings).toContain("Using browser voice for this response.");
@@ -917,7 +878,7 @@ describe("useVideoChat", () => {
     });
     const voice = fakeVoice();
     voice.prepare.mockRejectedValue(new Error("private speech detail"));
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice }));
     let video: Video | undefined;
     await act(async () => { video = await result.current.ask("Keep going"); });
     expect(video?.scenes).toHaveLength(2);
@@ -935,7 +896,7 @@ describe("useVideoChat", () => {
       if (action === "suggestions") throw new Error("Suggestion provider unavailable");
       return base(input, init);
     });
-    const { result } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice: fakeVoice() }));
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice() }));
 
     let completed: Video | undefined;
     await act(async () => { completed = await result.current.ask("Keep the useful answer"); });
@@ -949,7 +910,7 @@ describe("useVideoChat", () => {
 
   it("restores archived completed turns after reset and can select an earlier answer", async () => {
     const { useVideoChatSession } = await import("../src/video-chat/use-video-chat");
-    const { result } = renderHook(() => useVideoChatSession({ fetcher: videoChatFetcher(), voice: fakeVoice(), templates: kit }));
+    const { result } = renderHook(() => useVideoChatSession({ fetcher: videoChatFetcher(), voice: fakeVoice() }));
     await act(async () => { await result.current.chat.ask("First question"); });
     await act(async () => { await result.current.chat.ask("Second question"); });
     const saved = result.current.chat.turns;
@@ -984,7 +945,7 @@ describe("useVideoChat", () => {
       return base(input, init);
     };
     const voice = fakeVoice();
-    const { result } = renderHook(() => useVideoChatSession({ fetcher, voice, templates: kit }));
+    const { result } = renderHook(() => useVideoChatSession({ fetcher, voice }));
     await act(async () => { await result.current.chat.ask("Archived answer"); });
     const saved = result.current.chat.turns;
     hold = true;
@@ -1004,7 +965,7 @@ describe("useVideoChat", () => {
   it("resets the full session and aborts work on unmount", async () => {
     const { useVideoChat } = await import("../src/react");
     const voice = fakeVoice();
-    const { result, unmount } = renderHook(() => useVideoChat({ templates: kit, fetcher: videoChatFetcher(), voice }));
+    const { result, unmount } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice }));
     await act(async () => { await result.current.ask("A response"); });
 
     act(() => result.current.reset());
@@ -1231,7 +1192,7 @@ it.each([true, false])("publishes a group only with measured offset-capable audi
   const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
     ? Promise.resolve(responseStream("group", grouped, { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
   const voice = { ...fakeVoice(), supportsOffsets: supported, prepare: vi.fn(async () => ({ seconds: 6, supportsOffsets: supported })) };
-  const { result, unmount } = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  const { result, unmount } = renderHook(() => useVideoChat({ fetcher, voice }));
   await act(async () => { await result.current.ask("A short paragraph"); });
   if (supported) {
     expect(result.current.currentTurn?.video?.scenes.map((entry) => entry.timing.fixedDuration)).toEqual([3, 3]);
@@ -1259,7 +1220,7 @@ it("forwards the prepared audio clock through the actual chat player props", asy
   const base = videoChatFetcher();
   const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
     ? Promise.resolve(responseStream("clock", [scene("ordinary", "First", "A short thought.")], { line: "", keyword: "", fallbackKeyword: "" })) : base(input, init);
-  const chat = renderHook(() => useVideoChat({ templates: kit, fetcher, voice }));
+  const chat = renderHook(() => useVideoChat({ fetcher, voice }));
   await act(async () => { await chat.result.current.ask("A thought"); });
   const video = chat.result.current.currentTurn!.video!;
   const timeRef = { current: 0 };
@@ -1291,7 +1252,7 @@ it("keeps received video playable with a warning when native browser speech neve
   const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
     ? Promise.resolve(responseStream("blocked-voice", [scene("one", "First", "A thought worth seeing.")], { line: "", keyword: "", fallbackKeyword: "" }))
     : String(input).includes("action=speech") ? Promise.resolve(new Response(null, { status: 204 })) : base(input, init);
-  const chat = renderHook(() => useVideoChat({ templates: kit, fetcher }));
+  const chat = renderHook(() => useVideoChat({ fetcher }));
   await act(async () => { await chat.result.current.ask("Show a thought"); });
   const video = chat.result.current.currentTurn!.video!;
   const timeRef = { current: 0 }; const onStop = vi.fn();

@@ -97,15 +97,6 @@ describe("shot plan recovery and compatibility", () => {
   expect(result.scenes.map(s => s.narration)).toEqual([shot.narration, ending.narration]);
   expect(result.events.at(-1)).toMatchObject({ type: "response.complete", data: { finishReason: "other" } });
  });
- it("preserves a supplied custom registry's structured composition contract", async () => {
-  const { createServerTemplateRegistry } = await import("../src/visual-system/catalog/server-kit");
-  const { createMockVideoPlanner } = await import("../src/test/mock-video-planner");
-  const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, templates: createServerTemplateRegistry({ templates: [] }), streamText: createMockVideoPlanner(), generateText: () => "" });
-  const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "Show a useful result" }) }));
-  const events = []; for await (const event of decodeVideoSse(response.body!)) events.push(event);
-  expect(events.at(-1)?.type).toBe("response.complete");
-  expect(events.filter(e => e.type === "scene.add").length).toBeGreaterThan(0);
- });
  it("releases opening wait when a provider throws before returning its stream", async () => {
   const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateText: () => "", streamText: () => { throw new Error("private detail"); } });
   const response = await handler(new Request("https://app.example/api?action=response", { method: "POST", body: JSON.stringify({ prompt: "A story" }) }));

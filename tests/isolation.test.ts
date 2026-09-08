@@ -25,9 +25,6 @@ describe("standalone package boundary", () => {
     ];
     const files = [
       ...sourceFiles(join(process.cwd(), "src")),
-      ...readdirSync(join(process.cwd(), "registry", "items"))
-        .filter((name) => name.endsWith(".json"))
-        .map((name) => join(process.cwd(), "registry", "items", name)),
     ];
     const hits = files.flatMap((path) => {
       const source = readFileSync(path, "utf8").toLowerCase();
@@ -52,27 +49,22 @@ describe("standalone package boundary", () => {
 
     expect(hits).toEqual([]);
     expect(Object.keys(manifest.dependencies ?? {})).toEqual([]);
-    expect(manifest.peerDependenciesMeta.tsx).toEqual({ optional: true });
+    expect(manifest.peerDependencies).not.toHaveProperty("tsx");
   });
 
-  it("packages the source registry and executable without bundling templates into the runtime API", async () => {
+  it("packages the focused SDK and executable", async () => {
     const manifest = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
-    const templateApi = await import("../src/templates");
 
     expect(manifest.bin).toEqual({ vanillasky: "bin/vanillasky.js" });
     expect(manifest.files).toContain("bin");
-    expect(manifest.files).toContain("registry/items");
+    expect(manifest.files).not.toContain("registry/items");
     expect(manifest.files).not.toContain("registry");
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./react",
       "./server",
-      "./templates",
-      "./templates/catalog",
       "./test",
       "./video-chat.css",
     ]);
-    expect(templateApi).not.toHaveProperty("listTemplates");
-    expect(templateApi).not.toHaveProperty("getTemplate");
   });
 });

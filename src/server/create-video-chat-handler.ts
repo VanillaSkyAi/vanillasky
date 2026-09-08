@@ -6,16 +6,15 @@ import {
   type VideoScene,
   type VideoStyleOptions,
 } from "../protocol/types.js";
-import {
-  createVideoHandler,
-  type VideoHandlerOptions,
-} from "./create-video-handler.js";
-import type { ResolvedMedia } from "./media-resolver.js";
+import type { VideoStreamHandlerOptions } from "./video-stream-handler.js";
+import type { TextDeltaVideoPlannerOptions } from "./model/text-stream.js";
+import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from "./lifecycle.js";
 import { withDeadline } from "../video-chat/deadline.js";
 import { sanitizeVideoChatMedia } from "../video-chat/media.js";
 import { createVideoStreamHandler } from "./video-stream-handler.js";
 import { createChatShotPlanner } from "./chat-shot-planner.js";
+import { validateBuiltinScene } from "./scene-validation.js";
 import {
   createNarrationUserPrompt,
   createVideoChatResponseInstructions,
@@ -111,12 +110,17 @@ export type VideoChatMediaResolver = (
 ) => ResolvedMedia | null | Promise<ResolvedMedia | null>;
 
 export interface VideoChatHandlerOptions extends Pick<
-  VideoHandlerOptions,
-  | "templates" | "streamText" | "includeRawProviderData" | "mediaConcurrency"
+  VideoStreamHandlerOptions,
   | "allowedOrigins" | "authorize" | "maxBodyBytes" | "heartbeatMs"
   | "onError" | "onWarning" | "onComplete" | "invalidPartBehavior"
   | "requireCloser" | "allowCredentials"
 > {
+  /** Application-owned text stream; accepts a native async iterable or an AI SDK-shaped result. */
+  streamText: TextDeltaVideoPlannerOptions["streamText"];
+  /** Opt in to bounded provider metadata in the server-only completion callback. */
+  includeRawProviderData?: boolean;
+  /** Concurrent media jobs, bounded to 1–5. Results play in narrative order. */
+  mediaConcurrency?: number;
   /** Generate the small non-streaming text tasks around the visual plan. */
   generateText: VideoChatTextGenerator;
   /** Optional generated speech. Browsers can speak locally when absent. */
@@ -500,7 +504,6 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
   } = options;
   // Forward only the chat contract, including for untyped JavaScript callers.
   const videoOptions = {
-    templates: options.templates,
     streamText: options.streamText,
     includeRawProviderData: options.includeRawProviderData,
     heartbeatMs: options.heartbeatMs,
@@ -552,7 +555,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     // shots get their narrative offset, rather than a fresh full startup wait.
     let mediaStartedAt: number | undefined;
     let mediaIndex = 0;
-    const resolveSelected: VideoHandlerOptions["resolveMedia"] = generateVideo || searchMedia
+    const resolveSelected: MediaResolver | undefined = generateVideo || searchMedia
       ? async (query, context) => {
           mediaStartedAt ??= Date.now();
           const remainingMs = mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now();
@@ -588,7 +591,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
               ));
               context.signal.throwIfAborted();
               diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
-                reason: result && (result.type === "video" || (options.templates && resolver === searchMedia)) ? "ready" : "empty" });
+                reason: result?.type === "video" ? "ready" : "empty" });
               return result;
             } catch (cause) {
               diagnose({ phase: "media-end", sceneId: context.scene.id, durationMs: Math.max(0, Date.now() - mediaStart),
@@ -600,7 +603,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
               return null;
             }
           };
-          if (generatedVideoAvailable && (!options.templates || context.scene.variables.mediaSource === "generate")) {
+          if (generatedVideoAvailable) {
             const generated = generatedAttempts < maxGeneratedVideos
               ? (generatedAttempts++, await attempt(generateVideo, remainingMs))
               : null;
@@ -614,20 +617,12 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           }
           if (mode !== "pexels") return null;
           const stock = await attempt(searchMedia, Math.min(3_000, remainingMs));
-          if (stock && (options.templates || stock.type === "video")) return stock;
+          if (stock?.type === "video") return stock;
           return null;
         }
       : undefined;
-    if (options.templates) {
-      openingChannel.publish(undefined);
-      return createVideoHandler({
-        ...videoOptions,
-        authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes,
-        mediaConcurrency, resolveMedia: resolveSelected, narrate: true,
-        basePrompt: instructions,
-      });
-    }
     const handler = createVideoStreamHandler({
+      validateScene: validateBuiltinScene,
       heartbeatMs: videoOptions.heartbeatMs,
       onError: videoOptions.onError,
       onWarning: videoOptions.onWarning,

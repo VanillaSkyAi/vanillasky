@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createVideoSystemPrompt,
   parseVideoEvent,
   parseVideoPlanPart,
-  VIDEO_PLAN_INSTRUCTION,
   VIDEO_PROTOCOL_VERSION,
 } from "../src/internal";
 
@@ -22,20 +20,7 @@ describe("immutable planning protocol", () => {
     },
   );
 
-  it("instructs planners to emit only complete scenes and completion", () => {
-    expect(VIDEO_PLAN_INSTRUCTION).toContain('"type":"scene.add"');
-    expect(VIDEO_PLAN_INSTRUCTION).toContain('"type":"plan.complete"');
-    expect(VIDEO_PLAN_INSTRUCTION).not.toContain("scene.patch");
-    expect(VIDEO_PLAN_INSTRUCTION).not.toContain("asset.patch");
-    expect(VIDEO_PLAN_INSTRUCTION).not.toContain("plan.error");
-  });
 
-  it("describes scenes as immutable throughout the system prompt", () => {
-    const prompt = createVideoSystemPrompt();
-
-    expect(prompt).toContain("Emit every scene once as a complete scene.add");
-    expect(prompt).not.toContain("patch");
-  });
 
   it.each([
     ["scene.patch", { sceneId: "scene", revision: 1, patch: { variables: { message: "Later" } } }],
