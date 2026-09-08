@@ -104,8 +104,10 @@ footage generation. If the rewrite fails or still cannot fit, no video job is
 submitted for that beat: its complete original narration plays over a chapter.
 Rewrites are instructed to preserve facts and qualifications; applications
 should still evaluate meaning and timing with their actual models and voices.
-Measured speech can overrun the estimate; playback recovers to a chapter
-rather than looping or cutting off the sentence. Requested duration constrains
+Measured speech can overrun the estimate. A small measured overrun may repeat
+healthy footage once until speech finishes; other overruns recover to a chapter
+without cutting off the sentence. See the [playback bounds](media-and-audio.md#timing-and-recovery).
+Requested duration constrains
 the paid submission; a valid returned duration describes the footage actually
 available for playback. The mounted decoder also checks its physical duration.
 Without reported duration, generated footage keeps its requested budget.

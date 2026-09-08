@@ -67,8 +67,9 @@ substitutes stock; stock mode never spends on generated video. A failed or late
 clip becomes a narrated chapter. Narration targets a 0.8-second visual tail;
 one short rewrite may fit an oversized beat before generation. If it still
 does not fit, the complete original narration plays over a chapter. Footage
-plays once at native speed; unexpected overruns recover to a chapter without
-cutting off the sentence.
+normally plays once at native speed. A small measured speech overrun can repeat
+healthy footage once, only until speech finishes; larger or unmeasured overruns
+recover to a chapter without cutting off the sentence.
 
 This is progressive **scene** delivery, not real-time frames from every vendor.
 Some generation APIs take minutes; preloading cannot remove that latency.

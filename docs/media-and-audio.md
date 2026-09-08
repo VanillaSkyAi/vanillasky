@@ -137,8 +137,15 @@ settings and host spending limits. The planner fits natural spoken beats to that
 budget with a 0.8-second tail. One bounded rewrite may shorten an oversized
 beat before generation; otherwise its complete narration stays on a chapter.
 Measured audio and actual decoded footage are checked before playback. Normal
-footage plays once at native speed; overruns recover to a chapter without
-cutting off narration or buying another clip.
+footage plays once at native speed. If measured speech itself exceeds a healthy
+clip by at most the smaller of one second or 25% of its length, playback may
+repeat that same clip once, stopping when speech finishes. It never repeats just
+to fill the quiet tail: when speech already fits, a shorter available tail is
+allowed. Larger or unmeasured speech overruns, missing media and failed/stalled
+decoders still recover to a chapter without cutting off narration or buying
+another clip. The mounted decoder rechecks the bound against actual footage;
+pause/resume does not grant another repeat, and explicit replay starts a fresh
+playback lifecycle.
 
 `generateVideoTimeoutMs` sets the first-shot preparation budget (default 15 seconds).
 Later deadlines account for their position in the answer rather than restarting
