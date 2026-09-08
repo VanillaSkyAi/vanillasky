@@ -58,10 +58,9 @@ export interface TypeTreatment {
    * where it reads as 1.
    *
    * It rides on the type treatment because that object is the one channel
-   * that already flows from `style` into every `<TemplateText>` — 17 call
-   * sites pass `resolveTokens(style).preset.type` and nothing else
-   * style-derived. Pacing of typographic motion is part of how the type is
-   * treated, so this isn't a smuggled payload.
+   * that already flows from `style` into text rendering. Pacing of
+   * typographic motion is part of how the type is treated, so this isn't a
+   * smuggled payload.
    */
   phaseScale?: number;
 }
@@ -237,8 +236,8 @@ export interface ResolvedTokens {
    *
    * `preset.type` is the composed treatment, not the raw preset literal:
    * `sizeScale` already carries the density multiplier and `phaseScale`
-   * carries the motion one. Templates pass this straight to `<TemplateText>`,
-   * which is how both dials reach every template without a template edit.
+   * carries the motion one, which is how both dials reach text rendering
+   * without a template edit.
    */
   preset: StylePreset;
   /** Resolved density dial. Always set; `normal` when unset. */
@@ -251,11 +250,10 @@ export function resolveTokens(
   style: TemplateStyle,
 ): ResolvedTokens {
 
-  // Compose the two dials into the preset's type treatment here, once. Every
-  // template already passes `preset.type` to <TemplateText>, so folding them
-  // in at the resolver is what makes them bite everywhere with no template
-  // edits. At `normal`/`normal` both multipliers are 1 and the object is
-  // value-identical to the preset literal.
+  // Compose the two dials into the preset's type treatment here, once, so
+  // folding them in at the resolver is what makes them bite everywhere with
+  // no template edits. At `normal`/`normal` both multipliers are 1 and the
+  // object is value-identical to the preset literal.
   const preset = resolvePreset(style.preset);
   const density = resolveDensity(style.density);
   const motion = resolveMotion(style.motion);
