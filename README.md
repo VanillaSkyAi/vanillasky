@@ -30,11 +30,16 @@ npm run dev
 
 One text key gives you the complete chat, chapter introductions, subtitles, and
 browser voice. Add `PEXELS_API_KEY` for stock footage, or run
-`npx vanillasky providers add video` and configure its server-only provider
-credentials for generated footage. `npx vanillasky providers add speech` adds
-generated speech. Missing footage preserves the answer as a chapter scene.
+`npx vanillasky providers add video fal` (or `google`, `runway`, `custom`) for
+generated footage. Configure its server-only credentials and app-owned media
+delivery before enabling it. `providers add speech` and `providers add transcription`
+are separate optional capabilities. Missing footage preserves a narrated chapter.
 See [Getting started](docs/getting-started.md) for setup and
 [Provider integration](docs/provider-integration.md) for the adapter boundary.
+
+To avoid an AI framework dependency, start with `npx @vanillaskyai/video init --native`.
+That editable Gemini REST adapter uses `GEMINI_API_KEY`; the default starter uses
+the optional Vercel AI SDK with Anthropic. Both mount the same React interface.
 
 ```tsx
 import { VideoChat } from "@vanillaskyai/video/react";

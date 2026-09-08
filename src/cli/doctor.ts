@@ -7,6 +7,7 @@ const REQUIRED_FILES = [
   "index.html",
   "server.ts",
   "providers.ts",
+  "providers/text.ts",
   "src/main.tsx",
   "stock.ts",
   "tsconfig.json",
@@ -15,8 +16,6 @@ const REQUIRED_FILES = [
 
 const REQUIRED_DEPENDENCIES = [
   "@vanillaskyai/video",
-  "@ai-sdk/anthropic",
-  "ai",
   "react",
   "react-dom",
   "@types/node",
@@ -27,7 +26,7 @@ const REQUIRED_DEPENDENCIES = [
   "vite",
 ] as const;
 
-const PROVIDER_KEYS = new Set(["ANTHROPIC_API_KEY", "XAI_API_KEY", "FAL_KEY", "PEXELS_API_KEY"]);
+const PROVIDER_KEYS = new Set(["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "RUNWAY_API_KEY", "XAI_API_KEY", "FAL_KEY", "PEXELS_API_KEY", "VIDEO_STORAGE_TOKEN"]);
 const CLIENT_ENV_PREFIXES = ["VITE", "NEXT_PUBLIC"].map((prefix) => `${prefix}_`);
 
 export interface VideoChatDoctorResult {
@@ -84,13 +83,16 @@ export function doctorVideoChatApp(cwdInput: string): VideoChatDoctorResult {
     lines.push("MISSING  valid package.json");
   }
   const dependencies = { ...stringMap(manifest.dependencies), ...stringMap(manifest.devDependencies) };
-  const missingDependencies = REQUIRED_DEPENDENCIES.filter((name) => !dependencies[name]);
+  const configuration = isJsonObject(manifest.vanillasky) ? manifest.vanillasky : {};
+  const textProvider = configuration.textProvider ?? "vercel";
+  const requiredDependencies = [...REQUIRED_DEPENDENCIES, ...(textProvider === "vercel" ? ["ai", "@ai-sdk/anthropic"] : [])];
+  const missingDependencies = requiredDependencies.filter((name) => !dependencies[name]);
   for (const name of missingDependencies) {
     ok = false;
     lines.push(`MISSING  dependency ${name}`);
   }
   const installed = (name: string) => existsSync(join(cwd, "node_modules", name, "package.json"));
-  for (const name of REQUIRED_DEPENDENCIES.filter((name) => dependencies[name] && !installed(name))) {
+  for (const name of requiredDependencies.filter((name) => dependencies[name] && !installed(name))) {
     ok = false;
     lines.push(`NOT INSTALLED  ${name} — run npm install`);
   }
@@ -109,43 +111,54 @@ export function doctorVideoChatApp(cwdInput: string): VideoChatDoctorResult {
   const environment = existsSync(join(cwd, ".env.local"))
     ? parseEnvironment(readFileSync(join(cwd, ".env.local"), "utf8"))
     : new Map<string, string>();
+  const privateKeys = new Set([...PROVIDER_KEYS, ...(Array.isArray(configuration.requiredEnv) ? configuration.requiredEnv.filter((value): value is string => typeof value === "string") : [])]);
   for (const name of environment.keys()) {
-    if (CLIENT_ENV_PREFIXES.some((prefix) => name.startsWith(prefix) && PROVIDER_KEYS.has(name.slice(prefix.length)))) {
+    if (CLIENT_ENV_PREFIXES.some((prefix) => name.startsWith(prefix) && privateKeys.has(name.slice(prefix.length)))) {
       ok = false;
       lines.push(`UNSAFE   ${name} exposes a provider key to the browser`);
     }
   }
 
-  lines.push("READY    templates + browser voice");
-  if (environment.get("ANTHROPIC_API_KEY")) lines.push("READY    ANTHROPIC_API_KEY");
-  else {
-    ok = false;
-    lines.push("MISSING  ANTHROPIC_API_KEY in .env.local");
+  lines.push("READY    video chat + browser voice");
+  const requiredEnv = Array.isArray(configuration.requiredEnv)
+    ? configuration.requiredEnv.filter((key): key is string => typeof key === "string" && /^[A-Z][A-Z0-9_]*$/.test(key))
+    : textProvider === "native" ? ["GEMINI_API_KEY"] : textProvider === "vercel" ? ["ANTHROPIC_API_KEY"] : [];
+  for (const key of requiredEnv) {
+    if (environment.get(key)) lines.push(`READY    ${key}`);
+    else { ok = false; lines.push(`MISSING  ${key} in .env.local`); }
   }
-  const configuration = isJsonObject(manifest.vanillasky) ? manifest.vanillasky : {};
+  if (textProvider !== "native" && textProvider !== "vercel") lines.push("CHECK    app-owned text callbacks and vanillasky.requiredEnv");
   const enabled = Array.isArray(configuration.providers) ? configuration.providers : [];
+  const videoVendor = typeof configuration.videoVendor === "string" ? configuration.videoVendor : "fal";
+  const videoKey = ({ fal: "FAL_KEY", google: "GEMINI_API_KEY", runway: "RUNWAY_API_KEY" } as Record<string, string>)[videoVendor];
   for (const provider of [
-    { id: "speech", label: "generated speech", dependency: "@ai-sdk/xai", key: "XAI_API_KEY" },
-    { id: "video", label: "generated video + transcription", dependency: "@fal-ai/client", key: "FAL_KEY" },
+    { id: "speech", label: "generated speech", dependencies: ["@ai-sdk/xai", "ai"], key: "XAI_API_KEY" },
+    { id: "video", label: "generated video", dependencies: [], key: videoKey },
+    { id: "transcription", label: "transcription", dependencies: [], key: "FAL_KEY" },
   ]) {
     const configured = enabled.includes(provider.id)
       && existsSync(join(cwd, "providers.ts"))
       && existsSync(join(cwd, "providers", `${provider.id}.ts`))
-      && dependencies[provider.dependency]
-      && installed(provider.dependency);
+      && provider.dependencies.every((name) => dependencies[name] && installed(name));
     if (!configured) {
       lines.push(`OPTIONAL ${provider.label} — run npx vanillasky providers add ${provider.id}`);
-    } else if (!environment.get(provider.key)) {
+    } else if (provider.id === "video" && !videoKey) {
+      lines.push("CHECK    generated video — verify your custom callback, model policy and delivery in providers/video.ts");
+    } else if (provider.key && !environment.get(provider.key)) {
       lines.push(`OPTIONAL ${provider.label} — add ${provider.key} to .env.local`);
+    } else if (provider.id === "video" && (!validUploadUrl(environment.get("VIDEO_UPLOAD_URL")) || !environment.get("VIDEO_STORAGE_TOKEN"))) {
+      lines.push("CHECK    generated video — configure VIDEO_UPLOAD_URL + VIDEO_STORAGE_TOKEN or your app-owned delivery callback");
     } else {
-      lines.push(`READY    ${provider.label}`);
+      lines.push(`READY    ${provider.label}${provider.id === "video" ? ` (${videoVendor}; configuration only, no paid probe)` : ""}`);
     }
   }
   lines.push(environment.get("PEXELS_API_KEY")
     ? "READY    stock media"
     : "OPTIONAL stock media — add PEXELS_API_KEY");
-  if (existsSync(join(cwd, "vanillasky", "templates"))) {
-    lines.push("CHECK    custom templates with npx vanillasky templates check");
-  }
   return { ok, lines };
+}
+
+function validUploadUrl(value: string | undefined): boolean {
+  try { const url = new URL(value ?? ""); return url.protocol === "https:" && !url.username && !url.password; }
+  catch { return false; }
 }

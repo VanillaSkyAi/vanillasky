@@ -12,6 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runVanillaSkyCli } from "../src/cli/index";
+import { initVideoChatApp } from "../src/cli/init";
+import { doctorVideoChatApp } from "../src/cli/doctor";
 
 const fixtures: string[] = [];
 const starterRoot = join(process.cwd(), "starters", "video-chat");
@@ -63,6 +65,20 @@ async function run(
 }
 
 describe("vanillasky init", () => {
+  it("offers native callbacks without AI SDK dependencies and checks the selected text key", async () => {
+    const cwd = blankProject();
+    await initVideoChatApp({ cwd, native: true, installDependencies: async () => markInstalled(cwd) });
+    const manifest = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
+    expect(manifest.dependencies).not.toHaveProperty("ai");
+    expect(manifest.dependencies).not.toHaveProperty("@ai-sdk/anthropic");
+    expect(manifest.vanillasky.textProvider).toBe("native");
+    writeFileSync(join(cwd, ".env.local"), "GEMINI_API_KEY=private-test-key\n");
+    expect(doctorVideoChatApp(cwd)).toMatchObject({ ok: true });
+    expect(doctorVideoChatApp(cwd).lines.join("\n")).not.toContain("ANTHROPIC");
+    expect(readFileSync(join(cwd, "providers/text.ts"), "utf8")).toContain("generativelanguage.googleapis.com");
+    await initVideoChatApp({ cwd, installDependencies: async () => undefined });
+    expect(JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")).dependencies).not.toHaveProperty("ai");
+  });
   it("preserves the exact tarball when npx initializes a blank folder", async () => {
     const cwd = blankProject();
     vi.stubEnv("npm_config_package", "/private/tmp/vanillaskyai-video-candidate.tgz");
@@ -84,7 +100,7 @@ describe("vanillasky init", () => {
     expect(result.installDependencies).toHaveBeenCalledOnce();
     expect(result.installDependencies).toHaveBeenCalledWith(cwd);
     expect(result.output).toContain("MISSING  ANTHROPIC_API_KEY in .env.local");
-    expect(result.output).toContain("READY    templates + browser voice");
+    expect(result.output).toContain("READY    video chat + browser voice");
     expect(result.output).toContain("npm run dev");
 
     for (const path of [
@@ -304,7 +320,7 @@ describe("vanillasky doctor", () => {
     const missing = await run(cwd, ["doctor"]);
     expect(missing.code).toBe(1);
     expect(missing.output).toContain("MISSING  ANTHROPIC_API_KEY");
-    expect(missing.output).toContain("READY    templates + browser voice");
+    expect(missing.output).toContain("READY    video chat + browser voice");
     expect(missing.output).toContain("OPTIONAL generated video");
     expect(missing.output).not.toContain("kept-private");
 
@@ -341,7 +357,7 @@ describe("vanillasky doctor", () => {
     manifest.vanillasky = { providers: ["speech"] };
     manifest.dependencies["@ai-sdk/xai"] = "^3.0.0";
     writeFileSync(join(cwd, "package.json"), JSON.stringify(manifest));
-    mkdirSync(join(cwd, "providers"));
+    mkdirSync(join(cwd, "providers"), { recursive: true });
     writeFileSync(join(cwd, "providers/speech.ts"), "export const speech = {};\n");
     const missing = await run(cwd, ["doctor"]);
     expect(missing.output).not.toContain("READY    generated speech");

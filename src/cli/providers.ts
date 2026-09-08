@@ -5,10 +5,12 @@ import { defaultInstall, locateStarterRoot } from "./init.js";
 import { safeProjectPath } from "./safe-path.js";
 
 const PROVIDERS = {
-  speech: { dependency: "@ai-sdk/xai", version: "^4.0.52", key: "XAI_API_KEY", export: "speechProvider" },
-  video: { dependency: "@fal-ai/client", version: "1.10.1", key: "FAL_KEY", export: "videoProvider" },
+  speech: { dependencies: { "@ai-sdk/xai": "^4.0.52", ai: "^7.0.77" }, key: "XAI_API_KEY", export: "speechProvider" },
+  video: { dependencies: {}, key: "FAL_KEY", export: "videoProvider" },
+  transcription: { dependencies: {}, key: "FAL_KEY", export: "transcriptionProvider" },
 } as const;
 type Provider = keyof typeof PROVIDERS;
+export type VideoVendor = "fal" | "google" | "runway" | "custom";
 
 function registry(enabled: Provider[]): string {
   const imports = enabled.map((name) => `import { ${PROVIDERS[name].export} } from "./providers/${name}";`).join("\n");
@@ -19,9 +21,11 @@ function registry(enabled: Provider[]): string {
 export async function addVideoChatProvider(name: string, options: {
   cwd: string;
   starterRoot?: string;
+  vendor?: VideoVendor;
   installDependencies?: (cwd: string) => void | Promise<void>;
 }): Promise<string> {
-  if (name !== "speech" && name !== "video") throw new Error("Choose a provider capability: speech or video.");
+  if (name !== "speech" && name !== "video" && name !== "transcription") throw new Error("Choose a provider capability: speech, video, or transcription.");
+  if (options.vendor && (name !== "video" || !["fal", "google", "runway", "custom"].includes(options.vendor))) throw new Error("Choose a video vendor: fal, google, runway, or custom.");
   const manifestPath = safeProjectPath(options.cwd, "package.json");
   const registryPath = safeProjectPath(options.cwd, "providers.ts");
   if (!existsSync(manifestPath) || !existsSync(registryPath)) throw new Error("Run vanillasky init before adding providers.");
@@ -30,7 +34,7 @@ export async function addVideoChatProvider(name: string, options: {
   const config = manifest.vanillasky ?? {};
   if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("Expected vanillasky configuration to be an object.");
   const previous = (config as Record<string, unknown>).providers ?? [];
-  if (!Array.isArray(previous) || previous.some((value) => value !== "speech" && value !== "video") || new Set(previous).size !== previous.length) {
+  if (!Array.isArray(previous) || previous.some((value) => value !== "speech" && value !== "video" && value !== "transcription") || new Set(previous).size !== previous.length) {
     throw new Error("Invalid vanillasky.providers configuration.");
   }
   const enabled = [...previous].sort() as Provider[];
@@ -38,7 +42,15 @@ export async function addVideoChatProvider(name: string, options: {
     throw new Error("providers.ts has custom wiring. Preserve it and add the provider manually, or restore the generated wiring before using this command.");
   }
   const adapterPath = safeProjectPath(options.cwd, `providers/${name}.ts`);
-  const adapter = readFileSync(join(options.starterRoot ?? locateStarterRoot(), "providers", `${name}.ts`), "utf8");
+  const previousVendor = (config as Record<string, unknown>).videoVendor;
+  if (previousVendor !== undefined && (typeof previousVendor !== "string" || !["fal", "google", "runway", "custom"].includes(previousVendor))) throw new Error("Invalid vanillasky.videoVendor configuration.");
+  const vendor = options.vendor ?? (previousVendor as VideoVendor | undefined) ?? "fal";
+  if (name === "video" && enabled.includes(name) && options.vendor && options.vendor !== (previousVendor ?? "fal")) {
+    throw new Error("A video adapter is already installed. Change providers/video.ts and vanillasky.videoVendor manually; no files were changed.");
+  }
+  const source = name === "video" && vendor !== "fal" ? `video-${vendor}` : name;
+  const starterProviders = join(options.starterRoot ?? locateStarterRoot(), "providers");
+  const adapter = readFileSync(join(starterProviders, `${source}.ts`), "utf8");
   if (!enabled.includes(name) && existsSync(adapterPath) && readFileSync(adapterPath, "utf8") !== adapter) {
     throw new Error(`providers/${name}.ts already contains customer source; no files were changed.`);
   }
@@ -47,13 +59,22 @@ export async function addVideoChatProvider(name: string, options: {
   if (!enabled.includes(name)) enabled.push(name);
   enabled.sort();
   const provider = PROVIDERS[name];
-  manifest.dependencies = { ...dependencies, [provider.dependency]: (dependencies as Record<string, unknown>)[provider.dependency] ?? provider.version };
-  manifest.vanillasky = { ...config, providers: enabled };
+  manifest.dependencies = { ...provider.dependencies, ...dependencies };
+  manifest.vanillasky = { ...config, providers: enabled, ...(name === "video" ? { videoVendor: vendor } : {}) };
   const writes = new Map<string, string>([
     [manifestPath, `${JSON.stringify(manifest, null, 2)}\n`],
     [registryPath, registry(enabled)],
   ]);
   if (!existsSync(adapterPath)) writes.set(adapterPath, adapter);
+  for (const helper of name === "video" ? ["video-job", "video-delivery"] : name === "transcription" ? ["video-job"] : []) {
+    const path = safeProjectPath(options.cwd, `providers/${helper}.ts`);
+    const contents = readFileSync(join(starterProviders, `${helper}.ts`), "utf8");
+    // Shared helpers are application-owned after installation, too.
+    if (existsSync(path) && !previous.includes("video") && !previous.includes("transcription") && readFileSync(path, "utf8") !== contents) {
+      throw new Error(`providers/${helper}.ts already contains customer source; no files were changed.`);
+    }
+    if (!existsSync(path)) writes.set(path, contents);
+  }
   // Resolve every target before writing; never follow project symlinks.
   const staged = [...writes].map(([path, contents]) => ({ path, contents, temporary: safeProjectPath(options.cwd, `${path.slice(options.cwd.length + 1)}.${randomUUID()}.tmp`) }));
   for (const { path, contents, temporary } of staged) {
@@ -66,5 +87,6 @@ export async function addVideoChatProvider(name: string, options: {
   } catch {
     throw new Error(`Provider files are ready. Rerun npx vanillasky providers add ${name} to finish installation.`);
   }
-  return `Enabled ${name}. Add ${provider.key} to .env.local, then restart npm run dev.`;
+  const key = name === "video" ? { fal: "FAL_KEY", google: "GEMINI_API_KEY", runway: "RUNWAY_API_KEY", custom: "your provider credentials" }[vendor] : provider.key;
+  return `Enabled ${name}${name === "video" ? ` (${vendor})` : ""}. Add ${key} to .env.local${name === "video" ? " and configure your app-owned providers/video-delivery.ts callback" : ""}, then restart npm run dev.`;
 }

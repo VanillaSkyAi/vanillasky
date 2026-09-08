@@ -15,12 +15,33 @@ Init runs doctor automatically. The generated `server.ts` starts with one
 `ANTHROPIC_API_KEY`, a chapter introduction, and browser voice; it installs no
 optional speech or video packages.
 
-Use `npx vanillasky providers add speech` to install xAI speech, or
-`npx vanillasky providers add video` to install FAL video and transcription.
-Add `XAI_API_KEY` or `FAL_KEY` to `.env.local` and restart the server. Stock media
-needs only `PEXELS_API_KEY`, with no extra installation. These app-owned
-adapters advertise their capabilities automatically; `src/main.tsx` does not
-change. Rerun an interrupted setup command to finish installation.
+Use `init --native` for editable Gemini REST callbacks without `ai` or a provider
+SDK. Its key is `GEMINI_API_KEY`. The default starter uses the optional AI SDK
+and Anthropic; both keep the text connection in `providers/text.ts`.
+
+Optional capabilities are independent:
+
+| Command | Server configuration |
+| --- | --- |
+| `providers add video fal` | `FAL_KEY` |
+| `providers add video google` | `GEMINI_API_KEY` |
+| `providers add video runway` | `RUNWAY_API_KEY` |
+| `providers add video custom` | Your callback and credentials |
+| `providers add speech` | `XAI_API_KEY`; installs AI SDK/xAI in the app |
+| `providers add transcription` | `FAL_KEY`; separate from video |
+
+Prefix commands with `npx vanillasky`. Video adapters also need app-owned durable
+delivery: edit `providers/video-delivery.ts`, or configure its example
+`VIDEO_UPLOAD_URL` and `VIDEO_STORAGE_TOKEN`. Provider download credentials must
+never become browser URLs. These REST video adapters add no provider SDK package.
+Configure the named keys in `.env.local`, restart, and run doctor. It checks
+configuration only, not whether a paid generation will succeed. Stock media
+needs only `PEXELS_API_KEY`. The client does not change.
+
+Rerunning setup repairs installation without replacing edited adapters. To switch
+an existing video vendor, deliberately edit `providers/video.ts` and update
+`vanillasky.videoVendor` in the app manifest; the CLI refuses to overwrite owned
+source. Keep model duration, timeout, concurrency and delivery settings together.
 
 For the full chat experience, mount one `createVideoChatHandler` and keep every
 provider choice in its callbacks:

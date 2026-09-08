@@ -1,11 +1,8 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, streamText } from "ai";
 import { createVideoChatHandler } from "@vanillaskyai/video/server";
 import { findStockFootage } from "./stock";
 import { providers } from "./providers";
+import { textProvider } from "./providers/text";
 
-const PLANNER_MODEL = process.env.ANTHROPIC_PLANNER_MODEL ?? "claude-sonnet-5";
-const NARRATION_MODEL = process.env.ANTHROPIC_NARRATION_MODEL ?? "claude-haiku-4-5";
 /**
  * The application chooses providers and keeps their credentials here. The SDK
  * owns the video-chat protocol, prompts, capability negotiation, spend limits,
@@ -13,29 +10,7 @@ const NARRATION_MODEL = process.env.ANTHROPIC_NARRATION_MODEL ?? "claude-haiku-4
  */
 export const handleVideoChat = createVideoChatHandler({
   authorize: (request) => new URL(request.url).hostname === "localhost",
-  streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
-    model: anthropic(PLANNER_MODEL),
-    system: systemPrompt,
-    prompt: userPrompt,
-    abortSignal: signal,
-    maxOutputTokens: 8_192,
-    providerOptions: {
-      anthropic: {
-        thinking: { type: "disabled" },
-        output_config: { effort: "medium" },
-      },
-    },
-  }),
-  generateText: async ({ systemPrompt, userPrompt, maxOutputTokens, signal }) => {
-    const { text } = await generateText({
-      model: anthropic(NARRATION_MODEL),
-      system: systemPrompt,
-      prompt: userPrompt,
-      maxOutputTokens,
-      abortSignal: signal,
-    });
-    return text;
-  },
+  ...textProvider,
   searchMedia: process.env.PEXELS_API_KEY
     ? (query, { orientation, signal, scene }) => findStockFootage(query, orientation, signal, scene?.variables.stockSelection)
     : undefined,
@@ -66,7 +41,6 @@ export const handleVideoChat = createVideoChatHandler({
       },
     ],
   },
-  onError: (error) => console.error("[video-chat] planning failed:", error.message),
+  onError: () => console.error("[video-chat] planning failed"),
   onWarning: (warning) => console.warn(`[video-chat] ${warning.code}: ${warning.message}`),
-  mediaConcurrency: 5,
 });
