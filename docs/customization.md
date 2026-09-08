@@ -17,7 +17,7 @@ Keep that interface unless your application needs to own it.
 />
 ```
 
-Import `@vanillaskyai/video/video-chat.css` once. Override its scoped variables
+Import `styles/video-chat.css` once. Override its scoped variables
 on the instance class, not global element selectors:
 
 ```css
@@ -42,7 +42,7 @@ navigates normally and never resets the current session first. Only root-relativ
 paths and HTTP(S) links without embedded credentials are accepted; other values
 fall back to the existing Home behavior.
 
-`showDeveloperLinks` defaults to true. It controls the SDK's Docs/About/GitHub
+`showDeveloperLinks` defaults to true. It controls the chat runtime's Docs/About/GitHub
 section in Settings, not an About page for your application. This is a small UI
 option, not a theme system; it does not affect narration, providers or history.
 

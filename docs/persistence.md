@@ -6,12 +6,12 @@ A completed `Video` is ordinary JSON owned by your application. VanillaSky
 does not provide a database or hosted media store. For a custom interface, observe `useVideoChat().turns` and save a turn’s
 `video` only when `turn.completed` is true and `turn.video` is present. Use
 `JSON.stringify(turn.video)` and deduplicate writes by `turn.id`; there is no
-SDK serializer. An interrupted turn can remain visible without qualifying as
+special serializer. An interrupted turn can remain visible without qualifying as
 completed conversation history. The default `VideoChat` keeps history in memory;
 use the headless hook when the application needs durable storage.
 
 Every stored video has `schemaVersion: "0.2"`. This storage version is separate
-from streaming protocol `0.6`. The SDK supports the current storage
+from streaming protocol `0.6`. The chat runtime supports the current storage
 schema only: there are no compatibility aliases or implicit coercions.
 
 ## Load at the storage boundary
@@ -19,10 +19,9 @@ schema only: there are no compatibility aliases or implicit coercions.
 Treat values loaded from a database, object store, API, or file as `unknown`.
 Parse them before using them in application code:
 
-<!-- verify:persistence-example:start -->
 ```tsx
-import { getVideoDuration, parseVideo } from "@vanillaskyai/video";
-import { VideoPlayer } from "@vanillaskyai/video/react";
+import { getVideoDuration, parseVideo } from "../src/index";
+import { VideoPlayer } from "../src/react";
 
 export function SavedVideo({ storedJson }: { storedJson: string }) {
   const savedVideo = parseVideo(JSON.parse(storedJson));
@@ -33,10 +32,6 @@ export function SavedVideo({ storedJson }: { storedJson: string }) {
   </>;
 }
 ```
-<!-- verify:persistence-example:end -->
-
-The release verifier compiles this exact documented snippet against the packed
-SDK artifact, including its root and React subpath imports.
 
 `parseVideo(value: unknown)` validates the complete shape, known fields,
 style, audio, metadata, unique scenes, timing, and JSON-safe

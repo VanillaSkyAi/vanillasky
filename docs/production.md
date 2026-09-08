@@ -1,103 +1,74 @@
-[← Documentation home](../README.md) · [Previous: Errors and recovery](errors.md)
+# Deploying the application
 
-# Production guide
+The frontend and Cloudflare Pages Functions build from this repository. The
+same source supplies local development, PR previews and production. There is no
+npm publication or separate package-adoption step. The new deployment workflow
+is manual during cutover; its environment variables and rollback instructions
+are listed in the [release procedure](maintainers/releasing.md#deployment-configuration).
 
-Use one `createVideoChatHandler` endpoint for capabilities, welcome content,
-video responses, speech, transcription, stock search, and follow-up prompts.
-Mount `<VideoChat />` or `useVideoChat` against that boundary.
+## Instance configuration
 
-## Server boundary
+Use the committed Wrangler configuration as the shape of your deployment, with
+your own Cloudflare project and D1 binding. Keep account/database identifiers in
+instance configuration and credentials in the deployment secret store. Never
+commit `.dev.vars` or copy production credentials into a preview.
 
-- Keep provider keys, planner prompts, media tools, and raw errors on the server.
-- Replace the generated localhost authorization with a real user and tenant check.
-- Authenticate before reading the request body.
-- Set an explicit origin allowlist; CORS is not authentication.
-- Apply per-user and per-tenant request, token, concurrency, and spend limits.
-- Bound prompt size, conversation turns, audio bytes, scene count, and duration.
-- Forward cancellation to every text, speech, media, transcription, and video provider.
+`ANTHROPIC_API_KEY` enables real planning. Configure `PEXELS_API_KEY` for stock,
+optionally `FAL_KEY` for generated video and `XAI_API_KEY` for generated speech.
+The server also needs its quota database and private quota salt. Local development
+initializes separate local state; it must never point at production data.
 
-The handler rejects unknown templates and fields, invalid variables, unsafe
-media before a scene reaches the
-player. Read the [security guide](security.md) for the complete controls.
+Missing planning or footage setup must be visible. A credential-free preview is
+a setup preview, never a canned conversation. Untrusted PRs must receive no
+provider or production secrets and make no paid calls.
 
-## Cinematic direction and providers
+## Preserve the admission boundary
 
-Default chat shows an immediate chapter while speech and selected footage prepare.
-Configure `generateVideo` for AI mode and `searchMedia` for Pexels mode. Neither
-mode calls the other footage source. Missing or late footage uses the authored
-chapter with complete narration. A stock candidate must match the subject, action and permitted crop. Return
-`null` for uncertainty rather than broadening an essential detail.
+The API owns request admission, origin policy, bounded bodies, provider budgets
+and quota reservations. Keep those controls before billable work. A UI setting
+cannot authorize spending. Preserve the distinction between unavailable footage
+configuration and a recoverable failure during an admitted turn. A public viewer's
+exhausted personal AI-video allowance can use configured Pexels, including for
+remaining footage; a failed or late clip alone uses chapter recovery.
 
-Use explicit provider deadlines. Generated video should use idempotency keys
-and `maxRetries: 0` so one visible action cannot silently create several
-billable clips. Validate returned URLs, media types, byte sizes, duration, and
-licensing before use.
+Forward cancellation to every provider. Retain uncertain accepted attempts;
+network cancellation does not prove a provider cancelled billing. Keep raw
+provider errors and credentials private and expose only safe typed failures.
 
-## Fast first response
+When customizing for a multi-user application, preserve the application's
+identity and tenant boundary, request limits, concurrency and spending policy.
+CORS is not authentication. Local development can use the bounded owner
+reservation path only with an explicit local server flag and loopback URL. Public
+production limits stay active; production owner access requires verified identity.
+See [security](security.md).
 
-The prompt appears immediately in the chapter template. The planner's first
-streamed object supplies an authored spoken opening and reserves the ending.
-Prepare each shot's speech alongside its footage, and keep the opening readable
-until its narration and the contiguous preparation cushion are ready. Welcome
-cards may carry a prepared opening so its speech starts without a model round trip.
+## Release and rollback
 
-Do not wait for the complete plan before showing the first validated scene.
-Preload upcoming assets and keep the current visual if the next one is late.
-The answer brief reserves the ending while body shots stream; do not wait for every clip before sending ready scenes.
+Verify the application and API before merging. Deploy only a reviewed commit
+through the repository workflow. Compare the deployed frontend and API identity
+with that exact commit, and verify UI readiness and configuration after rollout.
+Retain the previous working Cloudflare deployment for rollback.
 
-## Data and privacy
+When moving an existing deployment to this repository, only one workflow may
+own production deployment. Coordinate the previous trigger's retirement with
+the new trigger, preserve the existing data/domain, and do not archive the prior
+repository until the replacement is verified and the owner approves archival.
+Changing secrets or deployment credentials needs separate authorization.
+See [release procedure](maintainers/releasing.md).
 
-- Send only the prompt, bounded conversation, and context needed for the answer.
-- Do not log authorization headers, secret values, raw prompts, signed URLs, or provider deltas.
-- Review provider retention and data-processing terms.
-- Keep stored media URLs valid for the expected replay window.
-- Validate persisted `Video` values with `parseVideo` before replay.
+## Playback, data and evidence
 
-## Failure experience
+Let ready scenes stream while upcoming media prepares. Preserve the opening,
+full ending and chapter recovery; do not wait for every generated clip before
+starting playback. Measure speech availability, first planned scene, first ready
+media and first moving frame separately.
 
-- Keep private diagnostics in `onError`; expose only safe typed errors.
-- Treat late media as a fallback case, not a reason to freeze playback.
-- Keep the current scene and its narration during recoverable generation gaps.
-- End cleanly on a terminal error and show an application retry control.
-- Retry only before visible output; preserve accepted scenes after playback starts.
+The default fal adapter returns playable provider URLs directly. Add storage only
+when retention or a different provider requires it. Validate saved `Video`
+objects with `parseVideo`, apply tenant retention rules and keep media URLs valid
+for the required replay window. See [persistence](persistence.md).
 
-## Measure the stages
-
-Record safe server timing and quality fields rather than one opaque total:
-
-- hook received;
-- speech ready;
-- first scene planned;
-- first scene media ready;
-- first frame painted;
-- plan complete;
-- accepted and rejected scene counts;
-- provider model, finish reason, token usage, and media failures.
-
-Use `onComplete` for server-side cost and quality reporting and `onWarning` for
-bounded recoverable issues. Never send provider-native metadata to the browser
-unless the application has deliberately enabled and secured it.
-
-## Test the shipped path
-
-Test the route with deterministic `streamText` and `generateText` callbacks.
-Exercise `capabilities`, `welcome`, and `response`, then assert the rendered
-conversation through `VideoChat`. Keep provider-adapter tests keyless and run a
-small, explicitly gated real-provider smoke test before a release.
-
-In CI, build one clean consumer from the packed SDK artifact. This catches
-missing exports, server/browser boundary leaks, code-generation drift, and
-dependency-resolution problems that workspace tests miss.
-## Deployment checklist
-
-- [ ] Keys exist only in the server secret store.
-- [ ] Authentication, tenant policy, rate limits, and origin allowlist are live.
-- [ ] Cancellation, timeouts, fallbacks, and safe errors are tested.
-- [ ] Authored chapter recovery works when every optional provider is unavailable.
-- [ ] Per-scene media choices obey provider availability and spending limits.
-- [ ] Both orientations render and narration stays synchronized.
-- [ ] A packed-artifact consumer and deterministic browser chat pass.
-- [ ] One bounded real-provider run meets the product's latency and quality target.
-- [ ] Completed stored responses parse and replay correctly.
-
-[← Documentation home](../README.md) · [Previous: Errors and recovery](errors.md)
+Keyless tests cover API security and actual browser playback using recorded media.
+They do not establish live model accuracy, visual relevance or provider latency.
+Real-provider evaluation requires an explicitly authorized budget and evidence
+from the configured application.

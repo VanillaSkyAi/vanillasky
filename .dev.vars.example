@@ -1,0 +1,11 @@
+# Copy to .dev.vars. Keep keys server-side; never use VITE_ variables for them.
+# Required: real AI planning and at least one footage provider.
+ANTHROPIC_API_KEY=
+PEXELS_API_KEY=
+
+# Optional generated video and voice. Without these: Pexels and browser speech.
+FAL_KEY=
+XAI_API_KEY=
+
+# npm run dev supplies a persistent local-only quota salt and local D1 database.
+# Production deployment keeps its own existing salt, database and access rules.

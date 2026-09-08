@@ -1,0 +1,17 @@
+{
+  "name": "vanillasky",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-04-09",
+  "vars": {
+    "VIDEO_CHAT_FAL_PREVIEW": "enabled",
+    "VIDEO_CHAT_FAL_DAILY_LIMIT": "10",
+    "VIDEO_CHAT_FAL_TOTAL_LIMIT": "100",
+    "VIDEO_CHAT_PAID_PROVIDERS": "disabled"
+  },
+  "d1_databases": [{
+    "binding": "VIDEO_CHAT_QUOTAS",
+    "database_name": "video-chat-local",
+    "database_id": "00000000-0000-0000-0000-000000000000",
+    "migrations_dir": "migrations"
+  }]
+}

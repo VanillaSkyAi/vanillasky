@@ -1,51 +1,39 @@
 # Contributing
 
-VanillaSky turns AI chat answers into narrated footage with a short chapter
-introduction and chapter fallback. Keep the implementation easy for developers
-and agents to understand. Delete dead paths instead of preserving unused
-frameworks or compatibility layers in this pre-launch product.
-
-Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+VanillaSky is a runnable video-chat application. Keep its setup and code easy to
+understand: one app, one planner, one provider configuration and one release
+path. Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Working loop
 
-Use Node 22+, the locked npm version, and an isolated worktree. Run `npm ci`,
-then `npm run dev:chat` for source-level HMR. Follow the checkout preflight in
-[AGENTS.md](AGENTS.md) before gates.
+Use Node 22+, the locked npm version and an isolated worktree. Run `npm ci`,
+configure your ignored `.dev.vars`, then `npm run dev`. This runs the same app
+as the website with local API and quota storage. See [setup](docs/getting-started.md).
 
-For a behavior change, add a focused regression and run affected test files.
-Run lint and typecheck before handoff. Playback or voice changes also need the
-relevant real-browser/media scenarios. Do not repeatedly run the entire release
-matrix while making local edits.
+Add focused regressions for behavior changes. Run affected tests, lint and
+typecheck while editing; build and run the application verification before PR
+handoff. Playback and voice changes need real-browser/media scenarios. Keep
+HEAD and tracked files fixed during a browser run.
 
-Export, CLI, starter and executable-example changes need a strict consumer of
-one identified packed artifact, installed outside the repo. Keep those consumers
-isolated: no links to local source or shared dependencies.
-`verify:package` includes public API verification; use `verify:api` only as a
-shorter targeted check. The full `npm run verify:release` gate builds one candidate
-for all consumers and is run once at the final handoff.
+Preserve protocol ordering, parsing, cancellation, complete narration, media
+recovery, admission, quota concurrency and browser/server import isolation.
+Fixtures and provider doubles are automated test inputs, never a selectable
+application mode. Live model calls need an explicitly authorized budget.
 
-Keep tests for protocol ordering, parsing, cancellation, narration/media timing,
-provider policy, and browser/server boundaries. Avoid prose/source-string tests,
-duplicate API runs, and gallery/authoring suites for unsupported features.
+## Keep customization simple
 
-## Ownership
+Change product guidance in the handler, providers in `functions/_video-chat/`
+and branding in the app. Reuse the existing internal modules. Do not introduce a
+second client, starter generator, public export contract or package release.
+See [architecture](docs/architecture.md) and [provider integration](docs/provider-integration.md).
 
-The four public entries are root, `/server`, `/react`, and `/test`, plus
-`/video-chat.css`. [PUBLIC-API.md](PUBLIC-API.md) defines the contract.
-Provider dependencies, credentials, auth, billing and persistent media belong
-to the application. Preserve safe errors and browser/server separation.
-The [architecture guide](docs/architecture.md) points at the actual request path.
+Keep credentials, private diagnostics and production identifiers out of public
+source and browser payloads. Preserve production admission and spending rules.
 
 ## Delivery
 
-Record customer-visible changes under `## Unreleased` in CHANGELOG.
-Repository-only tests, tooling, workflows and maintainer docs need no entry.
-Breaking pre-1.0 changes require the owner's explicit approval.
-
-Verify, commit, open a branch PR, and wait for CI. Never merge or release without
-the owner's explicit approval. Maintainer instructions:
-
-- [Acceptance](docs/maintainers/acceptance.md)
-- [Provider onboarding](docs/maintainers/provider-onboarding.md)
-- [Releasing](docs/maintainers/releasing.md)
+Record user-visible changes under `## Unreleased` in CHANGELOG. Verify, commit,
+push a branch, open a PR and wait for CI. The owner approves merges. Deployment
+must verify the exact app commit and retain a working rollback. Do not change
+production secrets or archive the previous repository as routine source cleanup.
+See [releasing](docs/maintainers/releasing.md).

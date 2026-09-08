@@ -1,7 +1,7 @@
 # Test video chat without a model
 
 Use deterministic callbacks for your route and the React-free
-`@vanillaskyai/video/test` helpers for protocol cases. These tests need no keys,
+`src/test.ts` helpers for protocol cases. These tests need no keys,
 provider SDKs, or real model requests.
 
 ## Test the default route
@@ -11,7 +11,7 @@ a generic template plan:
 
 ```ts
 import { expect, it } from "vitest";
-import { createVideoChatHandler } from "@vanillaskyai/video/server";
+import { createVideoChatHandler } from "../src/server";
 
 it("completes a narrated chapter when footage is unavailable", async () => {
   const handle = createVideoChatHandler({
@@ -52,7 +52,7 @@ application tests to private hook state or exact prompt wording.
 
 ```ts
 import { expect, it } from "vitest";
-import { simulateVideoStream, videoFixtures } from "@vanillaskyai/video/test";
+import { simulateVideoStream, videoFixtures } from "../src/test";
 
 it("keeps a truncated result playable", async () => {
   const events = [];
@@ -76,8 +76,8 @@ without a server. Delays use ordinary timers and work with Vitest fake timers.
 Test cancellation at your route boundary too: every provider must honor the
 request signal.
 
-Keep fast tests focused on behavior. Run the real packed consumer when public
-types or installation change and browser media tests when playback changes.
+Keep fast tests focused on behavior. Run the fresh application setup check when
+installation changes and browser media tests when playback changes.
 A deterministic fixture proves integration, not live-video quality or latency.
 
 [Documentation home](../README.md)

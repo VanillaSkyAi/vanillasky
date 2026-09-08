@@ -1,6 +1,6 @@
 import type { CreateVideoOptions, VideoScene } from "../protocol/types.js";
 import type { VideoWarning } from "../protocol/warnings.js";
-import { getReadableSceneDuration } from "./pacing.js";
+import { getReadableSceneDuration } from "../protocol/pacing.js";
 
 export function cloneWarning(warning: VideoWarning): VideoWarning {
   return {

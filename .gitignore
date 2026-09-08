@@ -15,3 +15,12 @@ test-results/
 
 # Locally packed tarballs (npm pack output)
 *.tgz
+
+.generated/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+functions/build-identity.json
+
+wrangler.deploy.json

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { createOfflineChatHandler, readFixtureOptions } from "../dev/chat/offline";
+import { createOfflineChatHandler, readFixtureOptions } from "./support/chat/offline";
 import { decodeVideoSse } from "../src/protocol/sse";
 it("bounds fixture choices and never opts into live providers", () => {
   expect(readFixtureOptions(new URL("http://localhost/?scenario=unknown&intent=unknown"))).toEqual({ scenario: "ready", intent: "explanation" });

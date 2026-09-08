@@ -1,94 +1,72 @@
-# Video answers for your AI chat
+# VanillaSky
 
 [![CI](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@vanillaskyai/video.svg)](https://www.npmjs.com/package/@vanillaskyai/video)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-VanillaSky is an open-source React SDK for spoken video conversations. A short
-chapter introduction starts the answer while footage prepares; narrated clips
-then play in order as the response is generated.
+Run the video chat you see on [vanillasky.ai](https://vanillasky.ai), with your own
+provider keys. VanillaSky is an open-source application: ask a question, hear a
+short introduction while footage prepares, then watch the narrated answer.
 
-Your application owns models, keys, authentication, storage, and spending.
-VanillaSky owns the chat interface, shot-planning prompts, streaming, validation,
-voice timing, and playback. The core has no runtime dependencies.
+## Run locally
 
-Pre-1.0 beta, distributed through npm with [best-effort support](SUPPORT.md).
-Pin an exact version and use its matching docs; an unreleased checkout is not
-the published package. Review [breaking changes](CHANGELOG.md) before upgrading.
-
-## Start on localhost
+Use Node 22+ and npm.
 
 ```bash
-npx @vanillaskyai/video init
+git clone https://github.com/VanillaSkyAi/video.git
+cd video
+npm ci
+cp .dev.vars.example .dev.vars
 ```
 
-The default starter uses the optional Vercel AI SDK text adapter. Add
-`ANTHROPIC_API_KEY` to the generated, ignored `.env.local`, then run:
+Add `ANTHROPIC_API_KEY` and `PEXELS_API_KEY` to the ignored `.dev.vars`, then:
 
 ```bash
-npx vanillasky doctor
 npm run dev
 ```
 
-Prefer native callbacks? Use `init --native` in a new directory and configure
-`GEMINI_API_KEY`; that starter needs neither `ai` nor `@ai-sdk/anthropic`.
-Both are application examples, not SDK requirements.
+Open [localhost:4200](http://localhost:4200). The command starts the frontend and
+local API, initializes isolated local quota storage, and creates a local salt.
+It does not use production data. Local development uses your keys with up to
+five generated clips per answer, without the public site's lifetime trial limit.
 
-One text key gives you chat, chapter introductions, subtitles, and browser voice.
-Add stock or generated footage through app-owned adapters. fal, Google, and
-Runway references are included; any vendor can implement the same callback.
-Direct video generation also requires your storage/delivery callback.
-See [Getting started](docs/getting-started.md) for the complete setup and
-[Provider integration](docs/provider-integration.md) for the adapter boundary.
+Every conversation uses real AI planning. Missing required keys produce a setup
+message. There are no sample answers or demo conversations.
 
-```tsx
-import { VideoChat } from "@vanillaskyai/video/react";
-import "@vanillaskyai/video/video-chat.css";
+- **Planning:** Anthropic Haiku 4.5, required.
+- **Footage:** Pexels by default. Add `FAL_KEY` for generated video using
+  MiniMax H3 Max Turbo, five-second clips at 768P. Pexels remains selectable.
+- **Voice:** browser speech by default. Add `XAI_API_KEY` for xAI speech with Eve.
 
-export function App() {
-  return <VideoChat />;
-}
-```
+Generated clips play directly from fal's media URLs. No upload service or
+storage endpoint is needed. Live conversations incur your providers' charges.
 
-Use `useVideoChat` to build your own interface, and `parseVideo` with
-`VideoPlayer` to replay completed responses. Changing a provider does not
-require changing the React client.
+## Make it yours
 
-Already have an assistant? The optional server `resolveAnswer` callback turns
-its completed answer into the source for the video, while your application
-keeps retrieval, tools and answer policy. See [existing-assistant integration](docs/provider-integration.md#use-an-existing-assistant).
+The application, providers, planner and player live in one repository. Change
+branding in the app, product instructions in the server handler, and provider
+behavior in `functions/_video-chat/`. Keep credentials server-side.
 
-## How it works
+The server selects configured capabilities before a conversation. Pexels mode
+never generates video. The public site can use configured Pexels when a viewer
+exhausts their personal AI-video allowance. A late or failed AI clip becomes a
+narrated chapter so the answer can finish. Changing models or shortening clip budgets should be tested
+with the actual voice and footage you use.
 
-The model streams an answer brief and shot directions, not component code.
-Footage generation overlaps browser-owned speech preparation. The server
-announces prepared media early and streams validated scenes in order. AI-video mode never silently
-substitutes stock; stock mode never spends on generated video. A failed or late
-clip becomes a narrated chapter. Narration targets a 0.8-second visual tail;
-one short rewrite may fit an oversized beat before generation. If it still
-does not fit, the complete original narration plays over a chapter. Footage
-normally plays once at native speed. A small measured speech overrun can repeat
-healthy footage once, only until speech finishes; larger or unmeasured overruns
-recover to a chapter without cutting off the sentence.
+See [setup](docs/getting-started.md), [customization](docs/customization.md),
+[provider integration](docs/provider-integration.md), and
+[deployment](docs/production.md).
 
-This is progressive **scene** delivery, not real-time frames from every vendor.
-Some generation APIs take minutes; preloading cannot remove that latency.
-Evaluate the model, voice and delivery path you actually deploy.
+## Work on the application
 
-The supported visual vocabulary is deliberately small: footage and chapter
-introductions/fallbacks. There is no template-authoring CLI, renderer plugin
-system, or hosted service dependency.
+Use `npm run dev` for the same application with source-level HMR. Run focused
+tests while editing, then the application checks before a PR. See
+[development](docs/development.md) and [contributing](CONTRIBUTING.md).
 
-## Documentation
+- [Architecture](docs/architecture.md), [prompts](docs/prompt-and-input.md), and [media and voice](docs/media-and-audio.md)
+- [Persistence](docs/persistence.md), [protocol](docs/reference/protocol.md), and [errors](docs/errors.md)
+- [Testing](docs/testing.md), [performance](docs/performance.md), and [security](docs/security.md)
 
-- [Agent integration](docs/agent-integration.md) and the optional
-  [integration skill](https://github.com/VanillaSkyAi/video/blob/main/skills/vanillasky/SKILL.md)
-- [Provider integration](docs/provider-integration.md), [adapter reference](docs/reference/provider-adapters.md), and [media and voice](docs/media-and-audio.md)
-- [Customization](docs/customization.md) and [prompt guidance](docs/prompt-and-input.md)
-- [Persistence and replay](docs/persistence.md), [protocol](docs/reference/protocol.md), and [testing](docs/testing.md)
-- [Performance](docs/performance.md), [production](docs/production.md), [security](docs/security.md), and [errors](docs/errors.md)
-- [Architecture](docs/architecture.md), [development](docs/development.md), and [contributing](https://github.com/VanillaSkyAi/video/blob/main/CONTRIBUTING.md)
-
-Node 22+; React 18 or 19. The four code entry points are the root package,
-`/server`, `/react`, and `/test`, plus the scoped `/video-chat.css` stylesheet.
-See the [public API contract](PUBLIC-API.md).
+VanillaSky now develops as a runnable application. The previously published
+`@vanillaskyai/video` versions, including 0.11.3, remain available for existing
+users; this repository no longer publishes new npm versions or generates a
+separate starter. See [support](SUPPORT.md) and the historical [changelog](CHANGELOG.md).

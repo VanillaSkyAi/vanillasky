@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in @vanillaskyai/video does not behave as documented.
+description: Something in the VanillaSky application does not behave as documented.
 labels: [bug]
 body:
   - type: markdown
@@ -13,9 +13,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Package version
-      description: The exact `@vanillaskyai/video` version. `npx vanillasky doctor` prints it.
-      placeholder: 0.10.x
+      label: Application commit
+      description: The exact commit from `git rev-parse HEAD`, or the deployed build identity.
+      placeholder: Full Git commit SHA
     validations:
       required: true
 
@@ -23,8 +23,8 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Node, React, framework, and browser versions.
-      placeholder: Node 22.14, React 19.2, Vite 7, Chrome 141
+      description: Node, npm, browser, and local or deployed environment.
+      placeholder: Node 22, npm 11, Chrome, localhost
     validations:
       required: true
 
@@ -34,11 +34,9 @@ body:
       label: Providers in use
       multiple: true
       options:
-        - Packaged templates and browser voice only
+        - Browser speech
         - Anthropic (text)
-        - OpenAI (text)
-        - Google (text)
-        - OpenRouter (text)
+        - Custom planning provider
         - xAI (speech)
         - fal (video and transcription)
         - Pexels (stock)
@@ -57,8 +55,8 @@ body:
     attributes:
       label: Reproduction
       description: >
-        The smallest steps that reproduce it. A blank `npx @vanillaskyai/video init`
-        folder plus the prompt you sent is ideal.
+        The smallest steps that reproduce it in a clean application checkout.
+        Include a non-sensitive prompt and any local customizations.
     validations:
       required: true
 

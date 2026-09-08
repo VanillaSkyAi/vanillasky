@@ -26,7 +26,7 @@ follow-up context reaches the planner and absent or failed speech returns the
 redacted response that the browser uses to select local voice.
 
 Automated acceptance makes no claim about human visual quality and assigns no
-human score. Before merging, use the unchanged starter on localhost to ask an
+human score. For an authorized live check, use the actual app on localhost to ask an
 explanation, follow up, and request a creative response. Watch the opening and
 completed scenes, check text readability and voice synchronization, and verify
 that browser voice continues when generated speech is unavailable. Browser

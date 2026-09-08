@@ -1,4 +1,0 @@
-interface:
-  display_name: "VanillaSky"
-  short_description: "Set up a voice-and-video chat"
-  default_prompt: "Use $vanillasky to set up and verify a general-purpose video chat in this project."

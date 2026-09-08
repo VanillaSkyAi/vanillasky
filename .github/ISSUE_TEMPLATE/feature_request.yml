@@ -1,12 +1,12 @@
 name: Feature request
-description: Propose a capability or an API change.
+description: Propose an improvement to the video-chat application.
 labels: [enhancement]
 body:
   - type: textarea
     id: problem
     attributes:
       label: The problem
-      description: What are you trying to build that the SDK makes hard today?
+      description: What are you trying to do that the application makes hard today?
     validations:
       required: true
 
@@ -15,8 +15,8 @@ body:
     attributes:
       label: Proposed shape
       description: >
-        If this touches the public API, show the call you want to write.
-        `PUBLIC-API.md` defines the current contract and its compatibility promise.
+        Describe the experience you want and the smallest change that would help.
+        Include an example conversation or customization when relevant.
     validations:
       required: true
 
@@ -24,4 +24,4 @@ body:
     id: alternatives
     attributes:
       label: What you tried instead
-      description: Workarounds, `useVideoChat`, a custom provider, a source-owned template.
+      description: Workarounds or changes to the app, provider functions, or interface.

@@ -20,8 +20,5 @@ describe("self-hosted typography fallback", () => {
     expect(css).toContain("font-weight: 400 500");
     expect(css).toContain("unicode-range:");
     expect(readFileSync("styles/video-chat.css", "utf8")).toContain('@import "./fonts/roboto.css";');
-    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(pkg.files).toContain("styles/fonts");
-    expect(pkg.sideEffects).toContain("./styles/fonts/roboto.css");
   });
 });

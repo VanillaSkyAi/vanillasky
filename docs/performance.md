@@ -4,8 +4,8 @@ Measure the moment the response becomes visible and audible, and any wait for
 its next scene. Attach local observations without changing the default UI:
 
 ```tsx
-import { VideoChat } from "@vanillaskyai/video/react";
-import "@vanillaskyai/video/video-chat.css";
+import { VideoChat } from "../src/react";
+import "../styles/video-chat.css";
 
 export function App() {
   return <VideoChat options={{
@@ -16,7 +16,7 @@ export function App() {
 }
 ```
 
-The SDK sends nothing to a telemetry service. Events contain only an opaque
+The chat runtime sends nothing to a telemetry service. Events contain only an opaque
 turn ID, mode, relative timing, and fixed event categories. Keep custom turn IDs
 opaque; do not put prompts or customer information into them.
 

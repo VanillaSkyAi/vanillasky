@@ -1,0 +1,60 @@
+name: Deploy application
+
+# Intentionally manual during cutover. Do not enable automatic production until
+# the old repository's deployment trigger is disabled and this path is verified.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        type: choice
+        options: [preview, production]
+        default: preview
+        required: true
+      confirmation:
+        description: Type DEPLOY after reviewing the target environment
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: video-chat-deployment-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  verification:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: verification
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.target }}
+    env:
+      DEPLOYMENT_TARGET: ${{ inputs.target }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      CLOUDFLARE_QUOTA_DATABASE_ID: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_ID }}
+      CLOUDFLARE_QUOTA_DATABASE_NAME: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_NAME }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+        with:
+          node-version: 22.23.1
+          cache: npm
+      - run: npm install --global npm@11.17.0
+      - run: npm ci --no-audit
+      - run: npm run build
+      - run: npm run build:functions
+      - run: npm run verify:app-build
+      - run: node scripts/deployment-project-config.mjs
+      - name: Deploy and verify; restore previous production on failure
+        run: node scripts/deployment-cloudflare.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

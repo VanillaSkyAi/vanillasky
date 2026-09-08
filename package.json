@@ -1,7 +1,7 @@
 {
-  "name": "@vanillaskyai/video",
-  "version": "0.11.3",
-  "description": "Open-source voice-and-video chat SDK for AI applications.",
+  "name": "vanillasky",
+  "version": "0.0.0",
+  "description": "A complete, open-source video chat application.",
   "keywords": [
     "video-chat",
     "voice-chat",
@@ -15,10 +15,6 @@
     "video"
   ],
   "type": "module",
-  "sideEffects": [
-    "./styles/video-chat.css",
-    "./styles/fonts/roboto.css"
-  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -28,92 +24,22 @@
     "url": "https://github.com/VanillaSkyAi/video/issues"
   },
   "homepage": "https://vanillasky.ai",
-  "files": [
-    "bin",
-    "dist",
-    "styles/video-chat.css",
-    "styles/fonts",
-    "starters/video-chat/.env.example",
-    "starters/video-chat/.env.native.example",
-    "starters/video-chat/README.md",
-    "starters/video-chat/index.html",
-    "starters/video-chat/package.json",
-    "starters/video-chat/server.ts",
-    "starters/video-chat/providers.ts",
-    "starters/video-chat/providers",
-    "starters/video-chat/src/main.tsx",
-    "starters/video-chat/stock.ts",
-    "starters/video-chat/tsconfig.json",
-    "starters/video-chat/vite.config.ts",
-    "README.md",
-    "LICENSE",
-    "SECURITY.md",
-    "SUPPORT.md",
-    "PUBLIC-API.md",
-    "docs/reference/provider-adapters.md",
-    "docs/reference/protocol.md",
-    "CHANGELOG.md",
-    "docs/*.md",
-    "docs/reference"
-  ],
-  "bin": {
-    "vanillasky": "bin/vanillasky.js"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.js",
-      "default": "./dist/server.js"
-    },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js",
-      "default": "./dist/react.js"
-    },
-    "./test": {
-      "types": "./dist/test.d.ts",
-      "import": "./dist/test.js",
-      "default": "./dist/test.js"
-    },
-    "./video-chat.css": "./styles/video-chat.css"
-  },
   "scripts": {
-    "browser:install": "playwright install chromium firefox webkit",
-    "browser:test": "playwright test",
-    "build": "tsup",
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "build:functions": "wrangler pages functions build functions --outdir .generated/functions-build --project-directory . --build-output-directory dist",
+    "verify:app-build": "node scripts/verify-app-build.mjs",
+    "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "prepack": "npm run build",
-    "verify:onboarding": "node scripts/verify-onboarding.mjs",
-    "verify:nextjs": "node scripts/verify-nextjs-onboarding.mjs",
-    "verify:published": "node scripts/verify-published-package.mjs",
-    "verify:package-size": "tsx scripts/verify-package-size.ts",
-    "verify:api": "npm run build && node scripts/verify-public-api-surface.mjs",
-    "verify:package": "npm run build && node scripts/verify-packed-package.mjs",
-    "release:build": "node scripts/release-build.mjs",
+    "test:api": "tsx --test tests/app-api/*.test.mjs",
+    "browser:install": "playwright install chromium firefox webkit",
+    "browser:test": "playwright test",
+    "test:app": "playwright test --config app.playwright.config.ts",
     "acceptance:chat": "tsx scripts/acceptance/run.ts",
-    "dev:chat": "vite --config dev/chat/vite.config.ts --open /dev/chat/",
-    "check:chat": "node scripts/chat-check.mjs",
-    "verify:release": "node scripts/chat-verify.mjs"
-  },
-  "peerDependencies": {
-    "react": ">=18 <20",
-    "react-dom": ">=18 <20"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
+    "verify": "npm run lint && npm run typecheck && npm test && npm run test:api && npm run build && npm run build:functions && npm run verify:app-build && npm run test:app"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -122,17 +48,18 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "es-module-lexer": "^1.7.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "esbuild": "0.28.2",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "tsup": "^8.5.1",
+    "miniflare": "5.20260820.0-alpha",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
-    "vitest": "^3.2.4"
+    "vite": "7.3.6",
+    "vitest": "^3.2.4",
+    "wrangler": "4.125.0"
   },
   "overrides": {
     "esbuild": "^0.28.2"
@@ -141,8 +68,10 @@
     "node": ">=22"
   },
   "packageManager": "npm@11.17.0",
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
+  "private": true,
+  "dependencies": {
+    "jose": "6.2.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

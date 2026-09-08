@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -11,17 +15,23 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": ".",
-    "paths": {
-      "@vanillaskyai/video": ["src/index.ts"],
-      "@vanillaskyai/video/react": ["src/react.ts"],
-      "@vanillaskyai/video/server": ["src/server.ts"]
-    },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
-  "include": ["src", "tests", "scripts", "playwright.config.ts", "tsup.config.ts", "vitest.config.ts"],
-  "exclude": ["tests/fixtures/nextjs-provider-app"]
+  "include": [
+    "src",
+    "app",
+    "tests",
+    "scripts",
+    "playwright.config.ts",
+    "app.playwright.config.ts",
+    "vitest.config.ts",
+    "vite.config.ts"
+  ]
 }

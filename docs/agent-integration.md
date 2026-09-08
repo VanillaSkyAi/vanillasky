@@ -1,39 +1,26 @@
-# Agent integration
+# Working on VanillaSky with an agent
 
-Build the supported chat path first. The optional integration skill is installed
-with `npx skills add VanillaSkyAi/video@vanillasky`.
+Read [AGENTS.md](../AGENTS.md), then follow the [setup](getting-started.md).
+Clone this repository, run `npm ci`, configure ignored `.dev.vars`, and start
+`npm run dev`. Do not generate a second starter or install a published copy of
+VanillaSky inside this app.
 
-In an empty app, run `npx @vanillaskyai/video init`, use
-`npx vanillasky doctor` to identify missing setup, and start `npm run dev`.
-For an existing app, keep its framework and connect `VideoChat` to one
-`createVideoChatHandler` using the [provider guide](provider-integration.md).
-Do not copy SDK internals or invent a second generation client.
+Use the actual application and provider defaults. Keep AI planning required,
+Pexels as the configured fallback when generated video is absent, and browser
+speech when generated voice is absent. Never make missing setup look functional
+with canned answers. Provider doubles belong only in automated tests.
 
-The host adds credentials to ignored server-only environment files. Never read,
-print, screenshot, or send secret values. Doctor exposes key names only.
+The application route owns provider admission and spending. Internal modules own
+planning, validation, voice timing and playback. Change guidance in the handler,
+providers in `functions/_video-chat/`, and branding in the app. Trace the relevant
+path in [architecture](architecture.md) before editing.
 
-Verify in a real browser: a complete answer, its ending, a follow-up, pause/mute,
-and console/network failures. Test moving footage when a video adapter is
-configured. Report the localhost URL and ready capabilities, not just scaffold
-completion.
+Preserve cancellation, complete narration, mode isolation and private errors.
+Use `resolveAnswer` if an existing assistant supplies the completed answer; do not
+invent another client or planning protocol. See [provider integration](provider-integration.md).
 
-The SDK owns chat, shot planning, streaming, voice timing, and the two renderers.
-The application owns providers, keys, auth, persistence, copy, and spending.
-Use `useVideoChat` only when the host needs a custom UI; use `parseVideo` and
-`VideoPlayer` for saved responses. Renderer plugins and template authoring are
-not supported.
-
-Chat planning uses a shared answer contract plus the selected AI-video or stock
-mode instructions. Application `instructions` guide the answer within that
-contract. With `resolveAnswer`, the completed answer is the sole factual source;
-user and conversation content cannot replace the planning contract. Narration
-budgets come from the configured generated clip duration, while stock footage
-uses its available duration.
-
-Automatic generated style follows the content: realistic for observable action,
-illustrated for mechanisms or abstract relationships, cinematic for fiction or
-atmosphere. Missing or invalid model styles fall back to realistic. A caller
-`style.generatedLook` takes precedence; stock searches remain literal footage
-selection and cannot apply a generated rendering style.
-
-[Getting started](getting-started.md) · [Documentation home](../README.md)
+Run focused regressions, lint and types while editing, then the complete
+application verification for handoff. Freeze the checkout during browser tests.
+Provider quality and latency need explicitly authorized real calls; fixture
+results are not live evidence. Delivery is branch, PR, green CI, owner-approved
+merge, deployment and production verification.

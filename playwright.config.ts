@@ -14,7 +14,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "vite --host 127.0.0.1 --port 4274 --strictPort",
+      command: "vite --config tests/browser/fixtures.config.ts",
       url: "http://127.0.0.1:4274/tests/browser/fixtures/frame-parity.html",
       reuseExistingServer: false,
       timeout: 30_000,

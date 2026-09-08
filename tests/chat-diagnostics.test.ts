@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { createChatDiagnostics } from "../dev/chat/diagnostics";
+import { createChatDiagnostics } from "./support/chat/diagnostics";
 it("records safe stream phases and resets metrics for the next response", async () => {
   const snapshots: unknown[] = [];
   const diagnostics = createChatDiagnostics(rows => snapshots.push(rows));

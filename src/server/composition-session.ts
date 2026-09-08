@@ -6,7 +6,7 @@ import type {
   VideoScene,
 } from "../protocol/types.js";
 import type { VideoFinishReason } from "../protocol/events.js";
-import { paceScene, type PaceSceneResult } from "./pacing.js";
+import { paceScene, type PaceSceneResult } from "../protocol/pacing.js";
 import {
   createDuplicateCloserWarning,
   createMissingCloserWarning,
