@@ -55,13 +55,15 @@ const fetcher: typeof fetch = async input => {
   if (action === 'capabilities') return Response.json({ templates: true, generatedSpeech: true, generatedVideo: true, stockMedia: false, transcription: false, modes: ['cinematic'] });
   if (action === 'welcome') return Response.json({ hero: null, cards: [] });
   if (action === 'suggestions') return Response.json({ suggestions: [] });
-  if (action === 'speech') return fetch('./media-transition/paragraph.mp3');
+  // Isolate the optional poster: this complete 1.965s narration fits the 5s
+  // clip. The oversized-speech fixture separately verifies chapter recovery.
+  if (action === 'speech') return fetch('./media-transition/clip-narration.wav');
   if (action !== 'response') return new Response(null, { status: 204 });
   probe.started = performance.now();
   const clip = new URLSearchParams(location.search).get('clip') ?? 'sunflowers.mp4';
-  const scene: VideoScene = { id: 'poster-shot', templateId: 'cinemaMedia', narration: 'A complete prerecorded local narration.',
+  const scene: VideoScene = { id: 'poster-shot', templateId: 'cinemaMedia', narration: 'Water keeps flowing through the forest.',
     variables: { mediaType: 'video', mediaUrl: new URL(`./media-transition/${clip}`, location.href).href,
-      mediaPoster: new URL('./never-ready-poster.jpg', location.href).href, fallbackText: 'Sunflowers in motion' }, timing: { fixedDuration: 8 } };
+      mediaPoster: new URL('./never-ready-poster.jpg', location.href).href, fallbackText: 'Sunflowers in motion' }, timing: { fixedDuration: 5 } };
   const snapshot: Video = { schemaVersion: '0.2', orientation: 'landscape', style: TEST_VIDEO_STYLE, scenes: [scene] };
   const encoder = new TextEncoder();
   return new Response(new ReadableStream({ start(controller) {
