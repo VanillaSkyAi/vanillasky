@@ -1,7 +1,8 @@
 # Compact chat prompt comparison
 
-Status: code implemented; offline verification in progress. Live calls not authorized.
-Quality acceptance and blind output preference remain unverified.
+Status: owner approved release on 2026-09-08 and chose to test live quality
+personally. The proposed paid comparison was not run ($0 spent); blind output
+preference and live quality remain unverified. Preparing SDK 0.11.3.
 
 ## Baseline and configuration
 
@@ -193,3 +194,24 @@ rubric: literal stock cannot render clay. No model outputs have been assessed.
 This reviewer has now seen implementation identity. A fresh read-only evaluator
 must score randomized outputs after spending approval; code review is not blind
 quality preference. No more than one evaluator owns scoring at a time.
+
+## Release decision and completed verification
+
+The owner requested release and will test the deployed prompts personally, replacing
+this task's proposed paid evaluation gate. No paid text, video, stock or voice calls
+were made for the comparison. This does not establish blind quality acceptance.
+
+Final implementation head before the version-only release preparation: `56b7fd7`.
+All 23 CI checks passed. Local verification passed 995 unit tests, seven acceptance
+turns, lint, types, build, packed consumers, all four Next.js provider integrations
+and the development-chat smoke test. The local browser suite finished 203 passed,
+32 skipped and two WebKit Settings-focus return failures. Both failures reproduced
+in isolation on candidate and fresh baseline `428692d`; unchanged frontend code
+and the mocked-welcome test never invoke the prompt planner. The full local gate
+remains red on that pre-existing issue; no unrelated UI change was introduced.
+Sol's final independent code review approved the implementation after the stale
+prose assertions were removed, with live quality explicitly outside that signoff.
+
+The version preparation changes package identity, starter pin and release notes,
+not runtime behavior. Its new identified artifact is verified by the normal PR
+and trusted-publisher release workflows before website adoption.
