@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef } from "react";
 import type { VideoScene } from "../protocol/types.js";
 
-export const MountedReadinessContext = createContext<((key: string, error?: Error, actualVideoFrame?: boolean) => void) | undefined>(undefined);
+export const MountedReadinessContext = createContext<((key: string, error?: Error, actualVideoFrame?: boolean, video?: HTMLVideoElement) => void) | undefined>(undefined);
 export const sceneReadinessKey = (scene: VideoScene): string => `${scene.id}\0${String(scene.variables.mediaUrl || "")}`;
 
 export interface MountedVideoProof { consume: (video: HTMLVideoElement) => boolean }
@@ -63,7 +63,7 @@ export function MountedSceneReadiness({
           consumed = true;
           return valid;
         }} : undefined);
-      } else report?.(key, error, actualVideoFrame);
+      } else report?.(key, error, actualVideoFrame, actualVideoFrame ? presented ?? observed : undefined);
     };
     const check = () => {
       if (stopped) return;
@@ -79,7 +79,7 @@ export function MountedSceneReadiness({
         if (isVideo) {
           const video = layer.querySelector('video');
           if (video && video.getAttribute('src') === mediaUrl && video.currentSrc === video.src && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-            if (preparedProof?.consume(video)) { finish(undefined, true); return; }
+            if (preparedProof?.consume(video)) { presented = video; finish(undefined, true); return; }
             if (observed !== video) { previousMediaTime = undefined; forwardFrames = 0; }
             // Some native decoders sample HAVE_CURRENT_DATA throughout moving
             // playback. Two actual forward frames also prove playable media.

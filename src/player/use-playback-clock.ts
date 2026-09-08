@@ -14,6 +14,7 @@ interface PlaybackClockOptions {
   loopRef: { current: boolean };
   sceneIndexRef: { current: number };
   visualReadyRef?: { current: string | undefined };
+  activeMediaRef?: { current: { key: string; video: HTMLVideoElement } | undefined };
   callbacksRef: {
     current: {
       narrationReady?: () => boolean;
@@ -36,6 +37,7 @@ export function usePlaybackClock({
   loopRef,
   sceneIndexRef,
   visualReadyRef,
+  activeMediaRef,
   callbacksRef,
   setCurrentTime,
   setIsPlaying,
@@ -47,6 +49,7 @@ export function usePlaybackClock({
     let onsetWaitSeconds = 0;
     let clockWaitSeconds = 0;
     let lastNarrationTime: number | undefined;
+    let narratedKey: string | undefined;
     let completionHold: { sceneId: string; wait: number; tail: number } | undefined;
     let committedTime = timeRef.current;
     let groupHandoff: { key: string; startedAt: number } | undefined;
@@ -74,7 +77,7 @@ export function usePlaybackClock({
       const externallySeeked = timeRef.current !== committedTime;
       const replaced = current.requestId !== requestId || current.runId !== runId;
       requestId = current.requestId; runId = current.runId;
-      if (externallySeeked || replaced) { groupHandoff = undefined; completionHold = undefined; }
+      if (externallySeeked || replaced) { groupHandoff = undefined; completionHold = undefined; narratedKey = undefined; }
       let deferGroupStall = false;
       let completionBlocked = false;
       const elapsed = Math.max(0, (now - previous) / 1000);
@@ -110,6 +113,8 @@ export function usePlaybackClock({
         }
         clockWaitSeconds = narrationTime !== undefined && narrationTime === lastNarrationTime && narrationReady && !stalled ? clockWaitSeconds + elapsed : 0;
         const audioMovedBackwards = narrationTime !== undefined && lastNarrationTime !== undefined && narrationTime < lastNarrationTime;
+        if (audioMovedBackwards) narratedKey = undefined;
+        if (cued && narrationReady && narrationTime !== undefined && narrationTime > 0) narratedKey = sceneReadinessKey(cued.scene);
         lastNarrationTime = narrationTime;
         if (clockWaitSeconds >= 8) {
           failNarration(new Error("Narration audio clock did not advance within eight seconds"), current);
@@ -136,6 +141,22 @@ export function usePlaybackClock({
           catch (cause) {
             failNarration(cause instanceof Error ? cause : new Error("Narration completion failed"), current);
             return;
+          }
+          const key = sceneReadinessKey(cued.scene);
+          if (speaking && narrationReady) narratedKey = key;
+          const native = activeMediaRef?.current;
+          const media = native?.video;
+          // After confirmed speech completion, use this scene's existing
+          // decoder for its quiet tail. A late audio ended event must not
+          // leave the visual clock behind already-presented footage.
+          if (!speaking && narrationReady && callbacksRef.current.narrationActive && narratedKey === key
+            && typeof measuredSpeech === "number" && Number.isFinite(measuredSpeech) && measuredSpeech > 0
+            && native?.key === key && media?.isConnected && !media.error && !media.seeking
+            && media.getAttribute("src") === String(cued.scene.variables.mediaUrl || "") && media.currentSrc === media.src
+            && media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+            && Number.isFinite(media.currentTime) && media.currentTime >= 0 && Number.isFinite(media.duration) && media.duration > 0
+            && measuredSpeech <= media.duration && cued.end - cued.start <= media.duration + .05) {
+            raw = Math.max(raw, Math.min(cued.end, cued.start + media.currentTime));
           }
           if (completionHold?.sceneId !== cued.scene.id) completionHold = undefined;
           if (raw >= cued.end - tailSeconds && speaking) {

@@ -8,6 +8,22 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "currentSrc", "get").mockImplementation(function (this: HTMLMediaElement) { return this.src; });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+it.each([false, true])("bounds the final native-ended grace when the player completes: %s", async completed => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const props = { mediaUrl: "/outgoing.mp4", sceneDuration: 5, measuredSpeechDurationSec: 4.5, progress: 1, isPlaying: true, onError };
+  const view = render(<SceneVideoBackdrop {...props} />);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { value: true } });
+  fireEvent.loadedMetadata(video); fireEvent.ended(video);
+  expect(onError).not.toHaveBeenCalled();
+  if (completed) view.rerender(<SceneVideoBackdrop {...props} isPlaying={false} />);
+  await import("@testing-library/react").then(({ act }) => act(() => vi.advanceTimersByTimeAsync(64)));
+  expect(onError).toHaveBeenCalledTimes(completed ? 0 : 1);
+});
 it("keeps the actual remainder bounded after an explicit seek into the repeated portion", async () => {
   vi.useFakeTimers();
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);

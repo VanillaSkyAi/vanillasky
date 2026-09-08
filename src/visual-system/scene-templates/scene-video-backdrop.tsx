@@ -48,6 +48,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [waitingKey, setWaitingKey] = useState<string>();
   const [exhaustedKey, setExhaustedKey] = useState<string>();
   const [repeatingKey, setRepeatingKey] = useState<string>();
+  const [endedKey, setEndedKey] = useState<string>();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playableVideoUrl = useRef<string | undefined>(undefined);
@@ -182,6 +183,15 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (videoRef.current) fitDuration(videoRef.current);
   }, [fitDuration]);
   useEffect(() => {
+    if (!isPlaying || endedKey !== videoPresentationKey) return;
+    // Let the final clock tick commit, but never hold an exhausted outgoing
+    // clip indefinitely while the next scene is still cold.
+    const timer = setTimeout(() => {
+      if (videoRef.current?.ended) unavailable();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [endedKey, videoPresentationKey, isPlaying]);
+  useEffect(() => {
     if (!isPlaying || repeatingKey !== videoPresentationKey) return;
     let frame: number;
     const observe = () => {
@@ -206,7 +216,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // Native ended may precede the final animation-frame commit. A completed
     // fitting line needs neither recovery nor a repeat during that last tick.
     if (video?.ended && fit && !fit.repeat && sceneDuration !== undefined
-      && sceneDuration <= video.duration + .05 && (1 - progress) * sceneDuration <= .05) return;
+      && sceneDuration <= video.duration + .05 && (1 - progress) * sceneDuration <= .05) {
+      setEndedKey(videoPresentationKey);
+      return;
+    }
     if (video && video.ended && !video.error && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
       && video.currentSrc === video.src && playableVideoUrl.current === mediaUrl
       && failedPresentationRef.current !== videoPresentationKey && waitingKey !== videoPresentationKey
@@ -231,6 +244,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (!video || rewindPreroll || previous.key !== videoPresentationKey || progress >= previous.progress - .05
       || !sceneDuration || !Number.isFinite(sceneDuration)) return;
     const target = Math.max(0, progress * sceneDuration);
+    setEndedKey(undefined);
     const seekingRepeated = allowsRepeat(video) && target >= video.duration;
     setRepeatingKey(seekingRepeated ? videoPresentationKey : undefined);
     if (seekingRepeated) repeatedPresentationRef.current = videoPresentationKey;

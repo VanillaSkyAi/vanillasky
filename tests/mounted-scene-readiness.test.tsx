@@ -22,7 +22,7 @@ describe("actual mounted media readiness", () => {
     Object.defineProperty(video, "readyState", {value: 3, configurable: true});
     await act(() => vi.advanceTimersByTimeAsync(32)); expect(report).not.toHaveBeenCalled();
     act(() => presented?.(0, {} as VideoFrameCallbackMetadata));
-    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true, video);
     expect(view.container.querySelectorAll("video")).toHaveLength(1);
   });
   it("consumes the backdrop's first frame without waiting for a second callback", async () => {
@@ -37,7 +37,7 @@ describe("actual mounted media readiness", () => {
     await act(() => vi.advanceTimersByTimeAsync(32));
     expect(report).not.toHaveBeenCalled();
     act(() => video.dispatchEvent(new Event("vanillasky:video-frame-presented", { bubbles: true })));
-    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true, video);
     await act(() => vi.advanceTimersByTimeAsync(8000));
     expect(report).toHaveBeenCalledOnce();
   });
@@ -61,7 +61,7 @@ describe("actual mounted media readiness", () => {
     expect(report).not.toHaveBeenCalled();
     loading.remove();
     await act(() => vi.advanceTimersByTimeAsync(32));
-    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+    expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true, video);
   });
   it("a next-scene source handoff does not inherit readiness or allocate another decoder", async () => {
     vi.useFakeTimers(); const report = vi.fn(); const view = render(fixture(report));
@@ -97,12 +97,12 @@ describe("actual mounted media readiness", () => {
     vi.useFakeTimers(); const report = vi.fn();
     render(fixture(report, { ...scene, variables: { ...scene.variables, mediaUrl: "https://[invalid" } }));
     await act(() => vi.advanceTimersByTimeAsync(8000));
-    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
+    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false, undefined);
   });
   it("reports a bounded decode failure rather than starting narration over black", async () => {
     vi.useFakeTimers(); const report = vi.fn(); render(fixture(report));
     await act(() => vi.advanceTimersByTimeAsync(8000));
-    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false);
+    expect(report).toHaveBeenCalledWith(expect.any(String), expect.any(Error), false, undefined);
   });
 });
 
@@ -115,7 +115,7 @@ it("retains a decoded first frame without cueing until future video data is avai
   expect(report).not.toHaveBeenCalled();
   Object.defineProperty(video, "readyState", {value: 3, configurable: true});
   await act(() => vi.advanceTimersByTimeAsync(32));
-  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true, video);
 });
 
 it("accepts sustained native frames while sampled readiness remains HAVE_CURRENT_DATA", async () => {
@@ -135,7 +135,7 @@ it("accepts sustained native frames while sampled readiness remains HAVE_CURRENT
   act(() => present?.(40, { mediaTime: .04 } as VideoFrameCallbackMetadata));
   expect(report).not.toHaveBeenCalled();
   act(() => present?.(80, { mediaTime: .08 } as VideoFrameCallbackMetadata));
-  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true);
+  expect(report).toHaveBeenCalledWith("first\0https://example.com/first.mp4", undefined, true, video);
 });
 
 it.each(["pause", "waiting", "seeking"])("requires new forward frames after %s interrupts readiness evidence", async event => {
