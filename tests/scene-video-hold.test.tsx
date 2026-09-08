@@ -374,7 +374,9 @@ for (const event of ["play", "playing"] as const) it.each([false, true])(`reasse
   video.currentTime = .2;
   fireEvent[event](video);
   expect(pause).toHaveBeenCalledOnce();
-  expect(video.currentTime).toBe(.2);
+  // A late native start can advance WebKit's decoder even after pause() while
+  // currentTime stays pinned. Re-seek preroll, but preserve a viewer's pause.
+  expect(video.currentTime).toBe(preparingNarration ? 0 : .2);
   view.rerender(<SceneVideoBackdrop {...props} />);
   pause.mockClear();
   fireEvent[event](video);
