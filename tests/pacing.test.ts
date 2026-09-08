@@ -12,6 +12,13 @@ function scene(variables: Record<string, unknown>, fixedDuration = 4): VideoScen
 }
 
 describe("deterministic scene pacing", () => {
+  it("does not stretch explicitly timed footage to a chapter's display floor", () => {
+    const result = paceScene({ id: "short", templateId: "cinemaMedia", variables: { mediaType: "video", mediaUrl: "https://app.test/short.mp4" }, timing: { fixedDuration: 2 } }, {
+      previousScenes: [], maxDurationSec: 10, closerReserveSec: 0,
+      getTemplatePacing: () => ({ minDuration: 3 }),
+    });
+    expect(result.scene?.timing).toEqual({ startTime: 0, endTime: 2, fixedDuration: 2 });
+  });
   it("holds a short opening beat for at least three seconds when the budget permits", () => {
     const opening = paceScene(scene({ message: "Ready" }, 1), {
       previousScenes: [],

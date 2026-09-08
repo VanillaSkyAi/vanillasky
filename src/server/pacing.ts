@@ -153,8 +153,10 @@ export function paceScene(scene: VideoScene, options: PaceSceneOptions): PaceSce
     ? options.maxDurationSec
     : Math.max(0, options.maxDurationSec - options.closerReserveSec);
   const remaining = Math.max(0, ceiling - priorEnd);
-  const contentMinimum = getReadableSceneDuration(scene, metadata);
-  const readableMinimum = options.previousScenes.length === 0 && remaining >= MINIMUM_OPENING_DURATION_SEC
+  const footageBudget = scene.templateId === "cinemaMedia" && scene.variables.mediaType === "video"
+    && Number.isFinite(scene.timing.fixedDuration) && scene.timing.fixedDuration! > 0 ? scene.timing.fixedDuration : undefined;
+  const contentMinimum = Math.min(getReadableSceneDuration(scene, metadata), footageBudget ?? Infinity);
+  const readableMinimum = footageBudget === undefined && options.previousScenes.length === 0 && remaining >= MINIMUM_OPENING_DURATION_SEC
     ? Math.max(contentMinimum, MINIMUM_OPENING_DURATION_SEC)
     : contentMinimum;
   if (remaining < readableMinimum) {

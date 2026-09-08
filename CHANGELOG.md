@@ -4,6 +4,10 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## Unreleased
 
+- Plan concise narration against the configured video duration and give the single rewrite explicit speech/word budgets. Report content-free rewrite outcomes instead of silently collapsing timeout, empty, failed and oversized results.
+- Keep stock search and playback independent of generated-video duration/deadline settings. Use reported footage duration when available and the mounted decoder when stock duration is unknown; retain every authored beat within the existing bounded plan.
+- Preserve two-second video budgets through composition and preparation. Delivered footage duration governs playback, with the requested duration as a fallback for generated clips; keep the 0.8-second speech tail, native-speed playback and full-narration chapter recovery.
+
 ## 0.11.0
 
 ### Integration and developer experience

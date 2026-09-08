@@ -1,6 +1,16 @@
 /** Leave a short visual tail after the narration finishes. Shared by planning and playback. */
 export const CLIP_NARRATION_TAIL_SEC = .8;
 
+/** Concrete authoring targets, slightly inside the conservative preflight. */
+export function clipNarrationBudget(clipDurationSec: number) {
+  const maxSpeechSec = Math.max(0, clipDurationSec - CLIP_NARRATION_TAIL_SEC);
+  return {
+    clipDurationSec, maxSpeechSec,
+    targetWords: Math.floor(maxSpeechSec * 2),
+    targetUnspacedCharacters: Math.floor(maxSpeechSec * 3),
+  };
+}
+
 const UNSPACED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/gu;
 
 /** Conservative preflight only. Decoded speech duration remains authoritative. */

@@ -98,7 +98,22 @@ submitted for that beat: its complete original narration plays over a chapter.
 Rewrites are instructed to preserve facts and qualifications; applications
 should still evaluate meaning and timing with their actual models and voices.
 Measured speech can overrun the estimate; playback recovers to a chapter
-rather than looping or cutting off the sentence.
+rather than looping or cutting off the sentence. Requested duration constrains
+the paid submission; a valid returned duration describes the footage actually
+available for playback. The mounted decoder also checks its physical duration.
+Without reported duration, generated footage keeps its requested budget.
+
+Stock search has its own bounded lookup deadline and no generated-video duration
+cap. Return `durationSec` when known: the SDK selects footage first, then checks
+the spoken beat against that duration. Unknown stock duration is checked by the
+mounted decoder, not replaced with an unrelated video vendor's clip setting.
+Neither path submits another video job to make narration fit.
+
+`onDiagnostic` includes a `narration-rewrite` phase with elapsed work time, clip
+budget and a fixed `rewritten`, `empty`, `oversized`, `timeout`, `provider-error`
+or `cancelled` reason. It never includes the original or rewritten text. Keep
+normal rewrite latency within its 2.5-second bound; shortening the first-pass
+plan avoids that additional call in the common path.
 
 Speech setup uses the optional xAI/AI SDK adapter. Transcription setup uses
 Whisper via fal REST independently of the selected video vendor. Stock footage

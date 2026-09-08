@@ -37,3 +37,9 @@
 - For automatic visual direction, reuse the default chat brief and verify the active shot-planner path. Keep intent separate from appearance, preserve caller overrides, and check downstream provider prompt-length limits before combining style and shot instructions. Do not claim mocked media proves generated visual quality.
 
 - Product deletion is a complete dependency-graph change: remove its CLI, public surface, generated artifacts, fixtures, docs, and tests together. Keep real consumer and playback boundaries for the remaining product.
+
+- A passing longer-duration fixture cannot establish the shorter production
+  contract. Exercise the configured duration through handler, provider callback,
+  streamed scene and voice preparation. Keep live text/voice quality evidence
+  separate from stubbed generation and recorded-media playback; verify the
+  actual reported browser session before attributing failures to authentication.

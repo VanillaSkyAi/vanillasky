@@ -51,6 +51,8 @@ Completed media is announced immediately, even when an earlier shot is still gen
 
 Duration diagnostics distinguish estimated/rewritten narration from prepared speech and actual clip duration. Playback reports buffered seconds, native media/scene durations and repeat count. Stall reasons distinguish generation, speech and media decoding.
 
+The host-only `narration-rewrite` diagnostic phase distinguishes rewritten, empty, oversized, timed-out, failed and cancelled helper calls without including text. Generated clips retain their requested budget when actual duration is absent; stock has no generated-video duration/deadline cap. A valid returned duration governs available footage, and the mounted decoder still verifies its physical duration.
+
 ## React integration
 
 ```tsx
