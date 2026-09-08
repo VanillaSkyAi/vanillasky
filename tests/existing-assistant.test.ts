@@ -6,6 +6,19 @@ const streamText = vi.fn<VideoChatHandlerOptions["streamText"]>(async function* 
   yield JSON.stringify({ type: "answer", opening: "The result has limits.", subject: "ocean", development: "", ending: { narration: "It works only under controlled conditions.", title: "Controlled conditions", subject: "ocean waves" } }) + "\n";
 });
 describe("existing assistant integration", () => {
+  it("rejects invalid visual options before invoking the assistant or generation", async () => {
+    const resolveAnswer = vi.fn(async () => "A complete answer.");
+    const planner = vi.fn(streamText), generateVideo = vi.fn(() => null);
+    const handler = createVideoChatHandler({ authorize: "none", streamText: planner, generateText: () => "", generateVideo, resolveAnswer });
+    const response = await handler(new Request("https://app.test/video?action=response", {
+      method: "POST", body: JSON.stringify({ prompt: "Explain the result", style: { generatedLook: 42 } }),
+    }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: "invalid_request" } });
+    expect(resolveAnswer).not.toHaveBeenCalled();
+    expect(planner).not.toHaveBeenCalled();
+    expect(generateVideo).not.toHaveBeenCalled();
+  });
   it("keeps the inbound body limit separate from a bounded completed answer and its JSON encoding", async () => {
     const answer = '🌊"\\\n'.repeat(8_000).trim();
     const resolveAnswer = vi.fn(async () => answer);

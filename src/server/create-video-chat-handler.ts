@@ -14,6 +14,7 @@ import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from ".
 import { withDeadline } from "../video-chat/deadline.js";
 import { sanitizeVideoChatMedia } from "../video-chat/media.js";
 import { createVideoStreamHandler } from "./video-stream-handler.js";
+import { parseVideoRequest } from "./request-validation.js";
 import { createChatShotPlanner, type ShotPreparation } from "./chat-shot-planner.js";
 import { CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
 import { validateBuiltinScene } from "./scene-validation.js";
@@ -238,8 +239,15 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
   if (!Array.isArray(conversation) || conversation.length > MAX_CONVERSATION_TURNS) {
     throw new Error(`request.conversation must contain at most ${MAX_CONVERSATION_TURNS} turns`);
   }
+  const prompt = boundedString(body.prompt, "request.prompt");
+  // Reuse the protocol validator before any application-owned assistant work.
+  const style = body.style == null ? undefined : parseVideoRequest({
+    protocolVersion: VIDEO_PROTOCOL_VERSION,
+    requestId: "video-chat-admission",
+    input: { input: prompt, style: body.style },
+  }).input.style;
   return {
-    prompt: boundedString(body.prompt, "request.prompt"),
+    prompt,
     ...(body.opening == null ? {} : { opening: boundedString(body.opening, "request.opening", 300) }),
     mode,
     orientation,
@@ -253,7 +261,7 @@ function parseResponseRequest(value: unknown): ParsedResponseRequest {
           : { response: boundedString(turn.response, `request.conversation[${index}].response`, MAX_CONVERSATION_RESPONSE_CHARACTERS) }),
       };
     }),
-    ...(body.style == null ? {} : { style: body.style as VideoStyleOptions }),
+    ...(style == null ? {} : { style }),
   };
 }
 
