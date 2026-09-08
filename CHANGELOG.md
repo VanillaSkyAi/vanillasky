@@ -6,6 +6,14 @@ VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
 
 ## 0.11.0
 
+### Timing and preparation
+
+- Share a clip budget between planning and playback, with a 0.8-second narration tail and one bounded rewrite before any paid clip. If it cannot fit, keep the complete original narration on a chapter.
+- Check measured speech and actual decoded footage; play normal footage at native speed without looping. Respect browser speech completion with bounded failure handling.
+- Announce completed media ahead of ordered scene delivery. Limit actual decoding to active and next scenes on every browser; isolate speech/media preparation from session state.
+- Add content-free duration, buffering, repeat and wait-reason diagnostics. Stop automatically retrying ambiguous cinematic responses.
+- Pass requested duration, shot direction and an absolute deadline to application video callbacks; accept actual media duration in results. Allow long-running provider deadlines without client edits.
+
 ### Breaking changes
 
 The beta now focuses on footage and chapter opening/recovery. The default chat

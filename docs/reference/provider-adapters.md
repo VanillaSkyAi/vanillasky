@@ -83,13 +83,14 @@ complete.
 The same chat contract supports a native provider without an AI SDK dependency.
 Return an `AsyncIterable<string>` from `streamText`, or an object with
 `textStream` and optional completion metadata. Implement `generateText` for the
-small welcome, suggestion, and fallback narration tasks and return its text.
+small welcome, suggestion, fallback narration, and bounded `narration-rewrite`
+tasks and return its text.
 Infer each callback from `VideoChatHandlerOptions` so the adapter stays aligned
 with the public contract.
 
 Forward the supplied signal, preserve both prompt strings, and keep provider
-errors and credentials on the server. Retry only within an explicit time and
-spend budget before output is visible. The chat does not expose a durable
+errors and credentials on the server. Do not automatically resubmit ambiguous
+paid requests. The chat does not expose a durable
 stream-reconnect contract.
 
 ## Generated-video budget
@@ -105,13 +106,20 @@ never consumes the generated-video allowance. Retries inside your
 provider callback can incur additional charges; bound those separately. Never
 copy an untrusted request value into this application-owned option.
 
-Use `generateVideoTimeoutMs` for slower providers (integer `1`–`120000`, default
+Use `generateVideoTimeoutMs` for slower providers (integer `1`–`600000`, default
 `15000`). Poll queued jobs only until the supplied signal aborts; submit once,
 record the provider job identifier, and cancel that job best-effort on abort.
 A disconnected browser or timed-out request does not prove the job was free.
 Reserve host-owned quotas before submission and retain uncertain attempts.
-Keep the host request deadline and client `timeoutMs` longer than the provider
-deadline. The SDK does not resume a completed queued job into a finished answer.
+Keep the host request deadline longer than the provider deadline. The default
+client `timeoutMs` is `660000`; an explicit shorter override remains authoritative.
+The SDK does not resume a completed queued job into a finished answer.
+
+The video callback receives `requestedDurationSec`, `shotDirection`, `deadlineAt`
+(epoch milliseconds), and `signal`. Return `durationSec` when known. Keep model,
+duration, resolution, concurrency and timeout together in your editable adapter.
+These longer deadlines accommodate queued providers; they do not make generation
+real-time. The SDK streams ready scenes and prepares upcoming media progressively.
 
 For a limited offering, `VideoChat` accepts `generatedVideoLabel` and
 `generatedVideoDescription` to explain the generated-video choice in Settings.
