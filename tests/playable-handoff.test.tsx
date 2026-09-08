@@ -135,5 +135,5 @@ it("promotes a pending clip proven by native frame advancement even when readine
   }
   expect(displayed()).toBe("second");
   expect(view.container.querySelector('[data-scene-layer="active"] video')).toBe(incoming);
-  expect(report).toHaveBeenCalledWith("second\0https://example.com/second.mp4", undefined, true);
+  expect(report).toHaveBeenCalledWith("second\0https://example.com/second.mp4", undefined, true, incoming);
 });
