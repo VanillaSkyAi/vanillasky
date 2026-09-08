@@ -1,4 +1,4 @@
-[← Documentation home](../README.md) · [Previous: Core concepts](concepts.md) · [Next: Streaming protocol →](streaming-protocol.md)
+[← Documentation home](../README.md) · [Previous: Core concepts](architecture.md) · [Next: Streaming protocol →](reference/protocol.md)
 
 # Persistence and replay
 
@@ -11,7 +11,7 @@ completed conversation history. The default `VideoChat` keeps history in memory;
 use the headless hook when the application needs durable storage.
 
 Every stored video has `schemaVersion: "0.2"`. This storage version is separate
-from streaming protocol `0.5`. The 0.1 policy supports the current storage
+from streaming protocol `0.6`. The SDK supports the current storage
 schema only: there are no compatibility aliases or implicit coercions.
 
 ## Load at the storage boundary
@@ -73,8 +73,4 @@ normal authenticated storage and a cryptographic integrity mechanism when
 those properties are required.
 
 Saved replay makes zero generation endpoint or model-provider requests. It is
-not necessarily zero network traffic: audio, images, videos, fonts, and
-customer-owned renderers may make separate media network requests.
-
-When a saved video uses project-owned templates, provide the matching browser
-registry: `<VideoPlayer video={savedVideo} templates={templates} />`.
+not necessarily zero network traffic: audio, images, videos, and fonts may make separate media network requests.

@@ -1,20 +1,19 @@
-# Give your AI a voice and a face
+# Video answers for your AI chat
 
 [![CI](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/VanillaSkyAi/video/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@vanillaskyai/video.svg)](https://www.npmjs.com/package/@vanillaskyai/video)
-[![runtime dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)](package.json)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**VanillaSky is the open-source voice-and-video chat layer.** Add a polished,
-general-purpose AI conversation that speaks and starts playing visual answers
-while they are still being composed.
+VanillaSky is an open-source React SDK for spoken video conversations. A short
+chapter introduction starts the answer while footage prepares; narrated clips
+then play in order as the response is generated.
 
-> **Status: Beta.** VanillaSky is pre-1.0 and its public API may change as we
-> test it in real applications. Pin an exact version before production use.
+Your application owns models, keys, authentication, storage, and spending.
+VanillaSky owns the chat interface, shot-planning prompts, streaming, validation,
+voice timing, and playback. The core has no runtime dependencies.
 
-Your application owns the providers, keys, authentication, persistence,
-branding, and product copy. VanillaSky owns the chat flow, planning prompts,
-trusted templates, validation, streaming, voice timing, and player.
+Pre-1.0 beta: pin an exact version for production and review
+[breaking changes](CHANGELOG.md) before upgrading.
 
 ## Start on localhost
 
@@ -22,50 +21,20 @@ trusted templates, validation, streaming, voice timing, and player.
 npx @vanillaskyai/video init
 ```
 
-Init installs the baseline dependencies and runs doctor automatically. Add
-`ANTHROPIC_API_KEY` to the generated, ignored `.env.local`, then run:
+Add `ANTHROPIC_API_KEY` to the generated, ignored `.env.local`, then run:
 
 ```bash
 npx vanillasky doctor
 npm run dev
 ```
 
-Open the reported localhost URL. One text key gives you the chat, an immediate introduction, and browser voice.
-Add the video adapter for AI footage, or a Pexels key for the lower-cost stock mode.
-Without footage, authored chapter scenes carry the narration and subtitles. If installation is interrupted, rerun the init command.
-
-Optional upgrades keep the same client:
-
-| Add | Setup command | Server-only key |
-| --- | --- | --- |
-| Generated speech | `npx vanillasky providers add speech` | `XAI_API_KEY` |
-| Generated video and voice transcription | `npx vanillasky providers add video` | `FAL_KEY` |
-| Pexels video search | No install needed | `PEXELS_API_KEY` |
-
-Run the selected command, add its key to `.env.local`, and restart the server.
-Only selected provider packages are installed. `npx vanillasky doctor` reports
-readiness by key name and never prints values. Provider SDKs remain application
-dependencies, outside the core package.
-
-For coding agents:
-
-```bash
-npx skills add VanillaSkyAi/video@vanillasky
-```
-
-Then prompt: `Use $vanillasky to set up and verify a general-purpose video chat in this project.`
-
-## What init creates
-
-The generated application is a thin, editable shell:
-
-- `src/main.tsx` mounts the complete SDK-owned `<VideoChat />` interface;
-- `server.ts` connects app-owned text, speech, transcription, stock, and video
-  providers through one `createVideoChatHandler`;
-- `vite.config.ts` serves the UI and the single `/api/video-chat` endpoint;
-- `.env.local` holds server-only keys and is ignored by Git.
-
-The UI stays this small:
+One text key gives you the complete chat, chapter introductions, subtitles, and
+browser voice. Add `PEXELS_API_KEY` for stock footage, or run
+`npx vanillasky providers add video` and configure its server-only provider
+credentials for generated footage. `npx vanillasky providers add speech` adds
+generated speech. Missing footage preserves the answer as a chapter scene.
+See [Getting started](docs/getting-started.md) for setup and
+[Provider integration](docs/provider-integration.md) for the adapter boundary.
 
 ```tsx
 import { VideoChat } from "@vanillaskyai/video/react";
@@ -76,62 +45,33 @@ export function App() {
 }
 ```
 
-The default interface puts video behind a floating conversation field, with
-on-video subtitles and contextual controls. See the [immersive interface guide](docs/immersive-interface.md)
-for behavior and [customization](docs/customization.md) for application branding.
+Use `useVideoChat` to build your own interface, and `parseVideo` with
+`VideoPlayer` to replay completed responses. Changing a provider does not
+require changing the React client.
 
-Use `useVideoChat` when you want a custom interface while keeping the SDK-owned
-conversation and playback lifecycle. Edit the generated server when you want a
-different provider. The [provider guide](docs/provider-integration.md) explains
-both boundaries.
+## How it works
 
-## An immediate intro, then moving footage
+The model streams an answer brief and shot directions, not component code.
+The server prepares footage and speech concurrently, validates each scene, and
+streams ready scenes to the browser in order. AI-video mode never silently
+substitutes stock; stock mode never spends on generated video. A failed or late
+clip becomes a narrated chapter. Silent footage can loop when narration exceeds
+a clip; media timing and provider latency still need real-footage evaluation.
 
-The default chat uses a template introduction while its first shot prepares,
-then footage with narration and subtitles. Choose AI video or Pexels in Settings.
-AI mode never substitutes stock, and Pexels mode never calls the AI-video provider.
-Missing or late footage becomes a useful chapter scene. The planner adapts its
-visible actions and spoken beats to explanations, stories, comedy, imagination,
-and practical requests. It does not choose body templates.
-
-Speech and footage prepare together. Silent clips loop through the remaining
-narration when necessary, and every answer preserves its intended ending.
-
-Packaged templates remain available for custom compositions and source ownership.
-
-Copy template source only when you want to own and edit it:
-
-```bash
-npm install --save-dev tsx
-npx vanillasky templates add chapterTitle
-```
-
-That compiler is needed only for source-owned templates. See
-[Custom templates](docs/custom-templates.md).
-
-## Go deeper
-
-Completed chat responses are deterministic JSON and can be stored and replayed.
-MP4/WebM export remains application-owned.
+The supported visual vocabulary is deliberately small: footage and chapter
+introductions/fallbacks. There is no template-authoring CLI, renderer plugin
+system, or hosted service dependency.
 
 ## Documentation
 
-| Goal | Guide |
-| --- | --- |
-| Run the complete chat | [Getting started](docs/getting-started.md) |
-| Set it up with a coding agent | [Agent integration guide](docs/agent-integration.md) |
-| Change or add providers | [Provider integration](docs/provider-integration.md) |
-| Customize the interface | [Customization](docs/customization.md) |
-| Understand prompts and grounding | [Prompt and input](docs/prompt-and-input.md) |
-| Add media or voice | [Media and voice](docs/media-and-audio.md) |
-| Persist and replay results | [Performance measurements](docs/performance.md) · [Persistence and replay](docs/persistence.md) |
-| Test routes and streams | [Test integrations](docs/testing.md) |
-| Iterate on SDK chat | [Development](docs/development.md): `dev:chat`, `check:chat`, `verify:release` |
-| Deploy securely | [Production](docs/production.md) · [Security](docs/security.md) |
-| Inspect the API contract | [Public API](PUBLIC-API.md) · [Protocol](docs/reference/protocol.md) |
+- [Agent integration](docs/agent-integration.md) and the optional
+  [integration skill](skills/vanillasky/SKILL.md)
+- [Provider integration](docs/provider-integration.md), [adapter reference](docs/reference/provider-adapters.md), and [media and voice](docs/media-and-audio.md)
+- [Customization](docs/customization.md) and [prompt guidance](docs/prompt-and-input.md)
+- [Persistence and replay](docs/persistence.md), [protocol](docs/reference/protocol.md), and [testing](docs/testing.md)
+- [Performance](docs/performance.md), [production](docs/production.md), [security](docs/security.md), and [errors](docs/errors.md)
+- [Architecture](docs/architecture.md), [development](docs/development.md), and [contributing](CONTRIBUTING.md)
 
-Try a keyless template response in the
-[playground](https://vanillasky.ai/playground/), or visit
-[vanillasky.ai](https://vanillasky.ai/).
-
-Apache-2.0
+Node 22+; React 18 or 19. The four code entry points are the root package,
+`/server`, `/react`, and `/test`, plus the scoped `/video-chat.css` stylesheet.
+See the [public API contract](PUBLIC-API.md).

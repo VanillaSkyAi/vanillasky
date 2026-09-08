@@ -106,4 +106,4 @@ node -e "import('@vanillaskyai/video/react').then(m => { if (!m.useVideoChat || 
 ```
 
 Confirm the installed artifact contains its reviewed README, public API,
-support/security policies, docs, examples, registry, license, and declarations.
+support/security policies, docs, starter source, license, and declarations.

@@ -109,7 +109,6 @@ jobs:
         with:
           name: sdk-candidate
           path: artifacts/chat-candidate
-      - run: npm run registry:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npx tsc --noEmit --project dev/chat/tsconfig.json
@@ -128,7 +127,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gate: [public-api, packed-package, onboarding]
+        gate: [packed-package, onboarding]
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -146,11 +145,8 @@ jobs:
         with:
           name: sdk-candidate
           path: artifacts/chat-candidate
-      # The API surface check is React-free; the other clean-room gates exercise a browser.
+      # Packed-package includes API verification and the isolated React-free server install.
       - run: npx playwright install chromium
-        if: matrix.gate != 'public-api'
-      - run: node scripts/verify-public-api-surface.mjs
-        if: matrix.gate == 'public-api'
       - run: node scripts/verify-packed-package.mjs
         if: matrix.gate == 'packed-package'
       - run: npm run verify:onboarding
@@ -276,7 +272,7 @@ jobs:
       - run: npm ci --no-audit
       - run: npm install --no-audit --no-save --package-lock=false react@${{ matrix.react }}.3.1 react-dom@${{ matrix.react }}.3.1 @types/react@18.3.28 @types/react-dom@18.3.7
       - run: npm run typecheck
-      - run: npm test -- tests/react.test.tsx tests/use-video-chat.test.tsx tests/video-chat-component.test.tsx tests/video-chat-voice-cancellation.test.tsx tests/player.test.tsx tests/template-kit.test.tsx tests/templates.test.tsx
+      - run: npm test -- tests/react.test.tsx tests/use-video-chat.test.tsx tests/video-chat-component.test.tsx tests/video-chat-voice-cancellation.test.tsx tests/player.test.tsx
       - run: npm run build
 
   browser-gate:

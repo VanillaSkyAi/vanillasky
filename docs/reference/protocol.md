@@ -75,20 +75,11 @@ planning uses an internal answer brief and shot descriptions. The runtime
 translates them into footage scenes and completes the answer at stream end,
 without asking the model for lifecycle commands.
 
-Handlers with an explicit custom `templates` registry keep the existing
-composition planner contract. A server-only planner emits
-validated `scene.add` or `plan.complete` parts. The runtime assigns sequences,
-IDs, terminal snapshots, and checksums. Generated HTML, React, JavaScript, CSS, component
-source, audio events, protocol envelopes, and unknown part types are rejected.
-
-A planner may add `placement: "closer"` to exactly one `scene.add`. The
-standard handler requires that closer by default, holds it outside the public
-event stream while body scenes continue, and commits it as the final scene.
-Only templates advertised for `jobs:[ask]` or `jobs:[payoff]` qualify. The
-placement marker is not part of `VideoScene` and never enters a replay
-snapshot. If the planner completes without a valid closer, the handler emits
-`plan_missing_closer` and uses `finishReason: "other"`; provider `length` and
-`content-filter` reasons remain unchanged.
+The runtime owns validated scene additions, sequence IDs, terminal snapshots,
+and checksums. The planned ending is reserved and committed after the body.
+If no valid ending is available, the response reports a safe incomplete-plan
+warning. Generated HTML, React, JavaScript, CSS, protocol envelopes, and unknown
+planning parts are rejected.
 
 ## Resume
 

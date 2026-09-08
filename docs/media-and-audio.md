@@ -1,4 +1,4 @@
-[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Custom templates →](custom-templates.md)
+[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Customization →](customization.md)
 
 # Media, voice, and audio
 
@@ -46,8 +46,7 @@ createVideoChatHandler({
 The planner emits a short semantic keyword, not a URL. The callback returns an
 application-approved image or video URL, and the SDK validates it before it
 reaches a scene. Return `null` when no licensed, safe, relevant asset exists;
-default chat displays an authored chapter while retaining the spoken answer. An explicit custom `templates` registry retains its structured planner,
-validation, and fallback contracts.
+default chat displays an authored chapter while retaining the spoken answer.
 
 For Pexels, keep `PEXELS_API_KEY` on the server, enforce a deadline, filter for
 suitable renditions, and return only validated Pexels asset domains. Licensing,
@@ -85,7 +84,7 @@ Pexels retains literal footage queries; these instructions cannot restyle stock
 assets. The opening chapter keeps its existing appearance. Automatic direction
 is generation-time guidance, not a new persisted style field; saved media keeps
 its rendered appearance and existing caller-supplied style persistence is
-unchanged. Custom template planning keeps its existing behavior.
+unchanged.
 
 ## Generated shots
 
@@ -185,4 +184,4 @@ interaction before audible playback on many devices.
   while narration continues.
 - Return a safe fallback instead of leaving the response waiting forever.
 
-[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Custom templates →](custom-templates.md)
+[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Customization →](customization.md)

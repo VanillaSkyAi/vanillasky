@@ -1,76 +1,51 @@
 # Contributing
 
-VanillaSky is an open-source voice-and-video chat SDK. Changes should preserve
-the versioned event protocol and keep external services behind explicit adapters.
+VanillaSky turns AI chat answers into narrated footage with a short chapter
+introduction and chapter fallback. Keep the implementation easy for developers
+and agents to understand. Delete dead paths instead of preserving unused
+frameworks or compatibility layers in this pre-launch product.
 
-Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Local checks
+## Working loop
 
-Use Node.js 22. Before opening a pull request, run:
+Use Node 22+, the locked npm version, and an isolated worktree. Run `npm ci`,
+then `npm run dev:chat` for source-level HMR. Follow the checkout preflight in
+[AGENTS.md](AGENTS.md) before gates.
 
-```bash
-npm ci
-npm run lint
-npm run typecheck
-npm test
-```
+For a behavior change, add a focused regression and run affected test files.
+Run lint and typecheck before handoff. Playback or voice changes also need the
+relevant real-browser/media scenarios. Do not repeatedly run the entire release
+matrix while making local edits.
 
-That is the whole local contract. CI runs the slower gates for you — the packed
-package, clean-room onboarding, provider fixtures, Node 24, React 18, and the
-Chromium/Firefox/WebKit suites — so you do not need browsers installed to
-contribute. Run them locally only when you are changing what they cover:
+Export, CLI, starter and executable-example changes need a strict consumer of
+one identified packed artifact, installed outside the repo. Keep those consumers
+isolated: no links to local source or shared dependencies.
+`verify:package` includes public API verification; use `verify:api` only as a
+shorter targeted check. The full `npm run chat:verify` gate builds one candidate
+for all consumers and is run once at the final handoff.
 
-```bash
-npm run acceptance:chat     # deterministic chat quality with mocked providers
-npm run verify:package      # the exact packed artifact
-npm run verify:onboarding   # npx init in a blank folder
-npm run browser:test        # Playwright, needs npm run browser:install first
-```
+Keep tests for protocol ordering, parsing, cancellation, narration/media timing,
+provider policy, and browser/server boundaries. Avoid prose/source-string tests,
+duplicate API runs, and gallery/authoring suites for unsupported features.
 
-Protocol changes need reducer and stream tests. Runtime code must never import
-the built-in registry. Canonical template changes live in `src/visual-system`;
-generated installable copies live in `registry/items`. Templates need valid
-default variables and must continue to pass the all-template install and render
-test. Reusable authoring primitives use the `primitive` registry layer and remain
-directly installable with `vanillasky templates add`. The CLI may refresh files marked as
-generated, but must not silently overwrite customer-owned template or primitive
-source.
-Provider credentials and customer secrets must never enter browser bundles,
-video inputs, fixtures, or event logs.
+## Ownership
 
-## Change notes
+The four public entries are root, `/server`, `/react`, and `/test`, plus
+`/video-chat.css`. [PUBLIC-API.md](PUBLIC-API.md) defines the contract.
+Provider dependencies, credentials, auth, billing and persistent media belong
+to the application. Preserve safe errors and browser/server separation.
+The [architecture guide](docs/architecture.md) points at the actual request path.
 
-Record customer-visible changes under `## Unreleased` in `CHANGELOG.md` as part
-of the pull request that makes them. Repository-only tooling, tests, workflows,
-governance, and maintainer documentation need no changelog entry. Releases
-promote that section into a version heading; see
-[Releasing](docs/maintainers/releasing.md).
+## Delivery
 
-A breaking change, including a pre-1.0 minor, requires explicit approval from
-the repository owner before implementation or merge. Breaking-change notes and migration
-evidence are required context, but migration evidence does not count as
-approval.
+Record customer-visible changes under `## Unreleased` in CHANGELOG.
+Repository-only tests, tooling, workflows and maintainer docs need no entry.
+Breaking pre-1.0 changes require the owner's explicit approval.
 
-## Maintainer guides
+Verify, commit, open a branch PR, and wait for CI. Never merge or release without
+the owner's explicit approval. Maintainer instructions:
 
-- [Acceptance](docs/maintainers/acceptance.md) defines deterministic chat quality
-  and recovery gates.
-- [Releasing](docs/maintainers/releasing.md) defines versioning, publishing, verification,
-  and the boundary with the separate site-owned adoption process.
-
-## Release checks
-
-The published SDK supports Node 22 and newer. CI runs the full SDK/runtime test
-suite and build on Node 22 and 24. The Node 24 job does not omit any SDK/runtime
-test file.
-
-React 19 is the primary development runtime. CI also verifies React 18 source
-and runtime compatibility, plus Chromium, Firefox, and WebKit.
-
-Before a release candidate, verify the exact packed package and blank-folder
-starter. Run `npm run acceptance:chat` with mocked providers, then keep localhost
-available for one manual conversation check. Automated checks never use real
-provider credentials or spend generation credits. A mocked run proves behavior;
-only an explicitly authorized manual provider run measures live-provider latency
-and generated-media quality.
+- [Acceptance](docs/maintainers/acceptance.md)
+- [Provider onboarding](docs/maintainers/provider-onboarding.md)
+- [Releasing](docs/maintainers/releasing.md)
