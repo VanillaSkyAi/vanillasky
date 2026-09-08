@@ -46,7 +46,7 @@ try {
   }
   write(serverConsumer, "package.json", JSON.stringify({ private: true, type: "module" }));
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact.path, "typescript@5.9.3"], serverConsumer);
-  for (const dependency of ["react", "@types/react", "tsx", "esbuild"]) {
+  for (const dependency of ["react", "@types/react", "tsx", "esbuild", "ai", "@ai-sdk/anthropic", "@anthropic-ai/sdk"]) {
     if (existsSync(join(serverConsumer, "node_modules", dependency))) throw new Error("Server-only install pulled " + dependency);
   }
   write(serverConsumer, "types.ts", [
@@ -56,6 +56,7 @@ try {
     'import { createMockVideoPlanner, simulateVideoStream, videoFixtures } from "@vanillaskyai/video/test";',
     'declare const options: VideoChatHandlerOptions;',
     'void [createVideoChatHandler(options), parseVideo, createMockVideoPlanner, simulateVideoStream, videoFixtures];',
+    'const assistant = createVideoChatHandler({...options, resolveAnswer: async ({prompt, conversation, signal}) => { signal.throwIfAborted(); return `${prompt}: ${conversation.length} prior turns`; }}); void assistant;',
   ].join("\n"));
   write(serverConsumer, "tsconfig.json", JSON.stringify({ compilerOptions: strict, include: ["types.ts"] }));
   run(process.execPath, ["node_modules/typescript/bin/tsc", "--noEmit"], serverConsumer);
@@ -83,6 +84,10 @@ try {
     'const noSpend = createVideoChatHandler({...base, maxGeneratedVideos: 0, generateVideo: () => { throw new Error("Must not spend"); }});',
     'assert.equal(parse(await (await noSpend(post())).text()).at(-1).data.snapshot.scenes[0].templateId, "chapterTitle");',
     'const denied = createVideoChatHandler({...base, authorize: () => false}); assert.equal((await denied(post())).status, 401);',
+    'let answered = 0; const completedAnswer = "Ocean waves carry energy toward the shore.";',
+    'const existingAssistant = createVideoChatHandler({...base, resolveAnswer: async ({prompt, conversation, signal}) => { assert.equal(prompt,"Explain waves"); assert.deepEqual(conversation,[]); assert.equal(signal.aborted,false); answered++; return completedAnswer; }, streamText: async function* (context) { assert.equal(context.request.input.knowledgeMode,"input-only"); assert.equal(JSON.parse(context.request.input.input).completedAssistantAnswer,completedAnswer); yield story; }});',
+    'const adapted = parse(await (await existingAssistant(post())).text()).at(-1); assert.equal(answered,1); assert.equal(adapted.type,"response.complete"); assert.equal(adapted.data.snapshot.scenes[0].narration,completedAnswer);',
+    'const emptyAssistant = createVideoChatHandler({...base,resolveAnswer:async()=>""}); assert.equal((await emptyAssistant(post())).status,502);',
     'const failed = createVideoChatHandler({...base, streamText: async function* () { throw new Error("PRIVATE_PROVIDER_CANARY"); }});',
     'const failure = await (await failed(post())).text(); assert.ok(failure.includes("response.error")); assert.ok(!failure.includes("PRIVATE_PROVIDER_CANARY"));',
     'let entered; const started = new Promise(resolve => { entered = resolve; }); let cancelled = false;',
