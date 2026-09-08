@@ -27,7 +27,7 @@ async function run(budget: number | undefined, fail = false, queries = Array.fro
 
 describe("chat generation budget", () => {
   afterEach(() => vi.useRealTimers());
-  it.each([0, -1, 120001, Infinity, NaN, 1.5])("rejects invalid generation deadline %s", (generateVideoTimeoutMs) => {
+  it.each([0, -1, 600001, Infinity, NaN, 1.5])("rejects invalid generation deadline %s", (generateVideoTimeoutMs) => {
     expect(() => createVideoChatHandler({ authorize: "none", streamText: async function* () {}, generateText: async () => "", generateVideoTimeoutMs })).toThrow("generateVideoTimeoutMs");
   });
   it.each([false, true])("honors a longer deadline and settles slow media (success=%s)", async (succeeds) => {

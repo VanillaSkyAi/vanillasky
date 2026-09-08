@@ -18,6 +18,8 @@ export interface VideoChatMedia {
   url: string;
   type: "image" | "video";
   posterUrl?: string;
+  /** Actual media duration, not a narration estimate. */
+  durationSec?: number;
 }
 
 export interface VideoChatSuggestion {
