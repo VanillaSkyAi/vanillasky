@@ -15,7 +15,7 @@ body:
     attributes:
       label: Package version
       description: The exact `@vanillaskyai/video` version. `npx vanillasky doctor` prints it.
-      placeholder: 0.10.22
+      placeholder: 0.10.x
     validations:
       required: true
 
