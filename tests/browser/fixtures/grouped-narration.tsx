@@ -11,6 +11,10 @@ import flowersPoster from "./media-transition/sunflowers.jpg?url";
 import waterfall from "./media-transition/waterfall.mp4?url";
 import tram from "./media-transition/tram.mp4?url";
 import flowers from "./media-transition/sunflowers.mp4?url";
+import waterfallWebm from "./media-transition/waterfall-hold.webm?url";
+import tramWebm from "./media-transition/tram.webm?url";
+import flowersWebm from "./media-transition/sunflowers.webm?url";
+const media = new URLSearchParams(location.search).has("webm") ? [waterfallWebm, tramWebm, flowersWebm] : [waterfall, tram, flowers];
 const probe: Array<Record<string, unknown>> = [];
 Object.assign(window, { narrationProbe: probe });
 const nativeVideoFrame = HTMLVideoElement.prototype.requestVideoFrameCallback;
@@ -66,7 +70,7 @@ function App() {
     const prepared = await voice.prepare(text);
     probe.push({ kind: "prepared", ...prepared });
     const segment = prepared.seconds / 3;
-    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: [waterfall, tram, flowers].map((mediaUrl, index) => ({
+    setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: media.map((mediaUrl, index) => ({
       id: String(index), templateId: "cinemaMedia", variables: { mediaUrl, mediaType: "video", mediaPoster: [waterfallPoster, tramPoster, flowersPoster][index] }, timing: { fixedDuration: segment },
       narration: ["First we see the water flowing.", "Then the tram moves through the city.", "Finally the flowers turn toward the light."][index],
       narrationGroup: { id: "paragraph", text, offsetSeconds: index * segment, durationSeconds: segment, totalSeconds: prepared.seconds },
@@ -76,6 +80,7 @@ function App() {
   return <><button onClick={() => void start().catch(error => probe.push({ kind: "prepare-error", message: String(error) }))}>Play prerecorded paragraph</button><button onClick={() => narration.interrupt()}>Interrupt</button>
     <div style={{ width: 360 }}>{video && <VideoPlayer key={run} video={video} autoPlay controls={false}
       onError={(error) => { narration.interrupt(); probe.push({ kind: "player-error", message: String(error) }); }}
+      onPlaybackMetric={metric => probe.push({ kind: "media-metric", ...metric, at: performance.now() })}
       narrationReady={narration.isReady}
       narrationTime={narration.getTime}
       onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}

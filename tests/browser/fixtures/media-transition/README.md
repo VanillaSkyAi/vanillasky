@@ -68,3 +68,11 @@ one-decoder assertions; its evidence records codec, platform and delay. In run
 initial readiness, then the next scene correctly received a replacement decoder.
 The retry passed, confirming why that native codec cannot establish deterministic
 healthy-decoder identity. macOS continues exercising H264 for this boundary test.
+
+The grouped-paragraph healthy-handoff checks use these same Linux WebKit VP8
+derivatives and record codec/platform in their evidence. Run `34249962114`
+recovered the fully downloaded H264 waterfall before the 2.140-second paragraph
+boundary on both attempts, consistent with the native codec limitation above.
+Those traces did not retain the exact recovery reason. The grouped checks keep
+their moving-frame, bounded pause, single-audio-element and complete-paragraph
+assertions; failures now also capture media recovery reasons.
