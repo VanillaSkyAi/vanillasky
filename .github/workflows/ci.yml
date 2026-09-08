@@ -28,10 +28,23 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+          # Fail closed. Every path that cannot positively prove the change is
+          # documentation-only must run the gates, so `code` starts true and is
+          # lowered only after a diff that actually succeeded. A silent failure
+          # here would skip the gates on real code.
+          code=true
+          require_gates() {
+            echo "Code gates required: true ($1)"
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
-          fi
+          }
+
+          [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]] && require_gates "no base commit"
+          git cat-file -e "$BASE^{commit}" 2>/dev/null || require_gates "base commit $BASE is unreachable"
+
+          changed=$(git diff --name-only "$BASE" HEAD) || require_gates "git diff against $BASE failed"
+          [[ -z "$changed" ]] && require_gates "empty diff against $BASE"
+
           code=false
           while IFS= read -r path; do
             [[ -z "$path" ]] && continue
@@ -39,7 +52,10 @@ jobs:
               *.md | docs/* | LICENSE) ;;
               *) code=true ;;
             esac
-          done < <(git diff --name-only "$BASE" HEAD)
+          done <<< "$changed"
+
+          echo "Changed files:"
+          echo "$changed" | sed 's/^/  /'
           echo "Code gates required: $code"
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
