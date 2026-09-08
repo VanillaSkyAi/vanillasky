@@ -1,8 +1,15 @@
 # Changelog
 
-VanillaSky follows semantic versioning. This changelog begins with the 0.1 beta.
+Application changes are recorded below. Versioned sections preserve the history
+of previously published npm releases.
 
 ## Unreleased
+
+- Remove the retired SDK test kit, test-only package entry points and redundant
+  composition prompt construction. Keep app behavior and provider callbacks intact.
+- Deploy the exact successful main CI artifact without repeating CI or rebuilding;
+  verify source identity and output checksums before upload. Consolidate required
+  checks under the application gate and update the everyday release instructions.
 
 - Consolidate the website and chat engine into one runnable application with
   one local development command and the website's provider defaults.

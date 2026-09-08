@@ -59,7 +59,8 @@ See [setup](docs/getting-started.md), [customization](docs/customization.md),
 ## Work on the application
 
 Use `npm run dev` for the same application with source-level HMR. Run focused
-tests while editing, then the application checks before a PR. See
+tests while editing, then the application checks before a PR. After merge, the
+release workflow deploys the verified main CI build without rebuilding it. See
 [development](docs/development.md) and [contributing](CONTRIBUTING.md).
 
 - [Architecture](docs/architecture.md), [prompts](docs/prompt-and-input.md), and [media and voice](docs/media-and-audio.md)

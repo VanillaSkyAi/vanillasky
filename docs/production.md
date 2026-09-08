@@ -1,10 +1,18 @@
 # Deploying the application
 
-The frontend and Cloudflare Pages Functions build from this repository. The
-same source supplies local development, PR previews and production. There is no
-npm publication or separate package-adoption step. The new deployment workflow
-is manual during cutover; its environment variables and rollback instructions
-are listed in the [release procedure](maintainers/releasing.md#deployment-configuration).
+The frontend and Cloudflare Pages Functions build from this repository. Local
+development, preview and production use the same application.
+
+After merging an approved PR and waiting for main CI, run:
+
+```bash
+gh workflow run deploy.yml --ref main -f target=production -f confirmation=DEPLOY
+```
+
+The workflow deploys the exact verified CI artifact, checks the live frontend
+and API, and attempts rollback if verification fails. Use `target=preview` for
+a separate, non-billable preview. See the [release procedure](maintainers/releasing.md)
+for initial environment configuration, artifact retention and manual rollback.
 
 ## Instance configuration
 

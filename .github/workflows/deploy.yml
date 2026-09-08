@@ -1,7 +1,6 @@
 name: Deploy application
 
-# Intentionally manual during cutover. Do not enable automatic production until
-# the old repository's deployment trigger is disabled and this path is verified.
+# Deploy the exact artifact from successful main CI; never rebuild at release time.
 on:
   workflow_dispatch:
     inputs:
@@ -18,18 +17,14 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: video-chat-deployment-${{ inputs.target }}
   cancel-in-progress: false
 
 jobs:
-  verification:
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
-    uses: ./.github/workflows/ci.yml
-
   deploy:
-    needs: verification
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -50,9 +45,18 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.17.0
       - run: npm ci --no-audit
-      - run: npm run build
-      - run: npm run build:functions
-      - run: npm run verify:app-build
+      - name: Download the successful main CI build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --workflow ci.yml --branch main --event push --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$run_id" ]; then
+            echo "::error::This main commit has no successful CI run. Wait for CI, then deploy again."
+            exit 1
+          fi
+          gh run download "$run_id" --name application-build
+          echo "Using verified application artifact from CI run $run_id" >> "$GITHUB_STEP_SUMMARY"
+      - run: npm run verify:app-build -- --check
       - run: node scripts/deployment-project-config.mjs
       - name: Deploy and verify; restore previous production on failure
         run: node scripts/deployment-cloudflare.mjs
