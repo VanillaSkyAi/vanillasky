@@ -13,6 +13,12 @@ of previously published npm releases.
 - Preserve historical spending records and enforce the daily pool across UTC
   midnight and overlapping Worker versions. Continue remaining shots with Pexels
   after the last AI credit, announcing the switch before that footage arrives.
+- Keep public AI clip generation working when quota accounting triggers also
+  write usage records, while preserving database-enforced spending limits.
+
+- Add a playable demo to the README showing settings and a video answer with
+  voice, music and subtitles.
+
 - Keep Auto's intro music track for the entire answer, even when the answer
   brief suggests a different mood. On iPhone and iPad, play generated voice and
   music through one shared audio context so audible AI footage cannot interrupt
