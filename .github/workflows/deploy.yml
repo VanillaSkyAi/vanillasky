@@ -24,13 +24,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-plan:
+  deploy:
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
-    outputs:
-      deploy: ${{ steps.build.outputs.deploy }}
-      run_id: ${{ steps.build.outputs.run_id }}
+    timeout-minutes: 20
+    environment: ${{ inputs.target }}
+    env:
+      DEPLOYMENT_TARGET: ${{ inputs.target }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      CLOUDFLARE_QUOTA_DATABASE_ID: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_ID }}
+      CLOUDFLARE_QUOTA_DATABASE_NAME: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_NAME }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select the successful main CI run
@@ -48,31 +54,20 @@ jobs:
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "Using verified CI run $run_id" >> "$GITHUB_STEP_SUMMARY"
 
-  deploy:
-    needs: release-plan
-    if: needs.release-plan.outputs.deploy == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: ${{ inputs.target }}
-    env:
-      DEPLOYMENT_TARGET: ${{ inputs.target }}
-      CONFIRMATION: ${{ inputs.confirmation }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
-      CLOUDFLARE_QUOTA_DATABASE_ID: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_ID }}
-      CLOUDFLARE_QUOTA_DATABASE_NAME: ${{ vars.CLOUDFLARE_QUOTA_DATABASE_NAME }}
-      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-node
+        if: steps.build.outputs.deploy == 'true'
       - name: Download the verified application build
+        if: steps.build.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_RUN_ID: ${{ needs.release-plan.outputs.run_id }}
+          CI_RUN_ID: ${{ steps.build.outputs.run_id }}
         run: gh run download "$CI_RUN_ID" --name application-build
       - run: npm run verify:app-build -- --check
+        if: steps.build.outputs.deploy == 'true'
       - run: node scripts/deployment-project-config.mjs
+        if: steps.build.outputs.deploy == 'true'
       - name: Deploy and verify; restore previous production on failure
+        if: steps.build.outputs.deploy == 'true'
         run: node scripts/deployment-cloudflare.mjs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

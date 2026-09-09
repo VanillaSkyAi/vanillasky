@@ -8,7 +8,8 @@ of previously published npm releases.
 - Add a quick local check command and automated unused-code detection; remove
   dormant helpers and exports.
 - Validate docs without installing dependencies or deploying the app. Select
-  browser checks by change scope and share their setup to reduce CI work.
+  browser checks by change scope, share their setup and distribute long media
+  scenarios across runners to shorten application verification.
 
 - Lead the README and setup docs with generated video, the fal inspiration and
   the included video/voice providers. Keep stock footage as an optional alternative.

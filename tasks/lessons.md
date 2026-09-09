@@ -53,3 +53,7 @@
   explicit setup guidance, never canned onboarding or demo responses. Configure
   Pexels when generated video is unavailable and browser speech when generated
   voice is unavailable; keep deterministic responses only in automated tests.
+
+- Deployment speed means the complete application change-to-production loop.
+  Measure its slowest required checks and release steps; docs-only shortcuts
+  are supplementary, not the primary performance goal.

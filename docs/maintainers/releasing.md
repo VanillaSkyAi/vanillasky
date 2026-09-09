@@ -40,7 +40,7 @@ artifact stops deployment. CI retains builds for 30 days; rerun main CI if the
 artifact has expired.
 
 Docs-only CI does not create an application artifact. Deployment then reports
-that no release is needed and skips the deployment job. If an earlier application
+that no release is needed and skips installation and deployment steps. If an earlier application
 change still needs releasing, run full CI on the current main commit first:
 
 ```bash
