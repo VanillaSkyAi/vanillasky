@@ -201,7 +201,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
               brief?.visualDirection,
               shot.action,
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",
-              "Silent illustration. No spoken dialogue, voiceover, written words or subtitles in the generated footage.",
+              "Illustrative footage. No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
             ].filter(Boolean).join("\n"), },
             narration, timing: options.mode === "pexels" ? {} : { fixedDuration: shot.durationSec },
           } };

@@ -108,6 +108,34 @@ describe("chat soundtrack selection", () => {
 });
 
 describe("generated footage ambience", () => {
+  it("allows environmental sound throughout the planner-to-provider request without permitting voices or music", async () => {
+    const planningPrompts: string[] = [], shotDirections: string[] = [];
+    const handler = createVideoChatHandler({
+      authorize: "none", heartbeatMs: false, generatedVideoAudio: true, generateText: () => "unused",
+      streamText: context => (async function* () {
+        planningPrompts.push(context.systemPrompt);
+        yield JSON.stringify(answer("off")) + "\n";
+      })(),
+      generateVideo: (_query, context) => {
+        shotDirections.push(context.shotDirection);
+        return { type: "video", url: "https://media.example/leaf.mp4", durationSec: 5, audio: "ambient" };
+      },
+    });
+    const result = await handler(new Request("https://app.example/api/video-chat?action=response", {
+      method: "POST", body: JSON.stringify({ prompt: "Explain plants" }),
+    }));
+    const events = [];
+    for await (const event of decodeVideoSse(result.body!)) events.push(event);
+    expect(events.at(-1)?.type).toBe("response.complete");
+    expect(shotDirections).toHaveLength(1);
+    expect(planningPrompts[0]).toMatch(/environmental ambience and action sounds/i);
+    for (const prompt of [...planningPrompts, ...shotDirections]) {
+      expect(prompt).not.toMatch(/\bsilent\b|\bsilence\b|\bno (?:sound|audio)\b/i);
+      expect(prompt).toMatch(/(?:no|never include) [^.]*voices[^.]*music/i);
+    }
+    expect(shotDirections[0]).toMatch(/no [^.]*written words[^.]*subtitles/i);
+  });
+
   it.each([{ mediaType: "video", mediaAudio: "speech" }, { mediaType: "photo", mediaAudio: "ambient" }])("rejects unsupported scene sound metadata %j", variables => {
     expect(() => validateBuiltinScene({ templateId: "cinemaMedia", variables: { mediaUrl: "https://media.example/scene.mp4", ...variables } })).toThrow();
   });
