@@ -83,3 +83,11 @@ recovered VanillaSky lo-fi library. Its source is
 The audio-mix browser fixture uses this short excerpt to verify looping and
 crossfades alongside the complete recorded paragraph and audible waterfall
 fixture; it makes no claim about generated scene-sound quality.
+
+The iOS audio-mix fixture runs the actual intro-to-body chat handoff with these
+recordings. It injects the iPhone Audio/VideoAudio interruption rule into native
+media playback, while real Web Audio decoding, clocks and analyser samples
+prove simultaneous voice and music output over advancing audible footage.
+It verifies complete speech and one uninterrupted looping music source. It
+does not emulate the physical iPhone's audio session or prove speaker output;
+that remains a device check.

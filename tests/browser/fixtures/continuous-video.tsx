@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { useNarration } from "../../../src/player/use-narration";
 import { createVideoChatVoice } from "../../../src/video-chat/voice";
+import { isIosAudioOutput } from "../../../src/player/ios-audio-output";
 import type { Video } from "../../../src/protocol/types";
 import cueUrl from "./media-transition/activation-cue.wav?url";
 import audioUrl from "./media-transition/paragraph.wav?url";
@@ -26,6 +27,21 @@ const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
 const phases: Array<Record<string, number | string | boolean>> = [];
 Object.assign(window, { continuityProof: { samples, events, phases } });
+// iOS narration uses decoded sources. Observe their real completion while
+// excluding explicitly stopped sources (pause, interruption and cancellation).
+if (isIosAudioOutput()) {
+  const createSource = AudioContext.prototype.createBufferSource;
+  AudioContext.prototype.createBufferSource = function () {
+    const source = createSource.call(this);
+    let stopped = false;
+    const stop = source.stop.bind(source);
+    source.stop = (...args) => { stopped = true; stop(...args); };
+    source.addEventListener("ended", () => {
+      if (!stopped) { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); }
+    });
+    return source;
+  };
+}
 const nativePlay = HTMLMediaElement.prototype.play;
 HTMLMediaElement.prototype.play = function () {
   phases.push({kind:this instanceof HTMLAudioElement ? "audio-play-call" : "video-play-call",at:performance.now(),time:this.currentTime});
@@ -84,7 +100,8 @@ function App() {
   const [paused, setPaused] = useState(false);
   const narration = useNarration({ voice: playbackVoice, onSpeechStart: () => phases.push({kind:"speech-onset",at:performance.now()}) });
   async function start() {
-    // Match chat: an immediate opening activates the reused audio element.
+    // Match chat's gesture unlock before any asynchronous preparation.
+    if (isIosAudioOutput()) voice.resume();
     await voice.prepare("Opening cue");
     await voice.speak("Opening cue", { signal: new AbortController().signal });
     const prepared = await voice.prepare(text);

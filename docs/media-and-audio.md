@@ -203,16 +203,27 @@ Generated narration volume changes immediately. Browser fallback voices apply
 the level to the next spoken line. The speaker button still mutes the current
 line immediately.
 
-Music starts as soon as the viewer presses Ask, continuing through loading,
-the opening and the answer with one playback element. Auto starts with a calm
-track, then uses Calm, Focused, Upbeat or silence from the existing answer brief.
-If that mood agrees, the same track continues without restarting; otherwise
-music crossfades to the selected mood. Viewers can choose a mood or turn music
+Music starts when the viewer presses Ask, continuing through loading,
+the opening and the answer with one continuous track. Auto starts with a calm
+track and keeps it for the entire answer, even if the answer brief suggests
+another mood. Without an initial track, the brief can select Calm, Focused,
+Upbeat or silence. Viewers can choose a mood or turn music
 off. Selection avoids the previous eligible track when another is available
 and survives scene changes, pauses and replay. “Try another
 track” and mood changes update music without generating new footage or speech.
 Returning to Auto restores that answer's initial soundtrack; new answers use
 automatic selection. Unavailable music never blocks the spoken answer.
+
+On iPhone and iPad, generated narration and music use decoded audio buffers in
+one gesture-resumed Web Audio context, with separate gains. Audible native video
+can interrupt ordinary audio elements on iOS; routing those elements through
+Web Audio does not remove that restriction. Remote video retains its native
+audio path. Other browsers retain native narration and soundtrack playback.
+Music downloads are limited to 8 MiB, five minutes and 128 MiB of decoded PCM
+per track; a shuffle retains at most two tracks during its crossfade. Generated
+speech uses a 32 MiB decoded cache, allowing a single larger current line.
+Where Audio Session is supported, playback uses its playback category;
+microphone capture temporarily restores automatic category selection.
 
 The seven included tracks have been normalized for consistent perceived
 loudness. Their source, license and processing measurements are in the

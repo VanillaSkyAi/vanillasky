@@ -78,6 +78,16 @@
   speech pauses. Automatic ducking makes the mix feel uneven; retain music
   fades at answer boundaries without changing levels for speech or buffering.
 
+- An answer brief arriving after the intro must not replace music already
+  selected for that answer. Treat that initial selection as the turn's choice;
+  reserve track changes for explicit mood or shuffle actions.
+
+- iOS audible-video sessions can interrupt HTML audio even when it feeds a
+  Web Audio graph. Mix generated voice and music from buffers in one unlocked
+  context. Desktop WebKit with an iPhone viewport cannot prove the physical
+  phone's audio-session policy; keep recorded-media evidence and device checks
+  distinct.
+
 - Real-media browser fixtures must use the repository's paired MP4/WebM assets
   for the host platform. Check both filenames locally; a passing macOS run
   cannot validate a Linux-only filename or native decoder path.

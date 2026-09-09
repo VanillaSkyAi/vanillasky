@@ -17,6 +17,7 @@ import { Logo } from "./logo";
 import { visualModes } from "./modes";
 import { AudioSettings } from "./audio-settings";
 import { Soundtrack } from "../player/soundtrack";
+import type { SoundtrackPlayback } from "../player/buffer-soundtrack.js";
 const DESKTOP_WIDTH = 900;
 const CAPTION_STYLE_KEY = "vanillasky:caption-style";
 type CaptionStyle = "classic" | "words";
@@ -178,7 +179,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   }, [chat, listen]);
 
   const shown = chat.shownTurn;
-  const soundtrackRef = useRef<HTMLAudioElement | null>(null);
+  const soundtrackRef = useRef<SoundtrackPlayback | null>(null);
   const showing = chat.playerProps != null;
   const handoffKey = `${shown?.id ?? ""}:${chat.playerKey}`;
   const [presentedBody, setPresentedBody] = useState<string>();
