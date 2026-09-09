@@ -14,6 +14,8 @@ same application with your own provider keys.
 See the settings and a video answer with voice, music and subtitles in this
 one-minute walkthrough.
 
+https://github.com/user-attachments/assets/b4f6e6a0-dc7d-4695-9434-83684de94828
+
 ## Why video chat now?
 
 VanillaSky was inspired by [fal's work on MiniMax H3 Max](https://fal.ai/learn/devs/introducing-h3-max-by-fal):
