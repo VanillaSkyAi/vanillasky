@@ -38,7 +38,9 @@ const nativePlay = HTMLMediaElement.prototype.play;
 HTMLMediaElement.prototype.play = function () {
   if (!identities.has(this)) {
     identities.set(this, ++nextId);
-    for (const kind of ['playing', 'ended', 'error']) this.addEventListener(kind, () => record({ kind, id: identities.get(this), code: this.error?.code, duration: Number.isFinite(this.duration) ? this.duration : undefined, mediaTime: this.currentTime }));
+    // Production assigns onended before play. Capture observes the real event
+    // before that callback can resolve speech and run its Promise continuation.
+    for (const kind of ['playing', 'ended', 'error']) this.addEventListener(kind, () => record({ kind, id: identities.get(this), code: this.error?.code, duration: Number.isFinite(this.duration) ? this.duration : undefined, mediaTime: this.currentTime }), { capture: true });
   }
   const source = this.src.startsWith('data:') ? 'activation' : 'narration';
   record({ kind: 'play-request', id: identities.get(this), source });
