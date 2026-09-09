@@ -5,6 +5,12 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Choose complementary visual moments that connect explanations with relevant
+  human experiences. Prefer realistic human reactions, describe observable
+  behavior in generated shots, and include essential actions in stock queries.
+  Allow subtle natural movement in quiet footage while preserving clip limits
+  and the early first-shot planning flow.
+
 - Load the footage renderer while an answer is being planned, so the first
   ready clip does not start a cold code request. Keep the full spoken intro
   and existing media readiness checks.

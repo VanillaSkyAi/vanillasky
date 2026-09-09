@@ -79,18 +79,28 @@ output has been parsed.
 
 ## One stream, one answer
 
-The planner streams an answer brief containing the opening, creative direction,
-and ending, followed by narrated shot descriptions. One model request serves
-both suggested and typed prompts; a suggestion may already supply its opening.
-There is no separate classification or first-shot planning request.
+The planner streams a compact answer brief containing the opening and creative
+direction, then the first developing shot so footage can start. It saves the
+ending next, followed by any remaining developing shots. A one-scene answer
+emits only the brief and ending. One model request serves both suggested and
+typed prompts; a suggestion may already supply its opening. There is no separate
+classification or first-shot planning request.
 
 The runtime assigns scene IDs, uses the footage renderer, resolves media, and
 finalizes the response when planning ends. The model does not choose body
 layouts, media providers, or lifecycle events. Narration and visible action are
-planned together: explanations show mechanisms, stories develop consequences,
+planned together: explanations connect causes with visible effects or relevant
+human experiences, stories develop consequences,
 comedy times its reveal, imaginative requests depict their invented world, and
 practical answers demonstrate usable steps. These are directions, not fixed
 scene counts or one universal story structure.
+
+Each view should add context, a useful detail, an action or a meaningful reaction.
+Realistic footage can carry human emotion; illustration is useful when the
+relationship needs a visual explanation that footage cannot provide. Generated
+shots describe observable behavior and useful framing, including subtle motion
+in quiet moments. Pexels queries name the essential subject and visible action;
+an abstract feeling alone is not a useful search query.
 
 Every `scene.add` is validated before the browser receives it. The model never
 returns React, HTML, CSS, or executable JavaScript. Invalid planning content
