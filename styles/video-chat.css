@@ -723,7 +723,7 @@
 
 .vanillasky-video-chat .caption-actions { opacity: .65; }
 
-.vanillasky-video-chat .line-row:hover .caption-actions,
+.vanillasky-video-chat .line-row[data-hover-armed="true"]:hover .caption-actions,
 .vanillasky-video-chat .line-row:focus-within .caption-actions { opacity: 1; }
 
 .vanillasky-video-chat .caption-slot {
@@ -885,7 +885,7 @@
 /* Native hover must keep controls interactive even between pointer events
    and the idle timer's React update. Hidden pointer events otherwise expose
    the underlying scene to WebKit's hit testing. */
-.vanillasky-video-chat .line-row:hover .caption-actions,
+.vanillasky-video-chat .line-row[data-hover-armed="true"]:hover .caption-actions,
 .vanillasky-video-chat .line-row:focus-within .caption-actions,
 .vanillasky-video-chat .caption-actions:focus-within {
   opacity: 1;

@@ -9,6 +9,9 @@ of previously published npm releases.
   ready clip does not start a cold code request. Keep the full spoken intro
   and existing media readiness checks.
 
+- Start subtitle playback without briefly showing the dismiss control. Reveal it
+  only when the viewer interacts with the subtitles.
+
 - Plan the first generated shot before writing the saved ending, so footage
   can start from the compact answer brief while the rest of the answer develops.
   Keep the spoken intro, visual direction, final ending and generation limits.
