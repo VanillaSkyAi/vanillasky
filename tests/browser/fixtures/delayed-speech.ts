@@ -1,4 +1,5 @@
 import { createVideoChatVoice } from '../../../src/video-chat/voice';
+import { isIosAudioOutput } from '../../../src/player/ios-audio-output';
 
 type Event = { kind: string; at: number; id?: number; contextId?: number; name?: string; code?: number; source?: string; duration?: number; mediaTime?: number };
 const events: Event[] = [];
@@ -39,8 +40,10 @@ HTMLMediaElement.prototype.play = function () {
     identities.set(this, ++nextId);
     for (const kind of ['playing', 'ended', 'error']) this.addEventListener(kind, () => record({ kind, id: identities.get(this), code: this.error?.code, duration: Number.isFinite(this.duration) ? this.duration : undefined, mediaTime: this.currentTime }));
   }
+  const source = this.src.startsWith('data:') ? 'activation' : 'narration';
+  record({ kind: 'play-request', id: identities.get(this), source });
   const pending = nativePlay.call(this);
-  pending.catch((error: unknown) => record({ kind: 'rejected', id: identities.get(this), name: error instanceof DOMException ? error.name : 'Error' }));
+  pending.catch((error: unknown) => record({ kind: 'rejected', id: identities.get(this), source, name: error instanceof DOMException ? error.name : 'Error' }));
   return pending;
 };
 const voice = createVideoChatVoice({
@@ -51,9 +54,11 @@ const voice = createVideoChatVoice({
 document.querySelector<HTMLButtonElement>('#start')!.onclick = async () => {
   startedAt = performance.now();
   const freshSink = new URLSearchParams(location.search).has('freshSink');
-  // resume must run synchronously inside the actual click, before any network
-  // work or first utterance. The wait deliberately expires transient activation.
-  voice.resume();
+  // iOS must resume its shared buffer context inside the click. The separate
+  // fresh-sink case also primes native output before deliberately waiting.
+  // Immediate native speech grants its own permission: adding a cue here would
+  // race the narration's source replacement against the cue's pending play.
+  if (freshSink || isIosAudioOutput()) voice.resume();
   const controller = new AbortController();
   const speak = async (name: 'opening' | 'body', text: string) => {
     const prepared = await voice.prepare(text);

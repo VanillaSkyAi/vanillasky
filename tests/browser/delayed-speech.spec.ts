@@ -57,6 +57,9 @@ for (const profile of ['mobile-default', 'iPhone 13']) test(`generated body narr
     await page.waitForFunction(() => (window as unknown as { speechProbe: Probe[] }).speechProbe.some(event => event.kind === 'complete' || event.kind === 'failed'), null, { timeout: 30000 });
     const events = await read();
     expectCompleteRecordings(events, profile === 'iPhone 13');
+    expect(events.filter(event => event.kind === 'play-request').map(event => event.source)).toEqual(
+      profile === 'iPhone 13' ? [] : ['narration', 'narration'],
+    );
     expect(events.find(event => event.kind === 'body-start')!.at).toBeGreaterThanOrEqual(7400);
   } finally {
     await info.attach('delayed-speech-events', { body: JSON.stringify(await read()), contentType: 'application/json' });
@@ -80,6 +83,7 @@ for (const profile of ['mobile-default', 'iPhone 13']) test(`a fresh speech outp
     const events = await read();
     expectCompleteRecordings(events, buffered);
     if (!buffered) {
+      expect(events.filter(event => event.kind === 'play-request').map(event => event.source)).toEqual(['activation', 'narration', 'narration']);
       const priming = events.filter(event => event.kind === 'ended' && (event.duration ?? 0) <= .1);
       expect(priming).toHaveLength(1);
       expect(priming[0].duration).toBeCloseTo(.025, 2);
