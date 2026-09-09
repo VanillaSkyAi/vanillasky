@@ -3,7 +3,7 @@ import { createVideoChatVoice } from '../src/video-chat/voice';
 import { createCaptionVoice } from '../src/video-chat/caption-progress';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-it('keeps zero-volume generated narration on its measured clock and reports only audible activity', async () => {
+it('keeps zero-volume generated narration on its measured clock while user gain changes', async () => {
   vi.useFakeTimers();
   const element = { src: '', volume: 1, muted: false, currentTime: 0, onplaying: null as (() => void) | null,
     onended: null as (() => void) | null, play: vi.fn(async () => {}), pause: vi.fn(), removeAttribute: vi.fn(), load: vi.fn() };
@@ -11,8 +11,8 @@ it('keeps zero-volume generated narration on its measured clock and reports only
   vi.stubGlobal('AudioContext', class { decodeAudioData() { return Promise.resolve({ duration: 6 }); } });
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:voice');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  const activity = vi.fn(), start = vi.fn();
-  const voice = createVideoChatVoice({ fetcher: async () => new Response(new Uint8Array([1, 2])), onActivityChange: activity });
+  const start = vi.fn();
+  const voice = createVideoChatVoice({ fetcher: async () => new Response(new Uint8Array([1, 2])) });
   const captioned = createCaptionVoice(voice);
   captioned.voice.setVolume!(0);
   await captioned.voice.prepare('A complete spoken line.');
@@ -21,56 +21,62 @@ it('keeps zero-volume generated narration on its measured clock and reports only
   expect(element.volume).toBe(0);
   element.currentTime = .1; element.onplaying?.();
   expect(start).toHaveBeenCalledWith('generated');
-  expect(activity).not.toHaveBeenCalledWith(true);
+  expect(element.muted).toBe(true);
   element.currentTime = 2;
   expect(captioned.getCaptionProgress()).toMatchObject({ elapsedSeconds: 2, timing: 'audio' });
   captioned.voice.setVolume!(.5);
   await vi.advanceTimersByTimeAsync(400);
   expect(element.volume).toBeCloseTo(.5, 2);
-  expect(activity).toHaveBeenLastCalledWith(true);
-  voice.pause(); expect(activity).toHaveBeenLastCalledWith(false);
-  voice.resume(); expect(activity).toHaveBeenLastCalledWith(true);
+  captioned.voice.setVolume!(.25);
+  expect(element.volume).toBeCloseTo(.5, 2);
+  await vi.advanceTimersByTimeAsync(400);
+  expect(element.volume).toBeCloseTo(.25, 2);
+  expect(element.muted).toBe(false);
+  voice.pause(); expect(element.pause).toHaveBeenCalledOnce();
+  voice.resume(); expect(element.play).toHaveBeenCalledTimes(2);
+  expect(captioned.getCaptionProgress()).toMatchObject({ elapsedSeconds: 2, timing: 'audio' });
+  expect(start).toHaveBeenCalledOnce();
   element.onended?.(); await task;
-  expect(activity).toHaveBeenLastCalledWith(false);
   voice.dispose?.();
 });
 
-it('keeps browser gain and audible activity committed for each complete utterance', async () => {
+it('keeps browser gain fixed for each utterance and applies user changes to the next line', async () => {
   vi.useFakeTimers();
   let utterance!: { volume: number; onstart?: () => void; onend?: () => void };
   const synthesis = { speak: vi.fn(value => { utterance = value; }), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() };
   vi.stubGlobal('speechSynthesis', synthesis);
   vi.stubGlobal('SpeechSynthesisUtterance', class { volume = 1; });
-  const activity = vi.fn();
-  const voice = createVideoChatVoice({ fetcher: async () => new Response(null, { status: 204 }), onActivityChange: activity });
+  const voice = createVideoChatVoice({ fetcher: async () => new Response(null, { status: 204 }) });
   const started = vi.fn();
   const task = voice.speak('Keep every word.', { signal: new AbortController().signal, onStart: started });
   await vi.advanceTimersByTimeAsync(0);
   expect(utterance.volume).toBe(1);
   utterance.onstart?.();
-  expect(activity).toHaveBeenLastCalledWith(true);
   voice.setVolume!(0);
   expect(utterance.volume).toBe(1);
-  expect(activity).toHaveBeenLastCalledWith(true);
-  voice.pause(); expect(activity).toHaveBeenLastCalledWith(false);
-  voice.resume(); expect(activity).toHaveBeenLastCalledWith(true);
+  voice.pause(); expect(synthesis.pause).toHaveBeenCalledOnce();
+  voice.resume(); expect(synthesis.resume).toHaveBeenCalledOnce();
   expect(synthesis.speak).toHaveBeenCalledTimes(1);
   expect(synthesis.cancel).not.toHaveBeenCalled();
   utterance.onend?.(); await task;
-  expect(activity).toHaveBeenLastCalledWith(false);
 
   const silentLine = voice.speak('The next complete line.', { signal: new AbortController().signal, onStart: started });
   await vi.advanceTimersByTimeAsync(0);
   expect(utterance.volume).toBe(0);
-  const activityCalls = activity.mock.calls.length;
   utterance.onstart?.();
   expect(started.mock.calls).toEqual([['browser'], ['browser']]);
   voice.setVolume!(.4);
   expect(utterance.volume).toBe(0);
-  expect(activity).toHaveBeenCalledTimes(activityCalls);
   expect(synthesis.speak).toHaveBeenCalledTimes(2);
   expect(synthesis.cancel).not.toHaveBeenCalled();
   utterance.onend?.(); await silentLine;
+
+  const quieterLine = voice.speak('A quieter next line.', { signal: new AbortController().signal, onStart: started });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(utterance.volume).toBe(.4);
+  utterance.onstart?.();
+  expect(started).toHaveBeenCalledTimes(3);
+  utterance.onend?.(); await quieterLine;
   voice.dispose?.();
 });
 
