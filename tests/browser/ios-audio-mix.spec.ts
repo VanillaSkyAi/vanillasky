@@ -93,6 +93,7 @@ test("the final audible iOS clip repeats through complete long narration and con
   expect(result.bufferEnds).toHaveLength(4);
   expect(result.bufferEnds.at(-1)!.duration).toBeGreaterThan(14.27);
   expect(result.bufferEnds.at(-1)!.duration).toBeLessThan(14.3);
+  expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeGreaterThanOrEqual(0);
   expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeLessThan(150);
   expect(final.length).toBeGreaterThan(100);
   expect(final.every(sample => sample.scene === "water-2" && !sample.hidden && !sample.chapter && !sample.muted && sample.rate === 1)).toBe(true);
