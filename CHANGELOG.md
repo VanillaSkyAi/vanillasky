@@ -6,7 +6,10 @@ of previously published npm releases.
 ## Unreleased
 
 - Replace the public pilot's separate five-lifetime and three-per-answer limits
-  with one allowance of ten generated clips per visitor.
+  with one allowance of ten generated clips per visitor. Replace the permanent
+  site-wide answer cap with a daily pool of 200 generated clips, measured by
+  actual clip attempts. When either allowance is exhausted, use Pexels and show
+  a subtle, dismissible notice.
 - Keep Auto's intro music track for the entire answer, even when the answer
   brief suggests a different mood. On iPhone and iPad, play generated voice and
   music through one shared audio context so audible AI footage cannot interrupt

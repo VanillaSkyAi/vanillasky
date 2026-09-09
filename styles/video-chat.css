@@ -949,6 +949,11 @@
 .vanillasky-video-chat .recovery-notice p { flex: 1; margin: 0; font-size: 14px; line-height: 1.5; }
 .vanillasky-video-chat .recovery-notice .round { flex: 0 0 44px; width: 44px; height: 44px; }
 
+/* Quietly explain the automatic stock-footage fallback without blocking playback. */
+.vanillasky-video-chat .credit-fallback-notice { pointer-events: auto; display: flex; align-items: center; gap: 10px; width: min(520px, 100%); padding: 7px 8px 7px 16px; color: var(--vs-muted); background: rgb(20 23 34 / 78%); border: 1px solid rgb(221 224 255 / 10%); border-radius: 22px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.vanillasky-video-chat .credit-fallback-notice p { flex: 1; margin: 0; font-size: 13px; line-height: 1.45; }
+.vanillasky-video-chat .credit-fallback-notice .round { flex: 0 0 40px; width: 40px; height: 40px; color: var(--vs-muted); }
+
 .vanillasky-video-chat .session-new { margin-bottom: 20px; background: var(--vs-surface-hover); border-color: rgb(221 224 255 / 12%); }
 
 /* The floating toolbar and subtitle row share one uninterrupted hover target. */

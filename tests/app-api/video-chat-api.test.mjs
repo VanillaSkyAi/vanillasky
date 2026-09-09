@@ -23,6 +23,7 @@ function db() {
   sql.exec(readFileSync(new URL("../../migrations/0002_fal_preview.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0004_public_fal_answers.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0005_double_public_fal_allowance.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0006_daily_public_clip_budget.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0003_owner_fal_previews.sql", import.meta.url), "utf8"));
   return {
     prepare(query) {
@@ -713,10 +714,11 @@ test('exhausted personal AI allowance resolves to stock before planning without 
   return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});
  }});
  const output=await response.text();assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),'pexels');assert.match(output,/videos.pexels.com/);assert.equal(stockCalls,1);
+ assert.equal(response.headers.get('x-vanillasky-video-fallback'),'credits');
 });
 
-for (const scenario of ['personal-race','clip-race','global-limit','ledger-error','provider-error']) test(`AI fallback is limited to confirmed personal exhaustion: ${scenario}`, async () => {
- const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock',...(scenario==='global-limit'?{VIDEO_CHAT_FAL_DAILY_LIMIT:'0'}:{})};
+for (const scenario of ['personal-race','clip-race','global-limit','ledger-error','provider-error']) test(`AI fallback is limited to confirmed credit exhaustion: ${scenario}`, async () => {
+ const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock',...(scenario==='global-limit'?{VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT:'0'}:{})};
  const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
  const shot={title:'Ocean waves',narration:'Waves break as they reach shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};
  let stock=0, generated=0;
@@ -745,9 +747,11 @@ for (const scenario of ['personal-race','clip-race','global-limit','ledger-error
   assert.match(url,/api.pexels.com/);stock++;
   return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});
  }});
- const output=await response.text();assert.equal(response.status,200);assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),'cinematic');
- assert.equal(stock,['personal-race','clip-race'].includes(scenario)?1:0);assert.equal(generated,scenario==='provider-error'?1:0);
- if(['personal-race','clip-race'].includes(scenario)) assert.match(output,/videos.pexels.com/);else assert.match(output,/chapterTitle/);
+ const output=await response.text();assert.equal(response.status,200);
+ assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),scenario==='global-limit'?'pexels':'cinematic');
+ assert.equal(response.headers.get('x-vanillasky-video-fallback'),scenario==='global-limit'?'credits':null);
+ assert.equal(stock,['personal-race','clip-race','global-limit'].includes(scenario)?1:0);assert.equal(generated,scenario==='provider-error'?1:0);
+ if(['personal-race','clip-race','global-limit'].includes(scenario)) assert.match(output,/videos.pexels.com/);else assert.match(output,/chapterTitle/);
 });
 
 

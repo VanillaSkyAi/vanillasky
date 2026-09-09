@@ -209,6 +209,7 @@ export async function handleVideoChatRequest({
       return error(503, "Configure PEXELS_API_KEY to use Pexels video.");
     }
     let wantsGeneratedVideo = body?.mode !== "pexels";
+    let creditFallback = false;
     // Own-key loopback development uses the owner ledger, retaining its five-clip
     // answer cap. Remote requests always need a verified Access identity.
     const owner = action === "response" && wantsGeneratedVideo
@@ -216,20 +217,21 @@ export async function handleVideoChatRequest({
     const planningAllowance = action === "response" && wantsGeneratedVideo
       ? await availableFalClips(env, actor, { owner }) : { limit: 0, reason: null };
     if (planningAllowance.reason) reportFallback({ reason: planningAllowance.reason, stage: "planning_availability" });
-    if (planningAllowance.reason === "user_limit" && configured(env.PEXELS_API_KEY)) {
+    if (["user_limit", "preview_limit"].includes(planningAllowance.reason) && configured(env.PEXELS_API_KEY)) {
       body = { ...body, mode: "pexels" };
       wantsGeneratedVideo = false;
+      creditFallback = true;
     }
     const admission = { action, reservation, signal: controller.signal, isReleased: () => finished };
     const paidStreamText = guardPaidProvider("streamText", admission, (context) => providerStream(context, env, fetcher, diagnostics?.onProvider));
     const paidGenerateText = guardPaidProvider("generateText", admission, (context) => providerText(context, env, fetcher));
     const paidStock = guardPaidProvider("searchMedia", admission, (query, context) => searchStock(query, { env, orientation: context.orientation, preferredType: context.preferredType, signal: context.signal, fetcher, onDiagnostic: reportFallback, selection: context.scene?.variables?.stockSelection }));
-    let personalAllowanceExhausted = false;
-    const stockAfterUserLimit = async (query, context) => {
+    let allowanceExhausted = false;
+    const stockAfterCreditLimit = async (query, context) => {
       if (!configured(env.PEXELS_API_KEY)) return null;
       const allowance = await availableFalClips(env, actor, { owner });
-      if (allowance.reason !== "user_limit") return null;
-      personalAllowanceExhausted = true;
+      if (!["user_limit", "preview_limit"].includes(allowance.reason)) return null;
+      allowanceExhausted = true;
       return paidStock(query, context);
     };
     const handler = createVideoChatHandler({
@@ -247,7 +249,7 @@ export async function handleVideoChatRequest({
         generatedVideoAudio: true,
         generateVideo: guardPaidProvider("generateVideo", admission, async (query, context) => {
           if (!actor || action !== "response") return null;
-          if (personalAllowanceExhausted) return paidStock(query, context);
+          if (allowanceExhausted) return paidStock(query, context);
           const admissionStarted = performance.now();
           previewReservation ??= (owner
             ? reserveOwnerFalAnswer(env.VIDEO_CHAT_QUOTAS, actor)
@@ -263,13 +265,13 @@ export async function handleVideoChatRequest({
             });
           const previewId = await previewReservation;
           const answerAdmissionMs = Math.min(150000, Math.max(0, Math.round(performance.now() - admissionStarted)));
-          if (!previewId) return previewReservationUnavailable ? null : stockAfterUserLimit(query, context);
+          if (!previewId) return previewReservationUnavailable ? null : stockAfterCreditLimit(query, context);
           const result = await generateFalPreview(query, { env, actor, previewId, signal: context.signal, orientation: context.orientation, scene: context.scene, generatedLook: context.generatedLook, fetcher, owner, onDiagnostic: reportFallback, onTiming: event => {
             const matched = typeof context.scene?.id === 'string' ? /-shot-(\d{1,3})$/.exec(context.scene.id) : null;
             try { console.info('video-chat.fal-timing', {requestId: diagnosticId, ...event, answerAdmissionMs, ...(matched ? {shot:Number(matched[1])} : {})}); }
             catch { /* Timing cannot affect playback. */ }
           } });
-          return result.reason === "limit" ? stockAfterUserLimit(query, context) : result.media;
+          return result.reason === "limit" ? stockAfterCreditLimit(query, context) : result.media;
         }),
       } : {}),
       streamText: paidStreamText,
@@ -295,7 +297,10 @@ export async function handleVideoChatRequest({
     const response = await handler(incoming);
     const headers = new Headers(response.headers);
     for (const [key, value] of Object.entries(HEADERS)) headers.set(key, value);
-    if (action === "response") headers.set("x-vanillasky-resolved-video-mode", body.mode === "pexels" ? "pexels" : "cinematic");
+    if (action === "response") {
+      headers.set("x-vanillasky-resolved-video-mode", body.mode === "pexels" ? "pexels" : "cinematic");
+      if (creditFallback) headers.set("x-vanillasky-video-fallback", "credits");
+    }
     if (!response.body) {
       await finish();
       return new Response(null, { status: response.status, headers });

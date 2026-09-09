@@ -4,8 +4,7 @@
   "compatibility_date": "2026-04-09",
   "vars": {
     "VIDEO_CHAT_FAL_PREVIEW": "enabled",
-    "VIDEO_CHAT_FAL_DAILY_LIMIT": "10",
-    "VIDEO_CHAT_FAL_TOTAL_LIMIT": "100",
+    "VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT": "200",
     "VIDEO_CHAT_PAID_PROVIDERS": "disabled"
   },
   "d1_databases": [{

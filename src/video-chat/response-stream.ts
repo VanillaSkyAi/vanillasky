@@ -111,6 +111,7 @@ interface ResponseStreamOptions {
   warn(message: string): void;
   flush(): void;
   onMode(mode: VideoChatMode): void;
+  onFallback(reason: "credits"): void;
   onOpening(line: string): void;
 }
 
@@ -130,6 +131,8 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
 
   const resolvedMode = response.headers.get("x-vanillasky-resolved-video-mode");
   if (isCurrent() && (resolvedMode === "pexels" || resolvedMode === "cinematic")) options.onMode(resolvedMode);
+  const fallback = response.headers.get("x-vanillasky-video-fallback");
+  if (isCurrent() && fallback === "credits") options.onFallback(fallback);
 
   const planned: VideoScene[] = [];
   const lines: string[] = state.spokenHook ? [state.spokenHook] : [];

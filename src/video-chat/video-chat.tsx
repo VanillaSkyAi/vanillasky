@@ -1,6 +1,6 @@
 import { CaptionPages } from "./caption-pages";
 import { CaptionWords } from "./caption-words";
-import { MEDIA_RECOVERY_NOTICE } from "./recovery";
+import { CREDIT_FALLBACK_NOTICE, MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { VideoOrientation } from "../protocol/types.js";
 import { VideoPlayer } from "../player/video-player.js";
@@ -462,6 +462,10 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         {showRecoveryNotice && chat.shownTurn && dismissedNoticeTurn !== chat.shownTurn.id && chat.warnings.includes(MEDIA_RECOVERY_NOTICE) && !chat.error && <div className="recovery-notice">
           <p role="status">{MEDIA_RECOVERY_NOTICE}</p>
           <button type="button" className="round" aria-label="Dismiss notice" onClick={() => setDismissedNoticeTurn(chat.shownTurn?.id)}><Close /></button>
+        </div>}
+        {chat.shownTurn?.fallback === "credits" && dismissedNoticeTurn !== chat.shownTurn.id && !chat.error && <div className="credit-fallback-notice">
+          <p role="status">{CREDIT_FALLBACK_NOTICE}</p>
+          <button type="button" className="round" aria-label="Dismiss Pexels fallback notice" onClick={() => setDismissedNoticeTurn(chat.shownTurn?.id)}><Close /></button>
         </div>}
         {(chat.error || listen.error) && <p className="error" role="status"><Warning /><span>{chat.error?.message ?? listen.error}</span></p>}
         <div ref={composerRef} className="conversation-composer" data-editing={editing} {...controlEvents}>

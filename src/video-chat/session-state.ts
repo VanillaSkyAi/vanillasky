@@ -27,6 +27,8 @@ export interface VideoChatTurn {
   fixedOrientation: boolean;
   /** Footage source selected for this answer; omitted in older saved turns. */
   mode?: VideoChatMode;
+  /** Why the requested footage source changed; omitted when no fallback occurred. */
+  fallback?: "credits";
   video?: Video;
   /** Provisional music starts on Ask while the answer brief is still loading. */
   initialSoundtrack?: VideoAudio;
@@ -66,6 +68,7 @@ type SessionAction =
   | { type: "capabilities"; value: VideoChatCapabilities }
   | { type: "welcome"; value: VideoChatWelcome }
   | { type: "resolved-mode"; id: string; mode: VideoChatMode }
+  | { type: "fallback"; id: string; reason: "credits" }
   | { type: "start"; turn: VideoChatTurn }
   | { type: "opening-start"; id: string; line: string }
   | { type: "opening-media"; id: string; media: VideoChatMedia }
@@ -128,6 +131,9 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
     case "resolved-mode":
       if (state.turns.at(-1)?.id !== action.id) return state;
       return { ...state, turns: replaceTurn(state.turns, action.id, turn => ({ ...turn, mode: action.mode })) };
+    case "fallback":
+      if (state.turns.at(-1)?.id !== action.id) return state;
+      return { ...state, turns: replaceTurn(state.turns, action.id, turn => ({ ...turn, fallback: action.reason })) };
     case "start": return {
       ...state,
       turns: [...state.turns, action.turn],

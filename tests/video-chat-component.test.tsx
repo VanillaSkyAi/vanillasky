@@ -185,6 +185,33 @@ describe("VideoChat", () => {
     expect(document.body.textContent).not.toMatch(/simplified|private-provider-detail|Some visuals/);
   });
 
+  it("shows a subtle dismissible notice when exhausted AI credits select Pexels", async () => {
+    const { VideoChat } = await import("../src/react");
+    const { checksumVideo } = await import("../src/protocol/checksum");
+    const { TEST_VIDEO_STYLE } = await import("./helpers/video-style");
+    const baseFetcher = chatFetcher();
+    const scene = { id: "pexels-fallback", templateId: "chapterTitle", variables: { title: "A Pexels answer" }, narration: "Stock footage keeps the answer moving.", timing: { fixedDuration: 4 } };
+    const snapshot = { schemaVersion: "0.2" as const, orientation: "landscape" as const, scenes: [scene], style: TEST_VIDEO_STYLE };
+    const parts = [
+      { type: "response.start", data: { requestId: "fallback", format: { orientation: "landscape" }, style: TEST_VIDEO_STYLE, capabilities: { templates: ["chapterTitle"] } } },
+      { type: "scene.add", data: { scene, position: 0 } },
+      { type: "response.complete", data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
+    ];
+    render(<VideoChat options={{
+      fetcher: async (input, init) => {
+        if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return baseFetcher(input, init);
+        return new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `fallback:${sequence}`, runId: "fallback", sequence, ...part })}\n\n`).join(""), {
+          headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6", "x-vanillasky-resolved-video-mode": "pexels", "x-vanillasky-video-fallback": "credits" },
+        });
+      },
+      voice: { prepare: async () => ({ seconds: 1 }), speak: async () => {}, pause() {}, resume() {}, setMuted() {} },
+    }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
+    expect((await screen.findByRole("status")).textContent).toBe("AI video credits are used up. Using Pexels footage instead.");
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss Pexels fallback notice" }));
+    expect(screen.queryByText(/AI video credits are used up/)).toBeNull();
+  });
+
   it("does not expose removed source modes or brand controls", async () => {
     const { VideoChat } = await import("../src/react");
     render(<VideoChat options={{fetcher: chatFetcher()}} />);

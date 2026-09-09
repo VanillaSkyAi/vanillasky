@@ -579,6 +579,21 @@ describe("useVideoChat", () => {
     expect(result.current.shownTurn?.mode).toBe(expected);
   });
 
+  it("records a credit fallback separately from an intentional Pexels choice", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = async (input, init) => {
+      if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return base(input, init);
+      const response = responseStream("credit-fallback", [scene("fallback", "Pexels", "Using stock footage")]);
+      response.headers.set("x-vanillasky-resolved-video-mode", "pexels");
+      response.headers.set("x-vanillasky-video-fallback", "credits");
+      return response;
+    };
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "cinematic" }));
+    await act(async () => { await result.current.ask("Explain a topic"); });
+    expect(result.current.shownTurn).toMatchObject({ mode: "pexels", fallback: "credits" });
+  });
+
   it("preserves the requested mode while capabilities are still loading", async () => {
     const { useVideoChat } = await import("../src/react");
     let releaseCapabilities!: (response: Response) => void;

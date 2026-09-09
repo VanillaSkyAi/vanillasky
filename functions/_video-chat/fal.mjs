@@ -5,14 +5,13 @@ export const FAL_MODEL = 'minimax/h3-max-turbo/text-to-video';
 const SUBMIT = `https://queue.fal.run/${FAL_MODEL}`;
 const DAY = 86400000;
 const PUBLIC_LIFETIME_CLIPS = 10;
+const PUBLIC_DAILY_CLIPS = 200;
 // Keep historical reservations and their paid attempts in every public total.
 const PUBLIC_ROWS = `(SELECT actor, created, attempts FROM video_chat_fal_previews
  UNION ALL SELECT actor, created, attempts FROM video_chat_fal_answers)`;
 const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_answers(id, actor, created)
 SELECT ?, ?, ? WHERE
- (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}
- AND (SELECT COUNT(*) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) < ?
- AND (SELECT COUNT(*) FROM ${PUBLIC_ROWS}) < ?`;
+ (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}`;
 
 function cap(value, maximum) {
   if (value === undefined) return maximum;
@@ -31,28 +30,24 @@ export async function availableFalClips(env, actor, { owner = false, now = Date.
     const day = Math.floor(now / DAY) * DAY;
     const pending = env.VIDEO_CHAT_QUOTAS.prepare(`SELECT
       (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) AS attempts,
-      (SELECT COUNT(*) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) AS daily,
-      (SELECT COUNT(*) FROM ${PUBLIC_ROWS}) AS total`).bind(actor, day, day + DAY).first();
+      (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) AS dailyAttempts`).bind(actor, day, day + DAY).first();
     const row = await Promise.race([pending, new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('Allowance snapshot timed out')), 150);
     })]);
-    if (!row || !['attempts', 'daily', 'total'].every(key => Number.isSafeInteger(row[key]) && row[key] >= 0))
+    if (!row || !['attempts', 'dailyAttempts'].every(key => Number.isSafeInteger(row[key]) && row[key] >= 0))
       return { limit: 0, reason: 'quota_unavailable' };
-    const globalLimit = row.daily >= cap(env.VIDEO_CHAT_FAL_DAILY_LIMIT, 10) || row.total >= cap(env.VIDEO_CHAT_FAL_TOTAL_LIMIT, 100);
-    const limit = globalLimit ? 0 : Math.max(0, PUBLIC_LIFETIME_CLIPS - row.attempts);
-    return { limit, reason: limit ? null : globalLimit ? 'preview_limit' : 'user_limit' };
+    const personalRemaining = Math.max(0, PUBLIC_LIFETIME_CLIPS - row.attempts);
+    const dailyRemaining = Math.max(0, cap(env.VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT, PUBLIC_DAILY_CLIPS) - row.dailyAttempts);
+    const limit = Math.min(personalRemaining, dailyRemaining);
+    return { limit, reason: limit ? null : personalRemaining === 0 ? 'user_limit' : 'preview_limit' };
   } catch { return { limit: 0, reason: 'quota_unavailable' }; }
   finally { clearTimeout(timer); }
 }
 
-export async function reserveFalAnswer(db, actor, env = {}, now = Date.now()) {
+export async function reserveFalAnswer(db, actor, _env = {}, now = Date.now()) {
+  void _env;
   const id = crypto.randomUUID();
-  const day = Math.floor(now / DAY) * DAY;
-  const result = await db.prepare(FAL_RESERVE_SQL).bind(
-    id, actor, now, actor, day, day + DAY,
-    cap(env.VIDEO_CHAT_FAL_DAILY_LIMIT, 10),
-    cap(env.VIDEO_CHAT_FAL_TOTAL_LIMIT, 100),
-  ).run();
+  const result = await db.prepare(FAL_RESERVE_SQL).bind(id, actor, now, actor).run();
   return result.meta?.changes === 1 ? id : null;
 }
 // Caller must verify the owner's Access identity before using this entry point.
@@ -67,20 +62,24 @@ export async function reserveOwnerFalAnswer(db, actor) {
 // The migration also guards older in-flight writers against this lifetime cap.
 const ATTEMPT_SQL = `UPDATE video_chat_fal_answers SET attempts = attempts + 1
 WHERE id = ? AND actor = ? AND attempts < ${PUBLIC_LIFETIME_CLIPS}
-AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}`;
+AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}
+AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) < ?`;
 const PRIOR_ATTEMPT_SQL = ATTEMPT_SQL.replace('UPDATE video_chat_fal_answers', 'UPDATE video_chat_fal_previews');
 const OWNER_ATTEMPT_SQL = `UPDATE video_chat_owner_fal_previews SET attempts = attempts + 1
 WHERE id = ? AND actor = ? AND attempts < 5`;
-async function reserveClip(db, actor, previewId, owner) {
+async function reserveClip(env, actor, previewId, owner, now = Date.now()) {
+  const db = env.VIDEO_CHAT_QUOTAS;
   if (owner === true) {
     const result = await db.prepare(OWNER_ATTEMPT_SQL).bind(previewId, actor).run();
     return result.meta?.changes === 1;
   }
-  const result = await db.prepare(ATTEMPT_SQL).bind(previewId, actor, actor).run();
+  const day = Math.floor(now / DAY) * DAY;
+  const dailyLimit = cap(env.VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT, PUBLIC_DAILY_CLIPS);
+  const result = await db.prepare(ATTEMPT_SQL).bind(previewId, actor, actor, day, day + DAY, dailyLimit).run();
   if (result.meta?.changes === 1) return true;
   // Support a reservation admitted immediately before rollout. IDs are generated
   // server-side UUIDs; the separate owner ledger is never consulted here.
-  const prior = await db.prepare(PRIOR_ATTEMPT_SQL).bind(previewId, actor, actor).run();
+  const prior = await db.prepare(PRIOR_ATTEMPT_SQL).bind(previewId, actor, actor, day, day + DAY, dailyLimit).run();
   return prior.meta?.changes === 1;
 }
 
@@ -207,7 +206,7 @@ async function generatePreview(query, timing, { env, actor, previewId, signal, o
     // Reservations are permanent, including submission errors and cancellation.
     // Never retry a submission whose billing outcome may be uncertain.
     stage = 'quota';
-    if (!await timing.measure('quotaMs', () => reserveClip(env.VIDEO_CHAT_QUOTAS, actor, previewId, owner))) { report('quota_limit'); return { media: null, reason: 'limit' }; }
+    if (!await timing.measure('quotaMs', () => reserveClip(env, actor, previewId, owner))) { report('quota_limit'); return { media: null, reason: 'limit' }; }
     controller.signal.throwIfAborted();
     stage = 'submit';
     const submitted = await timing.measure('submitMs', async () => json(await fetcher(SUBMIT, {
