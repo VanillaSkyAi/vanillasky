@@ -58,7 +58,6 @@ export function createBufferedSoundtrack(url: string, fetcher: typeof fetch = fe
   let gain: GainNode | undefined;
   let offset = 0, startedAt = 0, volume = 1, muted = false;
   let playing = false, disposed = false, generation = 0;
-  let pendingPlay: Promise<void> | undefined;
 
   const loading = (async () => {
     if (!context) throw new Error('Music audio output is unavailable');
@@ -123,12 +122,11 @@ export function createBufferedSoundtrack(url: string, fetcher: typeof fetch = fe
     get paused() { return !playing; },
     play() {
       if (disposed) return Promise.reject(new Error('Music playback is disposed'));
-      if (pendingPlay) return pendingPlay;
       playing = true;
       const current = ++generation;
-      // Request resume synchronously, while the caller may still have activation.
+      // Every call can bring fresh activation; never wait on an earlier resume.
       const resumed = resumeIosAudioContext();
-      const pending = (async () => {
+      return (async () => {
         const [output] = await Promise.all([resumed, loading]);
         if (disposed || generation !== current || !playing) return;
         if (!output || output !== context) throw new Error('Music audio output could not resume');
@@ -137,14 +135,11 @@ export function createBufferedSoundtrack(url: string, fetcher: typeof fetch = fe
         if (disposed || generation !== current) return;
         playing = false;
         throw error;
-      }).finally(() => { if (pendingPlay === pending) pendingPlay = undefined; });
-      pendingPlay = pending;
-      return pending;
+      });
     },
     pause() {
       generation++;
       playing = false;
-      pendingPlay = undefined;
       stopSource();
     },
     dispose() {

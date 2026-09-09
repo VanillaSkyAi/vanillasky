@@ -139,10 +139,33 @@ describe('buffered iOS soundtrack', () => {
     expect(track.currentTime).toBe(2);
   });
 
-  it('coalesces overlapping play requests while media is loading', async () => {
+  it('shares one load and source across overlapping play requests', async () => {
     const track = create(); await Promise.all([track.play(), track.play(), track.play()]);
     expect(ctx.sources).toHaveLength(1);
     expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('makes a fresh gesture resume without waiting for an earlier blocked play request', async () => {
+    const blocked = deferred<typeof ctx>();
+    output.resume.mockReturnValueOnce(blocked.promise);
+    const track = create();
+    const first = track.play();
+    expect(output.resume).toHaveBeenCalledOnce();
+
+    const second = track.play();
+    expect(output.resume).toHaveBeenCalledTimes(2);
+    await second;
+    expect(ctx.sources).toHaveLength(1);
+    expect(track.paused).toBe(false);
+    ctx.currentTime = 2;
+
+    blocked.reject(new Error('Earlier gesture was blocked'));
+    await first;
+    expect(track.paused).toBe(false);
+    expect(track.currentTime).toBe(2);
+    expect(ctx.sources[0].stop).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(ctx.decodeAudioData).toHaveBeenCalledOnce();
   });
 
   it('disposes only its own nodes and leaves another track using the context alive', async () => {
