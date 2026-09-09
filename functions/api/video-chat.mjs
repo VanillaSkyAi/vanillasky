@@ -246,6 +246,8 @@ export async function handleVideoChatRequest({
       ...(diagnostics ? { onError: diagnostics.onError, onWarning: diagnostics.onWarning, onComplete: diagnostics.onComplete, onDiagnostic: diagnostics.onDiagnostic } : {}),
       heartbeatMs: 10000,
       mediaConcurrency: 5,
+      firstGeneratedClipDurationSec: 5,
+      generatedClipDurationSec: 8,
       // Keep remaining scenes eligible for stock after the last paid clip.
       // The atomic ledger, not the planner's callback count, owns AI spending.
       maxGeneratedVideos: !owner && planningAllowance.limit > 0 ? PUBLIC_LIFETIME_CLIPS : planningAllowance.limit,
@@ -274,7 +276,7 @@ export async function handleVideoChatRequest({
           const previewId = await previewReservation;
           const answerAdmissionMs = Math.min(150000, Math.max(0, Math.round(performance.now() - admissionStarted)));
           if (!previewId) return previewReservationUnavailable ? null : stockAfterCreditLimit(query, context);
-          const result = await generateFalPreview(query, { env, actor, previewId, signal: context.signal, orientation: context.orientation, scene: context.scene, generatedLook: context.generatedLook, fetcher, owner, onDiagnostic: reportFallback, onTiming: event => {
+          const result = await generateFalPreview(query, { env, actor, previewId, signal: context.signal, orientation: context.orientation, scene: context.scene, generatedLook: context.generatedLook, requestedDurationSec: context.requestedDurationSec, fetcher, owner, onDiagnostic: reportFallback, onTiming: event => {
             const matched = typeof context.scene?.id === 'string' ? /-shot-(\d{1,3})$/.exec(context.scene.id) : null;
             try { console.info('video-chat.fal-timing', {requestId: diagnosticId, ...event, answerAdmissionMs, ...(matched ? {shot:Number(matched[1])} : {})}); }
             catch { /* Timing cannot affect playback. */ }

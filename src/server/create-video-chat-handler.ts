@@ -116,6 +116,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     maxGeneratedVideos = 5,
     generateVideoTimeoutMs = 15_000,
     generatedClipDurationSec = 5,
+    firstGeneratedClipDurationSec = generatedClipDurationSec,
   } = options;
   // Forward only the chat contract, including for untyped JavaScript callers.
   const videoOptions = {
@@ -133,6 +134,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
 
   if (!Number.isSafeInteger(generateVideoTimeoutMs) || generateVideoTimeoutMs < 1 || generateVideoTimeoutMs > 600_000) throw new Error("generateVideoTimeoutMs must be an integer from 1 to 600000");
   if (!Number.isFinite(generatedClipDurationSec) || generatedClipDurationSec < 2 || generatedClipDurationSec > 20) throw new Error("generatedClipDurationSec must be from 2 to 20");
+  if (!Number.isFinite(firstGeneratedClipDurationSec) || firstGeneratedClipDurationSec < 2 || firstGeneratedClipDurationSec > generatedClipDurationSec) throw new Error("firstGeneratedClipDurationSec must be from 2 to generatedClipDurationSec");
   if (!Number.isSafeInteger(maxGeneratedVideos) || maxGeneratedVideos < 0) throw new Error("maxGeneratedVideos must be a nonnegative safe integer");
 
   const capabilities: VideoChatCapabilities = {
@@ -172,12 +174,13 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     // The first media request starts the response visual clock. Later queued
     // shots get their narrative offset, rather than a fresh full startup wait.
     let mediaStartedAt: number | undefined;
-    let mediaIndex = 0;
+    let mediaOffsetSec = 0;
     const resolveSelected: MediaResolver | undefined = generateVideo || searchMedia
       ? async (query, context) => {
           mediaStartedAt ??= Date.now();
           const remainingMs = mode === "pexels" ? 3_000
-            : mediaStartedAt + generateVideoTimeoutMs + mediaIndex++ * generatedClipDurationSec * 1_000 - Date.now();
+            : mediaStartedAt + generateVideoTimeoutMs + mediaOffsetSec * 1_000 - Date.now();
+          if (mode !== "pexels") mediaOffsetSec += context.scene.timing.fixedDuration ?? generatedClipDurationSec;
           // A delayed authored shot cannot meet a deadline that already passed.
           // Settle its chapter without starting billable work or using allowance.
           if (remainingMs <= 0) { diagnose({ phase: "media-skipped", sceneId: context.scene.id, reason: "deadline" }); return null; }
@@ -281,11 +284,13 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         onNarrationFit: (sceneId, estimatedSpeechSec, clipDurationSec, reason) => diagnose({ phase: "narration-fit", sceneId, estimatedSpeechSec, clipDurationSec, reason }),
         onNarrationRewrite: event => diagnose({ phase: "narration-rewrite", ...event }),
         generatedClipDurationSec,
+        firstGeneratedClipDurationSec,
+        generatedVideoAvailable,
         resolveMedia: resolveSelected,
         mediaConcurrency,
       }),
       authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes: internalBodyBytes,
-      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode, Boolean(generateVideo && options.generatedVideoAudio)), instructions?.trim()]
+      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode, Boolean(generateVideo && options.generatedVideoAudio), firstGeneratedClipDurationSec), instructions?.trim()]
         .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
     return handler;

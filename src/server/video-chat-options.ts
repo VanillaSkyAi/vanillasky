@@ -114,6 +114,8 @@ export interface VideoChatHandlerOptions extends Pick<
   generateVideoTimeoutMs?: number;
   /** Provider-supported clip duration in seconds, 2–20. Defaults to 5; does not change provider billing configuration. */
   generatedClipDurationSec?: number;
+  /** Optional shorter first clip, 2–generatedClipDurationSec. Defaults to the ordinary clip duration. */
+  firstGeneratedClipDurationSec?: number;
   /** Safe host-only phase timings; never includes prompts, narration, media URLs or provider error text. */
   onDiagnostic?: (event: {
     requestId: string;
