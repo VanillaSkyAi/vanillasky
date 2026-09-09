@@ -5,6 +5,8 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Keep the intro's completed subtitle phrase in place while generated footage
+  prepares, instead of restarting the subtitle animation when the player mounts.
 - Recover complete answer and shot records when the planner wraps them in a JSON
   array, avoiding an empty failed response while preserving content validation,
   duration limits and rejection of malformed or unsupported containers.

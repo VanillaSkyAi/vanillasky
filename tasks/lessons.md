@@ -69,3 +69,7 @@
 - Subtitle styles must stay visually consistent between speech segments. Hold
   the word phrase through timing gaps; never swap in full Classic captions as a
   fallback. Word by word is the default, and the transcript belongs at the end.
+
+- A prepared player mounting is not a new caption playback. Keep the intro's
+  completed word phrase across that handoff and loading gap; reset caption
+  progress for intentional replay or a new turn, not media preparation.
