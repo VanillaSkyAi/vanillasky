@@ -93,6 +93,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let activeSpeech = false;
   let reportedActivity = false;
   let outputContext: AudioContext | undefined;
+  let nativeVolumeSupported: boolean | undefined;
   let output: { source: MediaElementAudioSourceNode; gain: GainNode } | undefined;
   let cancelVolumeRamp: (() => void) | undefined;
   const reportActivity = () => {
@@ -121,6 +122,25 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     // Only generated blob/data sources enter this graph, after a real gesture
     // unlocks it. Remote videos keep their native, CORS-safe audio path.
     if (output || !generatedElement || outputContext?.state !== "running") return;
+    if (nativeVolumeSupported === undefined) {
+      const previous = generatedElement.volume;
+      const probe = previous === .5 ? .25 : .5;
+      try {
+        generatedElement.volume = probe;
+        nativeVolumeSupported = generatedElement.volume === probe;
+      } catch { nativeVolumeSupported = false; }
+      finally {
+        try { generatedElement.volume = previous; } catch { /* Fixed native gain uses the graph below. */ }
+      }
+    }
+    if (nativeVolumeSupported) {
+      // WebKit can buffer this source ahead of its audible output when routed
+      // through Web Audio, distorting currentTime and ended. Keep narration's
+      // native clock intact whenever its native gain already works.
+      void outputContext.close().catch(() => undefined);
+      outputContext = undefined;
+      return;
+    }
     try {
       const source = outputContext.createMediaElementSource(generatedElement);
       const gain = outputContext.createGain();
@@ -271,7 +291,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     resume() {
       held = false;
       if (!disposed) primeSoundtrackGesture();
-      if (!disposed && globalThis.navigator?.userActivation?.isActive) {
+      if (!disposed && nativeVolumeSupported !== true && globalThis.navigator?.userActivation?.isActive) {
         try {
           const Context = globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
           if (Context) {
