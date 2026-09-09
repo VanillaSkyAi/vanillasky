@@ -433,10 +433,10 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         </fieldset>
         {branding?.showDeveloperLinks !== false && <nav className="developer-links" aria-label="Build with VanillaSky">
           <p className="section-label">Build with VanillaSky</p>
-          <a href="https://github.com/VanillaSkyAi/video/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Docs<span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/VanillaSkyAi/vanillasky/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Docs<span aria-hidden="true">↗</span></a>
           <button type="button" aria-expanded={aboutOpen} aria-controls={`${instanceId}-about`} onClick={() => setAboutOpen((open) => !open)}>About<span aria-hidden="true">{aboutOpen ? "−" : "+"}</span></button>
           <div id={`${instanceId}-about`} className="developer-about" role="region" aria-label="About VanillaSky" hidden={!aboutOpen}><p>VanillaSky is an open-source application for conversations that answer in video. Run it with your own AI providers and make it yours.</p></div>
-          <a href="https://github.com/VanillaSkyAi/video" target="_blank" rel="noopener noreferrer">GitHub<span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/VanillaSkyAi/vanillasky" target="_blank" rel="noopener noreferrer">GitHub<span aria-hidden="true">↗</span></a>
         </nav>}
       </div>}
     </div>

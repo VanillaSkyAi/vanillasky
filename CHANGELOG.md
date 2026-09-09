@@ -5,6 +5,10 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Introduce VanillaSky with “Ask a question. Watch the answer.”, the goosebumps
+  demo and an invitation to contribute to AI video answers. Rename the repository
+  to `VanillaSkyAi/vanillasky` and update current setup and support links.
+
 - Replace the public pilot's separate five-lifetime and three-per-answer limits
   with one allowance of ten generated clips per visitor. Replace the permanent
   site-wide answer cap with a daily pool of 200 generated clips, measured by

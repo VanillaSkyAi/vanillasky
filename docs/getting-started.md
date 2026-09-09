@@ -3,8 +3,8 @@
 Use Node 22.12+ (22.23.1 is tested in CI) and the npm version recorded in `package.json`.
 
 ```bash
-git clone https://github.com/VanillaSkyAi/video.git
-cd video
+git clone https://github.com/VanillaSkyAi/vanillasky.git
+cd vanillasky
 npm ci
 cp .dev.vars.example .dev.vars
 ```

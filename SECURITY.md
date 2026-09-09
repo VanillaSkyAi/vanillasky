@@ -8,7 +8,7 @@ npm versions are historical artifacts, not the current maintenance target.
 
 ## Report a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/VanillaSkyAi/video/security/advisories/new)
+Use [GitHub private vulnerability reporting](https://github.com/VanillaSkyAi/vanillasky/security/advisories/new)
 to report a suspected vulnerability. Do not open a public issue, discussion,
 or pull request containing exploit details, credentials, customer data, or an
 unannounced vulnerability.

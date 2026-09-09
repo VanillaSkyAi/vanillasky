@@ -1,7 +1,7 @@
 {
   "name": "vanillasky",
   "version": "0.0.0",
-  "description": "A complete, open-source video chat application.",
+  "description": "An open-source AI chat app that answers with short videos, voice, music, sound and subtitles.",
   "keywords": [
     "video-chat",
     "voice-chat",
@@ -18,10 +18,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/VanillaSkyAi/video.git"
+    "url": "git+https://github.com/VanillaSkyAi/vanillasky.git"
   },
   "bugs": {
-    "url": "https://github.com/VanillaSkyAi/video/issues"
+    "url": "https://github.com/VanillaSkyAi/vanillasky/issues"
   },
   "homepage": "https://vanillasky.ai",
   "scripts": {
