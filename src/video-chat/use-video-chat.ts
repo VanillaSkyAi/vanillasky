@@ -114,8 +114,6 @@ export interface UseVideoChatResult {
   resetAudioPreferences(): void;
   shuffleMusic(): void;
   soundtrack?: VideoAudio;
-  backgroundDucked: boolean;
-  backgroundWaiting: boolean;
   playbackEnded: boolean;
   /** Changes whenever saved content should restart from zero. */
   playerKey: number;
@@ -141,14 +139,13 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   chat: UseVideoChatResult;
   restoreSession(turns: readonly VideoChatTurn[]): void;
   getCaptionProgress(): CaptionProgress | undefined;
+  captionKey: number;
 } {
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const [audioPreferences, setAudioState] = useState(() => updateAudioPreferences(readAudioPreferences(), options.audio));
   const audioPreferencesRef = useRef(audioPreferences);
   audioPreferencesRef.current = audioPreferences;
-  const [voiceActive, setVoiceActive] = useState(false);
-  const [backgroundWaiting, setBackgroundWaiting] = useState(false);
   const voiceWarningRef = useRef<(message?: string) => void>(() => undefined);
   const ownedVoiceRef = useRef<VideoChatVoice | undefined>(undefined);
   if (!options.voice && !ownedVoiceRef.current) {
@@ -158,24 +155,12 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       credentials: options.credentials,
       fetcher: options.fetcher,
       onFallback: () => voiceWarningRef.current(),
-      onActivityChange: setVoiceActive,
     });
   }
   const rawVoice = options.voice ?? ownedVoiceRef.current!;
   const captionVoice = useMemo(() => createCaptionVoice(rawVoice), [rawVoice]);
   useEffect(() => () => captionVoice.reset(), [captionVoice]);
-  const speechActivityId = useRef(0);
-  const voice = useMemo(() => options.voice ? {
-    ...captionVoice.voice,
-    async speak(text: string, options: Parameters<VideoChatVoice["speak"]>[1]) {
-      const id = ++speechActivityId.current;
-      try { await captionVoice.voice.speak(text, { ...options, onStart: source => {
-        if (!options.signal.aborted && id === speechActivityId.current) setVoiceActive(true);
-        options.onStart?.(source);
-      } }); }
-      finally { if (id === speechActivityId.current) setVoiceActive(false); }
-    },
-  } : captionVoice.voice, [captionVoice, options.voice]);
+  const voice = captionVoice.voice;
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
   const unavailableVoiceLines = useRef(new Set<string>());
@@ -296,7 +281,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     timelineRef.current = undefined;
     flushRef.current = undefined;
     narrationRef.current.interrupt();
-    setBackgroundWaiting(false);
     dispatch({ type: "cancelled" });
   }, [endTiming]);
 
@@ -330,7 +314,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const listeningPreferences = audioPreferencesRef.current;
     const previousTrackId = soundtrackForTurn(stateRef.current.turns.at(-1))?.trackId;
     const initialTrack = selectMusicTrack(listeningPreferences.musicMood === "auto" ? "calm" : listeningPreferences.musicMood, previousTrackId);
-    setBackgroundWaiting(false);
     const timeoutMs = currentOptions.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       inFlightRef.current = undefined;
@@ -584,7 +567,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const replay = useCallback(() => {
     const turn = stateRef.current.turns.find((entry) => entry.id === stateRef.current.shownTurnId);
     if (!turn?.completed || !turn.video) return;
-    setBackgroundWaiting(false);
     runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
@@ -613,7 +595,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const selectTurn = useCallback((id: string) => {
     const turn = stateRef.current.turns.find((entry) => entry.id === id);
     if (!turn?.completed || !turn.video) return;
-    setBackgroundWaiting(false);
     runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
@@ -687,7 +668,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const currentTurn = state.turns.at(-1);
   const shownTurn = state.turns.find((turn) => turn.id === state.shownTurnId) ?? currentTurn;
   const soundtrack = audioPreferences.musicMood === "off" ? undefined : soundtrackForTurn(shownTurn);
-  const backgroundDucked = voiceActive && (!options.voice || audioPreferences.voiceVolume > 0) && !state.muted && state.status !== "paused";
   const availableModes = state.capabilities?.modes ?? (["cinematic"] as const);
   const suggestions = shownTurn?.suggestions ?? [];
   const fullTranscript = shownTurn ? transcriptFor(shownTurn) : [];
@@ -704,8 +684,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     soundtrack: audioPreferences.musicMood === "off" ? false : shownTurn?.soundtrack,
     soundtrackVolume: audioPreferences.musicVolume,
     nativeMediaAudio: { volume: audioPreferences.sceneVolume, ambientOnly: true },
-    backgroundDucked,
-    backgroundWaiting,
     paused: state.status === "paused",
     controls: false,
     narrationReady: narration.isReady,
@@ -734,7 +712,6 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     } : undefined,
     onStallChange: (stalled: boolean, reason: PlaybackWaitReason = "scene-generation") => {
       if (stateRef.current.playerKey !== playbackKey) return;
-      setBackgroundWaiting(stalled);
       if (stalled && reason !== "speech") voiceRef.current.pause();
       else if (!heldRef.current) voiceRef.current.resume();
       if (state.playback?.kind !== "stream") return;
@@ -789,11 +766,9 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     resetAudioPreferences,
     shuffleMusic,
     soundtrack,
-    backgroundDucked,
-    backgroundWaiting,
     playbackEnded: state.playbackEnded,
     playerKey: state.playerKey,
     playerProps,
   };
-  return { chat, restoreSession, getCaptionProgress: captionVoice.getCaptionProgress };
+  return { chat, restoreSession, getCaptionProgress: captionVoice.getCaptionProgress, captionKey: state.captionKey };
 }

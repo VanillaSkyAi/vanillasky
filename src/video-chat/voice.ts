@@ -45,8 +45,6 @@ export interface CreateVideoChatVoiceOptions {
   maxCachedLines?: number;
   /** Called when optional generated speech falls back to browser speech. */
   onFallback?: () => unknown;
-  /** Actual speech onset/end with mute, user gain and deliberate pause applied. */
-  onActivityChange?: (audible: boolean) => unknown;
 }
 
 function actionEndpoint(endpoint: string | URL, action: string): string {
@@ -93,20 +91,11 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let silent = false;
   let volume = 1;
   let utterance: SpeechSynthesisUtterance | undefined;
-  let committedBrowserVolume: number | undefined;
   let activeSpeech = false;
-  let reportedActivity = false;
   let outputContext: AudioContext | undefined;
   let nativeVolumeSupported: boolean | undefined;
   let output: { source: MediaElementAudioSourceNode; gain: GainNode } | undefined;
   let cancelVolumeRamp: (() => void) | undefined;
-  const reportActivity = () => {
-    const audible = activeSpeech && !held && !silent && (committedBrowserVolume ?? volume) > 0;
-    if (audible === reportedActivity) return;
-    reportedActivity = audible;
-    try { void Promise.resolve(options.onActivityChange?.(audible)).catch(() => undefined); }
-    catch { /* Activity observers cannot affect speech timing. */ }
-  };
   const applyVolume = (immediate = false) => {
     cancelVolumeRamp?.();
     cancelVolumeRamp = undefined;
@@ -120,7 +109,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         try { generatedElement.volume = volume; } catch { /* Native volume may be fixed on iOS. */ }
       } else cancelVolumeRamp = rampMediaVolume(generatedElement, volume);
     }
-    reportActivity();
   };
   const connectOutput = () => {
     // Only generated blob/data sources enter this graph, after a real gesture
@@ -310,7 +298,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       held = true;
       sounding?.pause();
       globalThis.speechSynthesis?.pause();
-      reportActivity();
     },
     resume() {
       held = false;
@@ -336,7 +323,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       }
       if (sounding) playGenerated(sounding, playbackFailure);
       if (!silent) globalThis.speechSynthesis?.resume();
-      reportActivity();
     },
     setMuted(muted) {
       silent = muted;
@@ -353,7 +339,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         if (started || disposed || signal.aborted || silent || held) return;
         started = true;
         activeSpeech = true;
-        reportActivity();
         if (source) {
           try { void Promise.resolve(onPlaybackSource?.(source)).catch(() => undefined); }
           catch { /* Source observers do not affect playback. */ }
@@ -370,8 +355,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         const browserUtterance = utterance = new SpeechSynthesisUtterance(text);
         browserUtterance.rate = 1;
         // Browsers do not define live mutation of an utterance already passed
-        // to speak(). Keep its gain and ducking evidence fixed until it ends.
-        browserUtterance.volume = committedBrowserVolume = volume;
+        // to speak(). Keep its gain fixed until it ends.
+        browserUtterance.volume = volume;
         let unavailable = false;
         await new Promise<void>((resolve) => {
           let finished = false;
@@ -379,7 +364,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           const finish = () => {
             if (finished) return;
             finished = true;
-            if (utterance === browserUtterance) { utterance = undefined; committedBrowserVolume = undefined; activeSpeech = false; reportActivity(); }
+            if (utterance === browserUtterance) { utterance = undefined; activeSpeech = false; }
             clearWatchdog();
             clearInterval(onsetTimer);
             signal.removeEventListener("abort", stop);
@@ -459,7 +444,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             if (sounding === element) {
               sounding = undefined;
               activeSpeech = false;
-              reportActivity();
               playbackFailure = undefined;
             }
             resolve();
@@ -503,7 +487,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     dispose() {
       disposed = true;
       activeSpeech = false;
-      reportActivity();
       cancelVolumeRamp?.();
       output?.source.disconnect();
       output?.gain.disconnect();

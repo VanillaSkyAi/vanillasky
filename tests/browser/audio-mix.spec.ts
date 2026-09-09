@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('mixes real music, complete generated narration and audible footage through pause, shuffle, mute and zero voice gain', async ({ page }) => {
+test('keeps music and scene gain steady through complete speech, waits, pause, shuffle, mute and zero voice gain', async ({ page }) => {
   test.setTimeout(30000);
   await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/audio-mix.html');
   await page.getByRole('button', { name: 'Start mix' }).click();
@@ -8,27 +8,37 @@ test('mixes real music, complete generated narration and audible footage through
   const music = page.locator('audio[data-soundtrack="active"]');
   const activeClip = page.locator('[data-scene-layer="active"] video');
   await expect.poll(() => page.evaluate(() => (window as unknown as { audioMixEvents: string[] }).audioMixEvents)).toContain('speech-start');
-  await expect.poll(() => music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.07, 2);
+  await expect.poll(() => music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.2, 2);
   await expect.poll(() => activeClip.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeGreaterThan(.2);
-  await expect.poll(() => activeClip.evaluate((video: HTMLVideoElement) => video.volume)).toBeCloseTo(.0525, 2);
+  await expect.poll(() => activeClip.evaluate((video: HTMLVideoElement) => video.volume)).toBeCloseTo(.6, 2);
   await page.getByRole('button', { name: 'Pause/resume' }).click();
   await expect(player).toHaveAttribute('data-playing', 'false');
   const held = await music.evaluate((audio: HTMLAudioElement) => audio.currentTime);
   await page.waitForTimeout(250);
   expect(await music.evaluate((audio: HTMLAudioElement) => audio.currentTime)).toBeCloseTo(held, 1);
+  expect(await music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.2, 2);
+  expect(await activeClip.evaluate((video: HTMLVideoElement) => video.volume)).toBeCloseTo(.6, 2);
+  await page.getByRole('button', { name: 'Pause/resume' }).click();
+  await page.getByRole('button', { name: 'Voice zero/full' }).click();
+  await page.getByRole('button', { name: 'Waiting' }).click();
+  const beforeWait = await music.evaluate((audio: HTMLAudioElement) => audio.currentTime);
+  await page.waitForTimeout(350);
+  expect(await music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.2, 2);
+  expect(await activeClip.evaluate((video: HTMLVideoElement) => video.volume)).toBeCloseTo(.6, 2);
+  expect(await music.evaluate((audio: HTMLAudioElement) => audio.currentTime)).toBeGreaterThan(beforeWait);
+  await page.getByRole('button', { name: 'Waiting' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { audioMixEvents: string[] }).audioMixEvents), { timeout: 10000 }).toContain('speech-end');
+  expect(await music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.2, 2);
+  expect(await activeClip.evaluate((video: HTMLVideoElement) => video.volume)).toBeCloseTo(.6, 2);
+  await page.getByRole('button', { name: 'Pause/resume' }).click();
   await page.getByRole('button', { name: 'Another track' }).click();
   await expect(page.locator('audio[data-soundtrack]')).toHaveCount(2);
   await page.getByRole('button', { name: 'Mute/unmute' }).click();
   expect(await page.locator('audio[data-soundtrack]').evaluateAll(nodes => nodes.every(node => (node as HTMLAudioElement).muted))).toBe(true);
   await page.getByRole('button', { name: 'Mute/unmute' }).click();
-  await page.getByRole('button', { name: 'Voice zero/full' }).click();
   await page.getByRole('button', { name: 'Pause/resume' }).click();
   await expect.poll(() => music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.2, 2);
   await expect(page.locator('audio[data-soundtrack]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Waiting' }).click();
-  await expect.poll(() => music.evaluate((audio: HTMLAudioElement) => audio.volume)).toBeCloseTo(.04, 2);
-  await page.getByRole('button', { name: 'Waiting' }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { audioMixEvents: string[] }).audioMixEvents), { timeout: 10000 }).toContain('speech-end');
   const events = await page.evaluate(() => (window as unknown as { audioMixEvents: string[] }).audioMixEvents);
   expect(events.filter(event => event === 'speech-start')).toHaveLength(1);
   expect(events).not.toContain('fallback');

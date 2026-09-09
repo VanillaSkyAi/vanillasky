@@ -8,7 +8,7 @@ export interface AudioPreferences {
 }
 
 export const DEFAULT_AUDIO_PREFERENCES: Readonly<AudioPreferences> = Object.freeze({
-  musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2,
+  musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .6,
 });
 const STORAGE_KEY = "vanillasky.audio";
 

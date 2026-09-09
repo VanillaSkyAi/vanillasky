@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 import { createVideoChatHandler } from "../../src/server";
 
 for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-up context, and recovers from optional media failures (notice=${recoveryNotice})`, async ({ page }) => {
@@ -73,9 +74,20 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
 });
 
 
-test("plays a chapter through the hook, then replaces it with the ready body", async ({ page }) => {
+test("plays a chapter through the hook, then replaces it with the ready body", async ({ page, baseURL }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
+  // Keep native playback while fixing both the soundtrack and welcome assets.
+  await page.addInitScript(() => { Math.random = () => .99; });
+  const footageFormat = process.platform === "linux" ? "webm" : "mp4";
+  const footageFile = process.platform === "linux" ? "waterfall-hold.webm" : "waterfall.mp4";
+  await page.route("https://videos.pexels.com/**", route => route.fulfill({
+    path: fileURLToPath(new URL(`./fixtures/media-transition/${footageFile}`, import.meta.url)), contentType: `video/${footageFormat}`,
+  }));
+  await page.route("https://images.pexels.com/**", route => route.fulfill({
+    path: fileURLToPath(new URL("./fixtures/media-transition/waterfall.jpg", import.meta.url)), contentType: "image/jpeg",
+  }));
+  const origin = baseURL ?? "http://127.0.0.1:4274";
   const handler = createVideoChatHandler({
     authorize: "none", heartbeatMs: false,
     generateText: async () => "[]",
@@ -87,17 +99,19 @@ test("plays a chapter through the hook, then replaces it with the ready body", a
     const request = route.request();
     if (request.url().includes("action=opening-media")) {
       expect(request.postDataJSON()).toMatchObject({ keyword: "waterfall" });
-      return route.fulfill({ json: { media: { url: "http://127.0.0.1:4274/tests/browser/fixtures/media-transition/waterfall.mp4", type: "video" } } });
+      return route.fulfill({ json: { media: { url: `${origin}/tests/browser/fixtures/media-transition/${footageFile}`, type: "video" } } });
     }
+    if (request.url().includes("action=response")) expect(request.postDataJSON()).toMatchObject({ initialTrackId: "rainy-forest" });
     const response = await handler(new Request(request.url(), { method: request.method(), ...(request.postData() ? { body: request.postData(), headers: { "content-type": "application/json" } } : {}) }));
     await route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() });
   });
-  await page.goto("http://127.0.0.1:4274/tests/browser/fixtures/video-chat.html?hold-opening");
+  await page.goto(`${origin}/tests/browser/fixtures/video-chat.html?hold-opening`);
   await page.getByRole("textbox", { name: "Prompt" }).fill("Explain a waterfall");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   const intro = page.locator("[data-opening-chapter]");
   await expect(intro).toBeVisible();
   await expect(intro).toHaveText("A waterfall starts our short journey.");
+  await expect(page.locator('[data-soundtrack="active"]')).toHaveAttribute("src", "/audio-library/rainy-forest.mp3");
   await expect(page.locator(".ground, .asked, .stage > video.frame-media")).toHaveCount(0);
   await expect(page.locator('[data-video-frame="ready"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Finish opening" }).click();

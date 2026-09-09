@@ -5,6 +5,8 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Keep the intro's completed subtitle phrase in place while generated footage
+  prepares, instead of restarting the subtitle animation when the player mounts.
 - Recover complete answer and shot records when the planner wraps them in a JSON
   array, avoiding an empty failed response while preserving content validation,
   duration limits and rejection of malformed or unsupported containers.
@@ -12,9 +14,9 @@ of previously published npm releases.
   no immediate repeats and the chosen soundtrack retained for replay. Settings
   now has voice, music and scene-sound volume, track shuffle and saved listening
   preferences. Music starts on Ask and continues through loading, the intro and
-  the answer. Music and scene sound default to 20%, with voice at 100%.
-  Background audio softens during narration; master mute and pause control all
-  layers together.
+  the answer. Music defaults to 20%, scene sound to 60% and voice to 100%.
+  Background levels stay constant during narration and buffering, with music
+  fades at the beginning and end. Master mute and pause control all layers together.
 - Request subtle environmental and action sounds from generated footage while
   explicitly excluding voices and music. Only footage marked as ambient audio
   is audible in chat; stock fallbacks remain silent.

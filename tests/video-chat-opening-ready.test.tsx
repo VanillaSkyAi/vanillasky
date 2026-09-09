@@ -2,16 +2,19 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
+import type { CaptionProgress } from "../src/video-chat/caption-progress";
 import type { VideoPlayerProps } from "../src/player/video-player";
 import { DEFAULT_AUDIO_PREFERENCES } from "../src/video-chat/audio-preferences";
-const fixture = vi.hoisted(() => ({chat: {} as UseVideoChatResult, player: undefined as VideoPlayerProps | undefined}));
-vi.mock("../src/video-chat/use-video-chat", () => ({useVideoChatSession: () => ({chat: fixture.chat, restoreSession: vi.fn()})}));
+const fixture = vi.hoisted(() => ({chat: {} as UseVideoChatResult, player: undefined as VideoPlayerProps | undefined, progress: undefined as CaptionProgress | undefined, captionKey: 0}));
+vi.mock("../src/video-chat/use-video-chat", () => ({useVideoChatSession: () => ({chat: fixture.chat, restoreSession: vi.fn(), getCaptionProgress: () => fixture.progress, captionKey: fixture.captionKey})}));
 vi.mock("../src/player/video-player", () => ({VideoPlayer: (props: VideoPlayerProps) => { fixture.player = props; return <div data-test-player />; }}));
 import { VideoChat } from "../src/video-chat/video-chat";
 const scene = {id:"body", templateId:"chapterTitle", variables:{title:"Useful answer"}, narration:"A useful answer", timing:{fixedDuration:4}};
 function setup() {
+  fixture.progress = undefined;
+  fixture.captionKey = 0;
   const turn = {id:"turn", prompt:"A topic", opening:"An authored opening", mode:"pexels", createdAt:0};
-  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn(), audioPreferences:DEFAULT_AUDIO_PREFERENCES, backgroundDucked:false, backgroundWaiting:false} as unknown as UseVideoChatResult;
+  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn(), audioPreferences:DEFAULT_AUDIO_PREFERENCES} as unknown as UseVideoChatResult;
   return render(<VideoChat />);
 }
 afterEach(() => {cleanup(); vi.unstubAllGlobals();});
@@ -76,4 +79,41 @@ it("invalidates a pending observer on replacement and unmount", async () => {
   const activeId=sequence;
   view.unmount();
   expect(cancelled).toHaveBeenCalledWith(activeId);
+});
+
+
+it.each(["audio", "estimated"] as const)("holds the completed opening phrase when cold body playback mounts (%s clock)", async timing => {
+  const view = setup();
+  const opening = "Water keeps flowing through the forest and into the valley.";
+  fixture.progress = { text: opening, elapsedSeconds: 2.9, durationSeconds: 3, timing,
+    ...(timing === "estimated" ? { wordIndex: 10, alignment: "browser" as const } : {}) };
+  fixture.chat = { ...fixture.chat, caption: opening, speaking: true, status: "playing" };
+  view.rerender(<VideoChat />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+  const finalPhrase = view.container.querySelector(".word-captions")!.textContent;
+  expect(finalPhrase).toContain("valley.");
+
+  fixture.progress = undefined;
+  fixture.chat = { ...fixture.chat, speaking: false, status: "composing" };
+  view.rerender(<VideoChat />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+  expect(view.container.querySelector(".word-captions")!.textContent).toBe(finalPhrase);
+
+  // The first prepared scene creates a player before its real decoder/voice
+  // readiness gate releases the opening. That is not a new caption cue.
+  fixture.chat = { ...fixture.chat, playerKey: 1, status: "playing", playerProps: { narrationReady: () => false } };
+  view.rerender(<VideoChat />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(view.container.querySelector(".word-captions")!.textContent).toBe(finalPhrase);
+  expect(view.container.querySelector('.caption-word[data-active="true"]')).toBeNull();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 1200)); });
+  expect(view.container.querySelector(".word-captions")!.textContent).toBe(finalPhrase);
+
+  // An intentional same-turn replay must still restart estimated subtitles
+  // when the voice is muted and cannot provide a fresh playback clock.
+  fixture.chat = { ...fixture.chat, muted: true, playerKey: 2 };
+  fixture.captionKey++;
+  view.rerender(<VideoChat />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+  expect(view.container.querySelector(".word-captions")!.textContent).toBe("Water keeps flowing");
 });

@@ -29,10 +29,6 @@ interface VideoPlayerSharedProps {
   soundtrack?: VideoAudio | false;
   /** User soundtrack gain, overriding the saved track's default. */
   soundtrackVolume?: number;
-  /** Actual audible speech, including the separately spoken opening. */
-  backgroundDucked?: boolean;
-  /** Lower backgrounds during generation/decoder waits. */
-  backgroundWaiting?: boolean;
   /** Play embedded audio from active scene videos as a layer beneath the master mute control. */
   nativeMediaAudio?: NativeMediaAudioOptions;
   /** Fixed display width. Omit to observe and fill the parent width. */

@@ -195,13 +195,13 @@ apply a provider deadline.
 ## Native clip audio and soundtrack
 
 Settings has separate voice, music and scene-sound volume controls. Initial
-levels are 100%, 20% and 20%; the speaker button mutes all three without losing
+levels are 100%, 20% and 60%; the speaker button mutes all three without losing
 their settings. Listening preferences are remembered on the device. Background
-layers soften while narration speaks, with smooth volume changes and ending
-fades. Deliberate pause and microphone capture pause playback together.
+levels stay constant during narration, speech pauses and buffering. Music fades
+at the beginning and end; deliberate pause and microphone capture pause playback together.
 Generated narration volume changes immediately. Browser fallback voices apply
-the level to the next spoken line, keeping backgrounds soft until the current
-line finishes. The speaker button still mutes the current line immediately.
+the level to the next spoken line. The speaker button still mutes the current
+line immediately.
 
 Music starts as soon as the viewer presses Ask, continuing through loading,
 the opening and the answer with one playback element. Auto starts with a calm

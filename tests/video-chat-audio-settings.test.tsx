@@ -6,7 +6,6 @@ import { createSceneTimeline } from "../src/protocol/scene-timeline";
 import { encodeVideoSseEvent } from "../src/protocol/sse";
 import type { VideoAudio } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./helpers/video-style";
-import * as voiceModule from "../src/video-chat/voice";
 
 const music: VideoAudio = { trackId: "cue", audioUrl: "/audio-library/cue.mp3", duration: 146.6,
   sourceDuration: 146.6, volume: .15, beatDetection: { sensitivity: .5 }, beatMarkers: [], fadeOutMs: 1500 };
@@ -62,23 +61,6 @@ it("starts one music sink during loading and keeps it through the opening-to-vid
   expect(requests[0].initialTrackId).toBe("cue");
   expect(container.querySelectorAll("audio[data-soundtrack]")).toHaveLength(1);
   expect(container.querySelector("audio[data-soundtrack=active]")).toBe(initial);
-});
-
-it("keeps backgrounds ducked while the voice reports an audible line after a volume change", async () => {
-  let reportActivity: ((active: boolean) => unknown) | undefined;
-  const speech = voice();
-  vi.spyOn(voiceModule, "createVideoChatVoice").mockImplementation(options => {
-    reportActivity = options?.onActivityChange;
-    return speech;
-  });
-  const request = fetcher();
-  const { result } = renderHook(() => useVideoChat({ fetcher: request }));
-  await act(async () => { await result.current.ask("Explain waves"); });
-  act(() => { reportActivity?.(true); });
-  act(() => result.current.setAudioPreferences({ voiceVolume: 0 }));
-  expect(result.current.playerProps?.backgroundDucked).toBe(true);
-  act(() => { reportActivity?.(false); });
-  expect(result.current.playerProps?.backgroundDucked).toBe(false);
 });
 
 it("retains the selected soundtrack in paced playback and replay without another request", async () => {
@@ -153,6 +135,7 @@ it("offers accessible music and voice sliders, remembers settings, and gates sce
   await waitFor(() => expect(screen.getByRole("slider", { name: "Sound from video" })).toBeDefined());
   fireEvent.click(screen.getByRole("button", { name: "Reset sound settings" }));
   expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("20");
+  expect((screen.getByRole("slider", { name: "Sound from video" }) as HTMLInputElement).value).toBe("60");
 });
 
 it("keeps music off when replaying a different saved answer", async () => {
@@ -171,18 +154,7 @@ it("ignores malformed saved preferences and keeps controls usable when storage i
   localStorage.setItem("vanillasky.audio", JSON.stringify({ voiceVolume: -1, musicVolume: "loud", sceneVolume: 4, musicMood: "untrusted" }));
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
   const { result } = renderHook(() => useVideoChat({ fetcher: fetcher(), voice: voice() }));
-  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2 });
+  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .6 });
   act(() => result.current.setAudioPreferences({ musicVolume: .2 }));
   expect(result.current.audioPreferences.musicVolume).toBe(.2);
-});
-
-it.each(["replay", "select"])("clears a previous audio wait on %s", async (action) => {
-  const speech = voice();
-  const request = fetcher();
-  const { result } = renderHook(() => useVideoChat({ fetcher: request, voice: speech }));
-  await act(async () => { await result.current.ask("Explain waves"); });
-  act(() => result.current.playerProps?.onStallChange?.(true, "media-decoding"));
-  expect(result.current.playerProps?.backgroundWaiting).toBe(true);
-  act(() => action === "replay" ? result.current.replay() : result.current.selectTurn(result.current.shownTurn!.id));
-  expect(result.current.playerProps?.backgroundWaiting).toBe(false);
 });

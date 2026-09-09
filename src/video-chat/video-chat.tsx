@@ -98,7 +98,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const composerRef = useRef<HTMLDivElement>(null);
   const viewportOrientation = useViewportOrientation();
   const sessionOrientation = options.orientation ?? viewportOrientation;
-  const { chat, restoreSession, getCaptionProgress } = useVideoChatSession({
+  const { chat, restoreSession, getCaptionProgress, captionKey } = useVideoChatSession({
     ...options,
     orientation: sessionOrientation,
     mode: selectedMode ?? options.mode,
@@ -300,7 +300,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
       key={`${shown.id}:${chat.playerProps?.video ? chat.playerKey : "live"}`}
       audio={chat.playbackEnded ? undefined : chat.soundtrack} audioRef={soundtrackRef}
       playing={chat.status !== "paused"} muted={chat.muted} volume={chat.audioPreferences.musicVolume}
-      ducked={chat.backgroundDucked} waiting={chat.backgroundWaiting}
       time={0} duration={0} terminal={false} />}
     <header className="chrome" {...controlEvents}>
       <div className="session-brand"><a className="home-link" href={customHome ?? "/"} aria-label={branding ? `${appName} home` : "Home"}
@@ -442,7 +441,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
               </div>}
               {transcriptExpanded ? <div id={transcriptId} className="expanded-captions" role="region" tabIndex={0} aria-label="Transcript">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : captionStyle === "words" ? <CaptionWords key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} paused={status === "paused"} silent={!chat.speaking} muted={chat.muted} /> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
+              </div> : captionStyle === "words" ? <CaptionWords key={`${shown?.id}:${captionKey}`} text={line} getProgress={getCaptionProgress} paused={status === "paused"} silent={!chat.speaking} muted={chat.muted} /> : <CaptionPages key={`${shown?.id}:${captionKey}`} text={line} getProgress={getCaptionProgress} />}
             </div>}
           </div>
         </div>
