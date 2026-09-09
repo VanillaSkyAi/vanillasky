@@ -15,6 +15,7 @@ import { createChatHttpHandler, jsonError } from "./video-chat-http.js";
 import { WELCOME_CARDS } from "../video-chat/welcome-cards.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery";
 import { VIDEO_PROTOCOL_VERSION } from "../protocol/types.js";
+import { parseSpeechWordTimings } from "../protocol/speech-timing.js";
 import type { MediaResolver } from "./media-resolver.js";
 import { getGenerationLifecycleSink, type VideoGenerationLifecycleSink } from "./lifecycle.js";
 import { withDeadline } from "../video-chat/deadline.js";
@@ -60,6 +61,15 @@ function cleanGeneratedText(value: string): string {
 function audioBody(value: Uint8Array | ArrayBuffer): ArrayBuffer {
   const source = value instanceof Uint8Array ? value : new Uint8Array(value);
   return Uint8Array.from(source).buffer;
+}
+
+function audioBase64(value: Uint8Array | ArrayBuffer): string {
+  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
 }
 
 class VideoChatProviderError extends Error {
@@ -498,6 +508,14 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         const { text } = parseSpeechRequest(body);
         try {
           const result = await withDeadline((signal) => generateSpeech({ text, signal }), 3_000, request.signal);
+          const wordTimings = parseSpeechWordTimings(result.wordTimings, text);
+          if (wordTimings) {
+            return Response.json({
+              audio: audioBase64(result.audio),
+              mediaType: result.mediaType || "audio/mpeg",
+              wordTimings,
+            }, { headers: { ...Object.fromEntries(headers), "cache-control": "no-store" } });
+          }
           return new Response(audioBody(result.audio), {
             headers: {
               ...Object.fromEntries(headers),

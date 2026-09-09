@@ -1,4 +1,5 @@
 import type { VideoOrientation, VideoScene } from "../protocol/types.js";
+import type { SpeechWordTiming } from "../protocol/speech-timing.js";
 import type { VideoChatConversationTurn, VideoChatMode, VideoChatWelcomeOptions } from "../video-chat/types.js";
 import type { VideoStreamHandlerOptions } from "./video-stream-handler.js";
 import type { ResolvedMedia } from "./media-resolver.js";
@@ -29,6 +30,8 @@ interface VideoChatSpeechContext {
 interface VideoChatSpeechResult {
   audio: Uint8Array | ArrayBuffer;
   mediaType?: string;
+  /** Actual word boundaries measured against this audio, in seconds. */
+  wordTimings?: SpeechWordTiming[];
 }
 
 type VideoChatSpeechGenerator = (

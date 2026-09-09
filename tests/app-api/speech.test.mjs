@@ -17,12 +17,87 @@ test('speech uses fixed Eve auto-language MP3 contract and forwards abort signal
     assert.equal(init.headers.Authorization, `Bearer ${env.XAI_API_KEY}`);
     assert.deepEqual(JSON.parse(init.body), {
       text: 'Hello.', voice_id: 'eve', language: 'auto',
+      with_timestamps: true,
       output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 128000 },
     });
     return audio();
   });
   assert.equal(calls, 1);
   assert.deepEqual(result, { audio: new Uint8Array([73, 68, 51]), mediaType: 'audio/mpeg' });
+});
+
+const timedAudio = (text, overrides = {}) => Response.json({
+  audio: 'SUQz', content_type: 'audio/mpeg', duration: Array.from(text).length / 10,
+  audio_timestamps: {
+    graph_chars: Array.from(text),
+    graph_times: Array.from(text, (_, index) => [index / 10, (index + 1) / 10]),
+  },
+  ...overrides,
+});
+
+test('timestamped speech returns MP3 and word spans with punctuation and Unicode intact', async () => {
+  const result = await generateSpeech({ text: ' Hi,  café! 👋 ' }, env, async () => timedAudio('Hi,  café! 👋'));
+  assert.deepEqual(result, {
+    audio: new Uint8Array([73, 68, 51]), mediaType: 'audio/mpeg',
+    wordTimings: [
+      { text: 'Hi,', start: 0, end: 0.3 },
+      { text: 'café!', start: 0.5, end: 1 },
+      { text: '👋', start: 1.1, end: 1.2 },
+    ],
+  });
+});
+
+test('interpolated character spans use the complete written-token interval', async () => {
+  const result = await generateSpeech({ text: '$5 now' }, env, async () => timedAudio('$5 now', {
+    duration: 2,
+    audio_timestamps: {
+      graph_chars: ['$', '5', ' ', 'n', 'o', 'w'],
+      graph_times: [[0, 1], [0.3, 0.6], [1, 1], [1, 1.3], [1.3, 1.6], [1.6, 2]],
+    },
+  }));
+  assert.deepEqual(result.wordTimings, [{ text: '$5', start: 0, end: 1 }, { text: 'now', start: 1, end: 2 }]);
+});
+
+test('usable audio survives missing, mismatched, oversized or invalid alignment', async () => {
+  for (const audio_timestamps of [
+    undefined, null, {}, { graph_chars: ['H', 'i'], graph_times: [[0, 0.1]] },
+    { graph_chars: ['N', 'o'], graph_times: [[0, 0.1], [0.1, 0.2]] },
+    { graph_chars: ['H', 'i'], graph_times: [[-1, 0.1], [0.1, 0.2]] },
+    { graph_chars: ['H', 'i'], graph_times: [[0.2, 0.1], [0.1, 0.2]] },
+    { graph_chars: ['H', 'i'], graph_times: [[0, 0.1], [0.1, 1]] },
+    { graph_chars: Array(1001).fill('H'), graph_times: Array(1001).fill([0, 0.1]) },
+  ]) {
+    const result = await generateSpeech({ text: 'Hi' }, env, async () => timedAudio('Hi', { audio_timestamps }));
+    assert.deepEqual(result, { audio: new Uint8Array([73, 68, 51]), mediaType: 'audio/mpeg' });
+  }
+});
+
+test('a missing or invalid provider duration drops timing while preserving usable speech', async () => {
+  for (const duration of [undefined, null, 0, -1, '0.2', 301]) {
+    const result = await generateSpeech({ text: 'Hi' }, env, async () => timedAudio('Hi', { duration }));
+    assert.deepEqual(result, { audio: new Uint8Array([73, 68, 51]), mediaType: 'audio/mpeg' });
+  }
+});
+
+test('invalid JSON envelopes and non-MP3 or oversized decoded audio are rejected safely', async () => {
+  for (const overrides of [
+    { audio: '' }, { audio: 'not base64!' }, { audio: 'a===' }, { audio: null },
+    { content_type: 'audio/wav' }, { audio: Buffer.alloc(1024 * 1024 + 1).toString('base64') },
+  ]) {
+    await assert.rejects(generateSpeech({ text: 'Hi' }, env, async () => timedAudio('Hi', overrides)), { message: 'Speech is temporarily unavailable.' });
+  }
+});
+
+test('JSON transport has a separate bounded body and accepts exactly one MiB of decoded audio', async () => {
+  const result = await generateSpeech({ text: 'Hi' }, env, async () => timedAudio('Hi', { audio: Buffer.alloc(1024 * 1024).toString('base64') }));
+  assert.equal(result.audio.byteLength, 1024 * 1024);
+  let cancelled = false;
+  const stream = new ReadableStream({
+    pull(controller) { controller.enqueue(new Uint8Array(512 * 1024)); },
+    cancel() { cancelled = true; },
+  });
+  await assert.rejects(generateSpeech({ text: 'Hi' }, env, async () => new Response(stream, { headers: { 'content-type': 'application/json' } })));
+  assert.equal(cancelled, true);
 });
 test('missing key, empty, non-string, oversized input or prior cancellation never calls provider', async () => {
   let calls = 0;

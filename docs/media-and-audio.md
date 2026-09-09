@@ -6,6 +6,23 @@ VanillaSky keeps provider choice in the application. The chat runtime defines sm
 server callbacks, advertises only the capabilities you configure, and keeps
 all credentials out of React and the browser bundle.
 
+## Subtitle styles
+
+Settings → Watching offers **Classic** subtitles and **Word by word**. Word by word
+is the default. It displays short phrases and highlights the
+spoken word, with motion disabled when reduced motion is preferred. The style
+is remembered in this browser; hiding subtitles does not change the choice.
+During playback, both styles keep the complete transcript out of the way.
+**Show transcript** becomes available when the answer ends, even with subtitles off.
+Word captions hold their phrase between voice segments; muted or unavailable
+speech uses estimated reading time in the same style.
+
+The xAI speech adapter requests character timestamps with the audio and converts
+them to validated word intervals. Highlighting follows the same audio clock as
+playback, including pauses and replay. Supported browser voices provide native
+word boundaries. Audio without usable alignment uses estimated pacing. Requesting
+xAI timestamps includes a provider alignment pass, which can add preparation time.
+
 ## AI-first video answers
 
 The default chat displays the real chapter template immediately, then prepares

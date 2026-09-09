@@ -15,18 +15,18 @@ test(`ending groups its label with cards and preserves the full transcript (${vi
   const gap = card!.y - label!.y - label!.height;
   expect(gap).toBeGreaterThanOrEqual(0);
   expect(gap).toBeLessThanOrEqual(36);
-  await expect(page.getByRole('region', { name: 'Expanded subtitles' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Transcript', exact: true })).toHaveCount(0);
   const transcript = page.getByRole('button', { name: 'Show transcript', exact: true });
   await expect(transcript).toBeVisible();
   await expect(page.locator('.line')).toHaveCount(0);
   expect((await transcript.boundingBox())!.height).toBeLessThanOrEqual(44);
   await transcript.click();
-  const expanded = page.getByRole('region', { name: 'Expanded subtitles' });
+  const expanded = page.getByRole('region', { name: 'Transcript', exact: true });
   await expect(expanded.locator('p').first()).toHaveText('Sunflowers follow a changing sky.');
   await expect(expanded.getByText('Sunflowers follow a changing sky.', { exact: true })).toHaveCount(1);
-  await expect(page.getByRole('region', { name: 'Expanded subtitles' })).toContainText('early pollinators');
+  await expect(page.getByRole('region', { name: 'Transcript', exact: true })).toContainText('early pollinators');
   await page.getByRole('button', { name: 'Play again', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Expanded subtitles' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Transcript', exact: true })).toHaveCount(0);
   await expect(page.locator('.line')).toContainText('Sunflowers turn');
 });
 }

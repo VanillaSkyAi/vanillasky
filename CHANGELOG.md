@@ -18,6 +18,11 @@ of previously published npm releases.
 - Request subtle environmental and action sounds from generated footage while
   explicitly excluding voices and music. Only footage marked as ambient audio
   is audible in chat; stock fallbacks remain silent.
+- Default to word-by-word subtitles with short phrases, a warm active-word
+  highlight and reduced-motion support. Remember the chosen style, including
+  Classic, without switching styles between speech segments. Keep the complete
+  transcript available only after playback. Align generated speech to xAI's
+  timestamps and use native word boundaries for supported browser voices.
 
 - Support the first production deployment to an empty Pages project while keeping
   rollback protection for existing deployments. Document initial database,

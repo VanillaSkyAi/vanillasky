@@ -1048,3 +1048,62 @@
 }
 
 @media (hover: none) { .vanillasky-video-chat .rail-arrows { display: none; } }
+
+/* A compact native radio group keeps subtitle style separate from visibility. */
+.vanillasky-video-chat .caption-style-options {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 4px;
+  margin: 5px 0 10px;
+  padding: 4px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 14%);
+}
+.vanillasky-video-chat .settings .caption-style-options label { min-height: 40px; justify-content: center; border-radius: 8px; }
+.vanillasky-video-chat .settings .caption-style-options input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.vanillasky-video-chat .settings .caption-style-options label > span { padding: 8px 5px; color: var(--vs-fg-muted); font-size: 12px; font-weight: 500; pointer-events: none; }
+.vanillasky-video-chat .caption-style-options label:has(input:checked) { background: rgb(242 181 139 / 12%); box-shadow: inset 0 0 0 1px rgb(242 181 139 / 18%); }
+.vanillasky-video-chat .settings .caption-style-options input:checked + span { color: #f2c6a8; }
+.vanillasky-video-chat .caption-style-options label:has(input:focus-visible) { outline: 2px solid #f2b58b; outline-offset: 2px; }
+.vanillasky-video-chat .caption-style-options[data-disabled="true"] { opacity: .45; }
+.vanillasky-video-chat .caption-style-options[data-disabled="true"] :is(label, input) { cursor: default; }
+
+/* Word transforms never change the reading measure or move the caption controls. */
+.vanillasky-video-chat .line-row[data-caption-style="words"][data-expanded="false"] {
+  justify-content: center;
+  padding: 8px 14px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.vanillasky-video-chat .line.word-captions {
+  width: 100%;
+  min-height: 2.5em;
+  display: block;
+  align-content: center;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(25px, 2.6vw, 38px);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+  text-align: center;
+  text-wrap: balance;
+  text-shadow: 0 2px 2px rgb(0 0 0 / 95%), 0 0 8px rgb(0 0 0 / 85%), 0 4px 20px rgb(0 0 0 / 75%);
+  -webkit-text-stroke: .5px rgb(0 0 0 / 38%);
+  paint-order: stroke fill;
+}
+.vanillasky-video-chat .caption-word { display: inline-block; max-width: 100%; vertical-align: baseline; overflow-wrap: anywhere; transform-origin: center 70%; }
+.vanillasky-video-chat .caption-word[data-active="true"] { color: #f2b58b; animation: vanillasky-caption-word 180ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes vanillasky-caption-word { from { transform: scale(.94) translateY(1px); } to { transform: scale(1) translateY(0); } }
+@media (pointer: coarse) { .vanillasky-video-chat .settings .caption-style-options label { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .vanillasky-video-chat .caption-word[data-active="true"] { animation: none; } }
+@media (prefers-contrast: more) { .vanillasky-video-chat .line-row[data-caption-style="words"][data-expanded="false"] { background: #080b16; } }
+@media (forced-colors: active) {
+  .vanillasky-video-chat .caption-word[data-active="true"] { color: HighlightText; background: Highlight; }
+  .vanillasky-video-chat .line.word-captions { text-shadow: none; -webkit-text-stroke: 0; }
+  .vanillasky-video-chat .caption-style-options label:has(input:checked) { outline: 1px solid Highlight; }
+}

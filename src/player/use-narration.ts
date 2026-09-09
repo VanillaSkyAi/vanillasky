@@ -28,7 +28,7 @@ export interface NarrationVoice {
   supportsOffsets?: boolean;
   /** Active prepared audio time in seconds, including any requested seek offset. */
   getCurrentTime?: () => number | undefined;
-  speak(text: string, options: { offsetSeconds?: number; signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void }): void | Promise<void>;
+  speak(text: string, options: { offsetSeconds?: number; signal: AbortSignal; onStart?: (source?: "browser" | "generated") => void; onBoundary?: (charIndex: number) => void; onPlaybackSource?: (source: "browser" | "generated") => void }): void | Promise<void>;
 }
 
 export interface NarrationOptions {

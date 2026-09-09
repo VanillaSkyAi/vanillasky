@@ -18,6 +18,43 @@ function plannedResponse(opening?: string, subject?: string) {
 }
 
 describe("createVideoChatHandler", () => {
+  it("returns only validated word timings with private base64 audio", async () => {
+    const create = await loadCreateVideoChatHandler();
+    const handler = create({
+      authorize: "none", streamText: plannedResponse(), generateText: async () => "",
+      generateSpeech: async () => ({
+        audio: new Uint8Array([99, 1, 2, 3, 99]).subarray(1, 4), mediaType: "audio/mpeg",
+        wordTimings: [{ text: "Hello!", start: 0.1, end: 0.7, metadata: "private" }],
+        provider: { trace: "private" },
+      }),
+    });
+    const speech = await handler(new Request("https://app.example/api?action=speech", {
+      method: "POST", body: JSON.stringify({ text: "Hello!" }),
+    }));
+    expect(speech.status).toBe(200);
+    expect(speech.headers.get("content-type")).toContain("application/json");
+    expect(speech.headers.get("cache-control")).toBe("no-store");
+    expect(await speech.json()).toEqual({
+      audio: "AQID", mediaType: "audio/mpeg",
+      wordTimings: [{ text: "Hello!", start: 0.1, end: 0.7 }],
+    });
+  });
+
+  it.each([undefined, [], [{ text: "Wrong", start: 0, end: 1 }]])("keeps raw audio when word alignment is unavailable or invalid", async wordTimings => {
+    const create = await loadCreateVideoChatHandler();
+    const handler = create({
+      authorize: "none", streamText: plannedResponse(), generateText: async () => "",
+      generateSpeech: async () => ({ audio: new Uint8Array([1, 2, 3]).buffer, wordTimings }),
+    });
+    const speech = await handler(new Request("https://app.example/api?action=speech", {
+      method: "POST", body: JSON.stringify({ text: "Hello!" }),
+    }));
+    expect(speech.status).toBe(200);
+    expect(speech.headers.get("content-type")).toBe("audio/mpeg");
+    expect(speech.headers.get("cache-control")).toBe("no-store");
+    expect([...new Uint8Array(await speech.arrayBuffer())]).toEqual([1, 2, 3]);
+  });
+
   it("keeps follow-up cards concise without cutting questions mid-sentence", async () => {
     const create = await loadCreateVideoChatHandler();
     const searched: string[] = [];
