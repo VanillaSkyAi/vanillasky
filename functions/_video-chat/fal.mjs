@@ -4,12 +4,13 @@ import { compileShotPrompt } from './shot-direction.mjs';
 export const FAL_MODEL = 'minimax/h3-max-turbo/text-to-video';
 const SUBMIT = `https://queue.fal.run/${FAL_MODEL}`;
 const DAY = 86400000;
+const PUBLIC_LIFETIME_CLIPS = 10;
 // Keep historical reservations and their paid attempts in every public total.
 const PUBLIC_ROWS = `(SELECT actor, created, attempts FROM video_chat_fal_previews
  UNION ALL SELECT actor, created, attempts FROM video_chat_fal_answers)`;
 const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_answers(id, actor, created)
 SELECT ?, ?, ? WHERE
- (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < 5
+ (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}
  AND (SELECT COUNT(*) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) < ?
  AND (SELECT COUNT(*) FROM ${PUBLIC_ROWS}) < ?`;
 
@@ -38,7 +39,7 @@ export async function availableFalClips(env, actor, { owner = false, now = Date.
     if (!row || !['attempts', 'daily', 'total'].every(key => Number.isSafeInteger(row[key]) && row[key] >= 0))
       return { limit: 0, reason: 'quota_unavailable' };
     const globalLimit = row.daily >= cap(env.VIDEO_CHAT_FAL_DAILY_LIMIT, 10) || row.total >= cap(env.VIDEO_CHAT_FAL_TOTAL_LIMIT, 100);
-    const limit = globalLimit ? 0 : Math.max(0, Math.min(3, 5 - row.attempts));
+    const limit = globalLimit ? 0 : Math.max(0, PUBLIC_LIFETIME_CLIPS - row.attempts);
     return { limit, reason: limit ? null : globalLimit ? 'preview_limit' : 'user_limit' };
   } catch { return { limit: 0, reason: 'quota_unavailable' }; }
   finally { clearTimeout(timer); }
@@ -65,8 +66,8 @@ export async function reserveOwnerFalAnswer(db, actor) {
 }
 // The migration also guards older in-flight writers against this lifetime cap.
 const ATTEMPT_SQL = `UPDATE video_chat_fal_answers SET attempts = attempts + 1
-WHERE id = ? AND actor = ? AND attempts < 3
-AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < 5`;
+WHERE id = ? AND actor = ? AND attempts < ${PUBLIC_LIFETIME_CLIPS}
+AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}`;
 const PRIOR_ATTEMPT_SQL = ATTEMPT_SQL.replace('UPDATE video_chat_fal_answers', 'UPDATE video_chat_fal_previews');
 const OWNER_ATTEMPT_SQL = `UPDATE video_chat_owner_fal_previews SET attempts = attempts + 1
 WHERE id = ? AND actor = ? AND attempts < 5`;

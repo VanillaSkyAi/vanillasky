@@ -22,6 +22,7 @@ function db() {
   );
   sql.exec(readFileSync(new URL("../../migrations/0002_fal_preview.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0004_public_fal_answers.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0005_double_public_fal_allowance.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0003_owner_fal_previews.sql", import.meta.url), "utf8"));
   return {
     prepare(query) {
@@ -60,6 +61,10 @@ const live = () => ({
   VIDEO_CHAT_QUOTA_SALT: "test-salt-that-is-at-least-32-characters",
   VIDEO_CHAT_QUOTAS: db(),
 });
+async function seedPublicAttempts(database, actor, attempts = 10) {
+  await database.prepare("INSERT INTO video_chat_fal_answers(id, actor, created, attempts) VALUES (?, ?, ?, ?)")
+    .bind("spent", actor, Date.now(), attempts).run();
+}
 test("cross-origin, missing origin, huge body and paid modes never call the provider", async () => {
   let calls = 0;
   const fetcher = () => {
@@ -435,19 +440,19 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
     assert.match(outputs[1],/v3.fal.media/);
   } else {
   assert.equal(diagnostics.length, 1);
-  assert.deepEqual(submissionsPerAnswer,[3,2,0]);
+  assert.deepEqual(submissionsPerAnswer,[5,5,0]);
   assert.equal(diagnostics[0][0], "video-chat.media-fallback");
   const { requestId, ...event } = diagnostics[0][1];
   assert.match(requestId, /^[a-f0-9-]{36}$/);
   assert.deepEqual(event, { reason: "user_limit", stage: "planning_availability" });
   assert.doesNotMatch(JSON.stringify(diagnostics), /test-fal-secret|192\.0\.2\.1|Why does the Moon/);
-  assert.equal(submissions,5);
+  assert.equal(submissions,10);
   assert.match(outputs[0],/v3.fal.media/);
   assert.match(outputs[1],/v3.fal.media/);
   assert.doesNotMatch(outputs[2],/v3.fal.media/);
   // Unsupported stock intent cannot inherit an unrelated topic clip.
   assert.doesNotMatch(outputs[1],/videos.pexels.com/);
-  assert.match(outputs[1],/Some visuals were replaced so your response can continue/);
+  assert.match(outputs[2],/Some visuals were replaced so your response can continue/);
   }
   for (const output of outputs) {
     assert.match(output,/response.complete/);
@@ -696,7 +701,7 @@ test('dynamic suggestion subjects use admitted bounded Pexels search even withou
 test('exhausted personal AI allowance resolves to stock before planning without new fal reservations', async () => {
  const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock'};
  const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
- await env.VIDEO_CHAT_QUOTAS.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('spent',actor,Date.now(),5).run();
+ await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
  const shot={title:'Ocean waves',narration:'Waves break as they reach shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};
  let stockCalls=0;
  const response=await handleVideoChatRequest({request:request('response',{prompt:'Explain waves',mode:'cinematic'}),env,fetcher:async(url)=>{
@@ -726,14 +731,14 @@ for (const scenario of ['personal-race','clip-race','global-limit','ledger-error
    const statement=prepare(query);
    if(!query.startsWith('UPDATE video_chat_fal_answers')) return statement;
    return {bind(...args){return {async run(){
-    if(!raced){raced=true;await prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('parallel-clips',actor,Date.now(),5).run();}
+    if(!raced){raced=true;await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);}
     return statement.bind(...args).run();
    }}}};
   };
  }
  const response=await handleVideoChatRequest({request:request('response',{prompt:'Explain waves',mode:'cinematic'}),env,fetcher:async(url)=>{
   if(url==='https://api.anthropic.com/v1/messages') {
-   if(scenario==='personal-race') await prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('other-request',actor,Date.now(),5).run();
+   if(scenario==='personal-race') await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
    return new Response(`data: ${JSON.stringify({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify({type:'answer',opening:'Watch waves reach the shore',subject:'ocean waves',development:'',ending:shot})}})}\n\n`);
   }
   if(url.startsWith('https://queue.fal.run/')) {generated++;return new Response('',{status:503});}
@@ -784,7 +789,7 @@ for (const raced of [false,true]) test(`FAL-only exhaustion retains chapter reco
   t.mock.method(console,'info',(...event)=>diagnostics.push(event));
   const env={...live(),PEXELS_API_KEY:undefined,VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal'};
   const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
-  const exhaust=()=>env.VIDEO_CHAT_QUOTAS.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('spent',actor,Date.now(),5).run();
+  const exhaust=()=>seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
   if (!raced) await exhaust();
   let plans=0;
   const shot={narration:'Waves break in shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};

@@ -8,7 +8,10 @@ function db({ migrate = true } = {}) {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync(new URL('../../migrations/0003_owner_fal_previews.sql', import.meta.url), 'utf8'));
   sql.exec(readFileSync(new URL('../../migrations/0002_fal_preview.sql', import.meta.url), 'utf8'));
-  if (migrate) sql.exec(readFileSync(new URL('../../migrations/0004_public_fal_answers.sql', import.meta.url), 'utf8'));
+  if (migrate) {
+    sql.exec(readFileSync(new URL('../../migrations/0004_public_fal_answers.sql', import.meta.url), 'utf8'));
+    sql.exec(readFileSync(new URL('../../migrations/0005_double_public_fal_allowance.sql', import.meta.url), 'utf8'));
+  }
   return {
     sql,
     prepare(query) { return { bind(...args) { return { async first() { return sql.prepare(query).get(...args); }, async run() {
@@ -190,7 +193,7 @@ test('15 second deadline and 3 second cancellation timeout bound queue work', as
   t.mock.timers.tick(3000);
   assert.deepEqual(await result, { media: null, reason: 'unavailable' });
 });
-test('one public answer allows exactly three concurrent clip attempts, all failures remain counted', async () => {
+test('one public answer can use all ten concurrent clip attempts, and all failures remain counted', async () => {
   const configured = env();
   const previewId = await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor);
   assert.match(previewId, /^[a-f0-9-]{36}$/);
@@ -199,10 +202,10 @@ test('one public answer allows exactly three concurrent clip attempts, all failu
   const results = await Promise.all(Array.from({ length: 25 }, () => generateRaw('Ocean', {
     env: configured, actor, previewId, fetcher,
   })));
-  assert.equal(submissions, 3);
-  assert.equal(results.filter(result => result.reason === 'limit').length, 22);
-  assert.equal(configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT attempts FROM video_chat_fal_answers WHERE id = ?').get(previewId).attempts, 3);
-  assert.ok(await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor));
+  assert.equal(submissions, 10);
+  assert.equal(results.filter(result => result.reason === 'limit').length, 15);
+  assert.equal(configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT attempts FROM video_chat_fal_answers WHERE id = ?').get(previewId).attempts, 10);
+  assert.equal(await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor), null);
 });
 test('missing, forged or another actor answer IDs cannot submit or consume another allowance', async () => {
   const configured = env();
@@ -216,34 +219,34 @@ test('missing, forged or another actor answer IDs cannot submit or consume anoth
   assert.equal(submissions, 0);
   assert.equal(configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT attempts FROM video_chat_fal_answers WHERE id = ?').get(previewId).attempts, 0);
 });
-test('separate actors receive five lifetime attempts split across answers, never more than three each', async () => {
+test('separate actors can spend all ten lifetime attempts in one answer', async () => {
   const configured = env();
   let calls = 0;
   const fetcher = async () => { calls++; throw Error('uncertain submission'); };
   for (const currentActor of [actor, 'b'.repeat(64)]) {
-    for (const allowance of [3, 2]) {
+    for (const allowance of [10]) {
       const previewId = await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, currentActor);
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 12; i++) {
         const result = await generateRaw('Ocean', { env: configured, actor: currentActor, previewId, fetcher });
         assert.equal(result.reason, i < allowance ? 'unavailable' : 'limit');
       }
     }
     assert.equal(await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, currentActor), null);
   }
-  assert.equal(calls, 10);
+  assert.equal(calls, 20);
 });
-test('concurrent answers share an atomic five-attempt lifetime ceiling', async () => {
+test('concurrent answers share an atomic ten-attempt lifetime ceiling', async () => {
   const configured = env();
-  const ids = await Promise.all(Array.from({ length: 6 }, () => reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor)));
+  const ids = await Promise.all(Array.from({ length: 12 }, () => reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor)));
   let calls = 0;
   const fetcher = async () => { calls++; throw Error('uncertain submission'); };
   await Promise.all(ids.flatMap(previewId => Array.from({ length: 10 }, () => generateRaw('Ocean', {
     env: configured, actor, previewId, fetcher,
   }))));
-  assert.equal(calls, 5);
+  assert.equal(calls, 10);
   const rows = configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT attempts FROM video_chat_fal_answers').all();
-  assert.equal(rows.reduce((total, row) => total + row.attempts, 0), 5);
-  assert.ok(rows.every(row => row.attempts <= 3));
+  assert.equal(rows.reduce((total, row) => total + row.attempts, 0), 10);
+  assert.ok(rows.every(row => row.attempts <= 10));
 });
 test('additive migration preserves historical usage and missing migration fails closed', async () => {
   const database = db({ migrate: false });
@@ -258,7 +261,8 @@ test('additive migration preserves historical usage and missing migration fails 
   assert.equal(result.reason, 'unavailable');
   assert.equal(calls, 0);
   database.sql.exec(readFileSync(new URL('../../migrations/0004_public_fal_answers.sql', import.meta.url), 'utf8'));
-  assert.equal(await reserveFalAnswer(database, actor), null);
+  database.sql.exec(readFileSync(new URL('../../migrations/0005_double_public_fal_allowance.sql', import.meta.url), 'utf8'));
+  assert.ok(await reserveFalAnswer(database, actor));
   assert.equal(database.sql.prepare('SELECT attempts FROM video_chat_fal_previews WHERE id = ?').get(previewId).attempts, 5);
 });
 test('migration retains previous paid attempts and guards older in-flight writers', async () => {
@@ -270,7 +274,7 @@ test('migration retains previous paid attempts and guards older in-flight writer
   let calls = 0;
   const fetcher = async () => { calls++; throw Error('uncertain submission'); };
   await Promise.all(Array.from({ length: 10 }, () => generateRaw('Ocean', { env: configured, actor, previewId, fetcher })));
-  assert.equal(calls, 3);
+  assert.equal(calls, 8);
   assert.equal(database.sql.prepare('UPDATE video_chat_fal_previews SET attempts = attempts + 1 WHERE id = ? AND attempts < 5').run(previousId).changes, 0);
   assert.equal(await reserveFalAnswer(database, actor), null);
   assert.equal(database.sql.prepare('SELECT attempts FROM video_chat_fal_previews WHERE id = ?').get(previousId).attempts, 2);
@@ -283,17 +287,17 @@ test('previous in-flight reservations remain usable but consume the same lifetim
   let calls = 0;
   const fetcher = async () => { calls++; throw Error('uncertain submission'); };
   assert.equal((await generateRaw('Ocean', { env: configured, actor, previewId: previousId, fetcher })).reason, 'unavailable');
-  assert.equal((await generateRaw('Ocean', { env: configured, actor, previewId: previousId, fetcher })).reason, 'limit');
+  assert.equal((await generateRaw('Ocean', { env: configured, actor, previewId: previousId, fetcher })).reason, 'unavailable');
   const previewId = await reserveFalAnswer(database, actor);
   await Promise.all(Array.from({ length: 10 }, () => generateRaw('Ocean', { env: configured, actor, previewId, fetcher })));
-  assert.equal(calls, 3);
+  assert.equal(calls, 8);
 });
 test('historical answers count toward global caps, including older overlapping inserts', async () => {
   const database = db();
   const now = Date.UTC(2026, 8, 6, 12);
   database.sql.prepare('INSERT INTO video_chat_fal_previews(id, actor, created, attempts) VALUES (?, ?, ?, 5)').run(crypto.randomUUID(), actor, now);
-  assert.equal(await reserveFalAnswer(database, actor, {}, now), null);
-  for (let i = 0; i < 9; i++) assert.ok(await reserveFalAnswer(database, `actor-${i}`, {}, now));
+  assert.ok(await reserveFalAnswer(database, actor, {}, now));
+  for (let i = 0; i < 8; i++) assert.ok(await reserveFalAnswer(database, `actor-${i}`, {}, now));
   assert.equal(await reserveFalAnswer(database, 'another', {}, now), null);
   assert.equal(database.sql.prepare('INSERT INTO video_chat_fal_previews(id, actor, created) VALUES (?, ?, ?)').run(crypto.randomUUID(), 'old-writer', now).changes, 0);
 });
@@ -463,11 +467,12 @@ test('provider payload carries bounded shot direction, visual look and orientati
 
  test('planning allowance is read-only, reflects historical attempts and global caps', async () => {
   const configured = env();
-  assert.deepEqual(await availableFalClips(configured, actor), { limit: 3, reason: null });
+  assert.deepEqual(await availableFalClips(configured, actor), { limit: 10, reason: null });
   assert.equal(configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT COUNT(*) AS n FROM video_chat_fal_answers').get().n, 0);
-  configured.VIDEO_CHAT_QUOTAS.sql.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').run('old', actor, Date.now(), 4);
+  configured.VIDEO_CHAT_QUOTAS.sql.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').run('old', actor, Date.now(), 5);
+  configured.VIDEO_CHAT_QUOTAS.sql.prepare('INSERT INTO video_chat_fal_answers VALUES (?, ?, ?, ?)').run('new', actor, Date.now(), 4);
   assert.deepEqual(await availableFalClips(configured, actor), { limit: 1, reason: null });
-  configured.VIDEO_CHAT_QUOTAS.sql.prepare('UPDATE video_chat_fal_previews SET attempts=5').run();
+  configured.VIDEO_CHAT_QUOTAS.sql.prepare('UPDATE video_chat_fal_answers SET attempts=5 WHERE id=?').run('new');
   assert.deepEqual(await availableFalClips(configured, actor), { limit: 0, reason: 'user_limit' });
   assert.deepEqual(await availableFalClips(configured, actor, { owner: true }), { limit: 5, reason: null });
   assert.equal((await availableFalClips({ ...env(), VIDEO_CHAT_FAL_DAILY_LIMIT: '0' }, actor)).limit, 0);
