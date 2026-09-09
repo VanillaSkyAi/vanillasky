@@ -5,6 +5,14 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Replace the public pilot's separate five-lifetime and three-per-answer limits
+  with one allowance of ten generated clips per visitor. Replace the permanent
+  site-wide answer cap with a daily pool of 200 generated clips, measured by
+  actual clip attempts. When either allowance is exhausted, use Pexels and show
+  a subtle, dismissible notice.
+- Preserve historical spending records and enforce the daily pool across UTC
+  midnight and overlapping Worker versions. Continue remaining shots with Pexels
+  after the last AI credit, announcing the switch before that footage arrives.
 - Keep public AI clip generation working when quota accounting triggers also
   write usage records, while preserving database-enforced spending limits.
 

@@ -579,6 +579,38 @@ describe("useVideoChat", () => {
     expect(result.current.shownTurn?.mode).toBe(expected);
   });
 
+  it("records a credit fallback separately from an intentional Pexels choice", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = async (input, init) => {
+      if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return base(input, init);
+      const response = responseStream("credit-fallback", [scene("fallback", "Pexels", "Using stock footage")]);
+      response.headers.set("x-vanillasky-resolved-video-mode", "pexels");
+      response.headers.set("x-vanillasky-video-fallback", "credits");
+      return response;
+    };
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "cinematic" }));
+    await act(async () => { await result.current.ask("Explain a topic"); });
+    expect(result.current.shownTurn).toMatchObject({ mode: "pexels", fallback: "credits" });
+  });
+
+  it("records credit exhaustion announced after a cinematic response starts", async () => {
+    const { useVideoChat } = await import("../src/react");
+    const base = videoChatFetcher();
+    const fetcher: typeof fetch = async (input, init) => {
+      if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return base(input, init);
+      const response = responseStream("late-credits", [scene("stock", "Pexels", "The answer continues.")]);
+      const events = (await response.text()).split("\n\n").filter(block => block && !block.includes("[DONE]")).map(block => JSON.parse(block.slice(6)));
+      events.splice(2, 0, { type: "response.warning", data: { warning: { code: "credits_exhausted", category: "media", message: "Credits exhausted", recoverable: true } } });
+      const body = events.map((event, sequence) => `data: ${JSON.stringify({ ...event, protocolVersion: "0.6", runId: "late-credits", eventId: `late-credits:${sequence}`, sequence })}\n\n`).join("") + "data: [DONE]\n\n";
+      return new Response(body, { headers: response.headers });
+    };
+    const { result } = renderHook(() => useVideoChat({ fetcher, voice: fakeVoice(), mode: "cinematic" }));
+    await act(async () => { await result.current.ask("Explain a topic"); });
+    expect(result.current.shownTurn).toMatchObject({ mode: "cinematic", fallback: "credits" });
+    expect(result.current.warnings).toEqual([]);
+  });
+
   it("preserves the requested mode while capabilities are still loading", async () => {
     const { useVideoChat } = await import("../src/react");
     let releaseCapabilities!: (response: Response) => void;

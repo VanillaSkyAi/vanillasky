@@ -69,7 +69,7 @@ export function createVideo(
   });
   const startedAt = monotonicNow();
   let timeToFirstSceneMs: number | undefined;
-  const { sink: lifecycle, settle: settleProviderLifecycle } = createProviderLifecycle();
+  const { sink: lifecycle, drainWarnings, settle: settleProviderLifecycle } = createProviderLifecycle();
   const reportedErrors = new WeakSet<Error>();
   const reportError = (error: Error) => {
     if (reportedErrors.has(error)) return;
@@ -153,6 +153,11 @@ export function createVideo(
       const context = { request, systemPrompt, initialConfig, signal: controller.signal };
       attachGenerationLifecycleSink(context, lifecycle);
       for await (const untrustedPart of options.generate(context)) {
+        // Publish recovery/credit notices before the footage they explain,
+        // without waiting for later media or the full response to finish.
+        for (const warning of drainWarnings()) {
+          yield emit(events.create("response.warning", { warning }));
+        }
         if (plannedAudio) {
           yield emit(events.create("audio.set", { audio: plannedAudio }));
           plannedAudio = undefined;

@@ -22,6 +22,8 @@ function db() {
   );
   sql.exec(readFileSync(new URL("../../migrations/0002_fal_preview.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0004_public_fal_answers.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0005_double_public_fal_allowance.sql", import.meta.url), "utf8"));
+  sql.exec(readFileSync(new URL("../../migrations/0006_daily_public_clip_budget.sql", import.meta.url), "utf8"));
   sql.exec(readFileSync(new URL("../../migrations/0003_owner_fal_previews.sql", import.meta.url), "utf8"));
   return {
     prepare(query) {
@@ -60,6 +62,10 @@ const live = () => ({
   VIDEO_CHAT_QUOTA_SALT: "test-salt-that-is-at-least-32-characters",
   VIDEO_CHAT_QUOTAS: db(),
 });
+async function seedPublicAttempts(database, actor, attempts = 10) {
+  await database.prepare("INSERT INTO video_chat_fal_reservations(id, actor, created, attempts) VALUES (?, ?, ?, ?)")
+    .bind("spent", actor, Date.now(), attempts).run();
+}
 test("cross-origin, missing origin, huge body and paid modes never call the provider", async () => {
   let calls = 0;
   const fetcher = () => {
@@ -425,7 +431,7 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
   assert.doesNotMatch(JSON.stringify(plannerLogs), /test-fal-secret|192\.0\.2\.1|Why does the Moon|v3\.fal\.media/);
   const ownerAllowance = ['owner','local'].includes(identity);
   const ownerRows = await env.VIDEO_CHAT_QUOTAS.prepare('SELECT COUNT(*) AS count FROM video_chat_owner_fal_previews').bind().first();
-  const publicRows = await env.VIDEO_CHAT_QUOTAS.prepare('SELECT COUNT(*) AS count FROM video_chat_fal_answers').bind().first();
+  const publicRows = await env.VIDEO_CHAT_QUOTAS.prepare('SELECT COUNT(*) AS count FROM video_chat_fal_reservations').bind().first();
   assert.equal(ownerRows.count, ownerAllowance ? 3 : 0);
   assert.equal(publicRows.count, ownerAllowance ? 0 : 2);
   if (ownerAllowance) {
@@ -435,19 +441,19 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
     assert.match(outputs[1],/v3.fal.media/);
   } else {
   assert.equal(diagnostics.length, 1);
-  assert.deepEqual(submissionsPerAnswer,[3,2,0]);
+  assert.deepEqual(submissionsPerAnswer,[5,5,0]);
   assert.equal(diagnostics[0][0], "video-chat.media-fallback");
   const { requestId, ...event } = diagnostics[0][1];
   assert.match(requestId, /^[a-f0-9-]{36}$/);
   assert.deepEqual(event, { reason: "user_limit", stage: "planning_availability" });
   assert.doesNotMatch(JSON.stringify(diagnostics), /test-fal-secret|192\.0\.2\.1|Why does the Moon/);
-  assert.equal(submissions,5);
+  assert.equal(submissions,10);
   assert.match(outputs[0],/v3.fal.media/);
   assert.match(outputs[1],/v3.fal.media/);
   assert.doesNotMatch(outputs[2],/v3.fal.media/);
   // Unsupported stock intent cannot inherit an unrelated topic clip.
   assert.doesNotMatch(outputs[1],/videos.pexels.com/);
-  assert.match(outputs[1],/Some visuals were replaced so your response can continue/);
+  assert.match(outputs[2],/Some visuals were replaced so your response can continue/);
   }
   for (const output of outputs) {
     assert.match(output,/response.complete/);
@@ -696,7 +702,7 @@ test('dynamic suggestion subjects use admitted bounded Pexels search even withou
 test('exhausted personal AI allowance resolves to stock before planning without new fal reservations', async () => {
  const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock'};
  const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
- await env.VIDEO_CHAT_QUOTAS.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('spent',actor,Date.now(),5).run();
+ await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
  const shot={title:'Ocean waves',narration:'Waves break as they reach shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};
  let stockCalls=0;
  const response=await handleVideoChatRequest({request:request('response',{prompt:'Explain waves',mode:'cinematic'}),env,fetcher:async(url)=>{
@@ -708,41 +714,83 @@ test('exhausted personal AI allowance resolves to stock before planning without 
   return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});
  }});
  const output=await response.text();assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),'pexels');assert.match(output,/videos.pexels.com/);assert.equal(stockCalls,1);
+ assert.equal(response.headers.get('x-vanillasky-video-fallback'),'credits');
 });
 
-for (const scenario of ['personal-race','clip-race','global-limit','ledger-error','provider-error']) test(`AI fallback is limited to confirmed personal exhaustion: ${scenario}`, async () => {
- const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock',...(scenario==='global-limit'?{VIDEO_CHAT_FAL_DAILY_LIMIT:'0'}:{})};
+test('an answer spends its last AI credit then continues every remaining shot with Pexels', async () => {
+ const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock'};
+ const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
+ await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS,actor,9);
+ const shot=narration=>({title:'Ocean waves',narration,subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'});
+ const records=[
+  {type:'answer',opening:'Watch waves reach the shore',subject:'ocean waves',development:'Water rises and breaks',ending:shot('Waves finally reach the shore.')},
+  {type:'shot',...shot('Water rises into waves.')},
+  {type:'shot',...shot('Waves break in shallow water.')},
+ ];
+ let generated=0,stock=0;
+ const response=await handleVideoChatRequest({request:request('response',{prompt:'Explain ocean waves',mode:'cinematic'}),env,fetcher:async(url)=>{
+  if(url==='https://api.anthropic.com/v1/messages') return new Response(records.map(record=>`data: ${JSON.stringify({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify(record)+'\n'}})}\n\n`).join(''));
+  if(url==='https://queue.fal.run/minimax/h3-max-turbo/text-to-video') {
+   generated++;
+   return Response.json({request_id:'test',status_url:'https://queue.fal.run/status',response_url:'https://queue.fal.run/result',cancel_url:'https://queue.fal.run/cancel'});
+  }
+  if(url==='https://queue.fal.run/status') return Response.json({status:'COMPLETED'});
+  if(url==='https://queue.fal.run/result') return Response.json({video:{url:'https://v3.fal.media/files/test.mp4'}});
+  assert.match(url,/api.pexels.com/);stock++;
+  return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});
+ }});
+ const events=[];
+ for await(const event of decodeVideoSse(response.body)) events.push(event);
+ const scenes=events.filter(event=>event.type==='scene.add').map(event=>event.data.scene);
+ assert.equal(response.status,200);
+ assert.equal(generated,1);
+ assert.equal(stock,2);
+ assert.equal(scenes.length,3);
+ assert.equal(scenes.filter(scene=>scene.variables.mediaUrl?.startsWith('https://v3.fal.media/')).length,1);
+ assert.equal(scenes.filter(scene=>scene.variables.mediaUrl?.startsWith('https://videos.pexels.com/')).length,2);
+ assert.equal(events.filter(event=>event.type==='response.warning'&&event.data.warning.code==='credits_exhausted').length,1);
+ const noticeIndex=events.findIndex(event=>event.type==='response.warning'&&event.data.warning.code==='credits_exhausted');
+ const firstStockIndex=events.findIndex(event=>event.type==='scene.add'&&event.data.scene.variables.mediaUrl?.startsWith('https://videos.pexels.com/'));
+ assert.ok(noticeIndex<firstStockIndex,'credit exhaustion must reach the browser before fallback footage');
+ assert.equal(events.at(-1).type,'response.complete');
+});
+
+for (const scenario of ['personal-race','clip-race','global-limit','ledger-error','provider-error']) test(`AI fallback is limited to confirmed credit exhaustion: ${scenario}`, async () => {
+ const env={...live(),VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal',PEXELS_API_KEY:'test-stock',...(scenario==='global-limit'?{VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT:'0'}:{})};
  const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
  const shot={title:'Ocean waves',narration:'Waves break as they reach shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};
  let stock=0, generated=0;
  const prepare=env.VIDEO_CHAT_QUOTAS.prepare.bind(env.VIDEO_CHAT_QUOTAS);
  if(scenario==='ledger-error') env.VIDEO_CHAT_QUOTAS.prepare=query=>{
-  if(query.startsWith('INSERT INTO video_chat_fal_answers')) throw Error('ledger unavailable');
+  if(query.startsWith('INSERT INTO video_chat_fal_reservations')) throw Error('ledger unavailable');
   return prepare(query);
  };
  if(scenario==='clip-race') {
   let raced=false;
   env.VIDEO_CHAT_QUOTAS.prepare=query=>{
    const statement=prepare(query);
-   if(!query.startsWith('UPDATE video_chat_fal_answers')) return statement;
+   if(!query.startsWith('UPDATE video_chat_fal_reservations')) return statement;
    return {bind(...args){return {async run(){
-    if(!raced){raced=true;await prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('parallel-clips',actor,Date.now(),5).run();}
+    if(!raced){raced=true;await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);}
     return statement.bind(...args).run();
    }}}};
   };
  }
  const response=await handleVideoChatRequest({request:request('response',{prompt:'Explain waves',mode:'cinematic'}),env,fetcher:async(url)=>{
   if(url==='https://api.anthropic.com/v1/messages') {
-   if(scenario==='personal-race') await prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('other-request',actor,Date.now(),5).run();
+   if(scenario==='personal-race') await seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
    return new Response(`data: ${JSON.stringify({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify({type:'answer',opening:'Watch waves reach the shore',subject:'ocean waves',development:'',ending:shot})}})}\n\n`);
   }
   if(url.startsWith('https://queue.fal.run/')) {generated++;return new Response('',{status:503});}
   assert.match(url,/api.pexels.com/);stock++;
   return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});
  }});
- const output=await response.text();assert.equal(response.status,200);assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),'cinematic');
- assert.equal(stock,['personal-race','clip-race'].includes(scenario)?1:0);assert.equal(generated,scenario==='provider-error'?1:0);
- if(['personal-race','clip-race'].includes(scenario)) assert.match(output,/videos.pexels.com/);else assert.match(output,/chapterTitle/);
+ const output=await response.text();assert.equal(response.status,200);
+ assert.equal(response.headers.get('x-vanillasky-resolved-video-mode'),scenario==='global-limit'?'pexels':'cinematic');
+ assert.equal(response.headers.get('x-vanillasky-video-fallback'),scenario==='global-limit'?'credits':null);
+ assert.equal(output.includes('"code":"credits_exhausted"'),['personal-race','clip-race'].includes(scenario));
+ assert.equal(stock,['personal-race','clip-race','global-limit'].includes(scenario)?1:0);assert.equal(generated,scenario==='provider-error'?1:0);
+ if(['personal-race','clip-race','global-limit'].includes(scenario)) assert.match(output,/videos.pexels.com/);else assert.match(output,/chapterTitle/);
 });
 
 
@@ -784,7 +832,7 @@ for (const raced of [false,true]) test(`FAL-only exhaustion retains chapter reco
   t.mock.method(console,'info',(...event)=>diagnostics.push(event));
   const env={...live(),PEXELS_API_KEY:undefined,VIDEO_CHAT_FAL_PREVIEW:'enabled',FAL_KEY:'test-fal'};
   const actor=await actorHash('192.0.2.1',env.VIDEO_CHAT_QUOTA_SALT);
-  const exhaust=()=>env.VIDEO_CHAT_QUOTAS.prepare('INSERT INTO video_chat_fal_previews VALUES (?, ?, ?, ?)').bind('spent',actor,Date.now(),5).run();
+  const exhaust=()=>seedPublicAttempts(env.VIDEO_CHAT_QUOTAS, actor);
   if (!raced) await exhaust();
   let plans=0;
   const shot={narration:'Waves break in shallow water.',subject:'ocean waves',action:'Waves break',durationSec:5,continuity:'cut'};

@@ -12,7 +12,7 @@ function application() {
   roots.push(root);
   mkdirSync(join(root, "dist"));
   mkdirSync(join(root, ".generated/functions-build"), { recursive: true });
-  writeFileSync(join(root, "wrangler.jsonc"), JSON.stringify({ name: "local", compatibility_date: "2026-04-09", vars: { VIDEO_CHAT_FAL_DAILY_LIMIT: "10" } }));
+  writeFileSync(join(root, "wrangler.jsonc"), JSON.stringify({ name: "local", compatibility_date: "2026-04-09", vars: { VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT: "200" } }));
   writeFileSync(join(root, "dist/index.html"), "verified frontend");
   writeFileSync(join(root, "dist/_headers"), "/*\n X-Frame-Options: DENY\n");
   writeFileSync(join(root, ".generated/functions-build/index.js"), "export default {fetch:()=>new Response('verified API')};");

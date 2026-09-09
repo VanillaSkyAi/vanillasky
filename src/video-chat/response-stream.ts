@@ -111,6 +111,7 @@ interface ResponseStreamOptions {
   warn(message: string): void;
   flush(): void;
   onMode(mode: VideoChatMode): void;
+  onFallback(reason: "credits"): void;
   onOpening(line: string): void;
 }
 
@@ -130,6 +131,8 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
 
   const resolvedMode = response.headers.get("x-vanillasky-resolved-video-mode");
   if (isCurrent() && (resolvedMode === "pexels" || resolvedMode === "cinematic")) options.onMode(resolvedMode);
+  const fallback = response.headers.get("x-vanillasky-video-fallback");
+  if (isCurrent() && fallback === "credits") options.onFallback(fallback);
 
   const planned: VideoScene[] = [];
   const lines: string[] = state.spokenHook ? [state.spokenHook] : [];
@@ -142,6 +145,10 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
       if (!isCurrent()) return { video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: [], style: state.style! }, lines: [] };
       if (event.type === "response.start") state.style = event.data.style;
       if (event.type === "audio.set") state.audio = event.data.audio;
+      if (event.type === "response.warning" && event.data.warning.code === "credits_exhausted") {
+        options.onFallback("credits");
+        continue;
+      }
       if (event.type === "response.warning" || (event.type === "response.error" && !event.data.terminal)) {
         warn(event.type === "response.warning" && event.data.warning.message === MEDIA_RECOVERY_NOTICE
           ? MEDIA_RECOVERY_NOTICE

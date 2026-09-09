@@ -462,6 +462,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         dispatch({ type: "resolved-mode", id, mode });
         if (firstFrameRef.current?.turnId === id) firstFrameRef.current.mode = mode;
       },
+      onFallback: (reason) => dispatch({ type: "fallback", id, reason }),
       onOpening: (line) => {
         openingActive = true;
         void speakOpening(line);

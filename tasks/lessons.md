@@ -115,3 +115,6 @@
   drafting and one shortening attempt, then repeat the healthy scene until
   speech completes. Use live speech completion to account for browser voices
   and decoder head starts; never turn an estimate into a measured duration.
+
+- Approval of a visual preview confirms its appearance. Finish correctness and
+  release checks, and obtain explicit merge approval separately.

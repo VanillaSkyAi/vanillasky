@@ -16,6 +16,7 @@ export type VideoWarningCode =
   | "plan_missing_closer"
   | "provider_warning"
   | "provider_diagnostics_unavailable"
+  | "credits_exhausted"
   | "media_budget_reached";
 
 export const VIDEO_WARNING_CATEGORIES: Readonly<Record<VideoWarningCode, VideoWarningCategory>> = {
@@ -28,6 +29,7 @@ export const VIDEO_WARNING_CATEGORIES: Readonly<Record<VideoWarningCode, VideoWa
   plan_missing_closer: "provider",
   provider_warning: "provider",
   provider_diagnostics_unavailable: "provider",
+  credits_exhausted: "media",
   media_budget_reached: "media",
 };
 

@@ -28,10 +28,19 @@ export function createId(prefix: string): string {
 
 export function createProviderLifecycle(): {
   sink: VideoGenerationLifecycleSink;
+  drainWarnings: () => VideoProviderLifecycleResult["warnings"];
   settle: () => Promise<VideoProviderLifecycleResult>;
 } {
   const results: Array<Promise<VideoProviderLifecycleResult>> = [];
   const reportedWarnings: VideoProviderLifecycleResult["warnings"] = [];
+  const deliveredWarnings = new Set<string>();
+  const takeWarnings = (warnings: VideoProviderLifecycleResult["warnings"]) => warnings.filter(warning => {
+    const key = `${warning.code}\u0000${warning.category}\u0000${warning.message}\u0000${warning.sceneId ?? ""}`;
+    if (deliveredWarnings.has(key)) return false;
+    deliveredWarnings.add(key);
+    return true;
+  });
+  const drainWarnings = () => takeWarnings(reportedWarnings.splice(0));
   const sink: VideoGenerationLifecycleSink = {
     reportWarning(warning) { reportedWarnings.push(warning); },
     registerProviderResult(result) {
@@ -40,16 +49,12 @@ export function createProviderLifecycle(): {
   };
   const settle = async (): Promise<VideoProviderLifecycleResult> => {
     const resolved = await Promise.all(results);
-    const warnings = [...reportedWarnings, ...resolved.flatMap((result) => result.warnings)];
-    const uniqueWarnings = [...new Map(warnings.map((warning) => [
-      `${warning.code}\u0000${warning.category}\u0000${warning.message}\u0000${warning.sceneId ?? ""}`,
-      warning,
-    ])).values()];
+    const uniqueWarnings = takeWarnings([...reportedWarnings.splice(0), ...resolved.flatMap((result) => result.warnings)]);
     return resolved.reduce<VideoProviderLifecycleResult>((summary, result) => ({
       ...summary,
       ...result,
       warnings: uniqueWarnings,
     }), { warnings: uniqueWarnings });
   };
-  return { sink, settle };
+  return { sink, drainWarnings, settle };
 }
