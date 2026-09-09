@@ -390,8 +390,9 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     part = { ...part, scene: { ...part.scene, narration } };
     mediaScene = part.scene;
     options.prepareScene?.({ sceneId: part.scene.id, narration, clipDurationSec: clipBudget });
-    if (!fits) media = undefined;
-    else if (options.mode !== "pexels") media = await resolveMedia();
+    // A speech estimate can request one shortening pass, never discard usable
+    // footage. The player covers the final measured line with the same clip.
+    if (options.mode !== "pexels") media = await resolveMedia();
     context.signal.throwIfAborted();
     if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });
     const title = part.scene.variables.fallbackText;
