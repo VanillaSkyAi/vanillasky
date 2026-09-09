@@ -96,7 +96,13 @@ test("the final audible iOS clip repeats through complete long narration and con
   expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeGreaterThanOrEqual(0);
   expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeLessThan(150);
   expect(final.length).toBeGreaterThan(100);
-  expect(final.every(sample => sample.scene === "water-2" && !sample.hidden && !sample.chapter && !sample.muted && sample.rate === 1)).toBe(true);
+  expect(final.every(sample => sample.scene === "water-2" && !sample.hidden && !sample.chapter && sample.rate === 1)).toBe(true);
+  // onStart releases the narration hold; native audio follows on the next
+  // player render. Bound that initial handoff, then forbid any later muting.
+  const audibleStart = final.findIndex(sample => !sample.muted);
+  expect(audibleStart).toBeGreaterThanOrEqual(0);
+  expect(final[audibleStart].at - result.speech[6].at).toBeLessThan(100);
+  expect(final.slice(audibleStart).every(sample => !sample.muted)).toBe(true);
   expect(final.filter(sample => sample.luma !== null).every(sample => sample.luma! > 2)).toBe(true);
   // A 5s → 0 seek can briefly make decoded pixels unavailable: readFrame
   // returns null, not black pixels. Accept only that bounded seam between valid
@@ -131,10 +137,19 @@ test("the final audible iOS clip repeats through complete long narration and con
     expect(Math.max(...presented) - Math.min(...presented)).toBeGreaterThan(1);
     expect(samples.filter(sample => sample.music && sample.voice).length).toBeGreaterThan(5);
   }
-  let lastMotion = final[0].at;
-  for (let index = 1; index < final.length; index++) {
-    if (final[index].fingerprint !== final[index - 1].fingerprint && final[index].presentedTime !== final[index - 1].presentedTime) lastMotion = final[index].at;
-    expect(final[index].at - lastMotion).toBeLessThan(500);
+  // Canvas pixels and video-frame callbacks can update on alternating RAFs.
+  // Both must keep advancing, without requiring them to change in one sample.
+  for (const signal of ["fingerprint", "presentedTime"] as const) {
+    let lastMotion = final[0].at;
+    let previous = final[0][signal];
+    for (const sample of final.slice(1)) {
+      const value = sample[signal];
+      if (value !== null && value !== previous) {
+        lastMotion = sample.at;
+        previous = value;
+      }
+      expect(sample.at - lastMotion).toBeLessThan(500);
+    }
   }
   expect(new Set(final.map(sample => sample.videoId)).size).toBe(1);
   expect(new Set(result.samples.filter(sample => sample.scene.startsWith("water-") && sample.videoId > 0).map(sample => sample.videoId)).size).toBe(2);
