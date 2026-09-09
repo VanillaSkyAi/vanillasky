@@ -76,11 +76,12 @@ async function reserveClip(db, actor, previewId, owner) {
     return result.meta?.changes === 1;
   }
   const result = await db.prepare(ATTEMPT_SQL).bind(previewId, actor, actor).run();
-  if (result.meta?.changes === 1) return true;
+  // D1 counts trigger writes too, so a charged attempt can change multiple rows.
+  if (Number.isSafeInteger(result.meta?.changes) && result.meta.changes > 0) return true;
   // Support a reservation admitted immediately before rollout. IDs are generated
   // server-side UUIDs; the separate owner ledger is never consulted here.
   const prior = await db.prepare(PRIOR_ATTEMPT_SQL).bind(previewId, actor, actor).run();
-  return prior.meta?.changes === 1;
+  return Number.isSafeInteger(prior.meta?.changes) && prior.meta.changes > 0;
 }
 
 class DiagnosticError extends Error {

@@ -5,6 +5,9 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Keep public AI clip generation working when quota accounting triggers also
+  write usage records, while preserving database-enforced spending limits.
+
 - Add a playable demo to the README showing settings and a video answer with
   voice, music and subtitles.
 

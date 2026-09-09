@@ -12,8 +12,11 @@ function db({ migrate = true } = {}) {
   return {
     sql,
     prepare(query) { return { bind(...args) { return { async first() { return sql.prepare(query).get(...args); }, async run() {
-      const result = sql.prepare(query).run(...args);
-      return { meta: { changes: Number(result.changes) } };
+      // D1 includes trigger writes in its per-statement change count.
+      const before = sql.prepare('SELECT total_changes() AS count').get().count;
+      sql.prepare(query).run(...args);
+      const after = sql.prepare('SELECT total_changes() AS count').get().count;
+      return { meta: { changes: after - before } };
     } }; } }; },
   };
 }
@@ -100,6 +103,51 @@ test('successful queue request uses fixed model, options, no retries and safe me
     assert.equal(init.redirect, 'manual');
     assert.equal(init.headers['X-Fal-No-Retry'], '1');
     assert.equal(init.headers['X-Fal-Request-Timeout'], '90');
+  }
+});
+test('public attempts submit after trigger writes and stop when the database trigger denies them', async () => {
+  for (const table of ['video_chat_fal_answers', 'video_chat_fal_previews']) {
+    const configured = env();
+    const database = configured.VIDEO_CHAT_QUOTAS;
+    const previewId = crypto.randomUUID();
+    database.sql.prepare(`INSERT INTO ${table}(id, actor, created) VALUES (?, ?, ?)`).run(previewId, actor, Date.now());
+    database.sql.exec(`
+      CREATE TABLE triggered_attempts (attempts INTEGER NOT NULL);
+      INSERT INTO triggered_attempts VALUES (0);
+      CREATE TRIGGER attempt_limit BEFORE UPDATE OF attempts ON ${table}
+      WHEN (SELECT attempts FROM triggered_attempts) >= 1
+      BEGIN SELECT RAISE(IGNORE); END;
+      CREATE TRIGGER charge_attempt AFTER UPDATE OF attempts ON ${table}
+      BEGIN UPDATE triggered_attempts SET attempts = attempts + 1; END;
+    `);
+    let submissions = 0;
+    const fetcher = async (url, init) => {
+      if (init.method === 'POST') { submissions++; return response(urls); }
+      if (url === urls.status_url) return response({ status: 'COMPLETED' });
+      return response({ video: { url: 'https://fal.media/video.mp4' } });
+    };
+    const before = database.sql.prepare('SELECT total_changes() AS count').get().count;
+    const result = await generateRaw('Ocean', { env: configured, actor, previewId, fetcher });
+    assert.equal(database.sql.prepare('SELECT total_changes() AS count').get().count - before, 2);
+    assert.deepEqual(result, { media: { type: 'video', url: 'https://fal.media/video.mp4', audio: 'ambient' }, reason: null });
+    assert.equal(submissions, 1);
+    assert.equal((await generateRaw('Ocean', { env: configured, actor, previewId, fetcher })).reason, 'limit');
+    assert.equal(submissions, 1);
+    assert.equal(database.sql.prepare(`SELECT attempts FROM ${table} WHERE id = ?`).get(previewId).attempts, 1);
+    assert.equal(database.sql.prepare('SELECT attempts FROM triggered_attempts').get().attempts, 1);
+  }
+});
+test('invalid public attempt change counts never submit', async () => {
+  for (const changes of [undefined, null, 0, -1, 0.5, '1', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    const configured = env();
+    configured.VIDEO_CHAT_QUOTAS.prepare = () => ({ bind: () => ({ run: async () => ({ meta: { changes } }) }) });
+    let calls = 0;
+    const result = await generateRaw('Ocean', {
+      env: configured, actor, previewId: crypto.randomUUID(),
+      fetcher: async () => { calls++; throw Error('must not submit'); },
+    });
+    assert.equal(result.reason, 'limit');
+    assert.equal(calls, 0);
   }
 });
 test('submission errors retain allowance and never retry', async () => {
