@@ -5,6 +5,9 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Add a playable demo to the README showing settings and a video answer with
+  voice, music and subtitles.
+
 - Keep Auto's intro music track for the entire answer, even when the answer
   brief suggests a different mood. On iPhone and iPad, play generated voice and
   music through one shared audio context so audible AI footage cannot interrupt

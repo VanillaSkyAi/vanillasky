@@ -9,6 +9,11 @@ Ask a question, hear a short introduction, and watch the answer unfold in
 narrated scenes. Try it at [vanillasky.ai](https://vanillasky.ai), then run the
 same application with your own provider keys.
 
+## Demo
+
+See the settings and a video answer with voice, music and subtitles in this
+one-minute walkthrough.
+
 ## Why video chat now?
 
 VanillaSky was inspired by [fal's work on MiniMax H3 Max](https://fal.ai/learn/devs/introducing-h3-max-by-fal):
