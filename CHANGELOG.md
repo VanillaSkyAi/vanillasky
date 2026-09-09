@@ -12,7 +12,7 @@ of previously published npm releases.
   no immediate repeats and the chosen soundtrack retained for replay. Settings
   now has voice, music and scene-sound volume, track shuffle and saved listening
   preferences. Music starts on Ask and continues through loading, the intro and
-  the answer. Music and scene sound default to 20%, with voice at 100%.
+  the answer. Music defaults to 20%, scene sound to 60% and voice to 100%.
   Background audio softens during narration; master mute and pause control all
   layers together.
 - Request subtle environmental and action sounds from generated footage while

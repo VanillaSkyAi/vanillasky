@@ -39,7 +39,7 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("slider", { name: "Voice volume" })).toHaveValue("100");
   await expect(page.getByRole("slider", { name: "Music volume" })).toHaveValue("20");
-  await expect(page.getByRole("slider", { name: "Sound from video" })).toHaveValue("20");
+  await expect(page.getByRole("slider", { name: "Sound from video" })).toHaveValue("60");
   await page.getByRole("combobox", { name: "Music mood" }).selectOption("focused");
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.getByRole("textbox", { name: "Prompt" }).fill("Explain flowing water");
@@ -54,7 +54,7 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
   await expect.poll(() => initialMusic!.evaluate(element => (element as HTMLAudioElement).paused)).toBe(false);
   releaseResponse();
   await expect.poll(() => page.locator("video").evaluateAll(elements => (elements as HTMLVideoElement[]).some(video =>
-    video.currentTime > .15 && !video.paused && !video.muted && video.volume > 0 && video.volume <= .2)), { timeout: 15_000 }).toBe(true);
+    video.currentTime > .15 && !video.paused && !video.muted && video.volume > 0 && video.volume <= .6)), { timeout: 15_000 }).toBe(true);
   expect(await initialMusic!.evaluate(element => element.isConnected)).toBe(true);
   await expect(page.locator("audio[data-soundtrack]")).toHaveCount(1);
   await expect.poll(() => page.locator("audio").evaluateAll(elements => (elements as HTMLAudioElement[]).some(audio => audio.currentTime > .05 && !audio.paused && !audio.muted))).toBe(true);

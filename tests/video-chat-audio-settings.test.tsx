@@ -153,6 +153,7 @@ it("offers accessible music and voice sliders, remembers settings, and gates sce
   await waitFor(() => expect(screen.getByRole("slider", { name: "Sound from video" })).toBeDefined());
   fireEvent.click(screen.getByRole("button", { name: "Reset sound settings" }));
   expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("20");
+  expect((screen.getByRole("slider", { name: "Sound from video" }) as HTMLInputElement).value).toBe("60");
 });
 
 it("keeps music off when replaying a different saved answer", async () => {
@@ -171,7 +172,7 @@ it("ignores malformed saved preferences and keeps controls usable when storage i
   localStorage.setItem("vanillasky.audio", JSON.stringify({ voiceVolume: -1, musicVolume: "loud", sceneVolume: 4, musicMood: "untrusted" }));
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
   const { result } = renderHook(() => useVideoChat({ fetcher: fetcher(), voice: voice() }));
-  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2 });
+  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .6 });
   act(() => result.current.setAudioPreferences({ musicVolume: .2 }));
   expect(result.current.audioPreferences.musicVolume).toBe(.2);
 });

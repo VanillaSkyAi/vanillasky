@@ -195,7 +195,7 @@ apply a provider deadline.
 ## Native clip audio and soundtrack
 
 Settings has separate voice, music and scene-sound volume controls. Initial
-levels are 100%, 20% and 20%; the speaker button mutes all three without losing
+levels are 100%, 20% and 60%; the speaker button mutes all three without losing
 their settings. Listening preferences are remembered on the device. Background
 layers soften while narration speaks, with smooth volume changes and ending
 fades. Deliberate pause and microphone capture pause playback together.
