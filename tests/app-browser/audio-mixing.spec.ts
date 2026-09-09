@@ -56,11 +56,25 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
   releaseResponse();
   // The first second of this recorded line is voiced: both backgrounds must
   // already stay at their chosen levels, not recover only once speech ends.
-  await expect.poll(() => page.locator("video").evaluateAll(elements => {
-    const music = document.querySelector<HTMLAudioElement>('audio[data-soundtrack="active"]');
-    return music && music.volume >= .199 && (elements as HTMLVideoElement[]).some(video =>
-      video.currentTime > .15 && video.currentTime < 1 && !video.paused && !video.muted && video.volume >= .599 && video.volume <= .6);
-  }), { timeout: 15_000, intervals: [50] }).toBe(true);
+  const mixSamples: unknown[] = [];
+  try {
+    await expect.poll(async () => {
+      const sample = await page.locator("video").evaluateAll(elements => ({
+        musicVolume: document.querySelector<HTMLAudioElement>('audio[data-soundtrack="active"]')?.volume ?? null,
+        videos: (elements as HTMLVideoElement[]).map(video => ({
+          time: video.currentTime, volume: video.volume, paused: video.paused, muted: video.muted,
+        })),
+      }));
+      mixSamples.push(sample);
+      // Native media backends can round the selected gain through a float.
+      return sample.musicVolume !== null && Math.abs(sample.musicVolume - .2) < .001 && sample.videos.some(video =>
+        video.time > .15 && video.time < 1 && !video.paused && !video.muted && Math.abs(video.volume - .6) < .001);
+    }, { timeout: 15_000, intervals: [50] }).toBe(true);
+  } finally {
+    await test.info().attach("early-narration-mix", {
+      body: JSON.stringify(mixSamples), contentType: "application/json",
+    });
+  }
   expect(await initialMusic!.evaluate(element => element.isConnected)).toBe(true);
   await expect(page.locator("audio[data-soundtrack]")).toHaveCount(1);
   await expect.poll(() => page.locator("audio").evaluateAll(elements => (elements as HTMLAudioElement[]).some(audio => audio.currentTime > .05 && !audio.paused && !audio.muted))).toBe(true);

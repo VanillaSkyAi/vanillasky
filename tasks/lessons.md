@@ -81,3 +81,8 @@
 - Real-media browser fixtures must use the repository's paired MP4/WebM assets
   for the host platform. Check both filenames locally; a passing macOS run
   cannot validate a Linux-only filename or native decoder path.
+
+- Keep product iteration separate from release verification. Apply small
+  changes through localhost HMR, run the focused regression and immediately
+  tell the owner they can test. Run the full release gates after the behavior
+  is settled; CI investigation must not delay the local feedback loop.
