@@ -29,10 +29,11 @@ npm version. Run `npm ci`, configure ignored `.dev.vars`, then `npm run dev`.
 Use the actual application for local HMR and manual testing.
 
 - Behavior changes need a focused regression and the affected tests first.
-- Source changes need lint, typecheck and the relevant application build.
+- Use `npm run check` for source feedback: lint, types, unused code and unit/API
+  tests. Docs-only edits need `npm run check:docs`; no app build or deployment.
 - Playback, voice or UI changes need browser scenarios with real media fixtures
   and normal motion. Verify advancing footage and complete speech separately.
-- The final candidate needs the complete application verification and CI gate.
+- The final application candidate needs `npm run verify` and the selected CI gate.
   Freeze HEAD and tracked files while browser verification is running.
 - Fresh-clone verification installs and runs this app; do not recreate tarball,
   public-export or generated-starter gates for retired package distribution.

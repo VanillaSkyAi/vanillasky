@@ -18,12 +18,32 @@ It requires both the local server flag and a loopback URL. The API stays bound
 to loopback, request admission remains active, and production still requires
 verified owner identity for that path.
 
-For an ordinary edit, run affected tests, lint and typecheck. Build the app and
-API before handoff. Run `npm run verify` on the final candidate; it covers
-unit/API checks, builds and the application browser journey. Playback/UI changes
-also need the relevant `npm run browser:test` media scenarios. Do not repeatedly run the
-whole matrix while editing. Keep the candidate and HEAD unchanged during browser
-runs so identity checks and media traces refer to one build.
+For an ordinary edit, run affected tests and `npm run check`. This checks lint,
+types, unused code, unit tests and API tests without starting browsers or builds.
+Docs-only edits use `npm run check:docs`, which needs Node and Git but no install.
+It checks tracked Markdown structure, local links and heading anchors offline.
+
+Run `npm run verify` on the final application candidate; it adds docs checks,
+chat acceptance, builds, preview checks and the application browser journey.
+Playback/UI changes also need relevant `npm run browser:test` media scenarios.
+Keep the candidate and HEAD unchanged during browser runs.
+
+CI selects checks conservatively:
+
+- Docs-only changes to root documentation or Markdown under `docs/` and `tasks/`
+  run the offline docs check. They do not build or deploy the application.
+- Changes limited to `.mjs` files under `functions/` and `tests/app-api/` run all
+  application checks and setup journeys in Chromium, Firefox and WebKit.
+- Shared source, UI, playback, dependencies, workflows, fixtures and unknown
+  paths run the full media browser matrix as well. Missing history runs it too.
+
+`application-checks` requires every selected job to pass. Only a successful docs
+plan permits skipped application jobs. Manually running CI always selects the
+full suite. Browser setup journeys share the existing browser containers.
+
+`npm run check:unused` runs Knip without a baseline or blanket ignores. Keep its
+entrypoints limited to real runtime boundaries that static imports cannot show,
+such as Cloudflare routes and modules loaded by HTML fixtures.
 
 Keep test media: it exercises actual decoder, readiness, speech-clock and replay
 boundaries. Keyless provider doubles belong in tests only. Manual provider tests

@@ -39,9 +39,11 @@
     "browser:test": "playwright test",
     "test:app": "playwright test --config app.playwright.config.ts",
     "acceptance:chat": "tsx scripts/acceptance/run.ts",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run test:api && npm run build && npm run build:functions && npm run verify:app-build && npm run verify:preview && npm run test:app",
+    "verify": "npm run check && npm run check:docs && npm run acceptance:chat && npm run build && npm run build:functions && npm run verify:app-build && npm run verify:preview && npm run test:app",
     "verify:preview": "node scripts/verify-app-preview.mjs",
-    "check:unused": "knip"
+    "check:unused": "knip",
+    "check": "npm run lint && npm run typecheck && npm run check:unused && npm test && npm run test:api",
+    "check:docs": "node scripts/check-docs.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -61,3 +61,56 @@ describe("deployment plan", () => {
     }
   });
 });
+
+// Exercise real Git history and the CLI contract consumed by GitHub Actions.
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+
+it("plans actual changes, handles renames and fails safe without usable history", () => {
+  const root = mkdtempSync(join(tmpdir(), "video-ci-plan-"));
+  const script = resolve("scripts/ci-plan.mjs");
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const commit = () => { git("add", "."); git("-c", "user.name=CI test", "-c", "user.email=ci@example.invalid", "commit", "-qm", "fixture"); return git("rev-parse", "HEAD"); };
+  const plan = (eventName: string, event: object) => {
+    const eventPath = join(root, ".event.json"), outputPath = join(root, ".output");
+    writeFileSync(eventPath, JSON.stringify(event));
+    writeFileSync(outputPath, "");
+    execFileSync(process.execPath, [script, "plan"], { cwd: root, encoding: "utf8", env: { ...process.env, GITHUB_EVENT_NAME: eventName, GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath } });
+    const artifact = JSON.parse(readFileSync(join(root, ".generated/ci-plan.json"), "utf8"));
+    const outputs = Object.fromEntries(readFileSync(outputPath, "utf8").trim().split("\n").map(line => { const equal = line.indexOf("="); return [line.slice(0, equal), line.slice(equal + 1)]; }));
+    expect(artifact.commit).toBe(git("rev-parse", "HEAD"));
+    expect(outputs.kind).toBe(artifact.kind);
+    return { kind: artifact.kind, matrix: JSON.parse(outputs.matrix).include as { browser: string; shard: number; app: boolean }[] };
+  };
+  try {
+    git("init", "-q");
+    writeFileSync(join(root, ".gitignore"), ".generated/\n.event.json\n.output\n");
+    writeFileSync(join(root, "README.md"), "# First\n");
+    const base = commit();
+    writeFileSync(join(root, "README.md"), "# Updated\n");
+    const docsCommit = commit();
+    expect(plan("push", { before: base }).kind).toBe("docs");
+    expect(plan("pull_request", { pull_request: { base: { sha: base } } }).kind).toBe("docs");
+    for (const [name, event] of [["workflow_dispatch", { before: base }], ["push", {}], ["push", { before: "0".repeat(40) }], ["push", { before: "f".repeat(40) }]] as const) {
+      const result = plan(name, event);
+      expect(result.kind).toBe("full");
+      expect(result.matrix).toHaveLength(9);
+      expect(result.matrix.filter(job => job.app)).toHaveLength(3);
+    }
+    mkdirSync(join(root, "functions"));
+    writeFileSync(join(root, "functions/route.mjs"), "export const onRequest = () => {};\n");
+    const serverCommit = commit();
+    const server = plan("push", { before: docsCommit });
+    expect(server.kind).toBe("server");
+    expect(server.matrix.map(job => job.browser)).toEqual(["chromium", "firefox", "webkit"]);
+    expect(server.matrix.every(job => job.app)).toBe(true);
+    mkdirSync(join(root, "tests/fixtures"), { recursive: true });
+    git("mv", "README.md", "tests/fixtures/input.md");
+    commit();
+    expect(plan("push", { before: serverCommit }).kind).toBe("full");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

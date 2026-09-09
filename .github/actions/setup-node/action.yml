@@ -1,4 +1,5 @@
 name: Set up the application toolchain
+description: Install the pinned Node and npm toolchain and locked dependencies
 inputs:
   node-version:
     description: Node version to test
