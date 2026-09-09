@@ -1,4 +1,5 @@
 import { sceneReadinessKey } from "./mounted-scene-readiness.js";
+import type { SoundtrackPlayback } from "./buffer-soundtrack.js";
 import { useEffect } from "react";
 import type { VideoScene } from "../protocol/types.js";
 import type { VideoState } from "../protocol/state.js";
@@ -10,7 +11,7 @@ interface PlaybackClockOptions {
   isPlaying: boolean;
   stateRef: { current: VideoState };
   timeRef: { current: number };
-  audioRef: { current: HTMLAudioElement | null };
+  audioRef: { current: SoundtrackPlayback | null };
   loopRef: { current: boolean };
   sceneIndexRef: { current: number };
   visualReadyRef?: { current: string | undefined };

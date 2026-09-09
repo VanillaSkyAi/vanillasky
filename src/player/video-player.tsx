@@ -1,4 +1,6 @@
 import { Soundtrack } from "./soundtrack.js";
+import type { SoundtrackPlayback } from "./buffer-soundtrack.js";
+import { isIosAudioOutput, resumeIosAudioContext } from "./ios-audio-output.js";
 import { MountedReadinessContext } from "./mounted-scene-readiness.js";
 import {
   useEffect,
@@ -127,7 +129,7 @@ export function VideoPlayerRuntime({
   usePlaybackDiagnostics(containerRef, state.config ?? undefined, onPlaybackMetric);
   const stateRef = useRef(state);
   const timeRef = useRef(currentTime);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<SoundtrackPlayback>(null);
   const introStartedAtRef = useRef<number | null>(autoStartGeneration ? performance.now() : null);
   const callbacksRef = useRef({ onComplete, onPlaybackEnd, onError, onSceneChange, narrationReady, narrationTime, narrationActive, onFramePresented, onMediaFramePresented, onStallChange, onStateChange });
   const loopRef = useRef(loop);
@@ -176,8 +178,9 @@ export function VideoPlayerRuntime({
   }, [stream, video]);
 
   const primeSoundtrack = () => {
+    if (isIosAudioOutput()) { void resumeIosAudioContext(); return; }
     const audio = audioRef.current;
-    if (!audio || audio.dataset.audioOutput) return;
+    if (!(audio instanceof HTMLAudioElement) || audio.dataset.audioOutput) return;
     const Context = window.AudioContext
       ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Context) return;

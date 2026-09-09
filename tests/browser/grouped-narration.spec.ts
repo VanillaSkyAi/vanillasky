@@ -1,19 +1,21 @@
 import { devices, expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
+const baseUrl = process.env.VANILLASKY_BROWSER_BASE_URL ?? "http://127.0.0.1:4274";
 for (const delayedOnset of [false, true]) test(`one prerecorded paragraph survives two visual cuts (delayed onset: ${delayedOnset})`, async ({ browser, browserName }, info) => {
   const context = await browser.newContext(browserName === "webkit" ? { ...devices["iPhone 13"] } : {});
   const page = await context.newPage();
   const webm = process.platform === "linux" && browserName === "webkit";
   test.setTimeout(30000);
-  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html?${delayedOnset ? "delayedOnset&" : ""}${webm ? "webm" : ""}`);
+  await page.goto(`${baseUrl}/tests/browser/fixtures/grouped-narration.html?${delayedOnset ? "delayedOnset&" : ""}${webm ? "webm" : ""}`);
   await page.getByText("Play prerecorded paragraph").click();
   try {
     await expect.poll(() => page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string }> }).narrationProbe.filter((event) => event.kind === "ended").length), { timeout: 15000 }).toBe(1);
     const probe = await page.evaluate(() => (window as unknown as { narrationProbe: Array<{ kind: string; index?: number; audioTime?: number; source?: string; at?: number }> }).narrationProbe);
-    expect(probe.filter((event) => event.kind === "audio-created")).toHaveLength(1);
+    expect(probe.filter((event) => event.kind === "audio-created")).toHaveLength(browserName === "webkit" ? 0 : 1);
+    if (browserName === "webkit") expect(probe.filter(event => event.kind === "buffer-source-created")).toHaveLength(1);
     const stall = probe.find((event) => event.kind === "cold-output-stall");
     if (delayedOnset) {
-      expect(stall?.source).toBe("blob");
+      expect(stall?.source).toBe(browserName === "webkit" ? "buffer" : "blob");
       const released = probe.find((event) => event.kind === "cold-output-release");
       expect(released!.at! - stall!.at!).toBeGreaterThanOrEqual(1400);
     } else expect(stall).toBeUndefined();
@@ -52,7 +54,7 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
       await mediaGate;
       await route.continue();
     });
-    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/grouped-narration.html${webm ? "?webm" : ""}`);
+    await page.goto(`${baseUrl}/tests/browser/fixtures/grouped-narration.html${webm ? "?webm" : ""}`);
     await page.getByText('Play prerecorded paragraph').click();
     // Preparation starts during the outgoing scene. Keep all Range responses
     // blocked until 1.5s after the real visual boundary, not request start.
@@ -79,7 +81,7 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     });
     releaseMedia();
     await page.waitForFunction(()=>(window as unknown as {narrationProbe:Array<{kind:string}>}).narrationProbe.some(event=>event.kind==='ended'),null,{timeout:15000});
-    const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number;mediaTime?:number;scene?:string}>}).narrationProbe);
+    const probe=await page.evaluate(()=>(window as unknown as {narrationProbe:Array<{kind:string;index?:number;audioTime?:number;source?:string;at:number;mediaTime?:number;scene?:string;bufferId?:number}>}).narrationProbe);
     const pause=probe.find(event=>event.kind==='pause' && event.audioTime!>1 && event.audioTime!<4)!;
     expect(pause).toBeDefined();
     const boundary=probe.find(event=>event.kind==='cold-video-boundary')!;
@@ -103,7 +105,9 @@ test('a cold grouped visual pauses the paragraph after its bounded handoff windo
     expect(cut.at).toBeGreaterThanOrEqual(frame.at);
     expect(cut.at-pause.at).toBeGreaterThan(200);
     expect(probe.filter(event=>event.kind==='cut').map(event=>event.index)).toEqual([0,1,2]);
-    expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(1);
+    expect(probe.filter(event=>event.kind==='audio-created')).toHaveLength(0);
+    expect(probe.filter(event=>event.kind==='buffer-source-created').length).toBeGreaterThanOrEqual(2);
+    expect(new Set(probe.filter(event=>event.kind==='buffer-start').map(event=>event.bufferId)).size).toBe(1);
     expect(probe.filter(event=>event.kind==='ended')).toHaveLength(1);
     expect(probe.find(event=>event.kind==='ended')!.audioTime).toBeGreaterThan(6.4);
     await writeFile(info.outputPath('cold-grouped-handoff.json'),JSON.stringify({platform:process.platform,codec:webm ? "VP8" : "H264",requests,probe},null,2));

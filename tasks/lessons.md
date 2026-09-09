@@ -78,6 +78,22 @@
   speech pauses. Automatic ducking makes the mix feel uneven; retain music
   fades at answer boundaries without changing levels for speech or buffering.
 
+- An answer brief arriving after the intro must not replace music already
+  selected for that answer. Treat that initial selection as the turn's choice;
+  reserve track changes for explicit mood or shuffle actions.
+
+- iOS audible-video sessions can interrupt HTML audio even when it feeds a
+  Web Audio graph. Mix generated voice and music from buffers in one unlocked
+  context. Desktop WebKit with an iPhone viewport cannot prove the physical
+  phone's audio-session policy; keep recorded-media evidence and device checks
+  distinct.
+
+- Unlock the actual native video elements during the initiating gesture and
+  reuse them for delayed audible footage. Native narration's ended event can
+  grant a brief Safari media-gesture grace period; buffer completion does not.
+  In-page waits must let that gesture expire, since repeated test evaluation
+  calls can accidentally keep permission alive and hide the failure.
+
 - Real-media browser fixtures must use the repository's paired MP4/WebM assets
   for the host platform. Check both filenames locally; a passing macOS run
   cannot validate a Linux-only filename or native decoder path.
@@ -86,3 +102,7 @@
   changes through localhost HMR, run the focused regression and immediately
   tell the owner they can test. Run the full release gates after the behavior
   is settled; CI investigation must not delay the local feedback loop.
+
+- Parallel worktrees share the Mac's memory and decoders. Keep local compiler,
+  build and native playback checks serial on a constrained machine; parallel
+  editing does not require overlapping validation processes.

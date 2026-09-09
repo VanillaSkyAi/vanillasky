@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { VideoPlayer } from "../../../src/player/video-player";
 import { useNarration } from "../../../src/player/use-narration";
 import { createVideoChatVoice } from "../../../src/video-chat/voice";
+import { getIosAudioContext } from "../../../src/player/ios-audio-output";
 import type { Video } from "../../../src/protocol/types";
 import audioUrl from "./media-transition/paragraph.wav?url";
 import waterfallPoster from "./media-transition/waterfall.jpg?url";
@@ -28,10 +29,8 @@ const text = "First we see the water flowing. Then the tram moves through the ci
 const delayedOnset = new URLSearchParams(location.search).has("delayedOnset");
 let firstAudioPlay = true;
 const NativeAudio = window.Audio;
-let playingAudio: HTMLAudioElement | undefined;
 window.Audio = function (src?: string) {
   const audio = new NativeAudio(src);
-  playingAudio = audio;
   if (delayedOnset) {
     const playNow = audio.play.bind(audio);
     audio.play = async () => {
@@ -60,13 +59,71 @@ window.Audio = function (src?: string) {
   probe.push({ kind: "audio-created" });
   return audio;
 } as unknown as typeof Audio;
+// Observe the real iOS source clock and distinguish a stopped source from
+// natural completion. Pause/resume creates a new source over the same buffer.
+const iosOutput = getIosAudioContext();
+if (iosOutput) {
+  const createSource = iosOutput.createBufferSource.bind(iosOutput);
+  const bufferIds = new WeakMap<AudioBuffer, number>();
+  let nextBufferId = 0;
+  iosOutput.createBufferSource = () => {
+    const source = createSource();
+    const start = source.start.bind(source);
+    const stop = source.stop.bind(source);
+    let started = false, stopped = false, ended = false, since = 0, offset = 0;
+    const time = () => Math.min(source.buffer?.duration ?? Infinity, offset + Math.max(0, iosOutput.currentTime - since));
+    source.start = (when = 0, position = 0, duration?: number) => {
+      start(when, position, duration);
+      started = true; since = Math.max(when, iosOutput.currentTime); offset = position;
+      if (source.buffer && !bufferIds.has(source.buffer)) bufferIds.set(source.buffer, ++nextBufferId);
+      probe.push({ kind: "buffer-start", bufferId: source.buffer ? bufferIds.get(source.buffer) : undefined, audioTime: time(), at: performance.now() });
+    };
+    source.stop = (when = 0) => {
+      if (started && !stopped && !ended) probe.push({ kind: "pause", audioTime: time(), at: performance.now(), output: "buffer" });
+      stopped = true;
+      stop(when);
+    };
+    source.addEventListener("ended", () => {
+      if (!started || stopped) return;
+      ended = true;
+      probe.push({ kind: "ended", audioTime: time(), at: performance.now(), output: "buffer" });
+    });
+    probe.push({ kind: "buffer-source-created", at: performance.now() });
+    return source;
+  };
+}
+if (iosOutput && delayedOnset) {
+  const resume = iosOutput.resume.bind(iosOutput);
+  let gate: Promise<void> | undefined;
+  let delayed = false;
+  iosOutput.resume = () => {
+    if (gate) return gate;
+    if (delayed) return resume();
+    delayed = true;
+    // Unlock inside the Start gesture, then hold the actual shared output.
+    // Every resume request joins this gate until the injected stall releases.
+    gate = resume().then(() => iosOutput.suspend()).then(async () => {
+      probe.push({ kind: "cold-output-stall", source: "buffer", at: performance.now() });
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await resume();
+      probe.push({ kind: "cold-output-release", at: performance.now() });
+    }).finally(() => { gate = undefined; });
+    return gate;
+  };
+}
 const voice = createVideoChatVoice({ fetcher: () => fetch(audioUrl) });
+const speak = voice.speak.bind(voice);
+voice.speak = (text, options) => speak(text, { ...options, onStart: source => {
+  if (iosOutput) probe.push({ kind: "playing", audioTime: voice.getCurrentTime?.(), at: performance.now(), output: "buffer" });
+  options.onStart?.(source);
+} });
 function App() {
   const [video, setVideo] = useState<Video>();
   const [run, setRun] = useState(0);
   const narration = useNarration({ voice });
   const start = async () => {
     narration.interrupt();
+    voice.resume();
     const prepared = await voice.prepare(text);
     probe.push({ kind: "prepared", ...prepared });
     const segment = prepared.seconds / 3;
@@ -84,7 +141,7 @@ function App() {
       narrationReady={narration.isReady}
       narrationTime={narration.getTime}
       onStallChange={(stalled, reason) => stalled && reason !== "speech" ? voice.pause() : voice.resume()}
-      onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: playingAudio?.currentTime ?? 0, at:performance.now() }); narration.onSceneChange(scene, index); }}
+      onSceneChange={(scene, index) => { probe.push({ kind: "cut", index, audioTime: voice.getCurrentTime?.() ?? 0, at:performance.now() }); narration.onSceneChange(scene, index); }}
     />}</div></>;
 }
 createRoot(document.getElementById("root")!).render(<App />);

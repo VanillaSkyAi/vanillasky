@@ -2,16 +2,20 @@ import { claimSoundtrackGesture } from "./soundtrack-gesture.js";
 import { useEffect, useRef, useState } from 'react';
 import type { VideoAudio } from '../protocol/types.js';
 import { audioVolume } from './audio-volume.js';
+import { createBufferedSoundtrack, type SoundtrackPlayback } from './buffer-soundtrack.js';
+import { isIosAudioOutput } from './ios-audio-output.js';
 
 const CROSSFADE_MS = 800;
+const BUFFER_START_TIMEOUT_MS = 10_000;
 interface Track {
   audio: VideoAudio;
-  element: HTMLAudioElement | null;
+  element: SoundtrackPlayback | null;
   envelope: number;
+  bufferedPlayback?: 'pending' | 'ready' | 'failed';
 }
 interface SoundtrackProps {
   audio?: VideoAudio;
-  audioRef: { current: HTMLAudioElement | null };
+  audioRef: { current: SoundtrackPlayback | null };
   playing: boolean;
   muted: boolean;
   volume?: number;
@@ -41,17 +45,23 @@ export function Soundtrack(props: SoundtrackProps) {
       const elapsed = Math.max(0, now - previous);
       previous = now;
       const fadingOut = new Set<Track>();
+      // A buffered replacement must finish downloading and actually start
+      // before either side of its crossfade moves. Native streaming is unchanged.
+      const incoming = layers.find(track => track.audio.audioUrl === current.audio?.audioUrl);
+      const waitingForIncoming = incoming?.bufferedPlayback === 'pending';
       for (const track of layers) {
         const active = track.audio.audioUrl === current.audio?.audioUrl;
         const gain = audioVolume(current.volume ?? (active ? current.audio : track.audio)?.volume);
-        if (current.playing) track.envelope = Math.max(0, Math.min(1, track.envelope + (active ? 1 : -1) * elapsed / CROSSFADE_MS));
+        if (current.playing && !waitingForIncoming && (!active || track.bufferedPlayback !== 'failed')) {
+          track.envelope = Math.max(0, Math.min(1, track.envelope + (active ? 1 : -1) * elapsed / CROSSFADE_MS));
+        }
         const fadeSeconds = Math.max(0, ((active ? current.audio : track.audio)?.fadeOutMs ?? 3000) / 1000);
         const ending = current.terminal && fadeSeconds > 0 ? Math.min(1, Math.max(0, current.duration - current.time) / fadeSeconds) : 1;
         if (track.element) {
           const volume = gain * track.envelope * ending;
           try { track.element.volume = volume; }
           catch { /* Native output remains usable until a gesture unlocks the Safari gain adapter. */ }
-          track.element.dataset.v = String(volume);
+          if (track.element instanceof HTMLAudioElement) track.element.dataset.v = String(volume);
           track.element.muted = current.muted || (volume < 1 && track.element.volume > volume + .01);
         }
         if (!active && track.envelope <= 0) fadingOut.add(track);
@@ -63,12 +73,66 @@ export function Soundtrack(props: SoundtrackProps) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return tracks.map(track => <SoundtrackElement key={track.audio.audioUrl} track={track} active={track.audio.audioUrl === selection} audioRef={props.audioRef} playing={props.playing} muted={props.muted} />);
+  const Element = isIosAudioOutput() ? BufferedSoundtrackElement : SoundtrackElement;
+  return tracks.map(track => <Element key={track.audio.audioUrl} track={track} active={track.audio.audioUrl === selection} audioRef={props.audioRef} playing={props.playing} muted={props.muted} />);
 }
 
-function SoundtrackElement({ track, active, audioRef, playing, muted }: {
+interface ElementProps {
   track: Track; active: boolean; audioRef: SoundtrackProps['audioRef']; playing: boolean; muted: boolean;
-}) {
+}
+
+function BufferedSoundtrackElement({ track, active, audioRef, playing, muted }: ElementProps) {
+  const output = useRef<ReturnType<typeof createBufferedSoundtrack> | null>(null);
+  useEffect(() => {
+    const handle = createBufferedSoundtrack(track.audio.audioUrl);
+    handle.volume = 0;
+    handle.muted = muted;
+    output.current = handle;
+    track.element = handle;
+    track.bufferedPlayback = 'pending';
+    return () => {
+      if (output.current === handle) { handle.dispose(); output.current = null; }
+      track.element = null;
+      if (audioRef.current === handle) audioRef.current = null;
+    };
+  }, [audioRef, track]);
+  useEffect(() => {
+    if (active) audioRef.current = output.current;
+  }, [active, audioRef, track]);
+  useEffect(() => {
+    if (output.current) output.current.muted = muted;
+  }, [muted, audioRef, track]);
+  useEffect(() => {
+    const handle = output.current;
+    if (!handle) return;
+    track.bufferedPlayback = 'pending';
+    if (!playing) { handle.pause(); return; }
+    let current = true;
+    const fail = () => {
+      if (!current || output.current !== handle) return;
+      current = false;
+      clearTimeout(timeout);
+      track.bufferedPlayback = 'failed';
+      handle.dispose();
+      output.current = null;
+      track.element = null;
+      if (audioRef.current === handle) audioRef.current = null;
+    };
+    // Optional music must not retain an outgoing track forever if its fetch,
+    // decode, or output resume never settles. Pause cancels this start attempt.
+    const timeout = setTimeout(fail, BUFFER_START_TIMEOUT_MS);
+    void handle.play().then(() => {
+      if (!current || output.current !== handle) return;
+      clearTimeout(timeout);
+      if (handle.paused) { fail(); return; }
+      track.bufferedPlayback = 'ready';
+    }, fail);
+    return () => { current = false; clearTimeout(timeout); handle.pause(); };
+  }, [playing, audioRef, track]);
+  return <span hidden data-soundtrack={active ? 'active' : 'outgoing'} data-audio-output="buffer" data-track-id={track.audio.trackId} />;
+}
+
+function SoundtrackElement({ track, active, audioRef, playing, muted }: ElementProps) {
   const element = useRef<HTMLAudioElement>(null);
   useEffect(() => {
     const audio = element.current!;
