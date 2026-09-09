@@ -112,6 +112,13 @@ opening replaces that topic with an authored spoken beat. The default UI makes
 no opening stock request. Each body beat starts speech preparation while its
 selected footage source prepares. At most two speech preparations run together.
 
+The shared footage renderer starts loading when the turn begins, overlapping
+planning and provider work. Ordered scene preparation joins that cached load;
+warming code does not create a scene, allocate a decoder, or interrupt the intro.
+The recorded-media application startup check delays the renderer download and
+holds scene delivery to verify this overlap, complete speech and moving footage.
+That controlled delay is not a production latency estimate.
+
 `first-media-frame` reports the first decoded footage frame presented by the
 mounted media surface. It is separate from `first-frame`, which also includes
 chapter scenes. Neither callback measures the immediate opening template;

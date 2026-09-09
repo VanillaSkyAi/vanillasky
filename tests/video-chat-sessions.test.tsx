@@ -57,3 +57,13 @@ it("leaves navigation to an explicit app home URL without resetting first", () =
   fireEvent.click(home);
   expect(session.current.reset).not.toHaveBeenCalled();
 });
+
+it("starts subtitles without showing their dismiss control", () => {
+  session.current = { ...session.current, caption: undefined };
+  const { container, rerender } = render(<VideoChat />);
+
+  session.current = { ...session.current, caption: "The tide rises." };
+  rerender(<VideoChat />);
+
+  expect(container.querySelector(".line-row")?.getAttribute("data-actions-visible")).toBe("false");
+});
