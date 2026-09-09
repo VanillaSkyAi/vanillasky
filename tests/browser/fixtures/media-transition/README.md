@@ -40,7 +40,7 @@ claiming continuous H264 playback is verified on Linux WebKit.
 The delayed-speech regression waits inside the page with `waitForFunction`. Do not poll through repeated `page.evaluate` calls while waiting for gesture expiry: those protocol calls renewed activation in WebKit and masked the original `NotAllowedError`. Read telemetry only after the in-page completion signal.
 
 The continuous-narration fixture uses the same offline paragraph in full over
-moving footage. `waterfall-short.mp4` is its deliberately insufficient 1.5-second
+moving footage. `waterfall-short.mp4` is its deliberately shorter 1.5-second
 H264 excerpt; `waterfall-audio.mp4` adds a synthetic 220 Hz AAC tone to the full
 clip to verify native audible playback without repeating dialogue. Their WebM
 variants use VP8 and Opus for Linux WebKit, following the documented native H264

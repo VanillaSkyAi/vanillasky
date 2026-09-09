@@ -14,7 +14,8 @@ of previously published npm releases.
 - Keep footage when narration shortening fails, and loop healthy scenes at
   normal speed until their narration finishes. Preserve one continuous spoken
   line and subtitles across repeats, including browser-voice fallback, with
-  the existing playback deadlines and media-failure recovery.
+  the existing playback deadlines and media-failure recovery. Restart the first
+  narration when replaying a single-scene answer.
 - Correct the sound settings hint to describe steady listening levels.
 - Keep the intro's completed subtitle phrase in place while generated footage
   prepares, instead of restarting the subtitle animation when the player mounts.
