@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
 import type { VideoEvent } from "../protocol/events.js";
 import type { VideoState } from "../protocol/state.js";
-import type { Video, VideoOrientation, VideoScene } from "../protocol/types.js";
+import type { Video, VideoAudio, VideoOrientation, VideoScene } from "../protocol/types.js";
 import type { VideoPlaybackMode } from "./playback-policy.js";
 
 interface NativeMediaAudioOptions {
+  /** Only play footage explicitly marked as generated ambience. */
+  ambientOnly?: boolean;
   /** Volume of the active scene video's embedded audio, from 0 to 1. */
   volume?: number;
 }
@@ -20,6 +22,17 @@ interface VideoPlayerSharedProps {
   /** Initial playback state. Reduced-motion preferences take precedence. */
   autoPlay?: boolean;
   startMuted?: boolean;
+  /** Controlled master mute for soundtrack and native clip audio. */
+  muted?: boolean;
+  onMutedChange?: (muted: boolean) => void;
+  /** Replace only the soundtrack, preserving the current footage and playhead. */
+  soundtrack?: VideoAudio | false;
+  /** User soundtrack gain, overriding the saved track's default. */
+  soundtrackVolume?: number;
+  /** Actual audible speech, including the separately spoken opening. */
+  backgroundDucked?: boolean;
+  /** Lower backgrounds during generation/decoder waits. */
+  backgroundWaiting?: boolean;
   /** Play embedded audio from active scene videos as a layer beneath the master mute control. */
   nativeMediaAudio?: NativeMediaAudioOptions;
   /** Fixed display width. Omit to observe and fill the parent width. */

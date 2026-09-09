@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
 import { VideoChat } from "../src/video-chat/video-chat";
+import { DEFAULT_AUDIO_PREFERENCES } from "../src/video-chat/audio-preferences";
 
 const session = vi.hoisted(() => ({ current: {} as UseVideoChatResult }));
 vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => ({ chat: session.current, restoreSession: vi.fn(), getCaptionProgress: () => ({ text: session.current.caption, elapsedSeconds: 0, durationSeconds: 4, timing: "estimated" }) }) }));
@@ -13,6 +14,7 @@ beforeEach(() => {
   const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans." };
   session.current = {
     ask: vi.fn(async () => undefined), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), replay: vi.fn(), selectTurn: vi.fn(), reset: vi.fn(), setMuted: vi.fn(),
+    audioPreferences: {...DEFAULT_AUDIO_PREFERENCES}, setAudioPreferences: vi.fn(), resetAudioPreferences: vi.fn(), shuffleMusic: vi.fn(), backgroundDucked: false, backgroundWaiting: false,
     turns: [turn], currentTurn: turn, shownTurn: turn, availableModes: ["cinematic"], status: "playing", warnings: [], suggestions: [],
     caption: "The tide rises, then the water falls.", transcript: ["The Moon moves our oceans.", "The tide rises, then the water falls."], speaking: true, muted: false, playbackEnded: false, playerKey: 0,
   };

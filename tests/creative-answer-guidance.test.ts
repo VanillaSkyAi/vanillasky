@@ -55,7 +55,7 @@ function assertVisualTreatment(calls: MediaCall[], example: Example, beats: Beat
       beat.continuity === "continue"
         ? "Continue the established subject, setting and action consistently."
         : "A deliberate new shot; choose framing that reveals this beat.",
-      "Silent illustration. No spoken dialogue, voiceover, written words or subtitles in the generated footage.",
+      "Illustrative footage. No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
     ].join("\n"));
     expect(call.variables.stockSelection).toEqual(mode === "pexels" ? {subject: example.subject} : undefined);
   }

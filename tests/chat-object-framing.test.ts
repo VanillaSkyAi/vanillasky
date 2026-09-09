@@ -24,7 +24,39 @@ it.each([1,17,10000])("accepts complete pretty-printed objects with nested value
 it("frames adjacent objects without needing a trailing newline", async () => {
   expect((await run(JSON.stringify(brief)+JSON.stringify(shot),7)).scenes.map(scene=>scene.narration)).toEqual([shot.narration,ending.narration]);
 });
-it.each([JSON.stringify({answer:brief,shots:[shot]},null,2), 'Here is a story.', JSON.stringify([brief,shot],null,2), '{"type":"answer",broken}', JSON.stringify(brief).slice(0,-4)])("rejects malformed, incomplete or unsupported top-level data instead of inventing an answer", async source => {
+it.each([1, 17, 10000])("accepts an array of answer and shot records without changing their meaning (chunks=%i)", async size => {
+  const result = await run(JSON.stringify([brief, shot], null, 2), size);
+  expect(result.errors).toEqual([]);
+  expect(result.events.some(event => event.type === "data.video-chat-opening")).toBe(true);
+  expect(result.scenes.map(scene => scene.narration)).toEqual([shot.narration, ending.narration]);
+  expect(result.events.at(-1)?.type).toBe("response.complete");
+});
+it.each([[], [shot, brief], [brief, [shot]], [brief, shot, null], [brief, shot, brief], [brief, {shots:[shot]}]].map(value => ({value})))("rejects arrays that are not an answer followed by shots: $value", async ({value}) => {
+  const result = await run(JSON.stringify(value), 7);
+  expect(result.scenes).toHaveLength(0);
+  expect(result.errors.length).toBeGreaterThan(0);
+  expect(result.events.at(-1)?.type).toBe("response.error");
+});
+it("applies existing shot validation and duration bounds to array records", async () => {
+  const bad = {...shot, narration: "x".repeat(2001)};
+  const shots = Array.from({length: 10}, (_, index) => ({...shot, narration:`The robot plants seed number ${index}.`}));
+  const result = await run(JSON.stringify([brief, bad, ...shots]), 17);
+  expect(result.errors).toContain("Chat shot requires bounded authored narration");
+  expect(result.errors).toContain("Chat shot exceeds the answer duration budget");
+  expect(result.scenes.map(scene => scene.narration)).toEqual([...shots.slice(0, 7).map(item => item.narration), ending.narration]);
+  expect(result.events.at(-1)).toMatchObject({type:"response.complete",data:{finishReason:"other"}});
+});
+it("does not accept another array answer after streaming has started", async () => {
+  const result = await run(JSON.stringify(brief) + JSON.stringify([brief, shot]) + JSON.stringify(shot), 7);
+  expect(result.errors).toContain("Chat plan requires an answer brief followed by shots");
+  expect(result.scenes.map(scene => scene.narration)).toEqual([shot.narration, ending.narration]);
+});
+it("retains the 32KB bound before accepting an array", async () => {
+  const result = await run('[' + JSON.stringify(brief) + ',' + ' '.repeat(33000) + JSON.stringify(shot) + ']', 1000);
+  expect(result.scenes).toHaveLength(0);
+  expect(result.errors.some(error => error.includes("bounded stream limit"))).toBe(true);
+});
+it.each([JSON.stringify({answer:brief,shots:[shot]},null,2), 'Here is a story.', JSON.stringify([brief,shot],null,2).slice(0,-1), '{"type":"answer",broken}', JSON.stringify(brief).slice(0,-4)])("rejects malformed, incomplete or unsupported top-level data instead of inventing an answer", async source => {
   const result = await run(source,13);
   expect(result.scenes).toHaveLength(0);
   expect(result.errors.length).toBeGreaterThan(0);

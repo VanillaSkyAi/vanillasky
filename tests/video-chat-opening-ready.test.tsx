@@ -3,6 +3,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
 import type { VideoPlayerProps } from "../src/player/video-player";
+import { DEFAULT_AUDIO_PREFERENCES } from "../src/video-chat/audio-preferences";
 const fixture = vi.hoisted(() => ({chat: {} as UseVideoChatResult, player: undefined as VideoPlayerProps | undefined}));
 vi.mock("../src/video-chat/use-video-chat", () => ({useVideoChatSession: () => ({chat: fixture.chat, restoreSession: vi.fn()})}));
 vi.mock("../src/player/video-player", () => ({VideoPlayer: (props: VideoPlayerProps) => { fixture.player = props; return <div data-test-player />; }}));
@@ -10,7 +11,7 @@ import { VideoChat } from "../src/video-chat/video-chat";
 const scene = {id:"body", templateId:"chapterTitle", variables:{title:"Useful answer"}, narration:"A useful answer", timing:{fixedDuration:4}};
 function setup() {
   const turn = {id:"turn", prompt:"A topic", opening:"An authored opening", mode:"pexels", createdAt:0};
-  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn()} as unknown as UseVideoChatResult;
+  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn(), audioPreferences:DEFAULT_AUDIO_PREFERENCES, backgroundDucked:false, backgroundWaiting:false} as unknown as UseVideoChatResult;
   return render(<VideoChat />);
 }
 afterEach(() => {cleanup(); vi.unstubAllGlobals();});

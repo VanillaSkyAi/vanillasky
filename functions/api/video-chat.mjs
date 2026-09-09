@@ -244,6 +244,7 @@ export async function handleVideoChatRequest({
         generateSpeech: guardPaidProvider("generateSpeech", admission, (context) => generateSpeech(context, env, fetcher)),
       } : {}),
       ...(wantsGeneratedVideo && generatedVideoConfigured(env) ? {
+        generatedVideoAudio: true,
         generateVideo: guardPaidProvider("generateVideo", admission, async (query, context) => {
           if (!actor || action !== "response") return null;
           if (personalAllowanceExhausted) return paidStock(query, context);

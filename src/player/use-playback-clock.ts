@@ -210,12 +210,7 @@ export function usePlaybackClock({
             audio.currentTime = 0;
             if (audio.paused) void audio.play().catch(Boolean);
           }
-          const fadeSeconds = Math.max(0, (config.audio?.fadeOutMs ?? 3000) / 1000);
           const remaining = Math.max(0, duration - nextTime);
-          const baseVolume = config.audio?.volume ?? 1;
-          audio.volume = fadeSeconds > 0
-            ? baseVolume * Math.min(1, remaining / fadeSeconds)
-            : baseVolume;
           if (remaining <= 0 && !looping) audio.pause();
         }
         const notify = callbacksRef.current.onSceneChange;

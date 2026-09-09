@@ -15,6 +15,8 @@ import { useVoiceInput } from "./use-voice-input";
 import { useImmersiveControls } from "./use-immersive-controls";
 import { Logo } from "./logo";
 import { visualModes } from "./modes";
+import { AudioSettings } from "./audio-settings";
+import { Soundtrack } from "../player/soundtrack";
 const DESKTOP_WIDTH = 900;
 const CAPTION_STYLE_KEY = "vanillasky:caption-style";
 type CaptionStyle = "classic" | "words";
@@ -176,6 +178,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   }, [chat, listen]);
 
   const shown = chat.shownTurn;
+  const soundtrackRef = useRef<HTMLAudioElement | null>(null);
   const showing = chat.playerProps != null;
   const handoffKey = `${shown?.id ?? ""}:${chat.playerKey}`;
   const [presentedBody, setPresentedBody] = useState<string>();
@@ -235,7 +238,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     if (previousTranscriptExpanded.current !== transcriptExpanded && chat.playbackEnded) transcriptControlRef.current?.focus();
     previousTranscriptExpanded.current = transcriptExpanded;
   }, [transcriptExpanded, chat.playbackEnded]);
-  const transport = status === "narrating"
+  const transport = status === "narrating" || (status === "drawing" && chat.soundtrack)
     ? { label: "Pause", action: chat.pause, icon: <Stop /> }
     : status === "paused"
       ? { label: "Continue", action: chat.resume, icon: <Play /> }
@@ -284,6 +287,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
 
   return <div
     className={`vanillasky-video-chat${className ? ` ${className}` : ""}`}
+    data-soundtrack-owner=""
     data-orientation={stageOrientation}
     data-controls-visible={controls.visible}
     tabIndex={0}
@@ -292,6 +296,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     onPointerDown={controls.reveal}
     onKeyDownCapture={controls.reveal}
   >
+    {shown && !["idle", "cancelled", "error"].includes(chat.status) && <Soundtrack
+      key={`${shown.id}:${chat.playerProps?.video ? chat.playerKey : "live"}`}
+      audio={chat.playbackEnded ? undefined : chat.soundtrack} audioRef={soundtrackRef}
+      playing={chat.status !== "paused"} muted={chat.muted} volume={chat.audioPreferences.musicVolume}
+      ducked={chat.backgroundDucked} waiting={chat.backgroundWaiting}
+      time={0} duration={0} terminal={false} />}
     <header className="chrome" {...controlEvents}>
       <div className="session-brand"><a className="home-link" href={customHome ?? "/"} aria-label={branding ? `${appName} home` : "Home"}
         style={branding ? { color: "inherit", textDecoration: "none" } : undefined} onClick={event => {
@@ -325,7 +335,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         <button
           type="button"
           className="round"
-          aria-label={chat.muted ? "Turn the voice on" : "Turn the voice off"}
+          aria-label={chat.muted ? "Unmute sound" : "Mute sound"}
           aria-pressed={chat.muted}
           onClick={() => chat.setMuted(!chat.muted)}
         >{chat.muted ? <Muted /> : <Sound />}</button>
@@ -339,6 +349,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         {chat.playerProps && <div className="player-fit" style={{ width: stageOrientation === "portrait" ? "min(100cqw, 56.25cqh)" : "min(100cqw, 177.7778cqh)" }}><VideoPlayer
           key={chat.playerKey}
           {...chat.playerProps}
+          soundtrack={false}
           onSceneChange={cueBody}
           orientation={stageOrientation}
           responsiveBreakpoint={DESKTOP_WIDTH}
@@ -393,6 +404,10 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
               checked={(selectedMode ?? options.mode ?? "cinematic") === mode.id}
               onChange={() => setSelectedMode(mode.id)} /></label>)}
         </fieldset>
+        <AudioSettings preferences={chat.audioPreferences} change={chat.setAudioPreferences} reset={chat.resetAudioPreferences}
+          shuffle={chat.shuffleMusic} trackId={chat.soundtrack?.trackId}
+          sceneAudioAvailable={Boolean((chat.capabilities?.generatedVideoAudio && (selectedMode ?? options.mode ?? "cinematic") === "cinematic")
+            || shown?.video?.scenes.some(scene => scene.variables.mediaAudio === "ambient"))} />
         <fieldset className="playback-options"><legend>Watching</legend>
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
           <div className="caption-style-options" role="radiogroup" aria-label="Subtitle style" data-disabled={!captionsOn}>

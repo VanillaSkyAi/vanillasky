@@ -106,6 +106,8 @@ export interface VideoChatHandlerOptions extends Pick<
   searchMedia?: VideoChatMediaResolver;
   /** Optional generated-video provider. Its presence enables paid visual modes. */
   generateVideo?: VideoChatVideoGenerator;
+  /** Configured generated-video provider supports natural ambient/action audio. */
+  generatedVideoAudio?: boolean;
   /** Maximum generated-video attempts per response, including failures. Defaults to 5. */
   maxGeneratedVideos?: number;
   /** Generated media deadline in milliseconds, 1–600000. Defaults to 15000. Host providers must honor cancellation. */

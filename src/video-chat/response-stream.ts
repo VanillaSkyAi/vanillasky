@@ -1,6 +1,7 @@
 import {
   VIDEO_SCHEMA_VERSION,
   type Video,
+  type VideoAudio,
   type VideoOrientation,
   type VideoScene,
   type VideoStyle,
@@ -14,6 +15,7 @@ import { withDeadline } from "./deadline.js";
 import type { createScenePreparation } from "./scene-preparation.js";
 import type { VideoChatVoice } from "./voice.js";
 import type { VideoChatConversationTurn, VideoChatMode } from "./types.js";
+import type { MusicPreference } from "../music-catalog.js";
 
 function actionEndpoint(endpoint: string | URL, action: string): string {
   const value = String(endpoint);
@@ -79,6 +81,7 @@ export async function responseError(response: Response): Promise<VideoError> {
 /** Shared with the timeline handoff so partial scenes remain recoverable. */
 export interface ResponseStreamState {
   style?: VideoStyle;
+  audio?: VideoAudio;
   ready: Array<VideoScene | undefined>;
   received: VideoScene[];
   spokenHook: string;
@@ -94,6 +97,9 @@ interface ResponseStreamOptions {
     orientation: VideoOrientation;
     conversation: VideoChatConversationTurn[];
     style?: VideoStyleOptions;
+    musicMood?: MusicPreference;
+    initialTrackId?: string;
+    previousTrackId?: string;
   };
   id: string;
   orientation: VideoOrientation;
@@ -135,6 +141,7 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
     for await (const event of decodeVideoSse(response.body)) {
       if (!isCurrent()) return { video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: [], style: state.style! }, lines: [] };
       if (event.type === "response.start") state.style = event.data.style;
+      if (event.type === "audio.set") state.audio = event.data.audio;
       if (event.type === "response.warning" || (event.type === "response.error" && !event.data.terminal)) {
         warn(event.type === "response.warning" && event.data.warning.message === MEDIA_RECOVERY_NOTICE
           ? MEDIA_RECOVERY_NOTICE
@@ -241,6 +248,7 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
       orientation,
       scenes: state.ready.filter((entry): entry is VideoScene => entry != null),
       style: state.style,
+      ...(state.audio ? { audio: state.audio } : {}),
     },
     lines,
   };

@@ -792,6 +792,16 @@
 
 .vanillasky-video-chat .settings .switch-row > span { flex: 1; }
 
+.vanillasky-video-chat .music-mood select { max-width: 55%; padding: 7px 28px 7px 10px; color: var(--vs-fg); background: #25283d; border: 1px solid rgb(216 220 246 / 24%); border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; }
+.vanillasky-video-chat .settings .audio-slider { display: grid; gap: 5px; padding: 10px 12px 5px; }
+.vanillasky-video-chat .settings .audio-slider > span { display: flex; justify-content: space-between; gap: 12px; }
+.vanillasky-video-chat .audio-slider output { color: #aeb2c7; font-size: 12px; font-variant-numeric: tabular-nums; }
+.vanillasky-video-chat .settings input[type="range"] { appearance: auto; -webkit-appearance: auto; accent-color: #c1c4e5; width: 100%; min-width: 0; height: 28px; }
+.vanillasky-video-chat .music-track { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 12px; color: #c1c4d5; font-size: 12px; }
+.vanillasky-video-chat .music-track button, .vanillasky-video-chat .audio-reset { padding: 7px 4px; border: 0; background: none; color: #dedff1; text-decoration: underline; text-underline-offset: 3px; font: inherit; font-size: 12px; cursor: pointer; }
+.vanillasky-video-chat .audio-reset { justify-self: start; margin-left: 8px; }
+.vanillasky-video-chat .audio-hint { margin: 2px 12px 0; color: #aeb2c7; font-size: 11px; line-height: 1.4; }
+
 .vanillasky-video-chat .settings input { appearance: none; -webkit-appearance: none; flex-shrink: 0; margin: 0; font: inherit; cursor: pointer; }
 
 .vanillasky-video-chat .settings input[type="checkbox"] { position: relative; order: 2; width: 38px; height: 23px; border: 1px solid rgb(255 255 255 / 13%); border-radius: 99px; background: rgb(255 255 255 / 12%); transition: background 180ms ease; }

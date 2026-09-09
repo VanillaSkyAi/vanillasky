@@ -6,6 +6,7 @@ import { continueAfterOpening } from "./opening-continuity.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
+import { createMusicAudio, getMusicTrack, selectMusicTrack, type MusicMood, type MusicPreference } from "../music-catalog.js";
 
 interface ChatPlannerTextContext extends VideoGenerationContext {
   userPrompt: string;
@@ -45,6 +46,7 @@ interface Shot {
   stockSelection?: StockSelection;
 }
 interface Brief {
+  musicMood: MusicMood;
   intent: AnswerIntent;
   visualStyle: AnswerVisualStyle;
   opening: string;
@@ -54,6 +56,9 @@ interface Brief {
   ending?: Shot;
 }
 const object = (value: unknown): Record<string, unknown> | undefined => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+function readMusicMood(value: unknown): MusicMood {
+  return value === "focused" || value === "upbeat" || value === "off" ? value : "calm";
+}
 /** Closed structural evidence only: never retain model keys, values or text. */
 function planShapeError(value: unknown): Error {
   const part = object(value);
@@ -130,7 +135,7 @@ function recoverFirstBrief(part: Record<string, unknown> | undefined, clipDurati
   const subject = text(part.subject, 80);
   // Preserve the regular shot contract: authored subject/title fallback and
   // bounded duration normalization. Invalid content above is never defaulted.
-  return { ...compileVisualDirection(part), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
+  return { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
     visualDirection: text(part.visualDirection, 600), ending: readShot(ending, clipDurationSec, subject) };
 }
 function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamText"]>, textStream: AsyncIterable<string>): ReturnType<TextDeltaVideoPlannerOptions["streamText"]> {
@@ -146,6 +151,9 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   openingLine?: string;
   publishOpening: (opening: { line: string; keyword: string } | undefined) => void;
   generatedClipDurationSec?: number;
+  musicMood?: MusicPreference;
+  previousTrackId?: string;
+  initialTrackId?: string;
 }): VideoPlanner {
   const clipDurationSec = options.mode === "pexels" ? undefined : options.generatedClipDurationSec ?? 5;
   // Planning slots bound record count, not the physical length of stock footage.
@@ -179,6 +187,10 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
         const acceptDirection = (value: Brief) => {
           const direction = compileVisualDirection(value, context.request.input.style?.generatedLook);
           generatedLooks.set(context, direction.generatedLook);
+          const mood = options.musicMood && options.musicMood !== "auto" ? options.musicMood : value.musicMood;
+          const initialTrack = options.initialTrackId ? getMusicTrack(options.initialTrackId) : undefined;
+          const track = initialTrack?.mood === mood ? initialTrack : selectMusicTrack(mood, options.previousTrackId);
+          getGenerationLifecycleSink(context)?.setPlannedAudio?.(track ? createMusicAudio(track) : undefined);
         };
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {
           let narration = shot.narration;
@@ -191,16 +203,12 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
               brief?.visualDirection,
               shot.action,
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",
-              "Silent illustration. No spoken dialogue, voiceover, written words or subtitles in the generated footage.",
+              "Illustrative footage. No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
             ].filter(Boolean).join("\n"), },
             narration, timing: options.mode === "pexels" ? {} : { fixedDuration: shot.durationSec },
           } };
         };
-        const line = (raw: string): VideoPlanPart | undefined => {
-          const trimmed = raw.trim();
-          if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
-          const firstRecord = recordsSeen++ === 0;
-          const value: unknown = JSON.parse(trimmed);
+        const record = (value: unknown, firstRecord: boolean): VideoPlanPart | undefined => {
           const part = object(value);
           const recovered = firstRecord && !brief && index === 0 ? recoverFirstBrief(part, planningSlotSec) : undefined;
           if (recovered) {
@@ -211,7 +219,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           }
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
-            brief = { ...compileVisualDirection(part), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
+            brief = { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
             acceptDirection(brief);
             if (part.ending) { try { brief.ending = readShot(part.ending, planningSlotSec, brief.subject); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
@@ -227,6 +235,24 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           bodyDuration += shot.durationSec;
           return scenePart(shot);
         };
+        const line = function* (raw: string): Generator<VideoPlanPart> {
+          const trimmed = raw.trim();
+          if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
+          const firstRecord = recordsSeen++ === 0;
+          const value: unknown = JSON.parse(trimmed);
+          // Models occasionally wrap the requested records in one JSON array.
+          // Accept only a complete initial answer/shot sequence; never dig into
+          // arbitrary containers or bypass the normal content and budget checks.
+          if (Array.isArray(value) && (!firstRecord || object(value[0])?.type !== "answer"
+            || !value.slice(1).every(item => object(item)?.type === "shot"))) throw planShapeError(value);
+          const records: unknown[] = Array.isArray(value) ? value : [value];
+          for (const [position, item] of records.entries()) {
+            try {
+              const part = record(item, firstRecord && position === 0);
+              if (part) yield part;
+            } catch (cause) { reject(cause); }
+          }
+        };
         let cursor = 0, depth = 0, quoted = false, escaped = false;
         const takeFrame = (): string | undefined => {
           if (cursor === 0) {
@@ -241,8 +267,8 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
             }
           }
           // Frame complete JSON containers, not physical lines. Arrays remain
-          // whole so semantic validation rejects them instead of extracting
-          // their nested objects. Each character is scanned once across deltas.
+          // whole until their syntax and record sequence can be validated.
+          // Each character is scanned once across deltas.
           for (; cursor < buffer.length; cursor++) {
             const character = buffer[cursor];
             if (quoted) {
@@ -286,12 +312,12 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
               offset += piece.length;
               let raw = takeFrame();
               while (raw !== undefined) {
-                try { const part = line(raw); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
+                try { for (const part of line(raw)) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
                 raw = takeFrame();
               }
             }
           }
-          if (buffer.trim()) { try { const part = line(buffer); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
+          if (buffer.trim()) { try { for (const part of line(buffer)) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
           if (brief?.development && bodyDuration === 0) incomplete.add(context);
           if (brief?.ending && brief.ending.narration !== lastNarration) yield JSON.stringify(scenePart(brief.ending, true)) + "\n";
           else if (!brief?.ending) incomplete.add(context);
@@ -367,7 +393,7 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });
     const title = part.scene.variables.fallbackText;
     const scene: VideoScene = media
-      ? { ...part.scene, variables: { fallbackText: title, mediaType: media.type === "image" ? "photo" : "video", mediaUrl: media.url, ...(media.posterUrl ? { mediaPoster: media.posterUrl } : {}), ...(media.durationSec ? { mediaDurationSec: media.durationSec } : {}) } }
+      ? { ...part.scene, variables: { fallbackText: title, mediaType: media.type === "image" ? "photo" : "video", mediaUrl: media.url, ...(media.posterUrl ? { mediaPoster: media.posterUrl } : {}), ...(media.durationSec ? { mediaDurationSec: media.durationSec } : {}), ...(media.type === "video" && media.audio === "ambient" ? { mediaAudio: "ambient" } : {}) } }
       : { ...part.scene, templateId: "chapterTitle", variables: { title } };
     if (media) options.prepareScene?.({ sceneId: scene.id, narration, media, clipDurationSec: clipBudget });
     return { ...part, scene };

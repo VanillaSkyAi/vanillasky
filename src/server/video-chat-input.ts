@@ -1,6 +1,7 @@
 import { VIDEO_PROTOCOL_VERSION, type VideoOrientation, type VideoScene, type VideoStyleOptions } from "../protocol/types.js";
 import type { VideoChatConversationTurn, VideoChatMode } from "../video-chat/types.js";
 import { parseVideoRequest } from "./request-validation.js";
+import { getMusicTrack, type MusicPreference } from "../music-catalog.js";
 
 const MAX_PROMPT_CHARACTERS = 8_000;
 const MAX_CONVERSATION_TURNS = 12;
@@ -13,6 +14,9 @@ export interface ParsedResponseRequest {
   orientation: VideoOrientation;
   conversation: VideoChatConversationTurn[];
   style?: VideoStyleOptions;
+  musicMood?: MusicPreference;
+  previousTrackId?: string;
+  initialTrackId?: string;
 }
 
 interface SuggestionSubject {
@@ -42,7 +46,14 @@ export function boundedString(value: unknown, label: string, maximum = MAX_PROMP
 
 export function parseResponseRequest(value: unknown): ParsedResponseRequest {
   const body = record(value, "request");
-  allowedKeys(body, ["prompt", "opening", "mode", "orientation", "conversation", "style"], "request");
+  allowedKeys(body, ["prompt", "opening", "mode", "orientation", "conversation", "style", "musicMood", "previousTrackId", "initialTrackId"], "request");
+  const musicMood = body.musicMood;
+  if (musicMood !== undefined && musicMood !== "auto" && musicMood !== "calm" && musicMood !== "focused" && musicMood !== "upbeat" && musicMood !== "off") {
+    throw new Error("request.musicMood must be auto, calm, focused, upbeat or off");
+  }
+  const previousTrackId = body.previousTrackId === undefined ? undefined : boundedString(body.previousTrackId, "request.previousTrackId", 80);
+  const initialTrackId = body.initialTrackId === undefined ? undefined
+    : getMusicTrack(boundedString(body.initialTrackId, "request.initialTrackId", 80))?.id;
   const mode = body.mode ?? "cinematic";
   if (mode !== "cinematic" && mode !== "pexels") {
     throw new Error("request.mode must be cinematic or pexels");
@@ -78,6 +89,9 @@ export function parseResponseRequest(value: unknown): ParsedResponseRequest {
       };
     }),
     ...(style == null ? {} : { style }),
+    ...(musicMood === undefined ? {} : { musicMood }),
+    ...(previousTrackId === undefined ? {} : { previousTrackId }),
+    ...(initialTrackId === undefined ? {} : { initialTrackId }),
   };
 }
 

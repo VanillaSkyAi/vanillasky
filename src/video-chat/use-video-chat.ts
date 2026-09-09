@@ -1,5 +1,5 @@
 import {
-  conversationFor, initialState, reducer, transcriptFor,
+  conversationFor, initialState, reducer, soundtrackForTurn, transcriptFor,
   type VideoChatStatus, type VideoChatTurn,
 } from "./session-state.js";
 import {
@@ -11,11 +11,14 @@ import { orderWelcomeCards, welcomeVisitSeed } from "./welcome-cards.js";
 import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
 import { createScenePreparation } from "./scene-preparation.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createMusicAudio, getMusicTrack, selectMusicTrack } from "../music-catalog.js";
+import { DEFAULT_AUDIO_PREFERENCES, readAudioPreferences, saveAudioPreferences, updateAudioPreferences, type AudioPreferences } from "./audio-preferences.js";
 import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import type {
   Video,
+  VideoAudio,
   VideoOrientation,
   VideoScene,
   VideoStyleOptions,
@@ -49,6 +52,8 @@ export interface UseVideoChatOptions {
   /** Replace the default speech client while keeping session timing and cancellation. */
   voice?: VideoChatVoice;
   initialMuted?: boolean;
+  /** Initial listening preferences, overriding this device's saved settings. */
+  audio?: Partial<AudioPreferences>;
   timeoutMs?: number;
   createTurnId?: () => string;
   /** Observe how long a fresh response takes to display its first actual scene. */
@@ -104,6 +109,13 @@ export interface UseVideoChatResult {
   speaking: boolean;
   muted: boolean;
   setMuted(muted: boolean): void;
+  audioPreferences: AudioPreferences;
+  setAudioPreferences(preferences: Partial<AudioPreferences>): void;
+  resetAudioPreferences(): void;
+  shuffleMusic(): void;
+  soundtrack?: VideoAudio;
+  backgroundDucked: boolean;
+  backgroundWaiting: boolean;
   playbackEnded: boolean;
   /** Changes whenever saved content should restart from zero. */
   playerKey: number;
@@ -132,6 +144,11 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 } {
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const [audioPreferences, setAudioState] = useState(() => updateAudioPreferences(readAudioPreferences(), options.audio));
+  const audioPreferencesRef = useRef(audioPreferences);
+  audioPreferencesRef.current = audioPreferences;
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [backgroundWaiting, setBackgroundWaiting] = useState(false);
   const voiceWarningRef = useRef<(message?: string) => void>(() => undefined);
   const ownedVoiceRef = useRef<VideoChatVoice | undefined>(undefined);
   if (!options.voice && !ownedVoiceRef.current) {
@@ -141,12 +158,24 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       credentials: options.credentials,
       fetcher: options.fetcher,
       onFallback: () => voiceWarningRef.current(),
+      onActivityChange: setVoiceActive,
     });
   }
   const rawVoice = options.voice ?? ownedVoiceRef.current!;
   const captionVoice = useMemo(() => createCaptionVoice(rawVoice), [rawVoice]);
   useEffect(() => () => captionVoice.reset(), [captionVoice]);
-  const voice = captionVoice.voice;
+  const speechActivityId = useRef(0);
+  const voice = useMemo(() => options.voice ? {
+    ...captionVoice.voice,
+    async speak(text: string, options: Parameters<VideoChatVoice["speak"]>[1]) {
+      const id = ++speechActivityId.current;
+      try { await captionVoice.voice.speak(text, { ...options, onStart: source => {
+        if (!options.signal.aborted && id === speechActivityId.current) setVoiceActive(true);
+        options.onStart?.(source);
+      } }); }
+      finally { if (id === speechActivityId.current) setVoiceActive(false); }
+    },
+  } : captionVoice.voice, [captionVoice, options.voice]);
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
   const unavailableVoiceLines = useRef(new Set<string>());
@@ -253,6 +282,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   }, [request, endTiming]);
 
   useEffect(() => voice.setMuted(state.muted), [state.muted, voice]);
+  useEffect(() => voice.setVolume?.(audioPreferences.voiceVolume), [audioPreferences.voiceVolume, voice]);
 
   const cancel = useCallback((reason = "Video chat was cancelled") => {
     endTiming();
@@ -266,6 +296,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     timelineRef.current = undefined;
     flushRef.current = undefined;
     narrationRef.current.interrupt();
+    setBackgroundWaiting(false);
     dispatch({ type: "cancelled" });
   }, [endTiming]);
 
@@ -296,6 +327,10 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const run = runRef.current + 1;
     runRef.current = run;
     const currentOptions = optionsRef.current;
+    const listeningPreferences = audioPreferencesRef.current;
+    const previousTrackId = soundtrackForTurn(stateRef.current.turns.at(-1))?.trackId;
+    const initialTrack = selectMusicTrack(listeningPreferences.musicMood === "auto" ? "calm" : listeningPreferences.musicMood, previousTrackId);
+    setBackgroundWaiting(false);
     const timeoutMs = currentOptions.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       inFlightRef.current = undefined;
@@ -318,6 +353,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       fixedOrientation: true,
       mode,
       suggestions: [],
+      ...(initialTrack ? { initialSoundtrack: createMusicAudio(initialTrack) } : {}),
       ...(openingMedia ? { openingMedia } : {}),
     };
     firstFrameRef.current = { turnId: id, mode, startedAt: monotonicNow(), reported: false, speechReported: false, active: true };
@@ -366,7 +402,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       }
       if (!timeline) {
         if (!responseState.style || openingActive || heldRef.current || available === appended) return;
-        timeline = createSceneTimeline({ style: responseState.style, orientation });
+        timeline = createSceneTimeline({ style: responseState.style, orientation, audio: responseState.audio });
         timelineRef.current = timeline;
         openingController.abort(new DOMException("Opening replaced by response", "AbortError"));
         if (openingRef.current === openingController) openingRef.current = undefined;
@@ -376,7 +412,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       dispatch({
         type: "partial",
         id,
-        video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: responseState.ready.slice(0, appended) as VideoScene[], style: responseState.style! },
+        video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: responseState.ready.slice(0, appended) as VideoScene[], style: responseState.style!,
+          ...(responseState.audio ? { audio: responseState.audio } : {}) },
       });
       if (planDone && !timelineCompleted) {
         timelineCompleted = true;
@@ -428,6 +465,9 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         mode,
         orientation,
         conversation,
+        musicMood: listeningPreferences.musicMood,
+        ...(initialTrack ? { initialTrackId: initialTrack.id } : {}),
+        ...(previousTrackId ? { previousTrackId } : {}),
         ...(currentOptions.style ? { style: currentOptions.style } : {}),
       },
       id, orientation, signal: controller.signal, state: responseState, preparation,
@@ -457,6 +497,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         responseState.received = [];
         appended = 0;
         responseState.style = undefined;
+        responseState.audio = undefined;
         response = await untilAborted(runAttempt(attempt), controller.signal);
       }
       if (!isCurrent()) return undefined;
@@ -493,13 +534,14 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         responseState.style ??= { density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
         openingController.abort(new DOMException("Continuing completed response", "AbortError"));
         if (!timeline) {
-          timeline = createSceneTimeline({ style: responseState.style, orientation });
+          timeline = createSceneTimeline({ style: responseState.style, orientation, audio: responseState.audio });
           dispatch({ type: "player", id, stream: timeline.stream });
         }
         for (const scene of recovered.slice(appended)) timeline.add(scene);
         timeline.complete();
         if (timelineRef.current === timeline) timelineRef.current = undefined;
-        const video: Video = { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, style: responseState.style, scenes: recovered };
+        const video: Video = { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, style: responseState.style, scenes: recovered,
+          ...(responseState.audio ? { audio: responseState.audio } : {}) };
         dispatch({ type: "warning", id, message: "The response was interrupted; completed scenes are still available." });
         dispatch({ type: "complete", id, video, suggestions: [] });
         return video;
@@ -542,6 +584,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const replay = useCallback(() => {
     const turn = stateRef.current.turns.find((entry) => entry.id === stateRef.current.shownTurnId);
     if (!turn?.completed || !turn.video) return;
+    setBackgroundWaiting(false);
     runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
@@ -570,6 +613,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   const selectTurn = useCallback((id: string) => {
     const turn = stateRef.current.turns.find((entry) => entry.id === id);
     if (!turn?.completed || !turn.video) return;
+    setBackgroundWaiting(false);
     runRef.current += 1;
     endTiming();
     if (inFlightRef.current) {
@@ -613,8 +657,37 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
 
   const setMuted = useCallback((muted: boolean) => dispatch({ type: "mute", value: muted }), []);
 
+  const setAudioPreferences = useCallback((preferences: Partial<AudioPreferences>) => {
+    const previous = audioPreferencesRef.current;
+    const next = updateAudioPreferences(previous, preferences);
+    audioPreferencesRef.current = next;
+    setAudioState(next);
+    saveAudioPreferences(next);
+    if (next.musicMood === previous.musicMood) return;
+    const current = stateRef.current;
+    const turn = current.turns.find(turn => turn.id === current.shownTurnId) ?? current.turns.at(-1);
+    if (!turn) return;
+    const track = next.musicMood === "auto" ? undefined : selectMusicTrack(next.musicMood, soundtrackForTurn(turn)?.trackId);
+    dispatch({ type: "soundtrack", id: turn.id,
+      audio: next.musicMood === "auto" ? turn.originalSoundtrack : track ? createMusicAudio(track) : false });
+  }, []);
+  const resetAudioPreferences = useCallback(() => setAudioPreferences(DEFAULT_AUDIO_PREFERENCES), [setAudioPreferences]);
+  const shuffleMusic = useCallback(() => {
+    const current = stateRef.current;
+    const turn = current.turns.find(turn => turn.id === current.shownTurnId) ?? current.turns.at(-1);
+    const preference = audioPreferencesRef.current.musicMood;
+    if (!turn || preference === "off") return;
+    const audio = soundtrackForTurn(turn);
+    const mood = preference === "auto" ? getMusicTrack(audio?.trackId ?? "")?.mood : preference;
+    if (!mood) return;
+    const track = selectMusicTrack(mood, audio?.trackId);
+    if (track) dispatch({ type: "soundtrack", id: turn.id, audio: createMusicAudio(track) });
+  }, []);
+
   const currentTurn = state.turns.at(-1);
   const shownTurn = state.turns.find((turn) => turn.id === state.shownTurnId) ?? currentTurn;
+  const soundtrack = audioPreferences.musicMood === "off" ? undefined : soundtrackForTurn(shownTurn);
+  const backgroundDucked = voiceActive && (!options.voice || audioPreferences.voiceVolume > 0) && !state.muted && state.status !== "paused";
   const availableModes = state.capabilities?.modes ?? (["cinematic"] as const);
   const suggestions = shownTurn?.suggestions ?? [];
   const fullTranscript = shownTurn ? transcriptFor(shownTurn) : [];
@@ -627,6 +700,12 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       ? { stream: state.playback.stream! }
       : { video: state.playback.video! }),
     autoPlay: true,
+    muted: state.muted,
+    soundtrack: audioPreferences.musicMood === "off" ? false : shownTurn?.soundtrack,
+    soundtrackVolume: audioPreferences.musicVolume,
+    nativeMediaAudio: { volume: audioPreferences.sceneVolume, ambientOnly: true },
+    backgroundDucked,
+    backgroundWaiting,
     paused: state.status === "paused",
     controls: false,
     narrationReady: narration.isReady,
@@ -655,6 +734,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     } : undefined,
     onStallChange: (stalled: boolean, reason: PlaybackWaitReason = "scene-generation") => {
       if (stateRef.current.playerKey !== playbackKey) return;
+      setBackgroundWaiting(stalled);
       if (stalled && reason !== "speech") voiceRef.current.pause();
       else if (!heldRef.current) voiceRef.current.resume();
       if (state.playback?.kind !== "stream") return;
@@ -704,6 +784,13 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     speaking: narration.speaking || state.openingSpeaking,
     muted: state.muted,
     setMuted,
+    audioPreferences,
+    setAudioPreferences,
+    resetAudioPreferences,
+    shuffleMusic,
+    soundtrack,
+    backgroundDucked,
+    backgroundWaiting,
     playbackEnded: state.playbackEnded,
     playerKey: state.playerKey,
     playerProps,

@@ -139,6 +139,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     templates: true,
     generatedSpeech: generateSpeech != null,
     generatedVideo: generateVideo != null,
+    generatedVideoAudio: Boolean(generateVideo && options.generatedVideoAudio),
     stockMedia: searchMedia != null,
     transcription: transcribe != null,
     modes: searchMedia ? ["cinematic", "pexels"] : ["cinematic"],
@@ -156,6 +157,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     mode: VideoChatMode,
     preparations: PreparationChannel,
     internalBodyBytes: number,
+    music: Pick<ParsedResponseRequest, "musicMood" | "previousTrackId" | "initialTrackId">,
   ) => {
     const startedAt = Date.now();
     type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
@@ -251,6 +253,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
       requireCloser: options.requireCloser ?? true,
       generate: createChatShotPlanner({
         mode,
+        ...music,
         streamText: (context) => {
           lifecycle = getGenerationLifecycleSink(context);
           return videoOptions.streamText(context);
@@ -282,7 +285,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         mediaConcurrency,
       }),
       authorize: "none", allowedOrigins, allowCredentials, maxBodyBytes: internalBodyBytes,
-      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode), instructions?.trim()]
+      systemPrompt: [createVideoChatResponseInstructions(generatedVideoAvailable, openingProvided, maxGeneratedVideos, generatedClipDurationSec, mode, Boolean(generateVideo && options.generatedVideoAudio)), instructions?.trim()]
         .filter(Boolean).join("\n\nAPPLICATION GUIDANCE\n"),
     });
     return handler;
@@ -430,6 +433,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         // HTTP admission already bounded the caller's bytes. The validated
         // 32k-character answer and JSON escaping have their own exact bound.
         new TextEncoder().encode(videoBody).byteLength,
+        { musicMood: input.musicMood, previousTrackId: input.previousTrackId, initialTrackId: input.initialTrackId },
       )(videoRequest);
       return streamVideoChatOpening(response, openingChannel.ready, preparations, () => cancellation.abort());
     }

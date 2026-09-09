@@ -13,6 +13,9 @@ vi.mock("../src/player/video-player", () => ({ VideoPlayer: (props: { orientatio
 beforeEach(() => {
   const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans." };
   session.current = {
+    audioPreferences: { musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2 },
+    backgroundDucked: false, backgroundWaiting: false,
+    setAudioPreferences: vi.fn(), resetAudioPreferences: vi.fn(), shuffleMusic: vi.fn(),
     ask: vi.fn(async () => undefined), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), replay: vi.fn(), selectTurn: vi.fn(), reset: vi.fn(), setMuted: vi.fn(),
     turns: [turn], currentTurn: turn, shownTurn: turn, availableModes: ["cinematic"], status: "playing", warnings: [], suggestions: [],
     caption: "The tide rises.", transcript: ["The Moon moves our oceans.", "The tide rises.", "Then the tide falls."], speaking: true, muted: false, playbackEnded: false, playerKey: 0,

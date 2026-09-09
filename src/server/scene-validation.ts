@@ -22,6 +22,9 @@ export function validateBuiltinScene(scene: Pick<VideoScene, "templateId" | "var
   }
   if (variables.mediaDurationSec !== undefined && (typeof variables.mediaDurationSec !== "number"
     || !Number.isFinite(variables.mediaDurationSec) || variables.mediaDurationSec <= 0 || variables.mediaDurationSec > 3600)) throw new Error("Invalid media duration");
-  const allowed = new Set(["mediaUrl", "mediaType", "mediaPoster", "fallbackText", "mediaDurationSec"]);
+  if (variables.mediaAudio !== undefined && (variables.mediaAudio !== "ambient" || variables.mediaType !== "video")) {
+    throw new Error("Media audio must be ambient video sound");
+  }
+  const allowed = new Set(["mediaUrl", "mediaType", "mediaPoster", "fallbackText", "mediaDurationSec", "mediaAudio"]);
   if (Object.keys(variables).some(key => !allowed.has(key))) throw new Error("Unsupported media variable");
 }
