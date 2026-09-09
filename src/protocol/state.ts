@@ -5,7 +5,7 @@ import { stableJson } from "./stable-json.js";
 import { parseVideoEvent } from "./validation.js";
 import type { VideoWarning } from "./warnings.js";
 
-export type VideoStatus = "idle" | "streaming" | "complete" | "error" | "aborted";
+type VideoStatus = "idle" | "streaming" | "complete" | "error" | "aborted";
 
 export interface VideoState {
   status: VideoStatus;

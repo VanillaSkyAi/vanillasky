@@ -63,28 +63,3 @@ export interface VideoWarning {
   sceneId?: string;
   recoverable: boolean;
 }
-
-/** The request resolved as much media as it was allowed to. */
-/**
- * A variable was longer than its template declares and has been trimmed.
- *
- * The alternative is rejecting the scene, and a five-scene answer arriving
- * with three because a caption ran two characters long is the worse outcome.
- */
-export function createClippedVariableWarning(templateId: string, fields: readonly string[]): VideoWarning {
-  return {
-    code: "scene_variable_clipped",
-    category: VIDEO_WARNING_CATEGORIES.scene_variable_clipped,
-    message: `Trimmed ${fields.join(", ")} on ${templateId} to the length the template declares.`,
-    recoverable: true,
-  };
-}
-
-export function createMediaBudgetWarning(limit: number): VideoWarning {
-  return {
-    code: "media_budget_reached",
-    category: VIDEO_WARNING_CATEGORIES.media_budget_reached,
-    message: `Resolved media for ${limit} scene${limit === 1 ? "" : "s"}; later scenes keep their copy on the brand gradient.`,
-    recoverable: true,
-  };
-}

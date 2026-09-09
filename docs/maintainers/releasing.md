@@ -7,18 +7,20 @@ Previously published npm versions and Git tags remain available unchanged.
 ## Review and merge
 
 1. Work on an isolated branch. Run focused regressions while editing.
-2. Run `npm run verify` on the final candidate and relevant
+2. For docs-only edits, run `npm run check:docs`. For application changes, run
+   `npm run verify` on the final candidate and relevant
    `npm run browser:test` media scenarios for playback changes.
 3. Keep the candidate fixed during browser checks. Keyless tests cover setup,
    security and recorded-media playback; live provider evaluation needs an
    explicitly authorized spending bound.
-4. Push a PR and wait for `application-checks`. This gate requires unit/API,
-   build, application/browser playback and Node compatibility checks to succeed.
+4. Push a PR and wait for `application-checks`. This gate requires the checks
+   [selected by change scope](../development.md) to succeed.
 5. Merge after the owner's explicit approval. Wait for CI on the resulting
    `main` commit before deploying.
 
 Branch protection requires `application-checks`; its dependencies run in
-parallel and fail closed if any check fails, is cancelled or is skipped.
+parallel and fail closed on failure, cancellation or unexpected skips. A
+successful docs plan permits application jobs to skip.
 
 ## Deploy
 
@@ -30,11 +32,23 @@ gh workflow run deploy.yml --ref main -f target=production -f confirmation=DEPLO
 ```
 
 Use `target=preview` for an isolated preview. The workflow downloads the
-`application-build` artifact from successful push CI for that exact main commit,
+`application-build` artifact from successful push or manually dispatched CI for
+that exact main commit,
 checks source identity and every output checksum, then deploys it. It does not
 repeat CI or rebuild the application. A missing successful run or missing
 artifact stops deployment. CI retains builds for 30 days; rerun main CI if the
 artifact has expired.
+
+Docs-only CI does not create an application artifact. Deployment then reports
+that no release is needed and skips installation and deployment steps. If an earlier application
+change still needs releasing, run full CI on the current main commit first:
+
+```bash
+gh workflow run ci.yml --ref main
+```
+
+Wait for that run to succeed, then run deployment. This also regenerates expired
+artifacts without changing application source.
 
 The workflow verifies frontend/API identity, configuration and admission on the
 immutable deployment URL and, for production, the live domain. If post-deploy

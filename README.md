@@ -79,7 +79,8 @@ The interface, providers, planner and player are all in this repository.
 - **Models and providers:** edit the adapters in [`functions/_video-chat/`](functions/_video-chat/); see [provider integration](docs/provider-integration.md).
 - **Planning and playback:** use the [architecture map](docs/architecture.md) to find the relevant module.
 
-Use `npm run dev` while building and `npm run verify` before a PR. The release
+Use `npm run dev` while building, `npm run check` for quick feedback and
+`npm run verify` before an application PR. Docs-only edits use `npm run check:docs`. The release
 workflow deploys the exact build verified by main CI, with live checks and
 rollback. See [development](docs/development.md) and [deployment](docs/production.md).
 

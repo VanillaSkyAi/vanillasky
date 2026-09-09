@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import speechManifest from "./speech/manifest.json";
 import { createVideoChatHandler } from "../../../src/server/create-video-chat-handler";
 
-export const scenarios = ["ready", "slow", "miss", "decode-error", "speech-error", "allowance", "throttled"] as const;
-export const intents = ["explanation", "story", "comedy", "imagination", "practical", "golf"] as const;
+const scenarios = ["ready", "slow", "miss", "decode-error", "speech-error", "allowance", "throttled"] as const;
+const intents = ["explanation", "story", "comedy", "imagination", "practical", "golf"] as const;
 export type FixtureOptions = { scenario: typeof scenarios[number]; intent: typeof intents[number] };
 export function readFixtureOptions(url: URL): FixtureOptions {
   const scenario = scenarios.find(value => value === url.searchParams.get("scenario")) ?? "ready";

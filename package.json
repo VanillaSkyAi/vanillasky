@@ -39,8 +39,11 @@
     "browser:test": "playwright test",
     "test:app": "playwright test --config app.playwright.config.ts",
     "acceptance:chat": "tsx scripts/acceptance/run.ts",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run test:api && npm run build && npm run build:functions && npm run verify:app-build && npm run verify:preview && npm run test:app",
-    "verify:preview": "node scripts/verify-app-preview.mjs"
+    "verify": "npm run check && npm run check:docs && npm run acceptance:chat && npm run build && npm run build:functions && npm run verify:app-build && npm run verify:preview && npm run test:app",
+    "verify:preview": "node scripts/verify-app-preview.mjs",
+    "check:unused": "knip",
+    "check": "npm run lint && npm run typecheck && npm run check:unused && npm test && npm run test:api",
+    "check:docs": "node scripts/check-docs.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -54,6 +57,7 @@
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "knip": "6.35.0",
     "miniflare": "5.20260820.0-alpha",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",

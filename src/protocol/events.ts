@@ -16,7 +16,7 @@ export type VideoFinishReason =
   | "error"
   | "other";
 
-export interface VideoEventDataMap {
+interface VideoEventDataMap {
   "response.start": {
     requestId: string;
     format: { orientation: VideoOrientation };
@@ -44,9 +44,9 @@ export interface VideoEventDataMap {
 }
 
 export type VideoCoreEventType = keyof VideoEventDataMap;
-export type VideoExtensionEventType = `data.${string}`;
+type VideoExtensionEventType = `data.${string}`;
 
-export interface VideoEventEnvelope<TType extends string, TData> {
+interface VideoEventEnvelope<TType extends string, TData> {
   protocolVersion: typeof VIDEO_PROTOCOL_VERSION;
   runId: string;
   sequence: number;
@@ -55,14 +55,14 @@ export interface VideoEventEnvelope<TType extends string, TData> {
   data: TData;
 }
 
-export type VideoCoreEvent = {
+type VideoCoreEvent = {
   [TType in VideoCoreEventType]: VideoEventEnvelope<
     TType,
     VideoEventDataMap[TType]
   >;
 }[VideoCoreEventType];
 
-export type VideoExtensionEvent<TData = unknown> = VideoEventEnvelope<
+type VideoExtensionEvent<TData = unknown> = VideoEventEnvelope<
   VideoExtensionEventType,
   TData
 >;

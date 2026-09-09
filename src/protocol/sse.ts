@@ -2,8 +2,8 @@ import type { VideoEvent } from "./events.js";
 import { VIDEO_PROTOCOL_VERSION } from "./types.js";
 import { parseVideoEvent } from "./validation.js";
 
-export const VIDEO_STREAM_HEADER = "x-vanillasky-video-stream" as const;
-export const VIDEO_STREAM_CONTENT_TYPE = "text/event-stream; charset=utf-8" as const;
+const VIDEO_STREAM_HEADER = "x-vanillasky-video-stream" as const;
+const VIDEO_STREAM_CONTENT_TYPE = "text/event-stream; charset=utf-8" as const;
 
 export function encodeVideoSseEvent(event: VideoEvent): string {
   const valid = parseVideoEvent(event);

@@ -7,7 +7,7 @@ import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
 
-export interface ChatPlannerTextContext extends VideoGenerationContext {
+interface ChatPlannerTextContext extends VideoGenerationContext {
   userPrompt: string;
 }
 

@@ -3,7 +3,8 @@
 The frontend and Cloudflare Pages Functions build from this repository. Local
 development, preview and production use the same application.
 
-After merging an approved PR and waiting for main CI, run:
+Docs-only changes need no deployment. After merging an approved application PR
+and waiting for main CI, run:
 
 ```bash
 gh workflow run deploy.yml --ref main -f target=production -f confirmation=DEPLOY

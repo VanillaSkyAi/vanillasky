@@ -10,9 +10,9 @@ Use Node 22+, the locked npm version and an isolated worktree. Run `npm ci`,
 configure your ignored `.dev.vars`, then `npm run dev`. This runs the same app
 as the website with local API and quota storage. See [setup](docs/getting-started.md).
 
-Add focused regressions for behavior changes. Run affected tests, lint and
-typecheck while editing; build and run the application verification before PR
-handoff. Playback and voice changes need real-browser/media scenarios. Keep
+Add focused regressions for behavior changes. Use affected tests and
+`npm run check` while editing; run `npm run verify` before application PR handoff.
+Docs-only edits need just `npm run check:docs` and the docs CI gate. Playback and voice changes need real-browser/media scenarios. Keep
 HEAD and tracked files fixed during a browser run.
 
 Preserve protocol ordering, parsing, cancellation, complete narration, media

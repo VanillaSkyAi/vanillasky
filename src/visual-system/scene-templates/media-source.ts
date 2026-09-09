@@ -29,15 +29,3 @@ export function resolveMediaType(
   // "auto" — detect from URL extension
   return mediaUrl && isVideoUrl(mediaUrl) ? "video" : "photo";
 }
-
-/**
- * True when the scene actually renders a photo or video backdrop — i.e. a
- * mediaUrl is set and the template has not been pinned to the brand gradient.
- * Templates use it to switch their type onto the media legibility recipe.
- */
-export function hasSceneMedia(variables: Record<string, unknown>): boolean {
-  return (
-    String(variables.mediaUrl || "").trim() !== "" &&
-    String(variables.mediaType || "auto") !== "gradient"
-  );
-}

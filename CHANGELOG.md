@@ -5,6 +5,12 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Add a quick local check command and automated unused-code detection; remove
+  dormant helpers and exports.
+- Validate docs without installing dependencies or deploying the app. Select
+  browser checks by change scope, share their setup and distribute long media
+  scenarios across five standard Playwright shards to shorten app verification.
+
 - Lead the README and setup docs with generated video, the fal inspiration and
   the included video/voice providers. Keep stock footage as an optional alternative.
 
@@ -879,10 +885,10 @@ it in production.
 The `0.1.x` line preserves the documented public entry points and serialized
 video round trips across patch releases. Pre-1.0 minor releases may change the
 API with explicit release notes. The complete promise and intentional
-exclusions are in [PUBLIC-API.md](PUBLIC-API.md).
+exclusions are in [PUBLIC-API.md](https://github.com/VanillaSkyAi/video/blob/428692dba90652a2ab8b36cbbed5b60d6e47a528/PUBLIC-API.md).
 
 ### First release
 
 This is the beginning of the fresh `@vanillaskyai/video` release line. Adopt
 the package through the pinned quickstart and review
-[PUBLIC-API.md](PUBLIC-API.md) before relying on the beta contract.
+[PUBLIC-API.md](https://github.com/VanillaSkyAi/video/blob/428692dba90652a2ab8b36cbbed5b60d6e47a528/PUBLIC-API.md) before relying on the beta contract.
