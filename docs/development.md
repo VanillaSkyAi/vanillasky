@@ -48,6 +48,10 @@ suite uses five standard Playwright shards per browser, keeping one media worker
 per runner. This shortens the required playback wait without speeding up footage
 or dropping scenarios.
 
+Linux CI starts a virtual audio output before both the application journeys and
+the media scenarios. Both exercise native speech clocks; a headless browser
+without an audio output cannot establish complete narration playback.
+
 `npm run check:unused` runs Knip without a baseline or blanket ignores. Keep its
 entrypoints limited to real runtime boundaries that static imports cannot show,
 such as Cloudflare routes and modules loaded by HTML fixtures.

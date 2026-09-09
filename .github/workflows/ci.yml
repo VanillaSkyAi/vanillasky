@@ -84,14 +84,21 @@ jobs:
       - uses: ./.github/actions/setup-node
       - name: Prepare workspace ownership
         run: chown -R pwuser:pwuser "$GITHUB_WORKSPACE"
-      - name: Check the real application setup
-        if: matrix.app
-        run: runuser -u pwuser -- npx playwright test --config app.playwright.config.ts --project=${{ matrix.browser }} --fail-on-flaky-tests
       - name: Install a virtual audio output for native narration
-        if: needs.changes.outputs.kind == 'full'
+        if: matrix.app || needs.changes.outputs.kind == 'full'
         run: |
           apt-get update
           apt-get install -y --no-install-recommends pulseaudio pulseaudio-utils
+      - name: Check the real application setup
+        if: matrix.app
+        run: |
+          runuser -u pwuser -- bash -eu -c '
+            pulseaudio --start --exit-idle-time=-1
+            trap "pulseaudio --kill" EXIT
+            pactl load-module module-null-sink sink_name=cinematic_test
+            pactl set-default-sink cinematic_test
+            npx playwright test --config app.playwright.config.ts --project=${{ matrix.browser }} --fail-on-flaky-tests
+          '
       - name: Run playback with a real audio clock
         if: needs.changes.outputs.kind == 'full'
         run: |

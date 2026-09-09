@@ -19,6 +19,10 @@ export function createScenePreparation(options: {
   warn: (message: string) => void;
   onDuration?: (value: { speechDurationSec: number; clipDurationSec: number; recovered: boolean }) => void;
 }) {
+  // Load the canonical footage renderer while planning and providers run.
+  // Ordered visual preparation later joins this same cached load and retains
+  // its normal error path; speculative warming must never delay the turn.
+  if (!options.signal.aborted) void Promise.resolve(preloadBuiltinTemplate("cinemaMedia")).catch(() => undefined);
   const speechLoads = new Map<string, Promise<Awaited<ReturnType<VideoChatVoice["prepare"]>>>>();
   const lanes: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()];
   const announced = new Set<string>();
