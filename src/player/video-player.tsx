@@ -56,8 +56,6 @@ export function VideoPlayerRuntime({
   onMutedChange,
   soundtrack,
   soundtrackVolume,
-  backgroundDucked = false,
-  backgroundWaiting = false,
   nativeMediaAudio,
   width,
   orientation: orientationOverride,
@@ -544,7 +542,7 @@ export function VideoPlayerRuntime({
           preparingNarration={isPlaying && !mediaPlaying}
           mediaAudioMuted={!nativeMediaAudio || isMuted}
           mediaAudioAmbientOnly={nativeMediaAudio?.ambientOnly}
-          mediaAudioVolume={nativeMediaVolume * (backgroundWaiting ? .2 : backgroundDucked ? .35 : 1)}
+          mediaAudioVolume={nativeMediaVolume}
           style={{
             position: "absolute",
             left: 0,
@@ -568,8 +566,6 @@ export function VideoPlayerRuntime({
         playing={isPlaying || introPlaying}
         muted={isMuted}
         volume={soundtrackVolume}
-        ducked={backgroundDucked}
-        waiting={backgroundWaiting}
         time={currentTime}
         duration={duration}
         terminal={terminal && !loop}

@@ -15,8 +15,6 @@ interface SoundtrackProps {
   playing: boolean;
   muted: boolean;
   volume?: number;
-  ducked: boolean;
-  waiting: boolean;
   time: number;
   duration: number;
   terminal: boolean;
@@ -34,7 +32,6 @@ export function Soundtrack(props: SoundtrackProps) {
   }
   const latest = useRef({ props, tracks });
   latest.current = { props, tracks };
-  const mix = useRef(audioVolume(props.volume ?? props.audio?.volume) * (props.waiting ? .2 : props.ducked ? .35 : 1));
 
   useEffect(() => {
     let frame = 0;
@@ -43,18 +40,15 @@ export function Soundtrack(props: SoundtrackProps) {
       const { props: current, tracks: layers } = latest.current;
       const elapsed = Math.max(0, now - previous);
       previous = now;
-      const target = audioVolume(current.volume ?? current.audio?.volume) * (current.waiting ? .2 : current.ducked ? .35 : 1);
-      const speed = target < mix.current ? 90 : 300;
-      mix.current += (target - mix.current) * (1 - Math.exp(-elapsed / speed));
-      if (Math.abs(mix.current - target) < .0001) mix.current = target;
       const fadingOut = new Set<Track>();
       for (const track of layers) {
         const active = track.audio.audioUrl === current.audio?.audioUrl;
+        const gain = audioVolume(current.volume ?? (active ? current.audio : track.audio)?.volume);
         if (current.playing) track.envelope = Math.max(0, Math.min(1, track.envelope + (active ? 1 : -1) * elapsed / CROSSFADE_MS));
         const fadeSeconds = Math.max(0, ((active ? current.audio : track.audio)?.fadeOutMs ?? 3000) / 1000);
         const ending = current.terminal && fadeSeconds > 0 ? Math.min(1, Math.max(0, current.duration - current.time) / fadeSeconds) : 1;
         if (track.element) {
-          const volume = mix.current * track.envelope * ending;
+          const volume = gain * track.envelope * ending;
           try { track.element.volume = volume; }
           catch { /* Native output remains usable until a gesture unlocks the Safari gain adapter. */ }
           track.element.dataset.v = String(volume);
