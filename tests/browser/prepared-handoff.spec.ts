@@ -1,7 +1,7 @@
 import { devices, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 type Probe = { kind: string; at: number; sources: number; active: string; scene: string; layer: string; mediaTime: number; id: number; audioTime: number; index: number; source: string; recovery?: boolean };
-const fixtureUrl = `http://127.0.0.1:4274/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`;
+const fixtureUrl = `${process.env.VANILLASKY_BROWSER_BASE_URL ?? "http://127.0.0.1:4274"}/tests/browser/fixtures/prepared-handoff.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`;
 const readProbe = () => (window as unknown as { narrationProbe: Probe[] }).narrationProbe;
 for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delayMs}ms requests while all paragraphs finish`, async ({ browser, browserName }, info) => {
   test.skip(browserName !== 'webkit', 'Checks bounded mobile preparation.');
@@ -24,6 +24,8 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
     await page.getByText('Play prerecorded paragraph').click();
     await expect.poll(()=>page.evaluate(()=>(window as unknown as { narrationProbe: Probe[] }).narrationProbe.filter(e=>e.kind==='ended').length),{timeout:35000}).toBe(3);
     const events=await page.evaluate(readProbe);
+    expect(events.filter(event=>event.kind==='audio-created')).toHaveLength(0);
+    expect(events.filter(event=>event.kind==='buffer-source-created')).toHaveLength(3);
     expect(events.filter(e=>e.kind==='cut').map(e=>e.index)).toEqual([0,1,2]);
     expect(events.filter(e=>e.kind==='ended').every(e=>e.audioTime>1.95)).toBe(true);
     expect(events.filter(e=>e.kind==='pause' && e.audioTime<1.9)).toHaveLength(0);
