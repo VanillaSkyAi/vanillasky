@@ -1,8 +1,10 @@
 // Never serialize errors or provider data: even validation messages contain user input.
 const ERROR_RULES = [
   [/^Chat answer brief was emitted more than once$/, 'chat_duplicate_brief'],
+  [/^Chat ending was emitted more than once$/, 'chat_duplicate_ending'],
+  [/^Chat ending repeats an already dispatched shot$/, 'chat_repeated_ending'],
   [/^Chat plan requires an answer brief followed by shots$/, 'chat_plan_shape_invalid'],
-  [/^Chat shot arrived before its answer brief$/, 'chat_missing_brief'],
+  [/^Chat (?:shot|ending) arrived before its answer brief$/, 'chat_missing_brief'],
   [/^Chat shot requires bounded authored narration$/, 'chat_narration_invalid'],
   [/^Chat shot exceeds the answer duration budget$/, 'chat_duration_exceeded'],
   [/^A media scene without a usable asset requires grounded fallbackText \(1–65 characters\)$/, 'media_missing_fallback'],
@@ -34,7 +36,7 @@ function shapeDetails(error) {
   if (error?.message !== 'Chat plan requires an answer brief followed by shots' ||
     cause?.code !== 'chat_plan_shape' ||
     !['object', 'array', 'null', 'string', 'number', 'boolean'].includes(cause.shape) ||
-    !['missing', 'answer', 'shot', 'other-string', 'non-string'].includes(cause.discriminator) ||
+    !['missing', 'answer', 'shot', 'ending', 'other-string', 'non-string'].includes(cause.discriminator) ||
     !fieldNames.every(field => typeof cause.fields?.[field] === 'boolean')) return {};
   return { shape: cause.shape, discriminator: cause.discriminator,
     fields: Object.fromEntries(fieldNames.map(field => [field, cause.fields[field]])) };

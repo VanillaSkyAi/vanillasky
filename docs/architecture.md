@@ -21,6 +21,12 @@ conversation. With it, the handler waits for the application's completed answer
 before planning; that answer becomes the sole factual source. The hook is not
 a stream of partially written assistant tokens.
 
+The planner emits a compact answer brief, the first developing shot, a saved
+ending, then remaining shots. The first shot can start before the ending is
+written; the ending still plays last and survives later planning interruption.
+A single-scene answer uses a brief and ending only. Complete embedded endings
+remain accepted, and wrapped arrays are validated as a whole before dispatch.
+
 Scenes can start before the full video plan is ready. Preparation overlaps;
 early media announcements let the browser warm upcoming assets even while an
 earlier shot is pending. Public scene order stays deterministic. The final Video is replayable data;

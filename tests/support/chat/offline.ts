@@ -50,8 +50,9 @@ export function createOfflineChatHandler(options: FixtureOptions, origin = "http
       return {audio, mediaType: "audio/mpeg"};
     },
     streamText: async function* () {
-      yield JSON.stringify({type: "answer", intent: options.intent, opening, subject: "fixture answer", development: first, visualDirection: "Offline fixture footage, not a live creative result.", ending: shot(ending, "The answer lands")}) + "\n";
+      yield JSON.stringify({type: "answer", intent: options.intent, opening, subject: "fixture answer", development: first, visualDirection: "Offline fixture footage, not a live creative result."}) + "\n";
       yield JSON.stringify({type: "shot", ...shot(first, "The first useful step")}) + "\n";
+      yield JSON.stringify({type: "ending", ...shot(ending, "The answer lands")}) + "\n";
     },
   });
   return (request: Request) => options.scenario === "throttled" && new URL(request.url).searchParams.get("action") === "response"

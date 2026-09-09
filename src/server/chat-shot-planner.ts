@@ -65,7 +65,7 @@ function planShapeError(value: unknown): Error {
   const has = (key: string) => Boolean(part && Object.hasOwn(part, key));
   const shape = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
   const discriminator = !has("type") ? "missing"
-    : part!.type === "answer" || part!.type === "shot" ? part!.type
+    : part!.type === "answer" || part!.type === "shot" || part!.type === "ending" ? part!.type
     : typeof part!.type === "string" ? "other-string" : "non-string";
   return new Error("Chat plan requires an answer brief followed by shots", { cause: {
     code: "chat_plan_shape", shape, discriminator,
@@ -120,23 +120,23 @@ function readShot(value: unknown, clipDurationSec: number, answerSubject = ""): 
 }
 /** Recover only a complete first brief; never infer missing authored content. */
 function recoverFirstBrief(part: Record<string, unknown> | undefined, clipDurationSec: number): Brief | undefined {
-  if (!part || typeof part.type !== "string" || !part.type.trim() || part.type === "answer" || part.type === "shot") return;
+  if (!part || typeof part.type !== "string" || !part.type.trim() || part.type === "answer" || part.type === "shot" || part.type === "ending") return;
   const bounded = (value: unknown, maximum: number, allowEmpty = false): value is string =>
     typeof value === "string" && value.trim().length <= maximum && (allowEmpty || Boolean(value.trim()));
-  if (!["opening", "subject", "development", "visualDirection", "ending"].every(key => Object.hasOwn(part, key))
+  if (!["opening", "subject", "development", "visualDirection"].every(key => Object.hasOwn(part, key))
     || !bounded(part.opening, 300) || !bounded(part.subject, 80)
     || !bounded(part.development, 2_000, true) || !bounded(part.visualDirection, 600)) return;
   const ending = object(part.ending);
-  if (!ending || !bounded(ending.narration, 2_000)
+  if (Object.hasOwn(part, "ending") && (!ending || !bounded(ending.narration, 2_000)
     || !bounded(ending.subject, 80, true) || !bounded(ending.action, 600, true)
     || (Object.hasOwn(ending, "title") && !bounded(ending.title, 65))
     || typeof ending.durationSec !== "number" || !Number.isFinite(ending.durationSec)
-    || (ending.continuity !== "cut" && ending.continuity !== "continue")) return;
+    || (ending.continuity !== "cut" && ending.continuity !== "continue"))) return;
   const subject = text(part.subject, 80);
   // Preserve the regular shot contract: authored subject/title fallback and
   // bounded duration normalization. Invalid content above is never defaulted.
   return { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
-    visualDirection: text(part.visualDirection, 600), ending: readShot(ending, clipDurationSec, subject) };
+    visualDirection: text(part.visualDirection, 600), ...(ending ? { ending: readShot(ending, clipDurationSec, subject) } : {}) };
 }
 function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamText"]>, textStream: AsyncIterable<string>): ReturnType<TextDeltaVideoPlannerOptions["streamText"]> {
   if (!(typeof source === "object" && source != null && "textStream" in source)) return textStream;
@@ -179,6 +179,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
       const translated = (async function* () {
         let brief: Brief | undefined, buffer = "", index = 0, bodyDuration = 0, lastNarration = "";
         let firstBody = true, recordsSeen = 0;
+        const dispatchedNarrations = new Set<string>();
         const reject = (cause: unknown) => {
           incomplete.add(context);
           const error = cause instanceof Error ? cause : new Error(String(cause));
@@ -198,6 +199,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {
           let narration = shot.narration;
           if (firstBody && !closer) narration = continueAfterOpening(narration, [options.openingLine ?? brief?.opening ?? ""]);
+          if (!closer) { dispatchedNarrations.add(shot.narration); dispatchedNarrations.add(narration); }
           firstBody = false;
           lastNarration = narration;
           return { type: "scene.add", ...(closer ? { placement: "closer" as const } : {}), scene: {
@@ -224,8 +226,18 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
             if (brief) throw new Error("Chat answer brief was emitted more than once");
             brief = { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
             acceptDirection(brief);
-            if (part.ending) { try { brief.ending = readShot(part.ending, planningSlotSec, brief.subject); } catch (cause) { reject(cause); } }
+            if (Object.hasOwn(part, "ending")) { try { brief.ending = readShot(part.ending, planningSlotSec, brief.subject); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
+            return;
+          }
+          if (part?.type === "ending") {
+            if (!brief) throw new Error("Chat ending arrived before its answer brief");
+            if (brief.ending) throw new Error("Chat ending was emitted more than once");
+            const ending = readShot(part, planningSlotSec, brief.subject);
+            if (dispatchedNarrations.has(ending.narration)) throw new Error("Chat ending repeats an already dispatched shot");
+            // The first developing shot can already be generating. Keep the
+            // authored payoff for EOF/error recovery without dispatching it now.
+            brief.ending = ending;
             return;
           }
           if (part?.type !== "shot") throw planShapeError(value);
@@ -244,10 +256,10 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           const firstRecord = recordsSeen++ === 0;
           const value: unknown = JSON.parse(trimmed);
           // Models occasionally wrap the requested records in one JSON array.
-          // Accept only a complete initial answer/shot sequence; never dig into
+          // Accept only a complete initial answer/shot/ending sequence; never dig into
           // arbitrary containers or bypass the normal content and budget checks.
           if (Array.isArray(value) && (!firstRecord || object(value[0])?.type !== "answer"
-            || !value.slice(1).every(item => object(item)?.type === "shot"))) throw planShapeError(value);
+            || !value.slice(1).every(item => object(item)?.type === "shot" || object(item)?.type === "ending"))) throw planShapeError(value);
           const records: unknown[] = Array.isArray(value) ? value : [value];
           for (const [position, item] of records.entries()) {
             try {

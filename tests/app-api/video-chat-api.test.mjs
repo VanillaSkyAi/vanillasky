@@ -260,7 +260,7 @@ test("successful live operations use the fixed provider and bounded output token
   }
 });
 
-test("response planning preserves its grammar and accepts one chunked answer-and-shots array without a retry", async () => {
+for (const embedded of [false, true]) test(`response planning preserves its grammar and accepts one chunked array without a retry (embedded ending=${embedded})`, async () => {
   const prompt = "Explain how energy travels in ocean waves";
   const developing = {
     type: "shot", title: "Passing energy", narration: "Water rises as a wave passes.",
@@ -276,7 +276,7 @@ test("response planning preserves its grammar and accepts one chunked answer-and
     development: "A floating buoy reveals how water and energy move.",
     visualDirection: "Observe the same buoy in clear daylight.", ending,
   };
-  const modelText = JSON.stringify([brief, developing], null, 2);
+  const modelText = JSON.stringify(embedded ? [brief, developing] : [{ ...brief, ending: undefined }, developing, { type: "ending", ...ending }], null, 2);
   let plannerCalls = 0;
   const response = await handleVideoChatRequest({
     request: request("response", { prompt, mode: "pexels", musicMood: "off" }),
@@ -295,9 +295,10 @@ test("response planning preserves its grammar and accepts one chunked answer-and
         const start = line.search(/\{\s*"type"\s*:/);
         return start < 0 ? [] : [JSON.parse(line.slice(start, line.lastIndexOf("}") + 1))];
       });
-      assert.deepEqual(contracts.map(contract => contract.type), ["answer", "shot"]);
+      assert.deepEqual(contracts.map(contract => contract.type), ["answer", "shot", "ending"]);
+      assert.equal(Object.hasOwn(contracts[0], "ending"), false);
       for (const key of ["opening", "subject", "development"]) assert.equal(typeof contracts[0][key], "string");
-      for (const contract of [contracts[0].ending, contracts[1]]) {
+      for (const contract of contracts.slice(1)) {
         for (const key of ["title", "narration", "subject", "action", "continuity"]) assert.equal(typeof contract[key], "string");
         assert.equal(typeof contract.durationSec, "number");
       }

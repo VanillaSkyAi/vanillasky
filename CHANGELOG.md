@@ -5,6 +5,10 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Plan the first generated shot before writing the saved ending, so footage
+  can start from the compact answer brief while the rest of the answer develops.
+  Keep the spoken intro, visual direction, final ending and generation limits.
+
 - Start generated footage while narration shortening runs, and receive fal
   completion updates without waiting for the next polling interval. Retain
   same-job status checks when the stream is idle or unavailable, with the

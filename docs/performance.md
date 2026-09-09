@@ -50,6 +50,13 @@ first-text observations are omitted. `shot-authored` marks the accepted narratio
 being announced for preparation; with concurrent shortening, media can start
 before that event. Use `narration-rewrite.durationMs` to identify repair time.
 
+First-shot planning no longer waits for an authored ending inside the initial
+brief. The compact brief establishes the unchanged opening and visual direction;
+the first shot starts while the provider writes the saved ending and remaining
+shots. This preserves a closing scene when later planning is interrupted, but
+cannot recover an ending that was never authored. Whole-array responses still
+wait for complete validation.
+
 Generated footage and narration shortening run concurrently. Fal completion
 arrives through its status stream, with status checks on the same job if updates
 are idle or unavailable. The adapter never resubmits that paid job. Its
