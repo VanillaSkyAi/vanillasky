@@ -104,8 +104,16 @@ test("loads the footage renderer during planning and preserves complete opening 
   const readProof = () => (window as unknown as { startup: { proof: { events: Array<{ type: string; at: number; seconds?: number }>; frames: number }; release(): void } }).startup.proof;
   await expect(page.locator("[data-opening-chapter]")).toContainText(lines[0]);
   await expect.poll(() => page.evaluate(readProof).then(proof => proof.events.filter(event => event.type === "speech-end").length)).toBe(1);
+  const subtitleActions = page.locator(".caption-actions");
+  await expect(subtitleActions).toHaveCSS("opacity", "0");
+  await expect(subtitleActions).toHaveCSS("pointer-events", "none");
   await expect.poll(() => rendererLoaded, { timeout: 2_000 }).toBe(true);
   await expect(page.locator('[data-scene-layer="active"] video[src]')).toHaveCount(0);
+  await page.locator(".line-row").hover();
+  await expect(subtitleActions).toHaveCSS("pointer-events", "auto");
+  const hideSubtitles = page.getByRole("button", { name: "Hide subtitles", exact: true });
+  await hideSubtitles.focus();
+  await expect(hideSubtitles).toBeFocused();
   await page.evaluate(() => (window as unknown as { startup: { release(): void } }).startup.release());
   await expect.poll(() => page.evaluate(readProof).then(proof => proof.frames)).toBeGreaterThan(2);
   await expect(page.getByRole("button", { name: "Play again", exact: true, includeHidden: true })).toHaveCount(1, { timeout: 15_000 });
