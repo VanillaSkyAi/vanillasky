@@ -51,12 +51,22 @@ if (process.argv[2] === "rollback") {
   if (target === "production") {
     // The latest successful deployment may differ from the currently serving
     // deployment after a rollback. Preserve the actual canonical deployment.
-    previous = (await request("")).canonical_deployment;
-    if (!previous || previous.environment !== "production" || previous.latest_stage?.status !== "success"
+    previous = (await request(""))?.canonical_deployment;
+    if (previous === null) {
+      // A missing canonical deployment alone is not proof of a new project.
+      // Query production history so previews cannot hide a prior failed release.
+      const history = await request("/deployments?env=production");
+      if (!Array.isArray(history) || history.length !== 0) {
+        throw new Error("Production history is not empty; no verifiable deployment available for rollback");
+      }
+      console.log("First production deployment: no previous production deployment is available for rollback");
+    } else if (!previous || !/^[0-9a-f-]{36}$/i.test(previous.id)
+      || previous.environment !== "production" || previous.latest_stage?.status !== "success"
       || !/^[a-f0-9]{40}$/.test(previous.deployment_trigger?.metadata?.commit_hash)) {
       throw new Error("No verifiable current production deployment available for rollback");
+    } else {
+      console.log(`Rollback deployment: ${previous.id}`);
     }
-    console.log(`Rollback deployment: ${previous.id}`);
   }
   let deploymentAttempted = false;
   try {
@@ -78,6 +88,9 @@ if (process.argv[2] === "rollback") {
     const detail = [error?.stdout, error?.stderr, error?.message].filter(Boolean).map(String).join("\n");
     console.error(detail.replaceAll(token, "[REDACTED]").slice(-16000));
     if (deploymentAttempted && previous) await restore(previous.id);
+    if (target === "production" && previous === null) {
+      throw new Error("First production deployment failed; no previous production deployment is available for rollback. Inspect the deployment and verification output before retrying");
+    }
     throw new Error("Application deployment failed; inspect verification output and rollback status");
   }
 }
