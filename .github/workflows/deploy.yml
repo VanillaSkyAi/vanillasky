@@ -24,8 +24,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  release-plan:
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      deploy: ${{ steps.build.outputs.deploy }}
+      run_id: ${{ steps.build.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the successful main CI run
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --workflow ci.yml --branch main --commit "$GITHUB_SHA" --status success --limit 20 --json databaseId,event --jq '[.[] | select(.event == "push" or .event == "workflow_dispatch")][0].databaseId // empty')
+          if [ -z "$run_id" ]; then
+            echo "::error::This main commit has no successful CI run. Wait for CI, then deploy again."
+            exit 1
+          fi
+          gh run download "$run_id" --name ci-plan --dir .generated
+          node scripts/ci-plan.mjs deployment
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using verified CI run $run_id" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: release-plan
+    if: needs.release-plan.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: ${{ inputs.target }}
@@ -39,23 +64,12 @@ jobs:
       PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
-        with:
-          node-version: 22.23.1
-          cache: npm
-      - run: npm install --global npm@11.17.0
-      - run: npm ci --no-audit
-      - name: Download the successful main CI build
+      - uses: ./.github/actions/setup-node
+      - name: Download the verified application build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          run_id=$(gh run list --workflow ci.yml --branch main --event push --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          if [ -z "$run_id" ]; then
-            echo "::error::This main commit has no successful CI run. Wait for CI, then deploy again."
-            exit 1
-          fi
-          gh run download "$run_id" --name application-build
-          echo "Using verified application artifact from CI run $run_id" >> "$GITHUB_STEP_SUMMARY"
+          CI_RUN_ID: ${{ needs.release-plan.outputs.run_id }}
+        run: gh run download "$CI_RUN_ID" --name application-build
       - run: npm run verify:app-build -- --check
       - run: node scripts/deployment-project-config.mjs
       - name: Deploy and verify; restore previous production on failure

@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Explicitly build and fully verify main, including after docs-only commits.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,26 +14,42 @@ concurrency:
 permissions:
   contents: read
 
-# No provider credentials are available to verification, including trusted PRs.
 env:
   VIDEO_CHAT_PAID_PROVIDERS: disabled
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      kind: ${{ steps.plan.outputs.kind }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+        with:
+          node-version: 22.23.1
+      - run: node scripts/check-docs.mjs
+      - id: plan
+        run: node scripts/ci-plan.mjs plan
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-plan
+          path: .generated/ci-plan.json
+          include-hidden-files: true
+          retention-days: 30
+
   verify:
+    needs: changes
+    if: needs.changes.outputs.kind != 'docs'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
-        with:
-          node-version: 22.23.1
-          cache: npm
-      - run: npm install --global npm@11.17.0
-      - run: npm ci --no-audit
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run test:api
+      - uses: ./.github/actions/setup-node
+      - run: npm run check
       - run: npm run acceptance:chat
       - run: npm run build
       - run: npm run build:functions
@@ -48,57 +66,35 @@ jobs:
           include-hidden-files: true
           retention-days: 30
 
-  app-browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
-        with:
-          node-version: 22.23.1
-          cache: npm
-      - run: npm install --global npm@11.17.0
-      - run: npm ci --no-audit
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - run: npx playwright test --config app.playwright.config.ts --project=${{ matrix.browser }} --fail-on-flaky-tests
-      - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: app-browser-${{ matrix.browser }}
-          path: test-results/
-          retention-days: 3
-
   browser-gate:
+    needs: changes
+    if: needs.changes.outputs.kind != 'docs'
+    name: browser-gate (${{ matrix.browser }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
-        shard: [1, 2, 3]
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     runs-on: ubuntu-latest
     container:
+      # Browsers and OS dependencies are already installed; app setup checks
+      # share these jobs rather than downloading three more browser installs.
       image: mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
-      # Install the virtual audio device as root, then run browsers as pwuser.
       options: --ipc=host
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22.23.1
-          cache: npm
-      - name: Install the locked npm CLI
-        run: npm install --global npm@11.17.0
-      - run: npm ci --no-audit
+      - uses: ./.github/actions/setup-node
+      - name: Prepare workspace ownership
+        run: chown -R pwuser:pwuser "$GITHUB_WORKSPACE"
+      - name: Check the real application setup
+        if: matrix.app
+        run: runuser -u pwuser -- npx playwright test --config app.playwright.config.ts --project=${{ matrix.browser }} --fail-on-flaky-tests
       - name: Install a virtual audio output for native narration
+        if: needs.changes.outputs.kind == 'full'
         run: |
           apt-get update
           apt-get install -y --no-install-recommends pulseaudio pulseaudio-utils
-          chown -R pwuser:pwuser "$GITHUB_WORKSPACE"
-      - name: Run browsers with a real audio clock
+      - name: Run playback with a real audio clock
+        if: needs.changes.outputs.kind == 'full'
         run: |
           runuser -u pwuser -- bash -eu -c '
             pulseaudio --start --exit-idle-time=-1
@@ -108,41 +104,36 @@ jobs:
             pactl list short sinks
             npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=1
           '
-      - name: Preserve browser playback evidence
+      - name: Preserve browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: browser-playback-evidence-${{ matrix.browser }}-${{ matrix.shard }}
+          name: browser-evidence-${{ matrix.browser }}-${{ matrix.shard }}
           path: test-results/
           retention-days: 3
 
-
-  # Fail closed even when an upstream job is cancelled or unexpectedly skipped.
-  application-checks:
-    if: always()
-    needs: [verify, browser-gate, app-browser, node-compatibility]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require all application checks
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          node -e 'const jobs = JSON.parse(process.env.RESULTS); for (const [name, job] of Object.entries(jobs)) { if (job.result !== "success") throw new Error(`${name}: ${job.result}`); }'
-
   node-compatibility:
-    strategy:
-      matrix:
-        node: [24]
+    needs: changes
+    if: needs.changes.outputs.kind != 'docs'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.1
+      - uses: ./.github/actions/setup-node
         with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm install --global npm@11.17.0
-      - run: npm ci --no-audit
+          node-version: '24'
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:api
+
+  application-checks:
+    if: always()
+    needs: [changes, verify, browser-gate, node-compatibility]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require exactly the checks selected by the plan
+        env:
+          CI_KIND: ${{ needs.changes.outputs.kind }}
+          CI_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/ci-plan.mjs gate
