@@ -107,6 +107,10 @@
   build and native playback checks serial on a constrained machine; parallel
   editing does not require overlapping validation processes.
 
+- Native playback tests can speak through the owner's speakers. Give notice
+  before audible local checks; use remote playback verification when those
+  tests disrupt their work, while keeping localhost available for their review.
+
 - A narration-length mismatch does not make footage unusable. Keep concise
   drafting and one shortening attempt, then repeat the healthy scene until
   speech completes. Use live speech completion to account for browser voices

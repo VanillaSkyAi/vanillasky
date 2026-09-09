@@ -89,6 +89,7 @@ for (const mode of ["normal", "repeat", "long-repeat", "unmeasured", "quiet-tail
       expect(wraps).toHaveLength(expectedRepeats);
       if (expectedRepeats) {
         const lastAudio = proof.phases.filter(phase => phase.kind === "audio-ended").at(-1)!;
+        expect(proof.samples.at(-1)!.at - lastAudio.at).toBeGreaterThanOrEqual(0);
         expect(proof.samples.at(-1)!.at - lastAudio.at).toBeLessThan(150);
         expect(proof.phases.filter(phase => phase.kind === "speech-onset")).toHaveLength(1);
         // The voice releases its clock after ended, before the final React

@@ -415,7 +415,7 @@ export function VideoPlayerRuntime({
     : config;
   const duration = config ? getVideoDuration(config) : 0;
   const terminal = state.status === "complete" || state.status === "error" || state.status === "aborted";
-  const playheadAtEnd = terminal && duration > 0 && currentTime >= duration - 0.001;
+  const playheadAtEnd = terminal && duration > 0 && currentTime >= duration;
   const ended = !loop && playheadAtEnd;
   useEffect(() => {
     if (!playheadAtEnd) {

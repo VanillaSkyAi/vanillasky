@@ -30,6 +30,11 @@ const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
 const phases: Array<Record<string, number | string | boolean>> = [];
 Object.assign(window, { continuityProof: { samples, events, phases } });
+document.addEventListener("vanillasky:media-recovery", event => {
+  const reason = String((event as CustomEvent<{ reason?: string }>).detail?.reason ?? "unknown");
+  events.push(`recovery:${reason}`);
+  phases.push({ kind: "media-recovery", reason, at: performance.now() });
+});
 // iOS narration uses decoded sources. Observe their real completion while
 // excluding explicitly stopped sources (pause, interruption and cancellation).
 if (isIosAudioOutput()) {
@@ -56,8 +61,9 @@ HTMLMediaElement.prototype.play = function () {
   }
   if (this instanceof HTMLVideoElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
+    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended", "error"]) this.addEventListener(kind, () => {
       events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
+      if (kind === "error") phases.push({ kind: "video-error", at: performance.now(), code: this.error?.code ?? 0, readyState: this.readyState });
     }, { capture: true });
   }
   return nativePlay.call(this);
