@@ -35,7 +35,7 @@ it('keeps zero-volume generated narration on its measured clock and reports only
   voice.dispose?.();
 });
 
-it('applies browser utterance gain without cancelling or restarting its timing at zero volume', async () => {
+it('keeps browser gain and audible activity committed for each complete utterance', async () => {
   vi.useFakeTimers();
   let utterance!: { volume: number; onstart?: () => void; onend?: () => void };
   const synthesis = { speak: vi.fn(value => { utterance = value; }), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() };
@@ -43,15 +43,33 @@ it('applies browser utterance gain without cancelling or restarting its timing a
   vi.stubGlobal('SpeechSynthesisUtterance', class { volume = 1; });
   const activity = vi.fn();
   const voice = createVideoChatVoice({ fetcher: async () => new Response(null, { status: 204 }), onActivityChange: activity });
-  voice.setVolume!(0);
   const started = vi.fn();
   const task = voice.speak('Keep every word.', { signal: new AbortController().signal, onStart: started });
   await vi.advanceTimersByTimeAsync(0);
-  expect(utterance.volume).toBe(0);
-  utterance.onstart?.(); expect(started).toHaveBeenCalledWith('browser');
-  voice.setVolume!(.4);
-  expect(utterance.volume).toBe(.4);
+  expect(utterance.volume).toBe(1);
+  utterance.onstart?.();
+  expect(activity).toHaveBeenLastCalledWith(true);
+  voice.setVolume!(0);
+  expect(utterance.volume).toBe(1);
+  expect(activity).toHaveBeenLastCalledWith(true);
+  voice.pause(); expect(activity).toHaveBeenLastCalledWith(false);
+  voice.resume(); expect(activity).toHaveBeenLastCalledWith(true);
   expect(synthesis.speak).toHaveBeenCalledTimes(1);
   expect(synthesis.cancel).not.toHaveBeenCalled();
-  utterance.onend?.(); await task; voice.dispose?.();
+  utterance.onend?.(); await task;
+  expect(activity).toHaveBeenLastCalledWith(false);
+
+  const silentLine = voice.speak('The next complete line.', { signal: new AbortController().signal, onStart: started });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(utterance.volume).toBe(0);
+  const activityCalls = activity.mock.calls.length;
+  utterance.onstart?.();
+  expect(started.mock.calls).toEqual([['browser'], ['browser']]);
+  voice.setVolume!(.4);
+  expect(utterance.volume).toBe(0);
+  expect(activity).toHaveBeenCalledTimes(activityCalls);
+  expect(synthesis.speak).toHaveBeenCalledTimes(2);
+  expect(synthesis.cancel).not.toHaveBeenCalled();
+  utterance.onend?.(); await silentLine;
+  voice.dispose?.();
 });

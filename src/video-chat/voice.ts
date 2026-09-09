@@ -28,7 +28,7 @@ export interface VideoChatVoice extends NarrationVoice {
   pause(): void;
   resume(): void;
   setMuted(muted: boolean): void;
-  /** Change loudness without cancelling speech or changing its measured timing. */
+  /** Change loudness without changing timing; browser speech applies it to the next utterance. */
   setVolume?(volume: number): void;
   dispose?(): void;
 }
@@ -89,13 +89,14 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let silent = false;
   let volume = 1;
   let utterance: SpeechSynthesisUtterance | undefined;
+  let committedBrowserVolume: number | undefined;
   let activeSpeech = false;
   let reportedActivity = false;
   let outputContext: AudioContext | undefined;
   let output: { source: MediaElementAudioSourceNode; gain: GainNode } | undefined;
   let cancelVolumeRamp: (() => void) | undefined;
   const reportActivity = () => {
-    const audible = activeSpeech && !held && !silent && volume > 0;
+    const audible = activeSpeech && !held && !silent && (committedBrowserVolume ?? volume) > 0;
     if (audible === reportedActivity) return;
     reportedActivity = audible;
     try { void Promise.resolve(options.onActivityChange?.(audible)).catch(() => undefined); }
@@ -114,7 +115,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         try { generatedElement.volume = volume; } catch { /* Native volume may be fixed on iOS. */ }
       } else cancelVolumeRamp = rampMediaVolume(generatedElement, volume);
     }
-    if (utterance) utterance.volume = silent ? 0 : volume;
     reportActivity();
   };
   const connectOutput = () => {
@@ -321,7 +321,9 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") throw new Error("Browser voice is unavailable");
         const browserUtterance = utterance = new SpeechSynthesisUtterance(text);
         browserUtterance.rate = 1;
-        browserUtterance.volume = volume;
+        // Browsers do not define live mutation of an utterance already passed
+        // to speak(). Keep its gain and ducking evidence fixed until it ends.
+        browserUtterance.volume = committedBrowserVolume = volume;
         let unavailable = false;
         await new Promise<void>((resolve) => {
           let finished = false;
@@ -329,7 +331,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           const finish = () => {
             if (finished) return;
             finished = true;
-            if (utterance === browserUtterance) { utterance = undefined; activeSpeech = false; reportActivity(); }
+            if (utterance === browserUtterance) { utterance = undefined; committedBrowserVolume = undefined; activeSpeech = false; reportActivity(); }
             clearWatchdog();
             clearInterval(onsetTimer);
             signal.removeEventListener("abort", stop);
