@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { beginIosAudioInput } from "../player/ios-audio-output";
 
 /**
  * Asking out loud, where the browser can hear.
@@ -129,9 +130,24 @@ async function recordAndTranscribe(
   captured: () => void,
   options: VoiceInputRequestOptions,
 ): Promise<string> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  if (signal.aborted) return "";
+  const endInput = beginIosAudioInput();
+  let stream: MediaStream | undefined;
+  let finish: (() => void) | undefined;
+  const releaseCapture = () => {
+    const capturedStream = stream;
+    stream = undefined;
+    try {
+      for (const track of capturedStream?.getTracks() ?? []) track.stop();
+    } finally { endInput(); }
+  };
+  const abortCapture = () => {
+    try { finish?.(); } finally { releaseCapture(); }
+  };
+  signal.addEventListener("abort", abortCapture, { once: true });
   let clip: Blob | undefined;
   try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // Permission can resolve after Stop or unmount. Do not construct a recorder
     // for an operation that has already ended, but always release its tracks.
     if (signal.aborted) return "";
@@ -139,25 +155,25 @@ async function recordAndTranscribe(
     const recorder = new MediaRecorder(stream);
     recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
     const finished = new Promise<void>((resolve) => { recorder.onstop = () => resolve(); });
-    const finish = () => { if (recorder.state !== "inactive") recorder.stop(); };
+    finish = () => { if (recorder.state !== "inactive") recorder.stop(); };
     ready(finish);
-    signal.addEventListener("abort", finish, { once: true });
     if (signal.aborted) return "";
     // A timeslice makes data land while capture is active rather than relying
     // on the final stop event to both flush and finish.
     recorder.start(250);
     await finished;
-    signal.removeEventListener("abort", finish);
     if (signal.aborted || chunks.length === 0) return "";
 
-    captured();
     clip = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
   } finally {
     // Every permission outcome owns tracks, including cancellation races and
     // constructor/start failures.
-    for (const track of stream.getTracks()) track.stop();
+    signal.removeEventListener("abort", abortCapture);
+    releaseCapture();
   }
-  return clip ? transcribeRecording(clip, signal, options) : "";
+  if (!clip) return "";
+  captured();
+  return transcribeRecording(clip, signal, options);
 }
 
 export function useVoiceInput(
@@ -170,6 +186,7 @@ export function useVoiceInput(
   const [error, setError] = useState<string>();
   const [thinking, setThinking] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike>(undefined);
+  const recognitionInputRef = useRef<() => void>(undefined);
   // Set once the browser's recogniser has proved it cannot reach its service.
   // It does not recover within a session, so every later press goes straight
   // to the route rather than failing again first.
@@ -184,25 +201,33 @@ export function useVoiceInput(
     setSupported(supportsVoiceInput(transcriptionAvailable));
   }, [transcriptionAvailable]);
 
-  const stop = useCallback(() => {
-    recognitionRef.current?.abort();
+  const abortRecognition = useCallback(() => {
+    const recognition = recognitionRef.current;
     recognitionRef.current = undefined;
+    const endInput = recognitionInputRef.current;
+    recognitionInputRef.current = undefined;
+    // Abort may synchronously dispatch an error/end. Revoke ownership first.
+    try { recognition?.abort(); } catch { /* Recognition may have already ended. */ }
+    finally { endInput?.(); }
+  }, []);
+
+  const stop = useCallback(() => {
+    abortRecognition();
     const operation = operationRef.current;
     operationRef.current = undefined;
     operation?.controller.abort();
     operation?.finish?.();
     setListening(false);
     setThinking(false);
-  }, []);
+  }, [abortRecognition]);
 
   useEffect(() => () => {
-    recognitionRef.current?.abort();
-    recognitionRef.current = undefined;
+    abortRecognition();
     const operation = operationRef.current;
     operationRef.current = undefined;
     operation?.controller.abort();
     operation?.finish?.();
-  }, []);
+  }, [abortRecognition]);
 
   const finish = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -275,6 +300,7 @@ export function useVoiceInput(
     recognition.lang = document.documentElement.lang || "en-US";
     recognition.continuous = false;
     recognition.interimResults = true;
+    const endInput = beginIosAudioInput();
     recognition.onresult = (event) => {
       if (recognitionRef.current !== recognition) return;
       let heard = "";
@@ -287,13 +313,15 @@ export function useVoiceInput(
     // permission refusal, a timeout and a finished sentence all mean it is no
     // longer listening, and a mic that stays lit after that is a lie.
     recognition.onend = () => {
+      endInput();
       if (recognitionRef.current !== recognition) return;
       recognitionRef.current = undefined;
+      recognitionInputRef.current = undefined;
       setListening(false);
     };
     recognition.onerror = (event) => {
-      if (recognitionRef.current !== recognition) return;
-      recognitionRef.current = undefined;
+      if (recognitionRef.current !== recognition) { endInput(); return; }
+      abortRecognition();
       setListening(false);
       // A service the browser cannot reach is not something to report as a
       // failure - it is the moment to take the other road, silently, and to
@@ -309,14 +337,17 @@ export function useVoiceInput(
         : WHY[event.error ?? ""] ?? "The microphone stopped unexpectedly.");
     };
     recognitionRef.current = recognition;
+    recognitionInputRef.current = endInput;
     try {
       recognition.start();
-      setListening(true);
+      if (recognitionRef.current === recognition) setListening(true);
     } catch {
+      if (recognitionRef.current === recognition) abortRecognition();
+      else endInput();
       setListening(false);
       setError("The microphone could not be started.");
     }
-  }, [listening, finish, record, transcriptionAvailable]);
+  }, [listening, finish, record, transcriptionAvailable, abortRecognition]);
 
   return { supported, listening, thinking, error, toggle, stop };
 }
