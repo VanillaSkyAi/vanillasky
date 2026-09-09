@@ -35,7 +35,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await expect(title).toHaveCSS("text-align", "center");
     await expect(title).toHaveCSS("color", "rgb(255, 255, 255)");
     const caption = page.locator(".line");
-    await expect(caption).toHaveText(hook);
+    await expect(caption).toHaveText("The Moon turns");
+    await expect(caption.locator(".caption-word")).toHaveCount(3);
     await expect(caption).toBeVisible();
     const stage = await page.locator(".stage").boundingBox();
     const box = await title.boundingBox();

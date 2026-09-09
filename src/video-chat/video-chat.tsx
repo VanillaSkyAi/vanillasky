@@ -1,4 +1,5 @@
 import { CaptionPages } from "./caption-pages";
+import { CaptionWords } from "./caption-words";
 import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { VideoOrientation } from "../protocol/types.js";
@@ -15,6 +16,13 @@ import { useImmersiveControls } from "./use-immersive-controls";
 import { Logo } from "./logo";
 import { visualModes } from "./modes";
 const DESKTOP_WIDTH = 900;
+const CAPTION_STYLE_KEY = "vanillasky:caption-style";
+type CaptionStyle = "classic" | "words";
+
+function savedCaptionStyle(): CaptionStyle {
+  try { return localStorage.getItem(CAPTION_STYLE_KEY) === "classic" ? "classic" : "words"; }
+  catch { return "words"; }
+}
 
 type Status = "idle" | "drawing" | "narrating" | "paused" | "ended";
 
@@ -74,6 +82,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [captionsOn, setCaptionsOn] = useState(true);
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(savedCaptionStyle);
+  const changeCaptionStyle = (style: CaptionStyle) => {
+    setCaptionStyle(style);
+    try { localStorage.setItem(CAPTION_STYLE_KEY, style); }
+    catch { /* This preference remains usable when storage is unavailable. */ }
+  };
   const [captionsExpanded, setCaptionsExpanded] = useState(false);
   const [alwaysShowControls, setAlwaysShowControls] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -101,6 +115,8 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const instanceId = useId();
   const historyId = `${instanceId}-history`;
   const settingsId = `${instanceId}-settings`;
+  const transcriptId = `${instanceId}-transcript`;
+  const transcriptControlRef = useRef<HTMLButtonElement>(null);
   const promptId = `${instanceId}-prompt`;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<HTMLElement>(null);
@@ -120,7 +136,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   useDismiss(historyOpen, closeHistory, historySurfaces);
   useDismiss(settingsOpen, closeSettings, settingsSurfaces);
-  useFocusTrap(settingsOpen, settingsRef);
+  useFocusTrap(settingsOpen, settingsRef, settingsButtonRef);
   useFocusTrap(historyOpen, historyRef);
 
   const ask = useCallback((value: string | VideoChatSuggestion) => {
@@ -212,6 +228,13 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   }, [chat.playbackEnded, shown?.id, chat.playerKey]);
   const line = chat.caption ?? "";
   const fullTranscript = shown?.video ? [shown.opening, ...shown.video.scenes.map((scene) => scene.narration)].filter((entry): entry is string => Boolean(entry)) : chat.transcript;
+  const transcriptExpanded = chat.playbackEnded && captionsExpanded;
+  const captionSlotVisible = chat.playbackEnded ? fullTranscript.length > 0 : captionsOn && Boolean(line);
+  const previousTranscriptExpanded = useRef(false);
+  useEffect(() => {
+    if (previousTranscriptExpanded.current !== transcriptExpanded && chat.playbackEnded) transcriptControlRef.current?.focus();
+    previousTranscriptExpanded.current = transcriptExpanded;
+  }, [transcriptExpanded, chat.playbackEnded]);
   const transport = status === "narrating"
     ? { label: "Pause", action: chat.pause, icon: <Stop /> }
     : status === "paused"
@@ -372,6 +395,12 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         </fieldset>
         <fieldset className="playback-options"><legend>Watching</legend>
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
+          <div className="caption-style-options" role="radiogroup" aria-label="Subtitle style" data-disabled={!captionsOn}>
+            {([ ["classic", "Classic"], ["words", "Word by word"] ] as const).map(([value, label]) => <label key={value}>
+              <input type="radio" name={`${instanceId}-caption-style`} value={value} checked={captionStyle === value} disabled={!captionsOn} onChange={() => changeCaptionStyle(value)} />
+              <span>{label}</span>
+            </label>)}
+          </div>
           <label className="switch-row"><span><strong>Keep controls visible</strong><small>Keep the input bar on screen</small></span><input type="checkbox" role="switch" checked={alwaysShowControls} onChange={(event) => setAlwaysShowControls(event.target.checked)} /></label>
         </fieldset>
         {branding?.showDeveloperLinks !== false && <nav className="developer-links" aria-label="Build with VanillaSky">
@@ -386,18 +415,19 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
 
     <div ref={panelRef} className="panel" data-input-visible={controls.visible || !captionsOn || !line}>
       <div className="panel-inner">
-        <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
+        <div className="caption-slot" data-captions={captionSlotVisible} aria-hidden={!captionSlotVisible}>
           <div className="caption-clip">
-            {chat.playbackEnded && !captionsExpanded ? <button type="button" className="transcript-toggle" aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={captionsExpanded} data-actions-visible={captionControls.visible}
+            {chat.playbackEnded && !transcriptExpanded ? <button type="button" ref={transcriptControlRef} className="transcript-toggle" aria-controls={transcriptId} aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={transcriptExpanded} data-caption-style={captionStyle} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
-              {captionsOn && line && <div className="caption-actions">
-                <button type="button" className="caption-action" aria-label={captionsExpanded ? "Collapse subtitles" : "Expand subtitles"} aria-expanded={captionsExpanded} onClick={() => setCaptionsExpanded((open) => !open)}>{captionsExpanded ? "Collapse" : "Expand"}<ChevronUp /></button>
-                <button type="button" className="caption-action" aria-label="Hide subtitles" onClick={() => { setCaptionsOn(false); setCaptionsExpanded(false); }}><Close /></button>
+              {transcriptExpanded ? <div className="caption-actions">
+                <button type="button" ref={transcriptControlRef} className="caption-action" aria-controls={transcriptId} aria-expanded={true} onClick={() => setCaptionsExpanded(false)}>Hide transcript<Close /></button>
+              </div> : captionsOn && line && !chat.playbackEnded && <div className="caption-actions">
+                <button type="button" className="caption-action" aria-label="Hide subtitles" onClick={() => setCaptionsOn(false)}><Close /></button>
               </div>}
-              {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
+              {transcriptExpanded ? <div id={transcriptId} className="expanded-captions" role="region" tabIndex={0} aria-label="Transcript">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
+              </div> : captionStyle === "words" ? <CaptionWords key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} paused={status === "paused"} silent={!chat.speaking} muted={chat.muted} /> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
             </div>}
           </div>
         </div>

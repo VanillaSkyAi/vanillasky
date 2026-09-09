@@ -1,17 +1,19 @@
 import type { NarrationVoice } from "../player/use-narration.js";
 import { withDeadline } from "./deadline.js";
 import { estimateNarrationSeconds } from "../protocol/clip-budget.js";
+import { parseSpeechWordTimings, type SpeechWordTiming } from "../protocol/speech-timing.js";
 
 const DEFAULT_MAX_CACHED_LINES = 60;
 const SPEECH_PREPARATION_TIMEOUT_MS = 3_000;
 const FALLBACK_BITS_PER_SECOND = 128_000;
+const MAX_AUDIO_BYTES = 1024 * 1024;
 // 25ms of silent PCM, played unmuted to retain Safari permission on this sink.
 const ACTIVATION_AUDIO = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YZABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 let sharedContext: AudioContext | undefined;
 
 type PreparedLine =
-  | { source: "generated"; src: string; seconds: number; measured?: boolean }
+  | { source: "generated"; src: string; seconds: number; measured?: boolean; wordTimings?: SpeechWordTiming[] }
   | { source: "browser"; seconds: number };
 
 export interface VideoChatPreparedSpeech {
@@ -19,6 +21,8 @@ export interface VideoChatPreparedSpeech {
   seconds: number;
   /** True only for decoded audio with seek support, never duration estimates. */
   supportsOffsets?: boolean;
+  /** Validated words aligned to this exact prepared audio. */
+  wordTimings?: SpeechWordTiming[];
 }
 
 export interface VideoChatVoice extends NarrationVoice {
@@ -146,16 +150,35 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
               return { source: "browser", seconds: estimatedBrowserSeconds(normalized) };
             }
             if (!response.ok) throw new Error("Speech is unavailable");
-            const bytes = await response.arrayBuffer();
+            let bytes: ArrayBuffer;
+            let wordTimings: SpeechWordTiming[] | undefined;
+            let mediaType = response.headers.get("content-type") || "audio/mpeg";
+            if (mediaType.split(";")[0]?.trim().toLowerCase() === "application/json") {
+              const body = await response.arrayBuffer();
+              preparationSignal.throwIfAborted();
+              if (body.byteLength > 2 * MAX_AUDIO_BYTES) throw new Error("Speech response is too large");
+              const value: unknown = JSON.parse(new TextDecoder().decode(body));
+              if (!value || typeof value !== "object" || !("audio" in value) || typeof value.audio !== "string"
+                || value.audio.length === 0 || value.audio.length > Math.ceil(MAX_AUDIO_BYTES / 3) * 4
+                || !("mediaType" in value) || value.mediaType !== "audio/mpeg") throw new Error("Invalid speech audio");
+              const binary = atob(value.audio);
+              if (!binary.length || binary.length > MAX_AUDIO_BYTES) throw new Error("Invalid speech audio");
+              bytes = Uint8Array.from(binary, character => character.charCodeAt(0)).buffer;
+              mediaType = value.mediaType;
+              if ("wordTimings" in value) wordTimings = parseSpeechWordTimings(value.wordTimings, normalized);
+            } else {
+              bytes = await response.arrayBuffer();
+            }
             preparationSignal.throwIfAborted();
             const seconds = await measureSeconds(bytes);
+            if (wordTimings && seconds.measured) wordTimings = parseSpeechWordTimings(wordTimings, normalized, seconds.seconds);
             preparationSignal.throwIfAborted();
             // Allocate only after every asynchronous step succeeds. A late decode
             // cannot leak an object URL or replace the cached browser fallback.
             createdSrc = URL.createObjectURL(new Blob([bytes], {
-              type: response.headers.get("content-type") || "audio/mpeg",
+              type: mediaType,
             }));
-            return { source: "generated", src: createdSrc, ...seconds };
+            return { source: "generated", src: createdSrc, ...seconds, ...(wordTimings ? {wordTimings} : {}) };
           }, SPEECH_PREPARATION_TIMEOUT_MS, controller.signal);
         }
       } catch (cause) {
@@ -210,7 +233,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     getCurrentTime: () => sounding?.currentTime,
     async prepare(text, preparation = {}) {
       const line = await load(text, preparation.signal);
-      return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}) };
+      return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}),
+        ...(line.source === "generated" && line.wordTimings ? {wordTimings:line.wordTimings} : {}) };
     },
     pause() {
       playbackAttempt++;
@@ -236,11 +260,15 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       if (sounding) sounding.muted = muted;
       if (muted) stopBrowser();
     },
-    async speak(text, { signal, onStart, offsetSeconds }): Promise<void> {
+    async speak(text, { signal, onStart, offsetSeconds, onBoundary, onPlaybackSource }): Promise<void> {
       let started = false;
       const notifyStart = (source?: "browser" | "generated") => {
         if (started || disposed || signal.aborted || silent || held) return;
         started = true;
+        if (source) {
+          try { void Promise.resolve(onPlaybackSource?.(source)).catch(() => undefined); }
+          catch { /* Source observers do not affect playback. */ }
+        }
         try { void Promise.resolve(onStart?.(source)).catch(() => undefined); }
         catch { /* Observer failures do not affect playback. */ }
       };
@@ -266,6 +294,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             utterance.onstart = null;
             utterance.onend = null;
             utterance.onerror = null;
+            utterance.onboundary = null;
             if (browserFinish === finish) browserFinish = undefined;
             resolve();
           };
@@ -292,6 +321,12 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           };
           utterance.onend = finish;
           utterance.onerror = fail;
+          utterance.onboundary = event => {
+            if (finished || !started || disposed || signal.aborted || silent || held || event.name !== "word"
+              || !Number.isInteger(event.charIndex) || event.charIndex < 0 || event.charIndex >= text.length) return;
+            try { void Promise.resolve(onBoundary?.(event.charIndex)).catch(() => undefined); }
+            catch { /* Caption observers cannot interrupt speech. */ }
+          };
           signal.addEventListener("abort", stop, { once: true });
           try {
             synthesis.speak(utterance);
@@ -366,7 +401,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         notifyFallback();
         URL.revokeObjectURL(line.src);
         lines.set(text.trim(), { source: "browser", seconds: estimatedBrowserSeconds(text) });
-        await this.speak(text, { signal, onStart: notifyStart });
+        await this.speak(text, { signal, onStart: notifyStart, onBoundary, onPlaybackSource });
       }
     },
     dispose() {

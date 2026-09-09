@@ -48,13 +48,15 @@ export function useDismiss(
  * opened it is the other half: without it the next Tab starts from the top of
  * the document.
  */
-export function useFocusTrap(active: boolean, surface: RefObject<HTMLElement | null>): void {
+export function useFocusTrap(active: boolean, surface: RefObject<HTMLElement | null>, trigger?: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     if (!active) return;
-    const returnTo = document.activeElement as HTMLElement | null;
+    // Safari does not focus buttons on pointer activation. Keep the actual
+    // opener when supplied so Escape restores a useful keyboard position.
+    const returnTo = trigger?.current ?? document.activeElement as HTMLElement | null;
     const focusable = () => Array.from(
       surface.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ) ?? [],
     ).filter((node) => node.offsetParent !== null);
 
@@ -80,5 +82,5 @@ export function useFocusTrap(active: boolean, surface: RefObject<HTMLElement | n
       document.removeEventListener("keydown", onKeyDown);
       returnTo?.focus?.();
     };
-  }, [active, surface]);
+  }, [active, surface, trigger]);
 }

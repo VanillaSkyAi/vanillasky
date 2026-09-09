@@ -61,3 +61,7 @@
 - When replacing npm/npx test entrypoints with direct Node commands, verify a
   real browser startup too. Test listing cannot catch fixture-server commands
   that depended on npm adding local executables to PATH.
+
+- Subtitle styles must stay visually consistent between speech segments. Hold
+  the word phrase through timing gaps; never swap in full Classic captions as a
+  fallback. Word by word is the default, and the transcript belongs at the end.

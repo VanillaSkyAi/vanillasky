@@ -8,6 +8,26 @@ function fixture(clock = true) {
   return {source,calls,adapter:createCaptionVoice(source,()=>now), audio:(value:number)=>{time=value;}, wall:(value:number)=>{now=value;}};
 }
 describe("private caption progress",()=>{
+ it("carries prepared word times with the audio clock and drops them for browser fallback",async()=>{
+  const f=fixture(), text="Hello bright world.";
+  const wordTimings=[{text:"Hello",start:0.2,end:0.6},{text:"bright",start:0.8,end:1.2},{text:"world.",start:1.4,end:2}];
+  vi.mocked(f.source.prepare).mockResolvedValue({seconds:2.2,wordTimings});
+  await f.adapter.voice.prepare(text);
+  const task=f.adapter.voice.speak(text,{signal:new AbortController().signal});
+  f.calls[0]!.options.onStart?.("generated"); f.audio(1);
+  expect(f.adapter.getCaptionProgress()).toMatchObject({wordTimings,alignment:"provider",elapsedSeconds:1});
+  f.calls[0]!.end(); await task;
+  const replay=f.adapter.voice.speak(text,{signal:new AbortController().signal});
+  f.calls[1]!.options.onStart?.("browser");
+  expect(f.adapter.getCaptionProgress()?.wordTimings).toBeUndefined();
+  f.calls[1]!.options.onBoundary?.(6);
+  expect(f.adapter.getCaptionProgress()).toMatchObject({wordIndex:1,alignment:"browser"});
+  f.adapter.voice.pause(); f.calls[1]!.options.onBoundary?.(13);
+  expect(f.adapter.getCaptionProgress()?.wordIndex).toBe(1);
+  f.adapter.voice.resume(); f.calls[1]!.options.onBoundary?.(13);
+  expect(f.adapter.getCaptionProgress()?.wordIndex).toBe(2);
+  f.calls[1]!.end(); await replay;
+ });
  it("waits for actual onset, follows audio rather than wall time, and freezes through pause/stall",async()=>{
   const f=fixture(); await f.adapter.voice.prepare("A complete spoken paragraph.");
   const task=f.adapter.voice.speak("A complete spoken paragraph.",{signal:new AbortController().signal});
