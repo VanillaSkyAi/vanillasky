@@ -468,6 +468,7 @@ export function VideoPlayerRuntime({
     }
     if (!isPlaying && ended) {
       activeMediaRef.current = undefined;
+      sceneIndexRef.current = -1;
       timeRef.current = 0;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.currentTime = 0;
