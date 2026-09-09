@@ -8,9 +8,17 @@ skip to [releasing](maintainers/releasing.md).
 
 ### 1. Create the project and database
 
-Fork this repository, enable GitHub Actions in your fork, and complete
-[local setup](getting-started.md). From the repository root, sign in to Cloudflare
-and choose your own project and database names:
+Fork this repository and enable GitHub Actions in your fork. Clone your fork
+so GitHub CLI commands target your repository:
+
+```bash
+git clone https://github.com/YOUR_ACCOUNT/video.git
+cd video
+```
+
+Complete [local setup](getting-started.md) starting at `npm ci`; keep using this
+fork checkout. From its root, sign in to Cloudflare and choose your own project
+and database names:
 
 ```bash
 npx wrangler login
@@ -84,7 +92,8 @@ The GitHub `CLOUDFLARE_API_TOKEN` is a deployment credential, separate from the
 application's provider keys. Give it Cloudflare Pages edit access to your account;
 see [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
 
-Run CI on your fork's main branch and wait for success, then deploy:
+Install and authenticate the GitHub CLI (`gh auth login`) if needed. Run CI on
+your fork's main branch and wait for success, then deploy:
 
 ```bash
 gh workflow run ci.yml --ref main
