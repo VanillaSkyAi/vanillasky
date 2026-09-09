@@ -1,8 +1,9 @@
-import { rampMediaVolume } from "../../player/audio-volume.js";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { audioVolume, rampMediaVolume } from "../../player/audio-volume.js";
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 import { measuredClipPlayback } from "../../player/clip-repeat.js";
+import { IosVideoPoolContext, IosVideoSurface } from "../../player/ios-video-pool.js";
 
 export interface SceneVideoBackdropProps {
   mediaUrl: string;
@@ -38,6 +39,9 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   onReady,
   onError,
 }) => {
+  const videoPool = useContext(IosVideoPoolContext);
+  const mounted = useRef(true);
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const inheritedAudio = useMediaAudio();
   const reportMediaFailure = useMediaFailure();
   const inheritedPreroll = useNarrationPreroll();
@@ -64,7 +68,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const previousProgressRef = useRef({ key: videoPresentationKey, progress });
   presentationRef.current = { key: videoPresentationKey, playing: isPlaying, progress };
   const unavailable = (reason: MediaRecoveryReason = "playback-error") => {
-    if (presentationRef.current.key === videoPresentationKey && failedPresentationRef.current !== videoPresentationKey
+    if (mounted.current && presentationRef.current.key === videoPresentationKey && failedPresentationRef.current !== videoPresentationKey
       && (presentationRef.current.playing || reason === "duration-mismatch")) {
       failedPresentationRef.current = videoPresentationKey;
       setExhaustedKey(videoPresentationKey);
@@ -275,9 +279,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // A source change already starts a native load via React's src update.
     // Tear down the decoder only on unmount, never cancel that new request.
     return () => {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
+      // The pool releases in layout cleanup, before another scene can acquire
+      // this element. A later passive cleanup must not clear its new source.
+      if (!videoPool) {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      }
       startedVideoUrl.current = undefined;
       startedPlaybackId.current = undefined;
     };
@@ -285,7 +293,15 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (video) return rampMediaVolume(video, resolvedVolume, () => setGainUnavailable(true));
+    if (!video) return;
+    if (videoPool) {
+      // A reused sink has already passed the ramp helper's first-use check.
+      // Recheck its native gain before this lease can play audible footage.
+      const gain = audioVolume(resolvedVolume);
+      try { video.volume = gain; } catch { /* Fixed native volume stays muted. */ }
+      if (gain < 1 && video.volume > gain + .01) { video.muted = true; setGainUnavailable(true); }
+    }
+    return rampMediaVolume(video, resolvedVolume, () => setGainUnavailable(true));
   }, [resolvedVolume]);
 
   useEffect(() => {
@@ -311,15 +327,20 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     startedPlaybackId.current = playbackId;
   }, [isPlaying, mediaUrl, playbackId, rewindPreroll]);
 
-  const enforceRequestedPause = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+  const enforceRequestedPause = (video: HTMLVideoElement) => {
     // WebKit may enter playback without a playing event while seeking or
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
-    event.currentTarget.pause();
+    video.pause();
     // A late start can advance WebKit's decoded frames while its paused clock
     // stays pinned. Reset this unexpected preroll, including silent footage,
     // so resuming narration does not wait for the clock to catch stale pixels.
-    if (rewindPreroll && event.currentTarget.currentTime > 0) event.currentTarget.currentTime = 0;
+    if (rewindPreroll && video.currentTime > 0) video.currentTime = 0;
+  };
+  const markPlaying = (video: HTMLVideoElement) => {
+    if (video.currentSrc === video.src && video.getAttribute("src") === mediaUrl
+      && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) playableVideoUrl.current = mediaUrl;
+    enforceRequestedPause(video);
   };
 
   const mediaStyle: React.CSSProperties = {
@@ -336,7 +357,22 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         role="status" data-media-continuity="exhausted"
         style={{ position: "absolute", inset: 0, zIndex: 3, background: "#000", color: "#bbb", display: "grid", placeContent: "center", font: "14px system-ui" }}
       >Visual unavailable</div>}
-      <video
+      {videoPool ? <IosVideoSurface
+        pool={videoPool}
+        videoRef={videoRef}
+        src={mediaUrl}
+        poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
+        muted={resolvedMuted}
+        onLoadedMetadata={fitDuration}
+        onEnded={finishMotion}
+        onPlay={enforceRequestedPause}
+        onPlaying={markPlaying}
+        onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
+        onError={onError}
+        onUnavailable={() => unavailable()}
+        mediaPosition={mediaPosition}
+        style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey ? "hidden" : undefined }}
+      /> : <video
         ref={videoRef}
         src={mediaUrl}
         poster={decodedVideoUrl !== mediaUrl ? mediaPoster || undefined : undefined}
@@ -346,19 +382,14 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
         preload="auto"
         onLoadedMetadata={event => fitDuration(event.currentTarget)}
         onEnded={finishMotion}
-        onPlay={enforceRequestedPause}
-        onPlaying={event => {
-          if (event.currentTarget.currentSrc === event.currentTarget.src
-            && event.currentTarget.getAttribute("src") === mediaUrl
-            && event.currentTarget.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) playableVideoUrl.current = mediaUrl;
-          enforceRequestedPause(event);
-        }}
+        onPlay={event => enforceRequestedPause(event.currentTarget)}
+        onPlaying={event => markPlaying(event.currentTarget)}
         onWaiting={() => { if (isPlaying) setWaitingKey(videoPresentationKey); }}
         onError={onError}
         data-media-position={mediaPosition}
         data-video-backdrop="scene"
         style={{ ...mediaStyle, visibility: exhaustedKey === videoPresentationKey ? "hidden" : undefined }}
-      />
+      />}
     </>
   );
 };
