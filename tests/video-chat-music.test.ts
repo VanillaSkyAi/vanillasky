@@ -61,6 +61,35 @@ describe("chat soundtrack selection", () => {
     expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({ audio: { trackId: "bartender" } });
   });
 
+  it.each([
+    { model: "calm", preference: "auto", initial: "florist" },
+    { model: "off", preference: "focused", initial: "bartender" },
+    { model: "upbeat", preference: undefined, initial: "oceanside" },
+    { model: "unknown", preference: "auto", initial: "florist" },
+  ])("keeps an already playing catalog track when the resolved mood agrees: %j", async ({ model, preference, initial }) => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const events = await response(model, { musicMood: preference, initialTrackId: initial });
+      expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({ audio: { trackId: initial, volume: 0.20 } });
+    } finally { random.mockRestore(); }
+  });
+
+  it.each(["florist", "retired-track", "https://untrusted.example/track.mp3"])("does not let initial track %s override the resolved mood or trusted catalog", async initialTrackId => {
+    const events = await response("focused", { musicMood: "auto", initialTrackId, previousTrackId: "cue" });
+    expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({
+      audio: { trackId: "bartender", audioUrl: "/audio-library/bartender.mp3" },
+    });
+  });
+
+  it.each([{ model: "off", preference: "auto" }, { model: "focused", preference: "off" }])("stops provisional music when resolved preference is off: %j", async ({ model, preference }) => {
+    const events = await response(model, { musicMood: preference, initialTrackId: "bartender" });
+    expect(events.some(event => event.type === "audio.set")).toBe(false);
+  });
+
+  it.each([null, 5, {}, [], "", "x".repeat(81)].map(initialTrackId => ({ initialTrackId })))("rejects malformed initial track identifier %j", ({ initialTrackId }) => {
+    expect(() => parseResponseRequest({ prompt: "Explain plants", initialTrackId })).toThrow();
+  });
+
   it.each([{ model: "off", request: "auto" }, { model: "upbeat", request: "off" }])("allows silence through %j", async ({ model, request }) => {
     const events = await response(model, { musicMood: request });
     expect(events.some(event => event.type === "audio.set")).toBe(false);

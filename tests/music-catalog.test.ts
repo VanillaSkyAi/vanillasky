@@ -30,7 +30,7 @@ describe("answer music catalog", () => {
     const track = getMusicTrack("cue")!;
     const audio = createMusicAudio(track);
     expect(audio).toMatchObject({ trackId: track.id, audioUrl: track.audioUrl, sourceDuration: track.duration,
-      duration: track.duration, volume: 0.15, fadeOutMs: 2000, beatMarkers: [] });
+      duration: track.duration, volume: 0.20, fadeOutMs: 2000, beatMarkers: [] });
     audio.beatMarkers.push({ time: 1 });
     expect(createMusicAudio(track).beatMarkers).toEqual([]);
   });

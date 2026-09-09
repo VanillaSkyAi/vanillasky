@@ -6,7 +6,7 @@ import { continueAfterOpening } from "./opening-continuity.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
-import { createMusicAudio, selectMusicTrack, type MusicMood, type MusicPreference } from "../music-catalog.js";
+import { createMusicAudio, getMusicTrack, selectMusicTrack, type MusicMood, type MusicPreference } from "../music-catalog.js";
 
 interface ChatPlannerTextContext extends VideoGenerationContext {
   userPrompt: string;
@@ -153,6 +153,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   generatedClipDurationSec?: number;
   musicMood?: MusicPreference;
   previousTrackId?: string;
+  initialTrackId?: string;
 }): VideoPlanner {
   const clipDurationSec = options.mode === "pexels" ? undefined : options.generatedClipDurationSec ?? 5;
   // Planning slots bound record count, not the physical length of stock footage.
@@ -187,7 +188,8 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           const direction = compileVisualDirection(value, context.request.input.style?.generatedLook);
           generatedLooks.set(context, direction.generatedLook);
           const mood = options.musicMood && options.musicMood !== "auto" ? options.musicMood : value.musicMood;
-          const track = selectMusicTrack(mood, options.previousTrackId);
+          const initialTrack = options.initialTrackId ? getMusicTrack(options.initialTrackId) : undefined;
+          const track = initialTrack?.mood === mood ? initialTrack : selectMusicTrack(mood, options.previousTrackId);
           getGenerationLifecycleSink(context)?.setPlannedAudio?.(track ? createMusicAudio(track) : undefined);
         };
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {

@@ -41,7 +41,7 @@ export function createMusicAudio(track: MusicTrack): VideoAudio {
     duration: track.duration,
     beatDetection: { sensitivity: 0.5 },
     beatMarkers: [],
-    volume: 0.15,
+    volume: 0.20,
     fadeOutMs: 2000,
   };
 }

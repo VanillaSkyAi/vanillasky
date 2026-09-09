@@ -147,7 +147,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
     mode: VideoChatMode,
     preparations: PreparationChannel,
     internalBodyBytes: number,
-    music: Pick<ParsedResponseRequest, "musicMood" | "previousTrackId">,
+    music: Pick<ParsedResponseRequest, "musicMood" | "previousTrackId" | "initialTrackId">,
   ) => {
     const startedAt = Date.now();
     type Diagnostic = Parameters<NonNullable<VideoChatHandlerOptions["onDiagnostic"]>>[0];
@@ -423,7 +423,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
         // HTTP admission already bounded the caller's bytes. The validated
         // 32k-character answer and JSON escaping have their own exact bound.
         new TextEncoder().encode(videoBody).byteLength,
-        { musicMood: input.musicMood, previousTrackId: input.previousTrackId },
+        { musicMood: input.musicMood, previousTrackId: input.previousTrackId, initialTrackId: input.initialTrackId },
       )(videoRequest);
       return streamVideoChatOpening(response, openingChannel.ready, preparations, () => cancellation.abort());
     }
