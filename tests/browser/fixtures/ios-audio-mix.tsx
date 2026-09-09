@@ -15,6 +15,7 @@ type MotionSample = {
   at: number; scene: string; videoId: number; time: number; audioTime: number;
   speaking: boolean; music: boolean; voice: boolean; trackId: string | null;
   muted: boolean; hidden: boolean; chapter: boolean; rate: number;
+  readyState: number; seeking: boolean; videoWidth: number;
   presentedTime: number | null; presentedFrames: number; fingerprint: number | null; luma: number | null;
 };
 const proof = {
@@ -182,6 +183,7 @@ function sample() {
       muted: video?.muted ?? true, hidden: !video || getComputedStyle(video).visibility === 'hidden',
       chapter: !!document.querySelector('[data-scene-layer="active"] [data-template="title"], [data-scene-fallback="true"], [data-media-continuity="exhausted"]'),
       rate: video?.playbackRate ?? 0, presentedTime, presentedFrames, ...readFrame(video),
+      readyState: video?.readyState ?? 0, seeking: video?.seeking ?? false, videoWidth: video?.videoWidth ?? 0,
     });
   }
   requestAnimationFrame(sample);

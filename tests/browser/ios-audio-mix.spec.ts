@@ -77,6 +77,7 @@ test("the final audible iOS clip repeats through complete long narration and con
       at: number; scene: string; videoId: number; time: number; audioTime: number;
       speaking: boolean; music: boolean; voice: boolean; trackId: string | null;
       muted: boolean; hidden: boolean; chapter: boolean; rate: number;
+      readyState: number; seeking: boolean; videoWidth: number;
       presentedTime: number | null; presentedFrames: number; fingerprint: number | null; luma: number | null;
     }>;
   } }).iosAudioProof);
@@ -95,7 +96,27 @@ test("the final audible iOS clip repeats through complete long narration and con
   expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeLessThan(150);
   expect(final.length).toBeGreaterThan(100);
   expect(final.every(sample => sample.scene === "water-2" && !sample.hidden && !sample.chapter && !sample.muted && sample.rate === 1)).toBe(true);
-  expect(final.every(sample => sample.luma !== null && sample.luma > 2)).toBe(true);
+  expect(final.filter(sample => sample.luma !== null).every(sample => sample.luma! > 2)).toBe(true);
+  // A 5s → 0 seek can briefly make decoded pixels unavailable: readFrame
+  // returns null, not black pixels. Accept only that bounded seam between valid
+  // presented frames from this same decoder. Missing pixels elsewhere fail.
+  for (let index = 0; index < final.length; index++) {
+    if (final[index].luma !== null) continue;
+    const start = index;
+    while (index < final.length && final[index].luma === null) index++;
+    expect(wraps).toContain(start);
+    const before = final[start - 1], after = final[index];
+    expect(before).toBeDefined();
+    expect(after).toBeDefined();
+    expect(after.at - before.at).toBeLessThan(100);
+    expect(before.time).toBeGreaterThan(4.5);
+    expect(final[start].time).toBeLessThan(.05);
+    expect(after.time).toBeLessThan(.2);
+    expect(after.videoId).toBe(before.videoId);
+    expect(after.presentedFrames).toBeGreaterThan(before.presentedFrames);
+    expect(after.presentedTime).not.toBeNull();
+    expect(after.presentedTime!).toBeLessThan(.2);
+  }
   expect(final.every(sample => sample.trackId === track)).toBe(true);
   expect(final.at(-1)!.audioTime).toBeGreaterThan(14.1);
   expect(final.some((sample, index) => index > 0 && sample.audioTime < final[index - 1].audioTime - .05)).toBe(false);
