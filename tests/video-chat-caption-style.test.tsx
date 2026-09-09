@@ -14,7 +14,7 @@ beforeEach(() => {
   const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans." };
   session.current = {
     ask: vi.fn(async () => undefined), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), replay: vi.fn(), selectTurn: vi.fn(), reset: vi.fn(), setMuted: vi.fn(),
-    audioPreferences: {...DEFAULT_AUDIO_PREFERENCES}, setAudioPreferences: vi.fn(), resetAudioPreferences: vi.fn(), shuffleMusic: vi.fn(), backgroundDucked: false, backgroundWaiting: false,
+    audioPreferences: {...DEFAULT_AUDIO_PREFERENCES}, setAudioPreferences: vi.fn(), resetAudioPreferences: vi.fn(), shuffleMusic: vi.fn(),
     turns: [turn], currentTurn: turn, shownTurn: turn, availableModes: ["cinematic"], status: "playing", warnings: [], suggestions: [],
     caption: "The tide rises, then the water falls.", transcript: ["The Moon moves our oceans.", "The tide rises, then the water falls."], speaking: true, muted: false, playbackEnded: false, playerKey: 0,
   };

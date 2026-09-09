@@ -15,8 +15,8 @@ of previously published npm releases.
   now has voice, music and scene-sound volume, track shuffle and saved listening
   preferences. Music starts on Ask and continues through loading, the intro and
   the answer. Music defaults to 20%, scene sound to 60% and voice to 100%.
-  Background audio softens during narration; master mute and pause control all
-  layers together.
+  Background levels stay constant during narration and buffering, with music
+  fades at the beginning and end. Master mute and pause control all layers together.
 - Request subtle environmental and action sounds from generated footage while
   explicitly excluding voices and music. Only footage marked as ambient audio
   is audible in chat; stock fallbacks remain silent.

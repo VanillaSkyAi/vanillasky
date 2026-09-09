@@ -14,7 +14,7 @@ function setup() {
   fixture.progress = undefined;
   fixture.captionKey = 0;
   const turn = {id:"turn", prompt:"A topic", opening:"An authored opening", mode:"pexels", createdAt:0};
-  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn(), audioPreferences:DEFAULT_AUDIO_PREFERENCES, backgroundDucked:false, backgroundWaiting:false} as unknown as UseVideoChatResult;
+  fixture.chat = {turns:[turn], shownTurn:turn, status:"composing", playerKey:0, availableModes:["pexels"], warnings:[], suggestions:[], transcript:[], ask:vi.fn(), reset:vi.fn(), pause:vi.fn(), resume:vi.fn(), cancel:vi.fn(), setMuted:vi.fn(), audioPreferences:DEFAULT_AUDIO_PREFERENCES} as unknown as UseVideoChatResult;
   return render(<VideoChat />);
 }
 afterEach(() => {cleanup(); vi.unstubAllGlobals();});

@@ -80,8 +80,9 @@ test("plays a chapter through the hook, then replaces it with the ready body", a
   // Keep native playback while fixing both the soundtrack and welcome assets.
   await page.addInitScript(() => { Math.random = () => .99; });
   const footageFormat = process.platform === "linux" ? "webm" : "mp4";
+  const footageFile = process.platform === "linux" ? "waterfall-hold.webm" : "waterfall.mp4";
   await page.route("https://videos.pexels.com/**", route => route.fulfill({
-    path: fileURLToPath(new URL(`./fixtures/media-transition/waterfall.${footageFormat}`, import.meta.url)), contentType: `video/${footageFormat}`,
+    path: fileURLToPath(new URL(`./fixtures/media-transition/${footageFile}`, import.meta.url)), contentType: `video/${footageFormat}`,
   }));
   await page.route("https://images.pexels.com/**", route => route.fulfill({
     path: fileURLToPath(new URL("./fixtures/media-transition/waterfall.jpg", import.meta.url)), contentType: "image/jpeg",
@@ -98,7 +99,7 @@ test("plays a chapter through the hook, then replaces it with the ready body", a
     const request = route.request();
     if (request.url().includes("action=opening-media")) {
       expect(request.postDataJSON()).toMatchObject({ keyword: "waterfall" });
-      return route.fulfill({ json: { media: { url: `${origin}/tests/browser/fixtures/media-transition/waterfall.${footageFormat}`, type: "video" } } });
+      return route.fulfill({ json: { media: { url: `${origin}/tests/browser/fixtures/media-transition/${footageFile}`, type: "video" } } });
     }
     if (request.url().includes("action=response")) expect(request.postDataJSON()).toMatchObject({ initialTrackId: "rainy-forest" });
     const response = await handler(new Request(request.url(), { method: request.method(), ...(request.postData() ? { body: request.postData(), headers: { "content-type": "application/json" } } : {}) }));

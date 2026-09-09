@@ -7,14 +7,15 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   const narration = readFileSync("tests/support/chat/speech/explanation-body.mp3");
-  const footage = readFileSync("tests/browser/fixtures/media-transition/waterfall-audio.mp4");
+  const footageFormat = process.platform === "linux" ? "webm" : "mp4";
+  const footage = readFileSync(`tests/browser/fixtures/media-transition/waterfall-audio.${footageFormat}`);
   let generations = 0;
   let releaseResponse!: () => void;
   const responseGate = new Promise<void>(resolve => { releaseResponse = resolve; });
   const handler = createVideoChatHandler({
     authorize: "none", heartbeatMs: false, generatedVideoAudio: true,
     generateSpeech: async () => ({ audio: narration, mediaType: "audio/mpeg" }),
-    generateVideo: async () => ({ url: `${baseURL}/test-media/waterfall.mp4`, type: "video", durationSec: 5, audio: "ambient" }),
+    generateVideo: async () => ({ url: `${baseURL}/test-media/waterfall.${footageFormat}`, type: "video", durationSec: 5, audio: "ambient" }),
     generateText: async () => "[]",
     streamText: async function* () {
       generations++;
@@ -24,7 +25,7 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
       yield JSON.stringify({ type: "shot", ...shot, narration: "Water flows toward the shore.", title: "The current" }) + "\n";
     },
   });
-  await page.route("**/test-media/waterfall.mp4", route => route.fulfill({ contentType: "video/mp4", body: footage }));
+  await page.route(`**/test-media/waterfall.${footageFormat}`, route => route.fulfill({ contentType: `video/${footageFormat}`, body: footage }));
   await page.route("**/api/video-chat?*", async route => {
     const request = route.request();
     if (request.url().includes("action=status")) return route.fulfill({ json: { ready: true, missing: [], videoMode: "cinematic" } });
@@ -53,8 +54,13 @@ for (const width of [390, 1280]) test(`mixes a narrated answer and remembers lis
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect.poll(() => initialMusic!.evaluate(element => (element as HTMLAudioElement).paused)).toBe(false);
   releaseResponse();
-  await expect.poll(() => page.locator("video").evaluateAll(elements => (elements as HTMLVideoElement[]).some(video =>
-    video.currentTime > .15 && !video.paused && !video.muted && video.volume > 0 && video.volume <= .6)), { timeout: 15_000 }).toBe(true);
+  // The first second of this recorded line is voiced: both backgrounds must
+  // already stay at their chosen levels, not recover only once speech ends.
+  await expect.poll(() => page.locator("video").evaluateAll(elements => {
+    const music = document.querySelector<HTMLAudioElement>('audio[data-soundtrack="active"]');
+    return music && music.volume >= .199 && (elements as HTMLVideoElement[]).some(video =>
+      video.currentTime > .15 && video.currentTime < 1 && !video.paused && !video.muted && video.volume >= .599 && video.volume <= .6);
+  }), { timeout: 15_000, intervals: [50] }).toBe(true);
   expect(await initialMusic!.evaluate(element => element.isConnected)).toBe(true);
   await expect(page.locator("audio[data-soundtrack]")).toHaveCount(1);
   await expect.poll(() => page.locator("audio").evaluateAll(elements => (elements as HTMLAudioElement[]).some(audio => audio.currentTime > .05 && !audio.paused && !audio.muted))).toBe(true);

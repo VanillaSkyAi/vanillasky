@@ -73,3 +73,11 @@
 - A prepared player mounting is not a new caption playback. Keep the intro's
   completed word phrase across that handoff and loading gap; reset caption
   progress for intentional replay or a new turn, not media preparation.
+
+- Keep the chosen music and scene-sound levels consistent across narration and
+  speech pauses. Automatic ducking makes the mix feel uneven; retain music
+  fades at answer boundaries without changing levels for speech or buffering.
+
+- Real-media browser fixtures must use the repository's paired MP4/WebM assets
+  for the host platform. Check both filenames locally; a passing macOS run
+  cannot validate a Linux-only filename or native decoder path.
