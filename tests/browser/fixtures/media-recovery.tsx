@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { VideoPlayer } from '../../../src/player/video-player';
 import type { Video } from "../../../src/protocol/types";
-import { TEST_VIDEO_STYLE } from '../../semantic-brand-fixture';
+import { TEST_VIDEO_STYLE } from '../../helpers/video-style';
 
 const mode = new URLSearchParams(location.search).get('fault') ?? 'missing-video';
 const webm = new URLSearchParams(location.search).has('webm');

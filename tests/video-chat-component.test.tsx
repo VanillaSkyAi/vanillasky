@@ -69,7 +69,7 @@ describe("VideoChat", () => {
       if (action === "capabilities") return Response.json({ templates: true, generatedSpeech: false, generatedVideo: true, stockMedia: true, transcription: false, modes: ["cinematic", "pexels"] });
       if (action === "response") {
         const { checksumVideo } = await import("../src/protocol/checksum");
-        const { TEST_VIDEO_STYLE } = await import("./semantic-brand-fixture");
+        const { TEST_VIDEO_STYLE } = await import("./helpers/video-style");
         const scene = { id: "ready", templateId: "chapterTitle", variables: { title: "A complete answer" }, narration: "The sky changes colour.", timing: { fixedDuration: 1 } };
         const snapshot = { schemaVersion: "0.2" as const, orientation: "landscape" as const, style: TEST_VIDEO_STYLE, scenes: [scene] };
         const events = [
@@ -157,7 +157,7 @@ describe("VideoChat", () => {
   it.each([false, true])("shows a dismissible recovery notice only when opted in (%s)", async (showRecoveryNotice) => {
     const { VideoChat } = await import("../src/react");
     const { checksumVideo } = await import("../src/protocol/checksum");
-    const { TEST_VIDEO_STYLE } = await import("./semantic-brand-fixture");
+    const { TEST_VIDEO_STYLE } = await import("./helpers/video-style");
     const baseFetcher = chatFetcher();
     const scene = { id: "recovered", templateId: "chapterTitle", variables: { title: "A playable answer" }, narration: "The ocean brings a new wave to the shore every moment.", timing: { fixedDuration: 4 } };
     const snapshot = { schemaVersion: "0.2" as const, orientation: "landscape" as const, scenes: [scene], style: TEST_VIDEO_STYLE };

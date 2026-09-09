@@ -42,7 +42,7 @@ See [setup and fallbacks](docs/getting-started.md#what-happens-with-missing-keys
 
 ## Run locally
 
-Use Node 22+ and the npm version in `package.json`.
+Use Node 22.12+ (22.23.1 is tested in CI) and the npm version in `package.json`.
 
 ```bash
 git clone https://github.com/VanillaSkyAi/video.git

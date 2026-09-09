@@ -60,7 +60,7 @@ async function measureSeconds(bytes: ArrayBuffer): Promise<{ seconds: number; me
 }
 
 /**
- * Create the SDK's generated-speech client with a browser-voice fallback.
+ * Create the generated-speech client with a browser-voice fallback.
  *
  * The endpoint is provider-neutral. A no-content response (or a compatible
  * endpoint's 404) selects browser speech for the rest of the session.

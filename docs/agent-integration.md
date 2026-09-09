@@ -19,8 +19,8 @@ Preserve cancellation, complete narration, mode isolation and private errors.
 Use `resolveAnswer` if an existing assistant supplies the completed answer; do not
 invent another client or planning protocol. See [provider integration](provider-integration.md).
 
-Run focused regressions, lint and types while editing, then the complete
-application verification for handoff. Freeze the checkout during browser tests.
+Use focused regressions and `npm run check` while editing, then `npm run verify`
+for application handoff. Docs-only changes use `npm run check:docs`. Freeze the checkout during browser tests.
 Provider quality and latency need explicitly authorized real calls; fixture
 results are not live evidence. Delivery is branch, PR, green CI, owner-approved
 merge, deployment and production verification.

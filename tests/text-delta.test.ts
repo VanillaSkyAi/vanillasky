@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTextDeltaVideoPlanner } from "../src/server/model/text-stream";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 const context = {
   request: {

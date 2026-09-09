@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { VideoChat, type VideoChatVoice } from '../../../src/react';
 import type { Video, VideoScene } from "../../../src/protocol/types";
 import { checksumVideo } from '../../../src/protocol/checksum';
-import { TEST_VIDEO_STYLE } from '../../semantic-brand-fixture';
+import { TEST_VIDEO_STYLE } from '../../helpers/video-style';
 import '../../../styles/video-chat.css';
 
 // Deliberately held offline stream for design review. No provider calls.

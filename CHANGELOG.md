@@ -5,6 +5,14 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Support the first production deployment to an empty Pages project while keeping
+  rollback protection for existing deployments. Document initial database,
+  secrets and hosting setup for a new fork.
+- Split chat session state, response transport, request parsing and response
+  streaming into focused internal modules without changing playback behavior.
+- Align Node requirements, replace the retired SDK contributor checklist, and
+  remove obsolete naming and duplicate acceptance checks.
+
 - Add a quick local check command and automated unused-code detection; remove
   dormant helpers and exports.
 - Validate docs without installing dependencies or deploying the app. Select

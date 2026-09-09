@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import type { Video } from "../../../src/protocol/types";
 import { VideoPlayer } from "../../../src/player/video-player";
-import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "../../helpers/video-style";
 import waterfallVideo from "./media-transition/waterfall.mp4?url";
 import tramVideo from "./media-transition/tram.mp4?url";
 import sunflowersVideo from "./media-transition/sunflowers.mp4?url";

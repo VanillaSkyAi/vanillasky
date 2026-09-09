@@ -8,7 +8,7 @@ import {
   type CompositionAction,
   type CompositionSessionOptions,
 } from "../src/server/composition-session";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 const emptyVideo = (): Video => ({
   schemaVersion: "0.2",

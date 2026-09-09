@@ -13,7 +13,7 @@ import type { VideoScene } from "../src/protocol/types";
  * starting before the first frame, a follow-up silently cutting the response off,
  * a line still playing over the next scene.
  *
- * The provider is not the SDK's business. An application supplies something
+ * The application supplies its voice provider through this callback: something
  * that can speak; this decides what is said and when.
  */
 function scene(id: string, narration?: string): VideoScene {

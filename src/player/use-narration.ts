@@ -11,7 +11,7 @@ import type { VideoScene } from "../protocol/types.js";
  * silently cutting the response off mid-sentence, a line still playing over the
  * scene after it.
  *
- * The provider is not the SDK's business. An application supplies something
+ * The application supplies its voice provider through this callback: something
  * that can speak - a realtime session, a speech model, the browser's own
  * synthesiser - and this decides what is said, when it starts, and when it
  * stops. That keeps the package free of provider dependencies and leaves the

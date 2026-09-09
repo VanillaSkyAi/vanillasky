@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getVideoDuration } from "../src/protocol/timeline";
 import { resolveVideoTimeline } from "../src/protocol/timeline";
 import type { Video } from "../src/protocol/types";
-import { TEST_VIDEO_STYLE as style } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE as style } from "./helpers/video-style";
 
 describe("React-free video timeline", () => {
   it("resolves explicit, beat-backed, and fallback timing deterministically", () => {

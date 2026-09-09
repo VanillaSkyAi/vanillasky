@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VideoAudio, VideoScene } from "../src/protocol/types";
 import { applyVideoEvent, createVideoState } from "../src/protocol/state";
 import { createSceneTimeline } from "../src/protocol/scene-timeline";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 /**
  * Every assertion here runs the emitted events through the real reducer.

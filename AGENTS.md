@@ -24,7 +24,7 @@ fal media URLs play directly; do not introduce a mandatory upload endpoint.
 ## Development and verification
 
 Before gates, verify the checkout with `pwd`, `git rev-parse --show-toplevel`,
-`git rev-parse HEAD` and `git status --short --branch`. Use Node 22+ and the locked
+`git rev-parse HEAD` and `git status --short --branch`. Use Node 22.12+ (22.23.1 is tested in CI) and the locked
 npm version. Run `npm ci`, configure ignored `.dev.vars`, then `npm run dev`.
 Use the actual application for local HMR and manual testing.
 

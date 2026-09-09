@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useVideoChat, VideoPlayer, type VideoChatVoice } from "../../../src/react";
 import type { Video, VideoScene } from "../../../src/protocol/types";
 import { checksumVideo } from "../../../src/protocol/checksum";
-import { TEST_VIDEO_STYLE } from "../../semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "../../helpers/video-style";
 
 // The stream stays open until the test releases its second scene. All providers
 // and speech are simulated; timings describe this controlled browser journey.
