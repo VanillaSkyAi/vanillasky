@@ -5,6 +5,7 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Correct the sound settings hint to describe steady listening levels.
 - Keep the intro's completed subtitle phrase in place while generated footage
   prepares, instead of restarting the subtitle animation when the player mounts.
 - Recover complete answer and shot records when the planner wraps them in a JSON
