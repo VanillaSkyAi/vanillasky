@@ -9,8 +9,7 @@ interface SoundtrackOutput {
 
 interface SoundtrackPlayer {
   context: AudioContext;
-  audio?: HTMLAudioElement;
-  output?: SoundtrackOutput;
+  outputs: Map<HTMLAudioElement, SoundtrackOutput | undefined>;
 }
 
 const soundtrackPlayers = new Map<HTMLElement, SoundtrackPlayer>();
@@ -25,28 +24,28 @@ export async function togglePlayerFullscreen(container: HTMLElement, onModeChang
   await controller.toggle();
 }
 
-function detachSoundtrack(player: SoundtrackPlayer): void {
-  player.output?.source.disconnect();
-  player.output?.gain.disconnect();
-  if (player.audio) {
-    delete player.audio.dataset.audioOutput;
-    if (player.output) Reflect.deleteProperty(player.audio, "volume");
-  }
-  delete player.audio;
-  delete player.output;
+function detachSoundtrack(player: SoundtrackPlayer, audio: HTMLAudioElement): void {
+  const output = player.outputs.get(audio);
+  output?.source.disconnect();
+  output?.gain.disconnect();
+  delete audio.dataset.audioOutput;
+  if (output) Reflect.deleteProperty(audio, "volume");
+  player.outputs.delete(audio);
 }
 
-function routeSoundtrack(container: HTMLElement, player: SoundtrackPlayer, audio: HTMLAudioElement): void {
-  if (player.audio === audio) return;
-  detachSoundtrack(player);
-  player.audio = audio;
-  audio.dataset.audioOutput = "true";
+function routeSoundtrack(player: SoundtrackPlayer, audio: HTMLAudioElement): void {
+  if (player.outputs.has(audio)) return;
   const url = new URL(audio.currentSrc || audio.src, document.baseURI);
-  if (url.origin !== location.origin && url.protocol !== "blob:" && url.protocol !== "data:") return;
+  audio.dataset.audioOutput = "true";
+  // Routing a remote, non-CORS source would silence it outright.
+  if (url.origin !== location.origin && url.protocol !== "blob:" && url.protocol !== "data:") {
+    player.outputs.set(audio, undefined);
+    return;
+  }
   try {
     const source = player.context.createMediaElementSource(audio);
     const gain = player.context.createGain();
-    let volume = Number(audio.dataset.v ?? 1);
+    let volume = Number(audio.dataset.v ?? audio.volume);
     gain.gain.value = volume;
     source.connect(gain);
     gain.connect(player.context.destination);
@@ -58,11 +57,10 @@ function routeSoundtrack(container: HTMLElement, player: SoundtrackPlayer, audio
         gain.gain.value = next;
       },
     });
-    player.output = { source, gain };
+    player.outputs.set(audio, { source, gain });
   } catch {
-    detachSoundtrack(player);
-    void player.context.close();
-    soundtrackPlayers.delete(container);
+    // Leave other crossfade outputs intact when one optional track fails.
+    player.outputs.set(audio, undefined);
   }
 }
 
@@ -76,7 +74,7 @@ export default function attachSoundtrack(audio: HTMLAudioElement, context: Audio
   if (existing) {
     void context.close();
     void existing.context.resume().catch(() => undefined);
-    routeSoundtrack(container, existing, audio);
+    for (const track of container.querySelectorAll('audio')) routeSoundtrack(existing, track);
     return;
   }
   const original = audio.volume;
@@ -93,9 +91,9 @@ export default function attachSoundtrack(audio: HTMLAudioElement, context: Audio
     void context.close();
     return;
   }
-  const player = { context };
+  const player: SoundtrackPlayer = { context, outputs: new Map() };
   soundtrackPlayers.set(container, player);
-  routeSoundtrack(container, player, audio);
+  for (const track of container.querySelectorAll('audio')) routeSoundtrack(player, track);
 }
 
 document.addEventListener("click", (event) => {
@@ -109,13 +107,13 @@ document.addEventListener("click", (event) => {
 new MutationObserver(() => {
   for (const [container, player] of soundtrackPlayers) {
     if (!container.isConnected) {
-      detachSoundtrack(player);
+      for (const audio of player.outputs.keys()) detachSoundtrack(player, audio);
       void player.context.close();
       soundtrackPlayers.delete(container);
     } else {
-      const audio = container.querySelector<HTMLAudioElement>("audio");
-      if (audio) routeSoundtrack(container, player, audio);
-      else detachSoundtrack(player);
+      const tracks = new Set(container.querySelectorAll('audio'));
+      for (const audio of player.outputs.keys()) if (!tracks.has(audio)) detachSoundtrack(player, audio);
+      for (const audio of tracks) routeSoundtrack(player, audio);
     }
   }
   for (const [container, controller] of fullscreenControllers) {

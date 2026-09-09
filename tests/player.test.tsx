@@ -1011,7 +1011,7 @@ describe("VideoPlayer", () => {
       return element!;
     });
     await waitFor(() => expect(view.getByTestId("video-player").getAttribute("data-status")).toBe("streaming"));
-    expect(audio.volume).toBe(0.2);
+    await waitFor(() => expect(audio.volume).toBeCloseTo(0.2, 2), { timeout: 1500 });
     releasePlanner();
   });
 
@@ -1090,12 +1090,16 @@ describe("VideoPlayer", () => {
     await waitFor(() => expect(createMediaElementSource).toHaveBeenCalledWith(view.container.querySelector("audio")));
     expect(sourceConnect).toHaveBeenCalledTimes(1);
     expect(gainConnect).toHaveBeenCalledTimes(1);
-    expect(gain.value).toBe(0.2);
-
-    act(() => nextFrame?.(performance.now() + 3_000));
+    expect(gain.value).toBe(0);
+    const began = performance.now();
+    act(() => nextFrame(began + 1_000));
+    expect(gain.value).toBeCloseTo(0.2, 2);
+    act(() => nextFrame(began + 3_000));
+    act(() => nextFrame(began + 3_016));
     expect(gain.value).toBeCloseTo(0.1, 1);
 
-    act(() => nextFrame?.(performance.now() + 4_000));
+    act(() => nextFrame(began + 4_016));
+    act(() => nextFrame(began + 4_032));
     expect(gain.value).toBe(0);
     expect(pause).toHaveBeenCalled();
 
@@ -1107,7 +1111,7 @@ describe("VideoPlayer", () => {
       playbackMode: "autoplay-after-interaction",
     }));
     await waitFor(() => expect(createMediaElementSource).toHaveBeenCalledTimes(2));
-    expect(gain.value).toBe(0.4);
+    expect(gain.value).toBe(0);
     expect(disconnect).toHaveBeenCalledTimes(2);
     expect(close).not.toHaveBeenCalled();
 
@@ -1242,11 +1246,11 @@ describe("VideoPlayer", () => {
       startMuted: false,
     }));
     await waitFor(() => expect(createMediaElementSource).toHaveBeenCalledTimes(1));
-    expect(gain.value).toBe(0.6);
+    expect(gain.value).toBe(0);
     expect(close).not.toHaveBeenCalled();
   });
 
-  it("pauses the player when the browser blocks audible autoplay", async () => {
+  it("keeps the response moving when optional soundtrack autoplay is blocked", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new DOMException("Autoplay blocked", "NotAllowedError"));
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
     const { VideoPlayer } = await import("../src/player/video-player");
@@ -1264,9 +1268,9 @@ describe("VideoPlayer", () => {
       playbackMode: "autoplay-with-sound",
     }));
 
-    await waitFor(() => expect(view.getByTestId("video-player").getAttribute("data-playing")).toBe("false"));
-    expect(view.getByTestId("video-player").getAttribute("data-current-time")).toBe("0.000");
-    expect(view.getByRole("button", { name: "Play video with sound" })).toBeDefined();
+    await waitFor(() => expect(Number(view.getByTestId("video-player").getAttribute("data-current-time"))).toBeGreaterThan(.05));
+    expect(view.getByTestId("video-player").getAttribute("data-playing")).toBe("true");
+    expect(view.queryByRole("button", { name: "Play video with sound" })).toBeNull();
   });
 
   it("exposes soundtrack and fullscreen controls like a video player", async () => {

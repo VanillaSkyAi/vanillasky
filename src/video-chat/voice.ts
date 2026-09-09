@@ -1,3 +1,5 @@
+import { primeSoundtrackGesture } from "../player/soundtrack-gesture.js";
+import { audioVolume, rampMediaVolume } from "../player/audio-volume.js";
 import type { NarrationVoice } from "../player/use-narration.js";
 import { withDeadline } from "./deadline.js";
 import { estimateNarrationSeconds } from "../protocol/clip-budget.js";
@@ -26,6 +28,8 @@ export interface VideoChatVoice extends NarrationVoice {
   pause(): void;
   resume(): void;
   setMuted(muted: boolean): void;
+  /** Change loudness without cancelling speech or changing its measured timing. */
+  setVolume?(volume: number): void;
   dispose?(): void;
 }
 
@@ -37,6 +41,8 @@ export interface CreateVideoChatVoiceOptions {
   maxCachedLines?: number;
   /** Called when optional generated speech falls back to browser speech. */
   onFallback?: () => unknown;
+  /** Actual speech onset/end with mute, user gain and deliberate pause applied. */
+  onActivityChange?: (audible: boolean) => unknown;
 }
 
 function actionEndpoint(endpoint: string | URL, action: string): string {
@@ -81,6 +87,49 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let browserFinish: (() => void) | undefined;
   let held = false;
   let silent = false;
+  let volume = 1;
+  let utterance: SpeechSynthesisUtterance | undefined;
+  let activeSpeech = false;
+  let reportedActivity = false;
+  let outputContext: AudioContext | undefined;
+  let output: { source: MediaElementAudioSourceNode; gain: GainNode } | undefined;
+  let cancelVolumeRamp: (() => void) | undefined;
+  const reportActivity = () => {
+    const audible = activeSpeech && !held && !silent && volume > 0;
+    if (audible === reportedActivity) return;
+    reportedActivity = audible;
+    try { void Promise.resolve(options.onActivityChange?.(audible)).catch(() => undefined); }
+    catch { /* Activity observers cannot affect speech timing. */ }
+  };
+  const applyVolume = (immediate = false) => {
+    cancelVolumeRamp?.();
+    cancelVolumeRamp = undefined;
+    if (generatedElement) {
+      generatedElement.muted = silent || volume === 0;
+      if (output && outputContext) {
+        output.gain.gain.cancelScheduledValues(outputContext.currentTime);
+        if (immediate) output.gain.gain.setValueAtTime(volume, outputContext.currentTime);
+        else output.gain.gain.setTargetAtTime(volume, outputContext.currentTime, .035);
+      } else if (immediate) {
+        try { generatedElement.volume = volume; } catch { /* Native volume may be fixed on iOS. */ }
+      } else cancelVolumeRamp = rampMediaVolume(generatedElement, volume);
+    }
+    if (utterance) utterance.volume = silent ? 0 : volume;
+    reportActivity();
+  };
+  const connectOutput = () => {
+    // Only generated blob/data sources enter this graph, after a real gesture
+    // unlocks it. Remote videos keep their native, CORS-safe audio path.
+    if (output || !generatedElement || outputContext?.state !== "running") return;
+    try {
+      const source = outputContext.createMediaElementSource(generatedElement);
+      const gain = outputContext.createGain();
+      source.connect(gain); gain.connect(outputContext.destination);
+      generatedElement.volume = 1;
+      output = { source, gain };
+      applyVolume(true);
+    } catch { /* Keep direct speech playback when Web Audio is unavailable. */ }
+  };
   let disposed = false;
   let generatedSpeechUnavailable = false;
   let playbackFailure: (() => void) | undefined;
@@ -217,30 +266,50 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       held = true;
       sounding?.pause();
       globalThis.speechSynthesis?.pause();
+      reportActivity();
     },
     resume() {
       held = false;
+      if (!disposed) primeSoundtrackGesture();
+      if (!disposed && globalThis.navigator?.userActivation?.isActive) {
+        try {
+          const Context = globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+          if (Context) {
+            outputContext ??= new Context();
+            void outputContext.resume().then(connectOutput).catch(() => undefined);
+          }
+        } catch { /* The native sink remains the fallback. */ }
+      }
       // Ask/replay/resume already enter here synchronously from their gesture.
       // Prime only a fresh sink; never replace current speech or prime on timers.
       if (!disposed && !silent && !generatedElement && globalThis.navigator?.userActivation?.isActive) {
         const element = generatedElement = new Audio();
         element.src = ACTIVATION_AUDIO;
+        applyVolume(true);
+        connectOutput();
         try { void element.play().catch(() => undefined); }
         catch { /* Actual speech retains the existing fallback behavior. */ }
       }
       if (sounding) playGenerated(sounding, playbackFailure);
       if (!silent) globalThis.speechSynthesis?.resume();
+      reportActivity();
     },
     setMuted(muted) {
       silent = muted;
-      if (sounding) sounding.muted = muted;
+      applyVolume();
       if (muted) stopBrowser();
+    },
+    setVolume(next) {
+      volume = audioVolume(next);
+      applyVolume(!activeSpeech);
     },
     async speak(text, { signal, onStart, offsetSeconds }): Promise<void> {
       let started = false;
       const notifyStart = (source?: "browser" | "generated") => {
         if (started || disposed || signal.aborted || silent || held) return;
         started = true;
+        activeSpeech = true;
+        reportActivity();
         try { void Promise.resolve(onStart?.(source)).catch(() => undefined); }
         catch { /* Observer failures do not affect playback. */ }
       };
@@ -250,8 +319,9 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       if (line.source === "browser") {
         const synthesis = globalThis.speechSynthesis;
         if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") throw new Error("Browser voice is unavailable");
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1;
+        const browserUtterance = utterance = new SpeechSynthesisUtterance(text);
+        browserUtterance.rate = 1;
+        browserUtterance.volume = volume;
         let unavailable = false;
         await new Promise<void>((resolve) => {
           let finished = false;
@@ -259,13 +329,14 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           const finish = () => {
             if (finished) return;
             finished = true;
+            if (utterance === browserUtterance) { utterance = undefined; activeSpeech = false; reportActivity(); }
             clearWatchdog();
             clearInterval(onsetTimer);
             signal.removeEventListener("abort", stop);
             speechStops.delete(stop);
-            utterance.onstart = null;
-            utterance.onend = null;
-            utterance.onerror = null;
+            browserUtterance.onstart = null;
+            browserUtterance.onend = null;
+            browserUtterance.onerror = null;
             if (browserFinish === finish) browserFinish = undefined;
             resolve();
           };
@@ -285,16 +356,16 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             onsetRemainingMs -= 250;
             if (onsetRemainingMs <= 0) fail();
           }, 250);
-          utterance.onstart = () => {
+          browserUtterance.onstart = () => {
             if (finished) return;
             clearInterval(onsetTimer);
             notifyStart("browser");
           };
-          utterance.onend = finish;
-          utterance.onerror = fail;
+          browserUtterance.onend = finish;
+          browserUtterance.onerror = fail;
           signal.addEventListener("abort", stop, { once: true });
           try {
-            synthesis.speak(utterance);
+            synthesis.speak(browserUtterance);
             if (held) synthesis.pause();
           } catch {
             fail();
@@ -309,7 +380,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         stopGenerated?.();
         const element = generatedElement ??= new Audio();
         element.src = line.src;
-        element.muted = silent;
+        applyVolume(true);
+        connectOutput();
         element.currentTime = offsetSeconds ?? 0;
         sounding = element;
         await new Promise<void>((resolve) => {
@@ -329,6 +401,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             if (stopGenerated === stop) stopGenerated = undefined;
             if (sounding === element) {
               sounding = undefined;
+              activeSpeech = false;
+              reportActivity();
               playbackFailure = undefined;
             }
             resolve();
@@ -371,6 +445,14 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     },
     dispose() {
       disposed = true;
+      activeSpeech = false;
+      reportActivity();
+      cancelVolumeRamp?.();
+      output?.source.disconnect();
+      output?.gain.disconnect();
+      if (typeof outputContext?.close === "function") void outputContext.close().catch(() => undefined);
+      output = undefined;
+      outputContext = undefined;
       for (const controller of pendingLoads) {
         controller.abort(new DOMException("Video chat voice was disposed", "AbortError"));
       }

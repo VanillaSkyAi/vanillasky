@@ -102,6 +102,7 @@ export interface VideoFrameProps {
   preparingNarration?: boolean;
   mediaAudioMuted?: boolean;
   mediaAudioVolume?: number;
+  mediaAudioAmbientOnly?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -224,6 +225,7 @@ export function VideoFrame({
   preparingNarration = false,
   mediaAudioMuted = true,
   mediaAudioVolume = 1,
+  mediaAudioAmbientOnly = false,
   className,
   style,
 }: VideoFrameProps): ReactElement {
@@ -271,7 +273,8 @@ export function VideoFrame({
   }
   const previousIndex = timeline.findIndex(range => sceneReadinessKey(range.scene) === displayedKey.current);
   const previous = timeline[previousIndex];
-  const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && (mediaAudioMuted || !sceneHasVideoBackdrop(range))
+  const audioMutedFor = (range: VideoSceneRange) => mediaAudioMuted || (mediaAudioAmbientOnly && range.scene.variables.mediaAudio !== "ambient");
+  const canPrepare = (range: VideoSceneRange | undefined) => Boolean(range && (audioMutedFor(range) || !sceneHasVideoBackdrop(range))
     && sceneHasBackdrop(range) && range.scene.templateId === "cinemaMedia");
   const canRetain = (range: VideoSceneRange | undefined) => canPrepare(range) || range?.scene.templateId === "chapterTitle";
   const hasPlayableMedia = (range: VideoSceneRange | undefined) => {
@@ -434,7 +437,7 @@ export function VideoFrame({
               height={canvas.height}
               playing={handoffPending ? playing || preparingNarration : playing}
               preparingNarration={handoffPending ? false : preparingNarration}
-              mediaAudioMuted={mediaAudioMuted}
+              mediaAudioMuted={audioMutedFor(active)}
               mediaAudioVolume={mediaAudioVolume}
               layer="active"
               opacity={1}
@@ -473,7 +476,7 @@ export function VideoFrame({
             height={canvas.height}
             playing={playing}
             preparingNarration={preparingNarration}
-            mediaAudioMuted={mediaAudioMuted}
+            mediaAudioMuted={audioMutedFor(active)}
             mediaAudioVolume={mediaAudioVolume}
             layer="active"
             opacity={1}

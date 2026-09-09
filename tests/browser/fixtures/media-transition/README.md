@@ -76,3 +76,10 @@ boundary on both attempts, consistent with the native codec limitation above.
 Those traces did not retain the exact recovery reason. The grouped checks keep
 their moving-frame, bounded pause, single-audio-element and complete-paragraph
 assertions; failures now also capture media recovery reasons.
+
+`music.mp3` is a four-second, mono 24 kHz, 64 kbps excerpt of **Cue** from the
+recovered VanillaSky lo-fi library. Its source is
+[TAD's CC0 lo-fi compilation](https://opengameart.org/content/lofi-compilation).
+The audio-mix browser fixture uses this short excerpt to verify looping and
+crossfades alongside the complete recorded paragraph and audible waterfall
+fixture; it makes no claim about generated scene-sound quality.

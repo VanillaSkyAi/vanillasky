@@ -1,3 +1,4 @@
+import { Soundtrack } from "./soundtrack.js";
 import { MountedReadinessContext } from "./mounted-scene-readiness.js";
 import {
   useEffect,
@@ -51,6 +52,12 @@ export function VideoPlayerRuntime({
   playbackMode,
   autoPlay = true,
   startMuted = true,
+  muted: controlledMuted,
+  onMutedChange,
+  soundtrack,
+  soundtrackVolume,
+  backgroundDucked = false,
+  backgroundWaiting = false,
   nativeMediaAudio,
   width,
   orientation: orientationOverride,
@@ -94,7 +101,8 @@ export function VideoPlayerRuntime({
     hasStream: Boolean(stream),
   });
   const [isPlaying, setIsPlaying] = useState(() => shouldAutoPlay && !reducedMotion && !autoStartGeneration);
-  const [isMuted, setIsMuted] = useState(resolvedStartMuted);
+  const [localMuted, setIsMuted] = useState(resolvedStartMuted);
+  const isMuted = controlledMuted ?? localMuted;
   const [fullscreenMode, setFullscreenMode] = useState<FullscreenMode>("none");
   const [state, setState] = useState<VideoState>(() => video ? savedVideoState(video) : createVideoState());
   const [currentTime, setCurrentTime] = useState(0);
@@ -110,6 +118,7 @@ export function VideoPlayerRuntime({
     return () => controller.abort();
   }, [video, savedPreparationIndex]);
   const [activeStream, setActiveStream] = useState(stream);
+  const [sourceRevision, setSourceRevision] = useState(0);
   const [activeSavedVideo, setActiveSavedVideo] = useState(video);
   const [replacementPending, setReplacementPending] = useState(false);
   const [startRequested, setStartRequested] = useState(autoStartGeneration);
@@ -197,6 +206,7 @@ export function VideoPlayerRuntime({
 
   if (stream !== activeStream || video !== activeSavedVideo) {
     const autoStartReplacement = Boolean(playbackMode && stream && shouldAutoPlay && !reducedMotion);
+    setSourceRevision(value => value + 1);
     setActiveStream(stream);
     setActiveSavedVideo(video);
     mediaFrameReportedRef.current = false;
@@ -341,36 +351,6 @@ export function VideoPlayerRuntime({
   });
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = state.config?.audio?.volume ?? 1;
-  }, [state.config?.audio?.audioUrl, state.config?.audio?.volume]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying || introPlaying) {
-      void audio.play()
-        .then(() => {
-          if (!audio.muted) setAudioUnlocked(true);
-        })
-        .catch(() => {
-          // Do not let visuals silently run ahead when a browser blocks audible
-          // autoplay. Return to the poster so a visible play control can provide
-          // the required user gesture and restart audio and motion together.
-          audio.currentTime = 0;
-          timeRef.current = 0;
-          setCurrentTime(0);
-          setStartRequested(false);
-          setIntroPlaying(false);
-          setIsPlaying(false);
-        });
-    } else {
-      audio.pause();
-    }
-  }, [introPlaying, isPlaying, state.config?.audio?.audioUrl]);
-
-  useEffect(() => {
     if (!state.config?.scenes.length) {
       const terminalWithoutVideo = state.status === "complete" || state.status === "error" || state.status === "aborted";
       if (terminalWithoutVideo) {
@@ -387,7 +367,6 @@ export function VideoPlayerRuntime({
     if (state.config.scenes[0]?.id === "supplied-opening") {
       timeRef.current = 0;
       setCurrentTime(0);
-      if (audioRef.current) audioRef.current.volume = state.config.audio?.volume ?? 1;
       introStartedAtRef.current = null;
       setStartRequested(false);
       setIntroPlaying(false);
@@ -402,7 +381,6 @@ export function VideoPlayerRuntime({
     const startGeneratedVideo = () => {
       timeRef.current = 0;
       setCurrentTime(0);
-      if (audioRef.current) audioRef.current.volume = state.config?.audio?.volume ?? 1;
       introStartedAtRef.current = null;
       setStartRequested(false);
       setIntroPlaying(false);
@@ -415,7 +393,7 @@ export function VideoPlayerRuntime({
     }
     const timer = setTimeout(startGeneratedVideo, remaining);
     return () => clearTimeout(timer);
-  }, [startRequested, state.config?.audio?.volume, state.config?.scenes.length, state.status]);
+  }, [startRequested, state.config?.scenes.length, state.status]);
 
   const streamOrientation = state.config?.orientation ?? "portrait";
   const isFullscreen = fullscreenMode !== "none";
@@ -430,6 +408,7 @@ export function VideoPlayerRuntime({
   const displayHeight = displayWidth * dimensions.height / dimensions.width;
   const scale = displayWidth / dimensions.width;
   const config = state.config;
+  const selectedSoundtrack = soundtrack === false ? undefined : soundtrack ?? config?.audio;
   const displayConfig = config && config.orientation !== orientation
     ? { ...config, orientation }
     : config;
@@ -465,12 +444,7 @@ export function VideoPlayerRuntime({
         .then(() => {
           if (!audio.muted) setAudioUnlocked(true);
         })
-        .catch(() => {
-          audio.currentTime = 0;
-          timeRef.current = 0;
-          setCurrentTime(0);
-          setIsPlaying(false);
-        });
+        .catch(() => undefined);
     }
     setIsPlaying(true);
   };
@@ -481,22 +455,9 @@ export function VideoPlayerRuntime({
     const audio = audioRef.current;
     if (!audio) return;
 
-    const volume = stateRef.current.config?.audio?.volume ?? 1;
-    audio.volume = volume;
     void audio.play()
-      .then(() => {
-        if (!audio.muted) setAudioUnlocked(true);
-      })
-      .catch(() => {
-        audio.volume = volume;
-        audio.currentTime = 0;
-        timeRef.current = 0;
-        setCurrentTime(0);
-        introStartedAtRef.current = null;
-        setStartRequested(false);
-        setIntroPlaying(false);
-        setIsPlaying(false);
-      });
+      .then(() => { if (!audio.muted) setAudioUnlocked(true); })
+      .catch(() => undefined);
   };
   const togglePlayback = () => {
     if (startRequested) return;
@@ -582,7 +543,8 @@ export function VideoPlayerRuntime({
           playing={mediaPlaying}
           preparingNarration={isPlaying && !mediaPlaying}
           mediaAudioMuted={!nativeMediaAudio || isMuted}
-          mediaAudioVolume={nativeMediaVolume}
+          mediaAudioAmbientOnly={nativeMediaAudio?.ambientOnly}
+          mediaAudioVolume={nativeMediaVolume * (backgroundWaiting ? .2 : backgroundDucked ? .35 : 1)}
           style={{
             position: "absolute",
             left: 0,
@@ -599,18 +561,19 @@ export function VideoPlayerRuntime({
         isMuted={isMuted}
         onStart={startPlayback}
       />
-      {config?.audio ? (
-        <audio
-          key={config.audio.audioUrl}
-          ref={audioRef}
-          src={config.audio.audioUrl}
-          data-v={config.audio.volume}
-          autoPlay={isPlaying}
-          muted={isMuted}
-          preload="auto"
-          loop={loop || state.status === "streaming" || introPlaying}
-        />
-      ) : null}
+      <Soundtrack
+        key={sourceRevision}
+        audio={selectedSoundtrack}
+        audioRef={audioRef}
+        playing={isPlaying || introPlaying}
+        muted={isMuted}
+        volume={soundtrackVolume}
+        ducked={backgroundDucked}
+        waiting={backgroundWaiting}
+        time={currentTime}
+        duration={duration}
+        terminal={terminal && !loop}
+      />
       <EndedOverlay ended={controls && ended} onReplay={togglePlayback} />
       <PlayerControls
         visible={controls && !generationCoverVisible && !showStartPoster && Boolean(config?.scenes.length)}
@@ -619,12 +582,13 @@ export function VideoPlayerRuntime({
         isPlaying={isPlaying}
         isMuted={isMuted}
         isFullscreen={isFullscreen}
-        hasAudio={Boolean(config?.audio) || Boolean(nativeMediaAudio)}
+        hasAudio={Boolean(selectedSoundtrack) || Boolean(nativeMediaAudio)}
         onTogglePlayback={togglePlayback}
-        onToggleMuted={() => setIsMuted((muted) => {
-          if (muted) setAudioUnlocked(true);
-          return !muted;
-        })}
+        onToggleMuted={() => {
+          if (isMuted) setAudioUnlocked(true);
+          if (controlledMuted === undefined) setIsMuted(!isMuted);
+          onMutedChange?.(!isMuted);
+        }}
         onToggleFullscreen={toggleFullscreen}
       />
     </div>

@@ -1,3 +1,4 @@
+import { rampMediaVolume } from "../../player/audio-volume.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
@@ -41,7 +42,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const reportMediaFailure = useMediaFailure();
   const inheritedPreroll = useNarrationPreroll();
   const rewindPreroll = preparingNarration || inheritedPreroll;
-  const resolvedMuted = muted ?? inheritedAudio.muted;
+  const [gainUnavailable, setGainUnavailable] = useState(false);
+  const resolvedMuted = (muted ?? inheritedAudio.muted) || gainUnavailable;
   const resolvedVolume = volume ?? inheritedAudio.volume;
   const resolvedPosition = resolveMediaPosition(mediaPosition);
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>();
@@ -283,7 +285,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.volume = resolvedVolume;
+    if (video) return rampMediaVolume(video, resolvedVolume, () => setGainUnavailable(true));
   }, [resolvedVolume]);
 
   useEffect(() => {

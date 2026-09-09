@@ -73,6 +73,7 @@ export function createCaptionVoice(source: VideoChatVoice, now = () => performan
       source.resume();
     },
     setMuted: muted => source.setMuted(muted),
+    ...(source.setVolume ? { setVolume: (volume: number) => source.setVolume!(volume) } : {}),
   };
   return {voice, getCaptionProgress:read, reset};
 }
