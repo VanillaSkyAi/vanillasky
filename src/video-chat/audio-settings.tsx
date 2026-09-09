@@ -36,7 +36,7 @@ export function AudioSettings({ preferences, change, reset, shuffle, trackId, sc
     <div className="music-track"><span>{preferences.musicMood === "off" ? "Music is off" : track?.name ?? "Chosen for each answer"}</span>
       {track && preferences.musicMood !== "off" && <button type="button" onClick={shuffle}>Try another track</button>}
     </div>
-    <p className="audio-hint">Background sound softens while the voice speaks.</p>
+    <p className="audio-hint">Sound stays at your chosen levels.</p>
     <button className="audio-reset" type="button" onClick={reset}>Reset sound settings</button>
   </fieldset>;
 }
