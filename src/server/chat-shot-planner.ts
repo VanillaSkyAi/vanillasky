@@ -5,7 +5,7 @@ import { attachGenerationLifecycleSink, getGenerationLifecycleSink } from "./lif
 import { continueAfterOpening } from "./opening-continuity.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
-import { estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
+import { clipNarrationBudget, estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
 import { createMusicAudio, getMusicTrack, selectMusicTrack, type MusicMood, type MusicPreference } from "../music-catalog.js";
 
 interface ChatPlannerTextContext extends VideoGenerationContext {
@@ -151,6 +151,8 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   openingLine?: string;
   publishOpening: (opening: { line: string; keyword: string } | undefined) => void;
   generatedClipDurationSec?: number;
+  firstGeneratedClipDurationSec?: number;
+  generatedVideoAvailable?: boolean;
   musicMood?: MusicPreference;
   previousTrackId?: string;
   initialTrackId?: string;
@@ -159,6 +161,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   // Planning slots bound record count, not the physical length of stock footage.
   // Playback establishes stock timing from speech and available media instead.
   const planningSlotSec = clipDurationSec ?? 5;
+  const firstSlotSec = options.mode === "pexels" ? 5 : options.firstGeneratedClipDurationSec ?? planningSlotSec;
   const incomplete = new WeakSet<VideoGenerationContext>();
   const generatedLooks = new WeakMap<VideoGenerationContext, string>();
   const planner = createTextDeltaVideoPlanner({
@@ -166,7 +169,12 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
     streamText(context) {
       const providerContext = { ...context,
         userPrompt: [
-        `Create a complete answer from concise spoken beats. ${context.request.input.maxDurationSec ?? 40} seconds is the overall ceiling, not a target to fill.`,
+        `Create a complete answer with enough development to satisfy the request, using distinct spoken beats within ${context.request.input.maxDurationSec ?? 40} seconds. Match depth to the question and any requested brevity; preserve essential explanation and steps.`,
+        "Write ONE short sentence per narration, within the supplied speech budget where given. Count spoken words or unspaced-script characters as applicable; shorten any overlong draft before emitting. Completeness belongs to the whole sequence: develop distinct points across scenes instead of cramming a complete explanation into each line.",
+        ...(options.generatedVideoAvailable ? [
+          `NARRATION LIMITS: first scene, including an ending-only answer: ${clipNarrationBudget(firstSlotSec).targetWords} spoken words or ${clipNarrationBudget(firstSlotSec).targetUnspacedCharacters} unspaced-script characters maximum; later scenes, including the saved ending: ${clipNarrationBudget(planningSlotSec).targetWords} spoken words or ${clipNarrationBudget(planningSlotSec).targetUnspacedCharacters} unspaced-script characters maximum. Use fewer for long technical words, numbers or pauses. Count numbers and units in their spoken form. Rewrite before emitting if over the limit.`,
+        ] : []),
+        "Preserve supplied objects, action/result pairings, quantities with units, limiting conditions and required step order. Fit by simplifying wording and distributing facts across available scenes, never by changing those facts or inventing causes for an observation.",
         `Orientation: ${context.request.input.orientation ?? "landscape"}.`,
         ...(context.request.input.style?.generatedLook ? [`CALLER VISUAL DIRECTION (takes precedence over automatic style): ${context.request.input.style.generatedLook}`] : []),
         "USER REQUEST AND CONVERSATION", context.request.input.input,
@@ -202,6 +210,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           if (!closer) { dispatchedNarrations.add(shot.narration); dispatchedNarrations.add(narration); }
           firstBody = false;
           lastNarration = narration;
+          const durationSec = index === 0 ? firstSlotSec : shot.durationSec;
           return { type: "scene.add", ...(closer ? { placement: "closer" as const } : {}), scene: {
             id: `${context.request.requestId}-shot-${++index}`, templateId: "cinemaMedia",
             variables: { ...(options.mode === "pexels" && shot.stockSelection ? {stockSelection: shot.stockSelection} : {}), fallbackText: shot.title, mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
@@ -210,7 +219,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",
               "Illustrative footage. No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
             ].filter(Boolean).join("\n"), },
-            narration, timing: options.mode === "pexels" ? {} : { fixedDuration: shot.durationSec },
+            narration, timing: options.mode === "pexels" ? {} : { fixedDuration: durationSec },
           } };
         };
         const record = (value: unknown, firstRecord: boolean): VideoPlanPart | undefined => {
@@ -242,7 +251,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           }
           if (part?.type !== "shot") throw planShapeError(value);
           if (!brief) throw new Error("Chat shot arrived before its answer brief");
-          const shot = readShot(part, planningSlotSec, brief.subject);
+          const shot = readShot(part, index === 0 ? firstSlotSec : planningSlotSec, brief.subject);
           if (shot.narration === brief.ending?.narration) return;
           if (firstBody && !continueAfterOpening(shot.narration, [options.openingLine ?? brief.opening])) return;
           const budget = (context.request.input.maxDurationSec ?? 40) - (brief.ending?.durationSec ?? planningSlotSec);

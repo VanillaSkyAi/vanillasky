@@ -5,6 +5,18 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Keep the first AI clip at five seconds and use eight seconds for later scenes.
+  Give later narration a conservative eleven-word drafting limit, retain six
+  words for the first scene, and keep speech and footage preparation parallel.
+  Scene budgets and generation deadlines follow their assigned durations.
+  Put one-sentence limits beside each shot format and in the writing request,
+  while prioritizing essential facts and steps across the answer.
+
+- Restore room for substantive answers: complete the planned development after
+  saving the ending and guide ordinary explanations toward several useful scenes.
+  Retain conservative narration budgets and parallel speech/footage preparation;
+  simple facts and requests for brevity can still finish sooner.
+
 - Choose complementary visual moments that connect explanations with relevant
   human experiences. Prefer realistic human reactions, describe observable
   behavior in generated shots, and include essential actions in stock queries.

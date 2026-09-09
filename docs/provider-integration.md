@@ -75,11 +75,13 @@ If a different provider returns private or short-lived assets, your delivery
 code must supply a browser-safe URL with an appropriate replay lifetime. Storage
 is a customization for that requirement, not part of the default setup.
 
-The planner leaves a 0.8-second visual tail. Five-second clips target six ordinary
-spoken words and one idea. A bounded rewrite can use the full safe speech budget;
-if it fails or still cannot fit, the original speech plays over a chapter without
-submitting a video job. Measured speech and physical clip duration remain
-responsible for playback recovery. See [media and voice](media-and-audio.md).
+The application uses five seconds for the first generated scene and eight for
+later scenes, with respective drafting limits of six and eleven ordinary spoken
+words. The planner leaves a 0.8-second visual tail and room for voice variation.
+A bounded rewrite can use the full estimated speech budget while footage
+generates. Failed shortening preserves the original speech and healthy footage;
+the player repeats footage at normal speed when actual narration needs more time.
+See [media and voice](media-and-audio.md) for timing and recovery bounds.
 
 Stock footage has its own lookup deadline and no generated-video duration cap.
 Return its duration when known; the player checks the decoded duration too.

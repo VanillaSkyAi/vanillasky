@@ -14,6 +14,8 @@ provider keys show setup requirements; no fake answer path is enabled.
 
 Own-key localhost uses up to five generated clips per answer through the existing
 owner reservation path, without the public pilot's permanent personal allowance.
+The first generated clip is five seconds and subsequent clips are eight seconds,
+so five scenes use 37 seconds of generated footage.
 It requires both the local server flag and a loopback URL. The API stays bound
 to loopback, request admission remains active, and production still requires
 verified owner identity for that path.

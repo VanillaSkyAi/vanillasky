@@ -397,6 +397,7 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
     .setIssuer(env.ACCESS_TEAM_DOMAIN).setAudience(env.ACCESS_AUD).setSubject('owner').setIssuedAt().setExpirationTime('1h').sign(privateKey);
   const extra = identity === 'owner' ? {cookie:`CF_Authorization=${token}`} : identity === 'forged' ? {cookie:'CF_Authorization=forged.token.signature', 'cf-access-authenticated-user-email':env.OWNER_EMAIL} : {};
   let submissions = 0;
+  const submittedDurations = [];
   const shot = (narration, subject) => ({ narration, subject, action: 'The Moon turns in the dark sky.', durationSec: 5, continuity: 'cut' });
   const lines = [
     { type: 'answer', intent: 'explanation', opening: 'The Moon turns in time with Earth', subject: 'moon', development: 'Rotation and orbit', visualDirection: 'Consistent gray Moon illustration', ending: shot('Rotation stays in step.', 'moon ending') },
@@ -409,6 +410,7 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
     if (options.method === 'POST') {
       submissions++;
       assert.equal(url,'https://queue.fal.run/minimax/h3-max-turbo/text-to-video');
+      submittedDurations.push(JSON.parse(options.body).duration);
       return Response.json({request_id:'test',status_url:'https://queue.fal.run/status',response_url:'https://queue.fal.run/result',cancel_url:'https://queue.fal.run/cancel'});
     }
     if (url === 'https://queue.fal.run/status/stream') return new Response('data: {"status":"COMPLETED"}\n\n',{headers:{'Content-Type':'text/event-stream'}});
@@ -429,6 +431,7 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
     submissionsPerAnswer.push(submissions - before);
   }
   assert.equal(plannerLogs.filter(([name]) => name === 'video-chat.plan-summary').length, 3);
+  assert.deepEqual(submittedDurations.slice(0, 5), [5, 8, 8, 8, 8]);
   assert.doesNotMatch(JSON.stringify(plannerLogs), /test-fal-secret|192\.0\.2\.1|Why does the Moon|v3\.fal\.media/);
   const ownerAllowance = ['owner','local'].includes(identity);
   const ownerRows = await env.VIDEO_CHAT_QUOTAS.prepare('SELECT COUNT(*) AS count FROM video_chat_owner_fal_previews').bind().first();

@@ -5,12 +5,40 @@
     "prompt": "Why does music sometimes give me goosebumps?",
     "mode": "cinematic",
     "duration": 5,
-    "clips": 3,
+    "clips": 5,
     "available": true,
     "criteria": [
+      "Develop the explanation across distinct useful beats within five scenes including the ending; cover emotional trigger, physical response and a qualified takeaway instead of ending after a single developing shot. Saving the ending early must preserve later development and final playback order.",
       "Connect an emotional response to involuntary contraction of tiny skin muscles and raised hairs; do not claim every listener or every musical chill has visible goosebumps.",
       "Combine an observable skin detail with a relevant human listening experience; each view contributes something distinct, without a prescribed order or ratio.",
       "Use concrete, feasible behavior and restrained reactions in ordinary surroundings; a scientific topic alone should not force every shot into abstract illustration."
+    ]
+  },
+  {
+    "id": "answer-depth-cinematic",
+    "category": "explanation",
+    "prompt": "Explain how bicycle gears help when riding uphill, for a beginner.",
+    "mode": "cinematic",
+    "duration": 5,
+    "clips": 5,
+    "available": true,
+    "criteria": [
+      "Develop a beginner-friendly causal explanation: a lower gear makes each pedal push easier, at the cost of less forward distance per pedal turn; connect that tradeoff with climbing a hill.",
+      "Usually three to five distinct scenes including the ending, with complete natural narration and purposeful views. Cover the brief's remaining development after reserving the ending; do not replace the mechanism with an opening and takeaway alone.",
+      "Use only necessary scenes and preserve the available clip allowance; an extra scene that restates a claim or merely changes framing is padding. Compare with the brief-answer case to judge whether requested depth changes the treatment."
+    ]
+  },
+  {
+    "id": "brief-answer-cinematic",
+    "category": "explanation",
+    "prompt": "Very briefly, what do lower bicycle gears do?",
+    "mode": "cinematic",
+    "duration": 5,
+    "clips": 5,
+    "available": true,
+    "criteria": [
+      "Give a concise answer that lower gears make pedaling easier; use only the scenes needed for this narrow request, ordinarily one or two including the ending.",
+      "Do not add an unnecessary mechanism, example or recap to fill the five-scene allowance. Preserve complete natural meaning and avoid repeating the opening."
     ]
   },
   {

@@ -30,6 +30,21 @@
 
 - Generalize planner guidance from reported examples. Keep topic-specific cases in evaluation fixtures rather than adding the latest failing user prompt to production system instructions.
 
+- Prompt compression and earlier ending reservation must preserve answer depth.
+  Keep distinct development explicit, treat the saved ending as a playback
+  reservation, and compare substantive requests with deliberately brief ones.
+  Passing stream-order tests alone cannot establish the model's answer quality.
+
+- Restore answer depth without casually relaxing narration-fit headroom. A
+  proposal to measure voice before submitting footage adds a serial dependency
+  to first-scene latency; preserve parallel preparation when that delay is
+  unacceptable. Word budgets reduce overruns but do not certify measured fit.
+
+- Measure original and accepted narration separately in live fit evaluations.
+  Rewrites can hide poor first drafts, while conservative estimates can request
+  repairs for audio that already fits. Report unavailable measurements and
+  factual/coverage failures separately from the timing success rate.
+
 - Requests for less caption text may mean progressive display, not shorter narration. Preserve full speech and transcript; disclose approximate timing when provider word timestamps are absent.
 
 - For automatic visual direction, reuse the default chat brief and verify the active shot-planner path. Keep intent separate from appearance, preserve caller overrides, and check downstream provider prompt-length limits before combining style and shot instructions. Do not claim mocked media proves generated visual quality.

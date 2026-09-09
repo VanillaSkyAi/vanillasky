@@ -81,7 +81,9 @@ output has been parsed.
 
 The planner streams a compact answer brief containing the opening and creative
 direction, then the first developing shot so footage can start. It saves the
-ending next, followed by any remaining developing shots. A one-scene answer
+ending next, then completes the distinct points outlined in the brief. Saving
+the ending reserves its final playback position; it does not finish development.
+A one-scene answer
 emits only the brief and ending. One model request serves both suggested and
 typed prompts; a suggestion may already supply its opening. There is no separate
 classification or first-shot planning request.
@@ -94,6 +96,22 @@ human experiences, stories develop consequences,
 comedy times its reveal, imaginative requests depict their invented world, and
 practical answers demonstrate usable steps. These are directions, not fixed
 scene counts or one universal story structure.
+
+Substantive explanations and how-tos normally use three to five scenes including
+the ending, within the available allowance. Each adds an essential step, causal
+link, useful example or observable result. Simple facts, narrow follow-ups and
+requests for brevity can use fewer. The application uses a five-second first
+generated scene and eight-second later scenes, including the ending. An
+ending-only answer uses five seconds. Their conservative drafting limits are six
+and eleven ordinary spoken words respectively, alongside speech estimation, one
+shortening attempt and complete-narration playback. Speech and footage preparation
+run in parallel. Short lines should distribute the explanation across purposeful
+beats, rather than remove its substance. These limits provide headroom; they do
+not establish a measured voice-fit success rate.
+The shot examples and writing request both state the applicable limits. Each
+narration should be one short sentence; count quantities in their spoken form
+and allow extra room for technical words and pauses. Preserve supplied facts,
+relationships and step order across the complete answer.
 
 Each view should add context, a useful detail, an action or a meaningful reaction.
 Realistic footage can carry human emotion; illustration is useful when the
