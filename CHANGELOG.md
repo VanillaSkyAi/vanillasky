@@ -5,6 +5,10 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Load the footage renderer while an answer is being planned, so the first
+  ready clip does not start a cold code request. Keep the full spoken intro
+  and existing media readiness checks.
+
 - Plan the first generated shot before writing the saved ending, so footage
   can start from the compact answer brief while the rest of the answer develops.
   Keep the spoken intro, visual direction, final ending and generation limits.
