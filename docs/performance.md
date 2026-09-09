@@ -96,5 +96,5 @@ measure that surface separately when checking submit-to-template latency.
 
 AI and Pexels modes remain separate. Missing, late, or unplayable footage uses
 the authored chapter and complete narration. Normal clips play once at native
-speed; overlong narration recovers to a chapter. See [the local chat harness](development.md) for fixture timing
+speed and repeat on the same decoder when narration runs longer. See [the local chat harness](development.md) for fixture timing
 and explicit live-provider checks.

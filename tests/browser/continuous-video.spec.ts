@@ -30,7 +30,7 @@ test("motion proof rejects frozen pixels despite an advancing media clock", () =
   expect(maximumMotionStall(frozen.map((sample, index) => ({ ...sample, presentedFrames: 1, presentedMediaTime: index * .1 })))).toBe(600);
 });
 
-for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
+for (const mode of ["normal", "repeat", "long-repeat", "unmeasured", "quiet-tail", "short", "oversized", "audible", "missing", "unusable", "delayed", "delayed-latePlay"]) test(`narration completes with moving footage or an authored chapter: ${mode}`, async ({ browser, browserName }, info) => {
   test.setTimeout(30000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}), recordVideo: { dir: info.outputPath("recording") } });
   const page = await context.newPage();
@@ -41,7 +41,7 @@ for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "aud
     await page.getByRole("button").click();
     // In-page observation does not refresh Safari's transient user activation.
     await page.waitForFunction(() => document.body.dataset.proofComplete === "true" && (window as unknown as { continuityProof: { events: string[] } }).continuityProof.events.filter(event => event === "audio-ended").length === 2, undefined, { timeout: 25000 });
-    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { phases: {kind: string; at: number}[]; events: string[]; samples: { at: number; narrationReady: boolean; frameFingerprint: number | null; mediaDuration: number; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
+    const proof = await page.evaluate(() => (window as unknown as { continuityProof: { phases: {kind: string; at: number; seconds?: number}[]; events: string[]; samples: { at: number; narrationReady: boolean; audioTime: number; frameFingerprint: number | null; mediaDuration: number; time: number; muted: boolean; paused: boolean; rate: number; ended: boolean; hidden: boolean; status: string; chapter: string; playerEnded: boolean }[] } }).continuityProof);
     const active = proof.samples.filter(sample => !sample.playerEnded);
     let stalledAt = 0, maximumFrozenMs = 0;
     for (const sample of active) {
@@ -52,7 +52,7 @@ for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "aud
     await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
     expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
-    if (!["missing", "unusable", "short", "oversized"].includes(mode)) {
+    if (!["missing", "unusable", "short"].includes(mode)) {
       expect(new Set(active.flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
     }
     expect(maximumMotionStallMs).toBeLessThan(500);
@@ -80,16 +80,22 @@ for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "aud
       expect(longestHoldMs).toBeGreaterThanOrEqual(800);
     }
     if (mode === "audible") expect(active.some(sample => !sample.muted)).toBe(true);
-    if (mode === "normal" || mode === "audible" || mode === "quiet-tail" || mode === "repeat" || delayed) {
+    if (!["missing", "unusable", "short"].includes(mode)) {
       expect(active.every(sample => sample.rate === 1)).toBe(true);
       expect(active.filter(sample => sample.status === "Visual unavailable")).toHaveLength(0);
       expect(active.some(sample => sample.chapter)).toBe(false);
-      expect(active.filter((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5)).toHaveLength(mode === "repeat" ? 1 : 0);
-      if (mode === "repeat") {
+      const wraps = active.flatMap((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5 ? [index] : []);
+      const expectedRepeats = mode === "long-repeat" || mode === "unmeasured" ? 2 : mode === "repeat" || mode === "oversized" ? 1 : 0;
+      expect(wraps).toHaveLength(expectedRepeats);
+      if (expectedRepeats) {
         const lastAudio = proof.phases.filter(phase => phase.kind === "audio-ended").at(-1)!;
         expect(proof.samples.at(-1)!.at - lastAudio.at).toBeLessThan(150);
-        const repeat = active.findIndex((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5);
-        expect(new Set(active.slice(repeat).flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
+        expect(proof.phases.filter(phase => phase.kind === "speech-onset")).toHaveLength(1);
+        expect(active.some((sample, index) => index > 0 && sample.audioTime < active[index - 1]!.audioTime - .05)).toBe(false);
+        for (const [pass, start] of wraps.entries()) {
+          expect(new Set(active.slice(start, wraps[pass + 1]).flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
+        }
+        if (mode === "long-repeat") expect(proof.phases.find(phase => phase.kind === "prepared-speech")?.seconds).toBeGreaterThan(10);
       }
     } else {
       expect(active.some(sample => sample.chapter === "Water keeps moving")).toBe(true);
@@ -102,16 +108,16 @@ for (const mode of ["normal", "repeat", "quiet-tail", "short", "oversized", "aud
   } finally { await context.close(); }
 });
 
-test("a bounded repeat preserves decoder identity through pause, replay and interruption", async ({ browser, browserName }, info) => {
-  test.setTimeout(35000);
+test("multiple repeats preserve decoder identity through pause, replay and interruption", async ({ browser, browserName }, info) => {
+  test.setTimeout(45000);
   const context = await browser.newContext({ ...(browserName === "webkit" ? devices["iPhone 13"] : {}) });
   const page = await context.newPage();
   try {
-    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?repeat&lifecycle${process.platform === "linux" && browserName === "webkit" ? "&webm" : ""}`);
+    await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/continuous-video.html?long-repeat&lifecycle${process.platform === "linux" && browserName === "webkit" ? "&webm" : ""}`);
     await page.getByRole("button", { name: "Play exact recorded narration", exact: true }).click();
     await page.waitForFunction(() => {
       const proof = (window as unknown as { continuityProof: { events: string[] } }).continuityProof;
-      return proof.events.some(event => event.startsWith("video:ended:")) && (document.querySelector("video")?.currentTime ?? 0) > .1;
+      return proof.events.filter(event => event.startsWith("video:ended:")).length === 2 && (document.querySelector("video")?.currentTime ?? 0) > .1;
     });
     const decoder = await page.locator("video").elementHandle();
     await page.getByRole("button", { name: "Pause narration", exact: true }).click();
@@ -123,14 +129,14 @@ test("a bounded repeat preserves decoder identity through pause, replay and inte
     await page.getByRole("button", { name: "Resume narration", exact: true }).click();
     await page.waitForFunction(() => document.body.dataset.proofComplete === "true");
     const first = await page.evaluate(() => (window as unknown as { continuityProof: { samples: Array<MotionSample & {chapter:string;loop:boolean}>; events: string[] } }).continuityProof);
-    expect(first.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(1);
+    expect(first.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(2);
     expect(first.events.filter(event => event === "audio-ended")).toHaveLength(2);
     expect(first.samples.some(sample => sample.chapter || sample.loop)).toBe(false);
     expect(maximumMotionStall(first.samples)).toBeLessThan(500);
     await page.getByRole("button", { name: "Replay video response", exact: true }).click();
     await page.waitForFunction(() => {
       const proof = (window as unknown as { continuityProof: { events: string[] } }).continuityProof;
-      return proof.events.filter(event => event.startsWith("video:ended:")).length === 2 && (document.querySelector("video")?.currentTime ?? 0) > .1;
+      return proof.events.filter(event => event.startsWith("video:ended:")).length === 4 && (document.querySelector("video")?.currentTime ?? 0) > .1;
     });
     expect(await decoder!.evaluate(video => video === document.querySelector("video"))).toBe(true);
     await page.getByRole("button", { name: "Interrupt narration", exact: true }).click();
@@ -140,10 +146,10 @@ test("a bounded repeat preserves decoder identity through pause, replay and inte
     expect(await page.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime)).toBeCloseTo(interrupted, 1);
     const proof = await page.evaluate(() => (window as unknown as { continuityProof: { samples: Array<{chapter:string;loop:boolean}>; events: string[] } }).continuityProof);
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
-    expect(proof.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(2);
+    expect(proof.events.filter(event => event.startsWith("video:ended:"))).toHaveLength(4);
     expect(proof.samples.some(sample => sample.chapter || sample.loop)).toBe(false);
     expect(proof.events.some(event => event.includes("error"))).toBe(false);
-    await writeFile(info.outputPath("bounded-repeat-lifecycle-proof.json"), JSON.stringify(proof));
+    await writeFile(info.outputPath("repeated-narration-lifecycle-proof.json"), JSON.stringify(proof));
   } finally { await context.close(); }
 });
 

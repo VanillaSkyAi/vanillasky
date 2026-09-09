@@ -106,3 +106,8 @@
 - Parallel worktrees share the Mac's memory and decoders. Keep local compiler,
   build and native playback checks serial on a constrained machine; parallel
   editing does not require overlapping validation processes.
+
+- A narration-length mismatch does not make footage unusable. Keep concise
+  drafting and one shortening attempt, then repeat the healthy scene until
+  speech completes. Use live speech completion to account for browser voices
+  and decoder head starts; never turn an estimate into a measured duration.

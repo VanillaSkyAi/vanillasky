@@ -11,6 +11,10 @@ of previously published npm releases.
   their separate native audio players. Reuse native video elements unlocked on
   Ask so the first audible clip can start after a long intro without another tap.
   Preserve volume, pause, replay and fades.
+- Keep footage when narration shortening fails, and loop healthy scenes at
+  normal speed until their narration finishes. Preserve one continuous spoken
+  line and subtitles across repeats, including browser-voice fallback, with
+  the existing playback deadlines and media-failure recovery.
 - Correct the sound settings hint to describe steady listening levels.
 - Keep the intro's completed subtitle phrase in place while generated footage
   prepares, instead of restarting the subtitle animation when the player mounts.

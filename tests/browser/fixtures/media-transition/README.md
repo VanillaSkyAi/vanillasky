@@ -4,9 +4,18 @@
 flowing through the forest.” at 170 words per minute, converted to mono 24 kHz
 PCM WAV. Its measured 1.965 seconds plus the 0.8-second tail fits the five-second
 normal clip without slowing or repeating it. The `oversized` case keeps the full
-6.419-second paragraph and verifies recovery before footage playback; the
-`short` case verifies the mounted decoder's actual-duration recovery. Neither
+6.419-second paragraph and verifies one repeat with complete speech. The
+`short` case checks the mounted decoder against shorter actual footage. No
 case truncates its original audio. No paid generation is involved.
+
+`long-narration.wav` is a 14.282-second offline Samantha recording of the
+waterfall paragraph in `continuous-video.tsx`, synthesized with `say` at 170
+words per minute and converted with FFmpeg to mono 24 kHz PCM WAV. It verifies
+two repeats of the five-second footage, moving pixels after each wrap, one
+complete spoken line, and decoder identity through pause and replay. The
+`unmeasured` case plays this same recording but exposes a seven-second estimate
+and no audio clock, exercising completion-driven browser/custom voice timing
+without pretending the estimate is a measured duration.
 
 `waterfall-hold.webm` is a VP8, 360 × 640, 30 fps, five-second derivative of
 `waterfall.mp4`, showing the same waterfall footage. Its source attribution is

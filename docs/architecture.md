@@ -27,14 +27,13 @@ earlier shot is pending. Public scene order stays deterministic. The final Video
 saved replay does not request another generation.
 
 Narration is estimated against each clip with a 0.8-second tail. An oversized
-beat gets at most one short rewrite before footage is requested. A failed or
-still-oversized rewrite preserves the original speech in a chapter instead of
-spending on unusable footage. Measured speech remains authoritative during
-playback. Normal footage plays once; a small measured speech overrun can repeat
-healthy footage once until speech completes. Larger or unmeasured overruns
-recover to a chapter. See the [playback bounds](media-and-audio.md#timing-and-recovery)
-for the exceptional-repeat policy. Estimation is not a guarantee that every
-voice/language finishes inside its clip.
+beat gets at most one short rewrite that keeps one complete idea and its
+necessary qualifiers. If shortening fails, the original narration and footage
+are retained. Healthy footage repeats at normal speed until narration finishes,
+using the same decoder while speech and subtitles continue once. Generated and
+browser voices use confirmed speech onset and completion; preparation estimates
+never become measured audio evidence. Missing or failed footage still recovers
+to a chapter. See the [playback bounds](media-and-audio.md#timing-and-recovery).
 
 ## Where to work
 
