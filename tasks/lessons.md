@@ -57,3 +57,7 @@
 - Deployment speed means the complete application change-to-production loop.
   Measure its slowest required checks and release steps; docs-only shortcuts
   are supplementary, not the primary performance goal.
+
+- When replacing npm/npx test entrypoints with direct Node commands, verify a
+  real browser startup too. Test listing cannot catch fixture-server commands
+  that depended on npm adding local executables to PATH.
