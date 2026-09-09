@@ -5,6 +5,9 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Recover complete answer and shot records when the planner wraps them in a JSON
+  array, avoiding an empty failed response while preserving content validation,
+  duration limits and rejection of malformed or unsupported containers.
 - Add mood-based music from seven normalized tracks, with automatic selection,
   no immediate repeats and the chosen soundtrack retained for replay. Settings
   now has voice, music and scene-sound volume, track shuffle and saved listening

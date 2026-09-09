@@ -208,11 +208,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
             narration, timing: options.mode === "pexels" ? {} : { fixedDuration: shot.durationSec },
           } };
         };
-        const line = (raw: string): VideoPlanPart | undefined => {
-          const trimmed = raw.trim();
-          if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
-          const firstRecord = recordsSeen++ === 0;
-          const value: unknown = JSON.parse(trimmed);
+        const record = (value: unknown, firstRecord: boolean): VideoPlanPart | undefined => {
           const part = object(value);
           const recovered = firstRecord && !brief && index === 0 ? recoverFirstBrief(part, planningSlotSec) : undefined;
           if (recovered) {
@@ -239,6 +235,24 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           bodyDuration += shot.durationSec;
           return scenePart(shot);
         };
+        const line = function* (raw: string): Generator<VideoPlanPart> {
+          const trimmed = raw.trim();
+          if (!trimmed || /^```(?:json|ndjson)?$/i.test(trimmed)) return;
+          const firstRecord = recordsSeen++ === 0;
+          const value: unknown = JSON.parse(trimmed);
+          // Models occasionally wrap the requested records in one JSON array.
+          // Accept only a complete initial answer/shot sequence; never dig into
+          // arbitrary containers or bypass the normal content and budget checks.
+          if (Array.isArray(value) && (!firstRecord || object(value[0])?.type !== "answer"
+            || !value.slice(1).every(item => object(item)?.type === "shot"))) throw planShapeError(value);
+          const records: unknown[] = Array.isArray(value) ? value : [value];
+          for (const [position, item] of records.entries()) {
+            try {
+              const part = record(item, firstRecord && position === 0);
+              if (part) yield part;
+            } catch (cause) { reject(cause); }
+          }
+        };
         let cursor = 0, depth = 0, quoted = false, escaped = false;
         const takeFrame = (): string | undefined => {
           if (cursor === 0) {
@@ -253,8 +267,8 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
             }
           }
           // Frame complete JSON containers, not physical lines. Arrays remain
-          // whole so semantic validation rejects them instead of extracting
-          // their nested objects. Each character is scanned once across deltas.
+          // whole until their syntax and record sequence can be validated.
+          // Each character is scanned once across deltas.
           for (; cursor < buffer.length; cursor++) {
             const character = buffer[cursor];
             if (quoted) {
@@ -298,12 +312,12 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
               offset += piece.length;
               let raw = takeFrame();
               while (raw !== undefined) {
-                try { const part = line(raw); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
+                try { for (const part of line(raw)) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); }
                 raw = takeFrame();
               }
             }
           }
-          if (buffer.trim()) { try { const part = line(buffer); if (part) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
+          if (buffer.trim()) { try { for (const part of line(buffer)) yield JSON.stringify(part) + "\n"; } catch (cause) { reject(cause); } }
           if (brief?.development && bodyDuration === 0) incomplete.add(context);
           if (brief?.ending && brief.ending.narration !== lastNarration) yield JSON.stringify(scenePart(brief.ending, true)) + "\n";
           else if (!brief?.ending) incomplete.add(context);
