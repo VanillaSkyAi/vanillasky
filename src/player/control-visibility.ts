@@ -15,6 +15,11 @@ interface SoundtrackPlayer {
 const soundtrackPlayers = new Map<HTMLElement, SoundtrackPlayer>();
 const fullscreenControllers = new Map<HTMLElement, FullscreenController>();
 
+function soundtrackOwner(element: Element): HTMLElement | null {
+  return element.closest<HTMLElement>("[data-soundtrack-owner]")
+    ?? element.closest<HTMLElement>('[data-testid="video-player"]');
+}
+
 export async function togglePlayerFullscreen(container: HTMLElement, onModeChange: (mode: "none" | "native" | "fallback") => void): Promise<void> {
   let controller = fullscreenControllers.get(container);
   if (!controller) {
@@ -65,7 +70,7 @@ function routeSoundtrack(player: SoundtrackPlayer, audio: HTMLAudioElement): voi
 }
 
 export default function attachSoundtrack(audio: HTMLAudioElement, context: AudioContext): void {
-  const container = audio.closest<HTMLElement>('[data-testid="video-player"]');
+  const container = soundtrackOwner(audio);
   if (!container?.isConnected || !audio.isConnected) {
     void context.close();
     return;
@@ -99,7 +104,7 @@ export default function attachSoundtrack(audio: HTMLAudioElement, context: Audio
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof Element)) return;
-  const container = target.closest<HTMLElement>('[data-testid="video-player"]');
+  const container = soundtrackOwner(target);
   const player = container ? soundtrackPlayers.get(container) : undefined;
   if (player) void player.context.resume().catch(() => undefined);
 }, true);

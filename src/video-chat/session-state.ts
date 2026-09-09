@@ -28,6 +28,8 @@ export interface VideoChatTurn {
   /** Footage source selected for this answer; omitted in older saved turns. */
   mode?: VideoChatMode;
   video?: Video;
+  /** Provisional music starts on Ask while the answer brief is still loading. */
+  initialSoundtrack?: VideoAudio;
   /** Explicit viewer override, retained while the server finishes streaming. */
   soundtrack?: VideoAudio | false;
   /** The initial choice restores Auto without another selection or model call. */
@@ -109,6 +111,11 @@ function withSoundtrack(video: Video, audio: VideoAudio | false | undefined): Vi
   if (audio === undefined) return video;
   const { audio: _previous, ...rest } = video;
   return audio === false ? rest : { ...rest, audio };
+}
+
+export function soundtrackForTurn(turn?: VideoChatTurn): VideoAudio | undefined {
+  if (!turn || turn.soundtrack === false) return undefined;
+  return turn.soundtrack ?? (turn.video ? turn.video.audio : turn.initialSoundtrack);
 }
 
 export function reducer(state: SessionState, action: SessionAction): SessionState {

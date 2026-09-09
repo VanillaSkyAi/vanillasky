@@ -178,7 +178,7 @@ apply a provider deadline.
 ## Native clip audio and soundtrack
 
 Settings has separate voice, music and scene-sound volume controls. Initial
-levels are 100%, 15% and 15%; the speaker button mutes all three without losing
+levels are 100%, 20% and 20%; the speaker button mutes all three without losing
 their settings. Listening preferences are remembered on the device. Background
 layers soften while narration speaks, with smooth volume changes and ending
 fades. Deliberate pause and microphone capture pause playback together.
@@ -186,10 +186,13 @@ Generated narration volume changes immediately. Browser fallback voices apply
 the level to the next spoken line, keeping backgrounds soft until the current
 line finishes. The speaker button still mutes the current line immediately.
 
-Music defaults to Auto, which chooses Calm, Focused, Upbeat or silence in the
-existing answer brief. Viewers can choose a mood or turn music off. One track
-is selected per answer, avoiding the previous eligible track when another is
-available. The selection survives scene changes, pauses and replay. “Try another
+Music starts as soon as the viewer presses Ask, continuing through loading,
+the opening and the answer with one playback element. Auto starts with a calm
+track, then uses Calm, Focused, Upbeat or silence from the existing answer brief.
+If that mood agrees, the same track continues without restarting; otherwise
+music crossfades to the selected mood. Viewers can choose a mood or turn music
+off. Selection avoids the previous eligible track when another is available
+and survives scene changes, pauses and replay. “Try another
 track” and mood changes update music without generating new footage or speech.
 Returning to Auto restores that answer's initial soundtrack; new answers use
 automatic selection. Unavailable music never blocks the spoken answer.

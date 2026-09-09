@@ -98,6 +98,7 @@ interface ResponseStreamOptions {
     conversation: VideoChatConversationTurn[];
     style?: VideoStyleOptions;
     musicMood?: MusicPreference;
+    initialTrackId?: string;
     previousTrackId?: string;
   };
   id: string;

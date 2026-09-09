@@ -1,5 +1,5 @@
 import {
-  conversationFor, initialState, reducer, transcriptFor,
+  conversationFor, initialState, reducer, soundtrackForTurn, transcriptFor,
   type VideoChatStatus, type VideoChatTurn,
 } from "./session-state.js";
 import {
@@ -18,6 +18,7 @@ import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
 import type {
   Video,
+  VideoAudio,
   VideoOrientation,
   VideoScene,
   VideoStyleOptions,
@@ -112,6 +113,9 @@ export interface UseVideoChatResult {
   setAudioPreferences(preferences: Partial<AudioPreferences>): void;
   resetAudioPreferences(): void;
   shuffleMusic(): void;
+  soundtrack?: VideoAudio;
+  backgroundDucked: boolean;
+  backgroundWaiting: boolean;
   playbackEnded: boolean;
   /** Changes whenever saved content should restart from zero. */
   playerKey: number;
@@ -324,7 +328,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     runRef.current = run;
     const currentOptions = optionsRef.current;
     const listeningPreferences = audioPreferencesRef.current;
-    const previousTrackId = stateRef.current.turns.at(-1)?.video?.audio?.trackId;
+    const previousTrackId = soundtrackForTurn(stateRef.current.turns.at(-1))?.trackId;
+    const initialTrack = selectMusicTrack(listeningPreferences.musicMood === "auto" ? "calm" : listeningPreferences.musicMood, previousTrackId);
     setBackgroundWaiting(false);
     const timeoutMs = currentOptions.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -348,6 +353,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       fixedOrientation: true,
       mode,
       suggestions: [],
+      ...(initialTrack ? { initialSoundtrack: createMusicAudio(initialTrack) } : {}),
       ...(openingMedia ? { openingMedia } : {}),
     };
     firstFrameRef.current = { turnId: id, mode, startedAt: monotonicNow(), reported: false, speechReported: false, active: true };
@@ -460,6 +466,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         orientation,
         conversation,
         musicMood: listeningPreferences.musicMood,
+        ...(initialTrack ? { initialTrackId: initialTrack.id } : {}),
         ...(previousTrackId ? { previousTrackId } : {}),
         ...(currentOptions.style ? { style: currentOptions.style } : {}),
       },
@@ -660,7 +667,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const current = stateRef.current;
     const turn = current.turns.find(turn => turn.id === current.shownTurnId) ?? current.turns.at(-1);
     if (!turn) return;
-    const track = next.musicMood === "auto" ? undefined : selectMusicTrack(next.musicMood, turn.video?.audio?.trackId);
+    const track = next.musicMood === "auto" ? undefined : selectMusicTrack(next.musicMood, soundtrackForTurn(turn)?.trackId);
     dispatch({ type: "soundtrack", id: turn.id,
       audio: next.musicMood === "auto" ? turn.originalSoundtrack : track ? createMusicAudio(track) : false });
   }, []);
@@ -669,15 +676,18 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const current = stateRef.current;
     const turn = current.turns.find(turn => turn.id === current.shownTurnId) ?? current.turns.at(-1);
     const preference = audioPreferencesRef.current.musicMood;
-    if (!turn?.video || preference === "off") return;
-    const mood = preference === "auto" ? getMusicTrack(turn.video.audio?.trackId ?? "")?.mood : preference;
+    if (!turn || preference === "off") return;
+    const audio = soundtrackForTurn(turn);
+    const mood = preference === "auto" ? getMusicTrack(audio?.trackId ?? "")?.mood : preference;
     if (!mood) return;
-    const track = selectMusicTrack(mood, turn.video.audio?.trackId);
+    const track = selectMusicTrack(mood, audio?.trackId);
     if (track) dispatch({ type: "soundtrack", id: turn.id, audio: createMusicAudio(track) });
   }, []);
 
   const currentTurn = state.turns.at(-1);
   const shownTurn = state.turns.find((turn) => turn.id === state.shownTurnId) ?? currentTurn;
+  const soundtrack = audioPreferences.musicMood === "off" ? undefined : soundtrackForTurn(shownTurn);
+  const backgroundDucked = voiceActive && (!options.voice || audioPreferences.voiceVolume > 0) && !state.muted && state.status !== "paused";
   const availableModes = state.capabilities?.modes ?? (["cinematic"] as const);
   const suggestions = shownTurn?.suggestions ?? [];
   const fullTranscript = shownTurn ? transcriptFor(shownTurn) : [];
@@ -694,7 +704,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     soundtrack: audioPreferences.musicMood === "off" ? false : shownTurn?.soundtrack,
     soundtrackVolume: audioPreferences.musicVolume,
     nativeMediaAudio: { volume: audioPreferences.sceneVolume, ambientOnly: true },
-    backgroundDucked: voiceActive && (!options.voice || audioPreferences.voiceVolume > 0) && !state.muted && state.status !== "paused",
+    backgroundDucked,
     backgroundWaiting,
     paused: state.status === "paused",
     controls: false,
@@ -778,6 +788,9 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     setAudioPreferences,
     resetAudioPreferences,
     shuffleMusic,
+    soundtrack,
+    backgroundDucked,
+    backgroundWaiting,
     playbackEnded: state.playbackEnded,
     playerKey: state.playerKey,
     playerProps,

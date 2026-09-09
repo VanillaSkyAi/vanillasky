@@ -8,7 +8,7 @@ import type { VideoAudio } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 import * as voiceModule from "../src/video-chat/voice";
 
-const music: VideoAudio = { trackId: "cue", audioUrl: "https://app.example/audio-library/cue.mp3", duration: 146.6,
+const music: VideoAudio = { trackId: "cue", audioUrl: "/audio-library/cue.mp3", duration: 146.6,
   sourceDuration: 146.6, volume: .15, beatDetection: { sensitivity: .5 }, beatMarkers: [], fadeOutMs: 1500 };
 function voice() {
   return { prepare: vi.fn(async () => ({ seconds: 1 })), speak: vi.fn(async (_text: string, options: { onStart?: () => void }) => { options.onStart?.(); }),
@@ -35,6 +35,34 @@ function fetcher(requests: Array<Record<string, unknown>> = [], sceneAudio = tru
   });
 }
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+
+it("starts one music sink during loading and keeps it through the opening-to-video handoff", async () => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const requests: Array<Record<string, unknown>> = [];
+  const request = fetcher(requests);
+  const delayed: typeof fetch = async (input, init) => {
+    if (String(input).includes("action=response")) await pending;
+    return request(input, init);
+  };
+  const { container } = render(<VideoChat options={{ fetcher: delayed, voice: voice(), audio: { musicMood: "focused" } }} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "Prompt" }), { target: { value: "Explain waves" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  const initial = container.querySelector<HTMLAudioElement>("audio[data-soundtrack=active]");
+  expect(initial).not.toBeNull();
+  expect(initial?.getAttribute("src")).toBe(music.audioUrl);
+  expect(requests).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await act(async () => { release(); });
+  await waitFor(() => expect(requests).toHaveLength(1));
+  expect(requests[0].initialTrackId).toBe("cue");
+  expect(container.querySelectorAll("audio[data-soundtrack]")).toHaveLength(1);
+  expect(container.querySelector("audio[data-soundtrack=active]")).toBe(initial);
+});
 
 it("keeps backgrounds ducked while the voice reports an audible line after a volume change", async () => {
   let reportActivity: ((active: boolean) => unknown) | undefined;
@@ -113,7 +141,7 @@ it("offers accessible music and voice sliders, remembers settings, and gates sce
   const first = render(<VideoChat options={{ fetcher: fetcher([], false), voice: voice() }} />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   expect((screen.getByRole("slider", { name: "Voice volume" }) as HTMLInputElement).value).toBe("100");
-  expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("15");
+  expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("20");
   expect(screen.queryByRole("slider", { name: "Sound from video" })).toBeNull();
   fireEvent.change(screen.getByRole("combobox", { name: "Music mood" }), { target: { value: "focused" } });
   fireEvent.change(screen.getByRole("slider", { name: "Music volume" }), { target: { value: "22" } });
@@ -124,7 +152,7 @@ it("offers accessible music and voice sliders, remembers settings, and gates sce
   expect((screen.getByRole("combobox", { name: "Music mood" }) as HTMLSelectElement).value).toBe("focused");
   await waitFor(() => expect(screen.getByRole("slider", { name: "Sound from video" })).toBeDefined());
   fireEvent.click(screen.getByRole("button", { name: "Reset sound settings" }));
-  expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("15");
+  expect((screen.getByRole("slider", { name: "Music volume" }) as HTMLInputElement).value).toBe("20");
 });
 
 it("keeps music off when replaying a different saved answer", async () => {
@@ -143,7 +171,7 @@ it("ignores malformed saved preferences and keeps controls usable when storage i
   localStorage.setItem("vanillasky.audio", JSON.stringify({ voiceVolume: -1, musicVolume: "loud", sceneVolume: 4, musicMood: "untrusted" }));
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
   const { result } = renderHook(() => useVideoChat({ fetcher: fetcher(), voice: voice() }));
-  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .15, sceneVolume: .15 });
+  expect(result.current.audioPreferences).toEqual({ musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2 });
   act(() => result.current.setAudioPreferences({ musicVolume: .2 }));
   expect(result.current.audioPreferences.musicVolume).toBe(.2);
 });
