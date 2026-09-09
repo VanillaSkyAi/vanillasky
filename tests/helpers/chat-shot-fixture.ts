@@ -6,6 +6,10 @@ export const chatAnswer = (ending: ReturnType<typeof chatShot>, opening = "Watch
   visualDirection: "A consistent illustrated world with clear physical actions.", ending,
 });
 export async function* streamChatShots(shots = [chatShot("planting seeds"), chatShot("a blooming garden")], opening?: string, subject?: string) {
-  yield JSON.stringify(chatAnswer(shots.at(-1)!, opening, subject, shots.length > 1 ? "Each action leads to the next." : "")) + "\n";
-  for (const shot of shots.slice(0, -1)) yield JSON.stringify(shot) + "\n";
+  const { ending, ...brief } = chatAnswer(shots.at(-1)!, opening, subject, shots.length > 1 ? "Each action leads to the next." : "");
+  yield JSON.stringify(brief) + "\n";
+  const developing = shots.slice(0, -1);
+  if (developing[0]) yield JSON.stringify(developing[0]) + "\n";
+  yield JSON.stringify({ ...ending, type: "ending" }) + "\n";
+  for (const shot of developing.slice(1)) yield JSON.stringify(shot) + "\n";
 }

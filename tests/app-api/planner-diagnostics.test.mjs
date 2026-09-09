@@ -192,6 +192,15 @@ test('chat shape diagnostics whitelist structural categories without retaining r
  assert.doesNotMatch(JSON.stringify(logs),/private|secret|providerText/);
  d.finish();assert.deepEqual(logs.at(-1).errors,{chat_plan_shape_invalid:1});
 });
+test('standalone ending failures have bounded diagnostic codes without retaining authored content', () => {
+ const logs=[];const d=createPlannerDiagnostics('test',(_event,data)=>logs.push(data));
+ for(const message of ['Chat ending arrived before its answer brief','Chat ending was emitted more than once','Chat ending repeats an already dispatched shot']) {
+  d.onError(new Error(message,{cause:{narration:'private-token'}}));
+ }
+ assert.deepEqual(logs.map(data=>data.code),['chat_missing_brief','chat_duplicate_ending','chat_repeated_ending']);
+ assert.doesNotMatch(JSON.stringify(logs),/private-token|narration|cause/);
+ d.finish();assert.deepEqual(logs.at(-1).errors,{chat_missing_brief:1,chat_duplicate_ending:1,chat_repeated_ending:1});
+});
 test('unknown shape metadata never escapes generic diagnostics and logger errors remain isolated', () => {
  for(const cause of [{code:'chat_plan_shape',shape:'private-token',discriminator:'missing',fields:{}},{code:'private-token',shape:'object'},{code:'chat_plan_shape',shape:'object',discriminator:'private-token',fields:{}},'private-token']) {
   const logs=[];const d=createPlannerDiagnostics('test',(_event,data)=>logs.push(data));
