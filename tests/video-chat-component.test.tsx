@@ -200,7 +200,7 @@ describe("VideoChat", () => {
     render(<VideoChat options={{
       fetcher: async (input, init) => {
         if (new URL(String(input), "https://app.example").searchParams.get("action") !== "response") return baseFetcher(input, init);
-        return new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `fallback:${sequence}`, runId: "fallback", sequence, ...part })}\n\n`).join(""), {
+        return new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `fallback:${sequence}`, runId: "fallback", sequence, ...part })}\n\n`).join("") + "data: [DONE]\n\n", {
           headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6", "x-vanillasky-resolved-video-mode": "pexels", "x-vanillasky-video-fallback": "credits" },
         });
       },

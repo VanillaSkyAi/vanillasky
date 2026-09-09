@@ -4,12 +4,12 @@ import { compileShotPrompt } from './shot-direction.mjs';
 export const FAL_MODEL = 'minimax/h3-max-turbo/text-to-video';
 const SUBMIT = `https://queue.fal.run/${FAL_MODEL}`;
 const DAY = 86400000;
-const PUBLIC_LIFETIME_CLIPS = 10;
+export const PUBLIC_LIFETIME_CLIPS = 10;
 const PUBLIC_DAILY_CLIPS = 200;
 // Keep historical reservations and their paid attempts in every public total.
-const PUBLIC_ROWS = `(SELECT actor, created, attempts FROM video_chat_fal_previews
- UNION ALL SELECT actor, created, attempts FROM video_chat_fal_answers)`;
-const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_answers(id, actor, created)
+const PUBLIC_ROWS = 'video_chat_fal_public_usage';
+const CURRENT_DAY_SQL = `(unixepoch('now') / 86400) * 86400000`;
+const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_reservations(id, actor, created)
 SELECT ?, ?, ? WHERE
  (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}`;
 
@@ -30,7 +30,7 @@ export async function availableFalClips(env, actor, { owner = false, now = Date.
     const day = Math.floor(now / DAY) * DAY;
     const pending = env.VIDEO_CHAT_QUOTAS.prepare(`SELECT
       (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) AS attempts,
-      (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) AS dailyAttempts`).bind(actor, day, day + DAY).first();
+      (SELECT COALESCE(SUM(attempts), 0) FROM video_chat_fal_daily_attempts WHERE day = ?) AS dailyAttempts`).bind(actor, day).first();
     const row = await Promise.race([pending, new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('Allowance snapshot timed out')), 150);
     })]);
@@ -59,28 +59,37 @@ export async function reserveOwnerFalAnswer(db, actor) {
     .bind(id, actor, Date.now()).run();
   return result.meta?.changes === 1 ? id : null;
 }
-// The migration also guards older in-flight writers against this lifetime cap.
-const ATTEMPT_SQL = `UPDATE video_chat_fal_answers SET attempts = attempts + 1
-WHERE id = ? AND actor = ? AND attempts < ${PUBLIC_LIFETIME_CLIPS}
+// Triggers independently enforce the hard daily and shared lifetime ceilings
+// for every worker version. This condition also honors a tighter configured pool.
+function publicAttemptSql(table, answerLimit) {
+  return `UPDATE ${table} SET attempts = attempts + 1
+WHERE id = ? AND actor = ? AND attempts < ${answerLimit}
 AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < ${PUBLIC_LIFETIME_CLIPS}
-AND (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) < ?`;
-const PRIOR_ATTEMPT_SQL = ATTEMPT_SQL.replace('UPDATE video_chat_fal_answers', 'UPDATE video_chat_fal_previews');
+AND (SELECT COALESCE(SUM(attempts), 0) FROM video_chat_fal_daily_attempts WHERE day = ${CURRENT_DAY_SQL}) < ?`;
+}
+const PUBLIC_ATTEMPT_SQL = [
+  publicAttemptSql('video_chat_fal_reservations', PUBLIC_LIFETIME_CLIPS),
+  publicAttemptSql('video_chat_fal_answers', 3),
+  publicAttemptSql('video_chat_fal_previews', 5),
+];
 const OWNER_ATTEMPT_SQL = `UPDATE video_chat_owner_fal_previews SET attempts = attempts + 1
 WHERE id = ? AND actor = ? AND attempts < 5`;
-async function reserveClip(env, actor, previewId, owner, now = Date.now()) {
+async function reserveClip(env, actor, previewId, owner) {
   const db = env.VIDEO_CHAT_QUOTAS;
   if (owner === true) {
     const result = await db.prepare(OWNER_ATTEMPT_SQL).bind(previewId, actor).run();
     return result.meta?.changes === 1;
   }
-  const day = Math.floor(now / DAY) * DAY;
   const dailyLimit = cap(env.VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT, PUBLIC_DAILY_CLIPS);
-  const result = await db.prepare(ATTEMPT_SQL).bind(previewId, actor, actor, day, day + DAY, dailyLimit).run();
-  if (result.meta?.changes === 1) return true;
-  // Support a reservation admitted immediately before rollout. IDs are generated
-  // server-side UUIDs; the separate owner ledger is never consulted here.
-  const prior = await db.prepare(PRIOR_ATTEMPT_SQL).bind(previewId, actor, actor, day, day + DAY, dailyLimit).run();
-  return prior.meta?.changes === 1;
+  // IDs are server UUIDs. Include old in-flight public reservations, respecting
+  // their original CHECK constraints; the owner ledger is never consulted here.
+  for (const query of PUBLIC_ATTEMPT_SQL) {
+    const result = await db.prepare(query).bind(previewId, actor, actor, dailyLimit).run();
+    // D1 includes AFTER-trigger writes in changes. A denied UPDATE performs
+    // no writes; a successful one changes its reservation and the daily pool.
+    if (Number.isSafeInteger(result.meta?.changes) && result.meta.changes > 0) return true;
+  }
+  return false;
 }
 
 class DiagnosticError extends Error {

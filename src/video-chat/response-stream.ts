@@ -145,6 +145,10 @@ export async function consumeVideoChatResponse(options: ResponseStreamOptions): 
       if (!isCurrent()) return { video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: [], style: state.style! }, lines: [] };
       if (event.type === "response.start") state.style = event.data.style;
       if (event.type === "audio.set") state.audio = event.data.audio;
+      if (event.type === "response.warning" && event.data.warning.code === "credits_exhausted") {
+        options.onFallback("credits");
+        continue;
+      }
       if (event.type === "response.warning" || (event.type === "response.error" && !event.data.terminal)) {
         warn(event.type === "response.warning" && event.data.warning.message === MEDIA_RECOVERY_NOTICE
           ? MEDIA_RECOVERY_NOTICE

@@ -1,13 +1,15 @@
 import { createPlannerDiagnostics } from "../_video-chat/diagnostics.mjs";
 import { verifyOwner } from "../_video-chat/owner.mjs";
 import { createVideoChatHandler } from "../../src/server.ts";
+import { getGenerationLifecycleSink } from "../../src/server/lifecycle.ts";
+import { CREDIT_FALLBACK_NOTICE } from "../../src/video-chat/recovery.ts";
 import {
   actorHash,
   reserveQuota,
   releaseQuota,
 } from "../_video-chat/quota.mjs";
 import { providerStream, providerText } from "../_video-chat/provider.mjs";
-import { generateFalPreview, reserveFalAnswer, reserveOwnerFalAnswer, availableFalClips } from "../_video-chat/fal.mjs";
+import { generateFalPreview, reserveFalAnswer, reserveOwnerFalAnswer, availableFalClips, PUBLIC_LIFETIME_CLIPS } from "../_video-chat/fal.mjs";
 import { searchStock } from "../_video-chat/stock.mjs";
 import { suggestionMedia, suggestionMediaInstructions } from "../_video-chat/suggestion-media.mjs";
 import { generateSpeech } from "../_video-chat/speech.mjs";
@@ -223,6 +225,7 @@ export async function handleVideoChatRequest({
       creditFallback = true;
     }
     const admission = { action, reservation, signal: controller.signal, isReleased: () => finished };
+    let generationLifecycle;
     const paidStreamText = guardPaidProvider("streamText", admission, (context) => providerStream(context, env, fetcher, diagnostics?.onProvider));
     const paidGenerateText = guardPaidProvider("generateText", admission, (context) => providerText(context, env, fetcher));
     const paidStock = guardPaidProvider("searchMedia", admission, (query, context) => searchStock(query, { env, orientation: context.orientation, preferredType: context.preferredType, signal: context.signal, fetcher, onDiagnostic: reportFallback, selection: context.scene?.variables?.stockSelection }));
@@ -231,6 +234,9 @@ export async function handleVideoChatRequest({
       if (!configured(env.PEXELS_API_KEY)) return null;
       const allowance = await availableFalClips(env, actor, { owner });
       if (!["user_limit", "preview_limit"].includes(allowance.reason)) return null;
+      if (!allowanceExhausted) generationLifecycle?.reportWarning?.({
+        code: "credits_exhausted", category: "media", message: CREDIT_FALLBACK_NOTICE, recoverable: true,
+      });
       allowanceExhausted = true;
       return paidStock(query, context);
     };
@@ -240,7 +246,9 @@ export async function handleVideoChatRequest({
       ...(diagnostics ? { onError: diagnostics.onError, onWarning: diagnostics.onWarning, onComplete: diagnostics.onComplete, onDiagnostic: diagnostics.onDiagnostic } : {}),
       heartbeatMs: 10000,
       mediaConcurrency: 5,
-      maxGeneratedVideos: planningAllowance.limit,
+      // Keep remaining scenes eligible for stock after the last paid clip.
+      // The atomic ledger, not the planner's callback count, owns AI spending.
+      maxGeneratedVideos: !owner && planningAllowance.limit > 0 ? PUBLIC_LIFETIME_CLIPS : planningAllowance.limit,
       generateVideoTimeoutMs: 15000,
       ...(configured(env.XAI_API_KEY) ? {
         generateSpeech: guardPaidProvider("generateSpeech", admission, (context) => generateSpeech(context, env, fetcher)),
@@ -274,7 +282,10 @@ export async function handleVideoChatRequest({
           return result.reason === "limit" ? stockAfterCreditLimit(query, context) : result.media;
         }),
       } : {}),
-      streamText: paidStreamText,
+      streamText: (context) => {
+        generationLifecycle = getGenerationLifecycleSink(context);
+        return paidStreamText(context);
+      },
       generateText: (context) => paidGenerateText(context.task === "suggestions"
         ? { ...context, systemPrompt: `${context.systemPrompt}\n${suggestionMediaInstructions()}` }
         : context),

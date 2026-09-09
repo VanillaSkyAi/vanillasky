@@ -61,6 +61,25 @@ binding alone is not enough: an empty database rejects conversations. Local
 migration setup does not initialize a remote database. See Cloudflare's
 [migration guide](https://developers.cloudflare.com/d1/reference/migrations/).
 
+Public AI video allows ten lifetime clip attempts per visitor and 200 attempts
+per UTC day across public visitors, including failed and cancelled submissions.
+There is no separate per-answer credit limit or permanent site-wide cap. Verified
+owners retain their separate allowance. Configured Pexels takes over when either
+public allowance is exhausted and the app explains the switch in a dismissible
+banner. `VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT` can lower the daily pool, never raise it
+above 200.
+
+For the quota rollout, first deploy the compatibility update that accepts
+positive D1 change counts for successful public clip reservations. D1 includes
+trigger writes in that count, so an older app expecting exactly one changed row
+cannot remain the rollback target. Keep the verified compatibility deployment as
+the rollback target, then apply migrations 0005 and 0006 before deploying the app.
+They retain every historical row and guard writes from both old and new Workers.
+Existing attempts are backfilled using their recorded reservation day; subsequent
+attempts use the database's current UTC day, including answers spanning midnight.
+Application rollback keeps this data and these guards in place. Do not remove the
+new ledgers or change the quota salt.
+
 ### 3. Add the application secrets
 
 In your Cloudflare Pages project's production settings, add these as encrypted
@@ -72,7 +91,7 @@ In your Cloudflare Pages project's production settings, add these as encrypted
 | `FAL_KEY` | Generated video; configure `PEXELS_API_KEY` instead for stock footage |
 | `VIDEO_CHAT_QUOTA_SALT` | Required stable random secret, at least 32 characters |
 | `XAI_API_KEY` | Optional generated narration; otherwise browser speech |
-| `PEXELS_API_KEY` | Optional stock alternative and public personal-allowance fallback |
+| `PEXELS_API_KEY` | Stock alternative and fallback when public AI credits run out |
 
 For a new quota salt, generate 32 random bytes in your password manager or with
 `openssl rand -hex 32` and save the result as `VIDEO_CHAT_QUOTA_SALT`. Keep it

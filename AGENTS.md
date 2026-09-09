@@ -55,7 +55,7 @@ Keep production authentication, request limits and spending controls intact.
 Local development uses isolated data, never production quota storage. Its bounded
 owner reservation path requires both the explicit local server flag and loopback
 URL; production still requires verified owner identity. Preserve public limits.
-Configured Pexels may serve a public viewer whose personal AI allowance expires;
+Configured Pexels may serve a public viewer whose personal or daily AI allowance expires;
 failed or late AI clips alone recover to chapters, never a provider switch.
 
 Never retain credentials, customer data, private media URLs or raw provider
