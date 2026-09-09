@@ -17,9 +17,9 @@ it("exercises the actual handler with a deterministic creative ending and only l
     const footage = scenes.filter(scene => scene.templateId === "cinemaMedia");
     expect(footage.length).toBeGreaterThan(0);
     expect(footage.every(scene => String(scene.variables.mediaUrl).startsWith("http://127.0.0.1:4281/tests/browser/fixtures/"))).toBe(true);
-    // The longer authored line stays complete on a chapter; offline fixtures
-    // never rewrite speech or buy extra footage merely to fit it.
-    expect(scenes[0]).toMatchObject({templateId:"chapterTitle",narration:"The robot plants its seed beside an empty house."});
+    // A longer authored line retains its local footage and complete speech;
+    // playback can repeat the clip without another provider request.
+    expect(scenes[0]).toMatchObject({templateId:"cinemaMedia",narration:"The robot plants its seed beside an empty house."});
     expect(network).not.toHaveBeenCalled();
   } finally {network.mockRestore();}
 });

@@ -95,10 +95,11 @@ describe("useVideoChat", () => {
   });
 
   it.each([
-    { seconds: 6.2, supportsOffsets: true, recovered: true, duration: 7 },
-    { seconds: 5.5, supportsOffsets: true, recovered: false, duration: 5.5 },
-    { seconds: 5.5, supportsOffsets: undefined, recovered: true, duration: 6.3 },
-  ])("preserves speech with $seconds seconds and measured evidence $supportsOffsets", async ({ seconds, supportsOffsets, recovered, duration }) => {
+    { seconds: 6.2, supportsOffsets: true, duration: 6.2 },
+    { seconds: 5.5, supportsOffsets: true, duration: 5.5 },
+    { seconds: 14.282, supportsOffsets: true, duration: 14.282 },
+    { seconds: 5.5, supportsOffsets: undefined, duration: 6.3 },
+  ])("retains speech and footage with $seconds seconds and measured evidence $supportsOffsets", async ({ seconds, supportsOffsets, duration }) => {
     const { useVideoChat } = await import("../src/react");
     const line = "The complete explanation still matters, including this qualification.";
     const clip: VideoScene = { id: "short", templateId: "cinemaMedia", narration: line,
@@ -109,10 +110,10 @@ describe("useVideoChat", () => {
     const metrics = vi.fn();
     const { result } = renderHook(() => useVideoChat({ fetcher, onPlaybackMetric: metrics, voice: { ...fakeVoice(), prepare: vi.fn(async () => ({ seconds, supportsOffsets })) } }));
     await act(async () => { await result.current.ask("Explain it"); });
-    expect(result.current.currentTurn?.video?.scenes[0]).toMatchObject({ templateId: recovered ? "chapterTitle" : "cinemaMedia", narration: line, timing: { fixedDuration: duration } });
-    if (!recovered) expect(result.current.currentTurn?.video?.scenes[0]?.variables.measuredSpeechDurationSec).toBe(seconds);
+    expect(result.current.currentTurn?.video?.scenes[0]).toMatchObject({ templateId: "cinemaMedia", narration: line, variables: { mediaUrl: clip.variables.mediaUrl }, timing: { fixedDuration: duration } });
+    expect(result.current.currentTurn?.video?.scenes[0]?.variables.measuredSpeechDurationSec).toBe(supportsOffsets ? seconds : undefined);
     expect(result.current.playerProps?.narrationActive).toBeTypeOf("function");
-    expect(metrics).toHaveBeenCalledWith(expect.objectContaining({ type: "scene-duration", speechDurationSec: seconds, clipDurationSec: 5, recovered }));
+    expect(metrics).toHaveBeenCalledWith(expect.objectContaining({ type: "scene-duration", speechDurationSec: seconds, clipDurationSec: 5, recovered: false }));
   });
 
   it("does not resubmit an ambiguous cinematic response request", async () => {
