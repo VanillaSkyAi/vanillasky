@@ -1,6 +1,10 @@
 # Contributing
 
-VanillaSky is a runnable video-chat application. Keep its setup and code easy to
+Help shape AI conversations that answer with video. Feedback on explanations,
+pacing, sound and subtitles is welcome alongside code contributions; see the
+[starting points in the README](README.md#contribute).
+
+VanillaSky is a runnable AI chat application. Keep its setup and code easy to
 understand: one app, one planner, one provider configuration and one release
 path. Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 

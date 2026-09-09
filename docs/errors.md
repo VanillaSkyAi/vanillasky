@@ -46,7 +46,7 @@ is an explicit strict policy; ordinary chat should retain the resilient default.
 response. Fatal errors, disconnects, and explicit aborts do not call it.
 
 Automated regression and acceptance tests use mocked providers. See
-[Testing](testing.md) and the [chat acceptance gate](https://github.com/VanillaSkyAi/video/blob/main/docs/maintainers/acceptance.md).
+[Testing](testing.md) and the [chat acceptance gate](maintainers/acceptance.md).
 
 ## Slow optional providers
 

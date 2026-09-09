@@ -4,7 +4,7 @@ VanillaSky is an early open-source video-chat application with best-effort
 support. There is no guaranteed response time.
 
 For a reproducible problem, search the docs and existing issues, then open an
-[issue](https://github.com/VanillaSkyAi/video/issues) with the application commit,
+[issue](https://github.com/VanillaSkyAi/vanillasky/issues) with the application commit,
 Node/npm versions, browser, configured provider/model names, reproduction steps,
 and expected versus observed behavior. Include only redacted diagnostics.
 Never include provider keys, customer data or private media URLs.

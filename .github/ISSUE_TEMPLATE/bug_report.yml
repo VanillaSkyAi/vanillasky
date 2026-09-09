@@ -7,7 +7,7 @@ body:
       value: |
         Please do not include API keys, customer data, or private media URLs.
         For a suspected vulnerability, use
-        [private vulnerability reporting](https://github.com/VanillaSkyAi/video/security/advisories/new)
+        [private vulnerability reporting](https://github.com/VanillaSkyAi/vanillasky/security/advisories/new)
         instead of a public issue.
 
   - type: input

@@ -103,8 +103,8 @@ it("offers project information without leaving the current conversation", () => 
   render(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   const links = [
-    ["Docs", "https://github.com/VanillaSkyAi/video/blob/main/docs/getting-started.md"],
-    ["GitHub", "https://github.com/VanillaSkyAi/video"],
+    ["Docs", "https://github.com/VanillaSkyAi/vanillasky/blob/main/docs/getting-started.md"],
+    ["GitHub", "https://github.com/VanillaSkyAi/vanillasky"],
   ];
   for (const [name, href] of links) {
     const link = screen.getByRole("link", { name });

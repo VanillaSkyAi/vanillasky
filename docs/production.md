@@ -12,8 +12,8 @@ Fork this repository and enable GitHub Actions in your fork. Clone your fork
 so GitHub CLI commands target your repository:
 
 ```bash
-git clone https://github.com/YOUR_ACCOUNT/video.git
-cd video
+git clone https://github.com/YOUR_ACCOUNT/vanillasky.git
+cd vanillasky
 ```
 
 Complete [local setup](getting-started.md) starting at `npm ci`; keep using this
