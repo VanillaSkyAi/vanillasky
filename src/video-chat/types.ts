@@ -9,6 +9,8 @@ export interface VideoChatCapabilities {
   templates: true;
   generatedSpeech: boolean;
   generatedVideo: boolean;
+  /** The configured video provider can return ambient/action audio. */
+  generatedVideoAudio?: boolean;
   stockMedia: boolean;
   transcription: boolean;
   modes: VideoChatMode[];
@@ -20,6 +22,8 @@ export interface VideoChatMedia {
   posterUrl?: string;
   /** Actual media duration, not a narration estimate. */
   durationSec?: number;
+  /** Set only by providers instructed to supply natural scene sound. */
+  audio?: "ambient";
 }
 
 export interface VideoChatSuggestion {

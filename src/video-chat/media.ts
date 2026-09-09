@@ -14,11 +14,13 @@ export function sanitizeVideoChatMedia(value: unknown): VideoChatMedia | null {
   if (posterUrl && !safeMediaUrl(posterUrl)) return null;
   if (media.durationSec !== undefined && (typeof media.durationSec !== "number"
     || !Number.isFinite(media.durationSec) || media.durationSec <= 0 || media.durationSec > 3600)) return null;
+  if (media.audio !== undefined && (media.audio !== "ambient" || media.type !== "video")) return null;
   return {
     url,
     type: media.type,
     ...(posterUrl ? { posterUrl } : {}),
     ...(typeof media.durationSec === "number" ? { durationSec: media.durationSec } : {}),
+    ...(media.audio === "ambient" ? { audio: "ambient" as const } : {}),
   };
 }
 

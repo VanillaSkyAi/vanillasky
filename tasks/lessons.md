@@ -1,6 +1,10 @@
 
 - Default chat silently recovers from optional provider or scene failures. Keep non-fatal diagnostics for application developers; show a fatal error only when no playable response can be produced.
 
+- Generated clip audio means environmental and action sounds only. Keep every
+  voice and all music out of the generated footage; narration and the selected
+  soundtrack are independent layers with their own listening controls.
+
 - Keep iteration checks focused on the observed failure. A poster, ready scene,
   or completed narration does not prove visible moving footage. Observe video
   visibility, advancing media time and presented frames separately; retain

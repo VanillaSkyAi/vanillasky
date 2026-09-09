@@ -1,4 +1,4 @@
-import type { Video, VideoOrientation, VideoScene } from "../protocol/types.js";
+import type { Video, VideoAudio, VideoOrientation, VideoScene } from "../protocol/types.js";
 import type { VideoEvent } from "../protocol/events.js";
 import type { VideoError } from "../player/video-error.js";
 import type {
@@ -28,6 +28,10 @@ export interface VideoChatTurn {
   /** Footage source selected for this answer; omitted in older saved turns. */
   mode?: VideoChatMode;
   video?: Video;
+  /** Explicit viewer override, retained while the server finishes streaming. */
+  soundtrack?: VideoAudio | false;
+  /** The initial choice restores Auto without another selection or model call. */
+  originalSoundtrack?: VideoAudio | false;
   suggestions: readonly VideoChatSuggestion[];
 }
 
@@ -74,6 +78,7 @@ type SessionAction =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "mute"; value: boolean }
+  | { type: "soundtrack"; id: string; audio: VideoAudio | false | undefined }
   | { type: "select"; id: string }
   | { type: "replay" }
   | { type: "reset" }
@@ -98,6 +103,12 @@ function replaceTurn(
   update: (turn: VideoChatTurn) => VideoChatTurn,
 ): VideoChatTurn[] {
   return turns.map((turn) => turn.id === id ? update(turn) : turn);
+}
+
+function withSoundtrack(video: Video, audio: VideoAudio | false | undefined): Video {
+  if (audio === undefined) return video;
+  const { audio: _previous, ...rest } = video;
+  return audio === false ? rest : { ...rest, audio };
 }
 
 export function reducer(state: SessionState, action: SessionAction): SessionState {
@@ -159,14 +170,18 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
         playbackEnded: false,
       };
     case "partial":
-      return { ...state, turns: replaceTurn(state.turns, action.id, (turn) => ({ ...turn, video: action.video })) };
+      return { ...state, turns: replaceTurn(state.turns, action.id, (turn) => ({ ...turn,
+        originalSoundtrack: turn.originalSoundtrack ?? action.video.audio ?? false,
+        video: withSoundtrack(action.video, turn.soundtrack),
+      })) };
     case "complete":
       return {
         ...state,
         turns: replaceTurn(state.turns, action.id, (turn) => ({
           ...turn,
           completed: true,
-          video: action.video,
+          originalSoundtrack: turn.originalSoundtrack ?? action.video.audio ?? false,
+          video: withSoundtrack(action.video, turn.soundtrack),
           suggestions: action.suggestions,
         })),
       };
@@ -210,6 +225,10 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
     case "resume":
       return state.status === "paused" ? { ...state, status: state.resumeStatus } : state;
     case "mute": return { ...state, muted: action.value };
+    case "soundtrack": return { ...state, turns: replaceTurn(state.turns, action.id, turn => ({
+      ...turn, soundtrack: action.audio,
+      ...(turn.video ? { video: withSoundtrack(turn.video, action.audio ?? turn.originalSoundtrack ?? false) } : {}),
+    })) };
     case "select": {
       const turn = state.turns.find((entry) => entry.id === action.id);
       if (!turn?.video) return state;
@@ -269,4 +288,3 @@ export function conversationFor(turns: readonly VideoChatTurn[]): VideoChatConve
     response: [...transcriptFor(turn).join(" ")].slice(0, 8_000).join(""),
   }));
 }
-

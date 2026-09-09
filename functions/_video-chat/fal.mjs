@@ -236,7 +236,7 @@ async function generatePreview(query, timing, { env, actor, previewId, signal, o
         stage = 'result';
         const result = await timing.measure('resultHttpMs', async () => json(await fetcher(responseUrl, { headers, redirect: 'manual', signal: controller.signal })));
         timing.seconds('gpuInferenceMs', result?.timings?.inference);
-        return { media: { type: 'video', url: mediaUrl(result?.video?.url) }, reason: null };
+        return { media: { type: 'video', url: mediaUrl(result?.video?.url), audio: 'ambient' }, reason: null };
       }
       if (!['IN_QUEUE', 'IN_PROGRESS'].includes(status.status)) throw new DiagnosticError('invalid_metadata');
       await timing.measure('pollSleepMs', () => sleep(1500, controller.signal));

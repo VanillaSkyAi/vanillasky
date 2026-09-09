@@ -14,6 +14,7 @@ import { useVoiceInput } from "./use-voice-input";
 import { useImmersiveControls } from "./use-immersive-controls";
 import { Logo } from "./logo";
 import { visualModes } from "./modes";
+import { AudioSettings } from "./audio-settings";
 const DESKTOP_WIDTH = 900;
 
 type Status = "idle" | "drawing" | "narrating" | "paused" | "ended";
@@ -302,7 +303,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         <button
           type="button"
           className="round"
-          aria-label={chat.muted ? "Turn the voice on" : "Turn the voice off"}
+          aria-label={chat.muted ? "Unmute sound" : "Mute sound"}
           aria-pressed={chat.muted}
           onClick={() => chat.setMuted(!chat.muted)}
         >{chat.muted ? <Muted /> : <Sound />}</button>
@@ -370,6 +371,10 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
               checked={(selectedMode ?? options.mode ?? "cinematic") === mode.id}
               onChange={() => setSelectedMode(mode.id)} /></label>)}
         </fieldset>
+        <AudioSettings preferences={chat.audioPreferences} change={chat.setAudioPreferences} reset={chat.resetAudioPreferences}
+          shuffle={chat.shuffleMusic} trackId={shown?.video?.audio?.trackId}
+          sceneAudioAvailable={Boolean((chat.capabilities?.generatedVideoAudio && (selectedMode ?? options.mode ?? "cinematic") === "cinematic")
+            || shown?.video?.scenes.some(scene => scene.variables.mediaAudio === "ambient"))} />
         <fieldset className="playback-options"><legend>Watching</legend>
           <label className="switch-row"><span><strong>Subtitles</strong><small>Read along with the answer</small></span><input type="checkbox" role="switch" checked={captionsOn} onChange={(event) => { setCaptionsOn(event.target.checked); setCaptionsExpanded(false); }} /></label>
           <label className="switch-row"><span><strong>Keep controls visible</strong><small>Keep the input bar on screen</small></span><input type="checkbox" role="switch" checked={alwaysShowControls} onChange={(event) => setAlwaysShowControls(event.target.checked)} /></label>

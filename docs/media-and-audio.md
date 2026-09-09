@@ -177,9 +177,42 @@ apply a provider deadline.
 
 ## Native clip audio and soundtrack
 
-Generated clips can contain diegetic audio. The chat player keeps that audio
-separate from narration and uses one master mute control. Avoid generated
-voiceover or music inside clips so it does not compete with the answer voice.
+Settings has separate voice, music and scene-sound volume controls. Initial
+levels are 100%, 15% and 15%; the speaker button mutes all three without losing
+their settings. Listening preferences are remembered on the device. Background
+layers soften while narration speaks, with smooth volume changes and ending
+fades. Deliberate pause and microphone capture pause playback together.
+Generated narration volume changes immediately. Browser fallback voices apply
+the level to the next spoken line, keeping backgrounds soft until the current
+line finishes. The speaker button still mutes the current line immediately.
+
+Music defaults to Auto, which chooses Calm, Focused, Upbeat or silence in the
+existing answer brief. Viewers can choose a mood or turn music off. One track
+is selected per answer, avoiding the previous eligible track when another is
+available. The selection survives scene changes, pauses and replay. “Try another
+track” and mood changes update music without generating new footage or speech.
+Returning to Auto restores that answer's initial soundtrack; new answers use
+automatic selection. Unavailable music never blocks the spoken answer.
+
+The seven included tracks have been normalized for consistent perceived
+loudness. Their source, license and processing measurements are in the
+[audio library](../public/audio-library/README.md). Music follows narration's
+timing; beat markers do not drive these narrated answers.
+
+The configured fal H3 Max Turbo model supports native audio through its prompt.
+The application requests subtle environmental and action sounds, explicitly
+excluding all voices, speech, dialogue, singing and music. Narration and music
+are separate playback layers. Provider capability does not guarantee adherence
+on every generated clip; a clip-volume control cannot separate unwanted voices
+or music once they are mixed into that clip.
+
+Custom video adapters opt in with `generatedVideoAudio: true` and return
+`audio: "ambient"` on suitable video results. This marker survives scene
+preparation and saved playback. Chat only enables native audio for marked
+footage, so an unmarked stock fallback stays silent. The scene-sound control is
+shown when the provider supports it or the saved answer contains marked clips.
+Browsers that cannot attenuate remote clip audio keep it muted rather than
+playing it at full volume. No mandatory upload or media proxy is required.
 
 A serialized `Video` can also contain an application-owned soundtrack for
 replay or custom playback. Soundtrack files, licenses, beat markers, volume,

@@ -5,6 +5,15 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Add mood-based music from seven normalized tracks, with automatic selection,
+  no immediate repeats and the chosen soundtrack retained for replay. Settings
+  now has voice, music and scene-sound volume, track shuffle and saved listening
+  preferences. Background audio softens during narration; master mute and pause
+  control all layers together.
+- Request subtle environmental and action sounds from generated footage while
+  explicitly excluding voices and music. Only footage marked as ambient audio
+  is audible in chat; stock fallbacks remain silent.
+
 - Support the first production deployment to an empty Pages project while keeping
   rollback protection for existing deployments. Document initial database,
   secrets and hosting setup for a new fork.

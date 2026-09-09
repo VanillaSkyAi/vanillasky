@@ -88,7 +88,7 @@ test('successful queue request uses fixed model, options, no retries and safe me
     return response({ video: { url: 'https://v3.fal.media/files/sample.mp4' } });
   };
   const result = await generateFalPreview('Ocean waves', { env: env(), actor, orientation: 'portrait', fetcher });
-  assert.deepEqual(result, { media: { type: 'video', url: 'https://v3.fal.media/files/sample.mp4' }, reason: null });
+  assert.deepEqual(result, { media: { type: 'video', url: 'https://v3.fal.media/files/sample.mp4', audio: 'ambient' }, reason: null });
   assert.equal(calls[0].url, `https://queue.fal.run/${FAL_MODEL}`);
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.aspect_ratio, '9:16');
@@ -454,7 +454,7 @@ test('provider payload carries bounded shot direction, visual look and orientati
   assert.match(captured[0].prompt, /stationary close shot/);
   assert.match(captured[0].prompt, /Muted natural color/);
   assert.match(captured[0].prompt, /vertical 9:16/);
-  assert.match(captured[0].prompt, /No music, narration, dialogue or voiceover/);
+  assert.match(captured[0].prompt, /No music, human voices, speech, narration, dialogue, singing or voiceover/);
   assert.match(captured[0].prompt, /No overlaid text/);
   assert.doesNotMatch(captured[0].prompt, /camera (must|always|never stops)/i);
   assert.equal(captured[0].aspect_ratio, '9:16');
@@ -485,7 +485,7 @@ test('AI-first direction preserves authored fantasy, continuity and full bounded
   const prompt = compileShotPrompt('cloud searching for shadow', { scene: { variables: { shotDirection: direction } }, orientation: 'portrait' });
   assert.ok(prompt.includes(direction.trim()));
   assert.doesNotMatch(prompt, /Natural lighting|physically plausible|restrained camera work/);
-  assert.match(prompt, /Silent footage only/);
+  assert.match(prompt, /natural ambient.*action sounds/i);
   assert.match(prompt, /continuous motion|action continues/i);
   assert.throws(() => compileShotPrompt('cloud', { scene: { variables: { shotDirection: 'x'.repeat(1601) } } }), /shot direction/);
 });
