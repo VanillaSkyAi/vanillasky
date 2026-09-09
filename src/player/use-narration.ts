@@ -11,11 +11,9 @@ import type { VideoScene } from "../protocol/types.js";
  * silently cutting the response off mid-sentence, a line still playing over the
  * scene after it.
  *
- * The application supplies its voice provider through this callback: something
- * that can speak - a realtime session, a speech model, the browser's own
- * synthesiser - and this decides what is said, when it starts, and when it
- * stops. That keeps the package free of provider dependencies and leaves the
- * choice of voice where the choice of model already is.
+ * The application supplies a voice callback backed by a speech model, a
+ * realtime session or the browser synthesiser. This hook decides what is said
+ * and when speech starts and stops; provider selection stays in the app.
  */
 export interface NarrationVoice {
   /**

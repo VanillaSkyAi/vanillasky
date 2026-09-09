@@ -40,9 +40,15 @@ voice/language finishes inside its clip.
 
 | Change | Source |
 | --- | --- |
-| Chat interface and lifecycle | `src/video-chat/` |
+| Chat interface | `src/video-chat/video-chat.tsx` |
+| Request lifecycle, cancellation and playback handoff | `src/video-chat/use-video-chat.ts` |
+| Chat state and conversation history | `src/video-chat/session-state.ts` |
+| Browser requests, response stream and concurrent preparation | `src/video-chat/response-stream.ts` |
 | HTTP admission, methods, CORS and bounded body reading | `src/server/video-chat-http.ts` |
 | Response orchestration, host answer and provider callbacks | `src/server/create-video-chat-handler.ts` |
+| Handler options and provider callback types | `src/server/video-chat-options.ts` |
+| Request validation and bounded conversation text | `src/server/video-chat-input.ts` |
+| Opening and preparation events, stream ordering and cancellation | `src/server/video-chat-stream.ts` |
 | Default planning instructions | `src/server/video-chat-prompts.ts` |
 | Answer brief and shot planning | `src/server/chat-shot-planner.ts` |
 | Validated composition and completion | `src/server/compose-video.ts` |
