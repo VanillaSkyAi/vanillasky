@@ -1,18 +1,23 @@
-import {orderWelcomeCards, welcomeVisitSeed} from "./welcome-cards.js";
+import {
+  conversationFor, initialState, reducer, transcriptFor,
+  type VideoChatStatus, type VideoChatTurn,
+} from "./session-state.js";
+import {
+  consumeVideoChatResponse, errorFrom, requestVideoChat, responseError, untilAborted,
+  type ResponseStreamState,
+} from "./response-stream.js";
+export type { VideoChatStatus, VideoChatTurn } from "./session-state.js";
+import { orderWelcomeCards, welcomeVisitSeed } from "./welcome-cards.js";
 import { createCaptionVoice, type CaptionProgress } from "./caption-progress.js";
 import { createScenePreparation } from "./scene-preparation.js";
 import { validateNarrationGroups } from "../protocol/narration-group.js";
-import { MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { VIDEO_SCHEMA_VERSION } from "../protocol/types.js";
 import { createSceneTimeline } from "../protocol/scene-timeline.js";
-import { decodeVideoSse } from "../protocol/sse.js";
-import type { VideoEvent } from "../protocol/events.js";
 import type {
   Video,
   VideoOrientation,
   VideoScene,
-  VideoStyle,
   VideoStyleOptions,
 } from "../protocol/types.js";
 import { VideoError } from "../player/video-error.js";
@@ -22,8 +27,6 @@ import { useNarration } from "../player/use-narration.js";
 import type {
   VideoChatCapabilities,
   VideoChatAskOptions,
-  VideoChatConversationTurn,
-  VideoChatMedia,
   VideoChatMode,
   VideoChatSuggestion,
   VideoChatWelcome,
@@ -34,27 +37,6 @@ import { createVideoChatVoice, type VideoChatVoice } from "./voice.js";
 
 const DEFAULT_TIMEOUT_MS = 660_000;
 
-export type VideoChatStatus = "idle" | "composing" | "playing" | "paused" | "ended" | "cancelled" | "error";
-
-export interface VideoChatTurn {
-  id: string;
-  prompt: string;
-  /** True only after the complete response has been received. */
-  completed: boolean;
-  opening?: string;
-  /** Concise notices for recovered optional failures. */
-  warnings?: readonly string[];
-  /** Optional stock footage held behind the opening hook until playback starts. */
-  openingMedia?: VideoChatMedia;
-  orientation: VideoOrientation;
-  /** Generated footage keeps the orientation it was created in. */
-  fixedOrientation: boolean;
-  /** Footage source selected for this answer; omitted in older saved turns. */
-  mode?: VideoChatMode;
-  video?: Video;
-  suggestions: readonly VideoChatSuggestion[];
-}
-
 export interface UseVideoChatOptions {
   /** One provider-neutral route created with createVideoChatHandler. */
   endpoint?: string | URL;
@@ -64,7 +46,7 @@ export interface UseVideoChatOptions {
   headers?: HeadersInit;
   credentials?: RequestCredentials;
   fetcher?: typeof fetch;
-  /** Replace the SDK speech client while keeping session timing and cancellation. */
+  /** Replace the default speech client while keeping session timing and cancellation. */
   voice?: VideoChatVoice;
   initialMuted?: boolean;
   timeoutMs?: number;
@@ -129,236 +111,6 @@ export interface UseVideoChatResult {
   playerProps?: VideoPlayerProps;
 }
 
-interface Playback {
-  kind: "stream" | "video";
-  stream?: AsyncIterable<VideoEvent>;
-  video?: Video;
-}
-
-interface SessionState {
-  turns: VideoChatTurn[];
-  shownTurnId?: string;
-  capabilities?: VideoChatCapabilities;
-  welcome?: VideoChatWelcome;
-  status: VideoChatStatus;
-  resumeStatus: Exclude<VideoChatStatus, "paused">;
-  error?: VideoError;
-  caption?: string;
-  spokenUpTo: number;
-  muted: boolean;
-  playbackEnded: boolean;
-  playerKey: number;
-  playback?: Playback;
-  openingSpeaking: boolean;
-}
-
-type SessionAction =
-  | { type: "capabilities"; value: VideoChatCapabilities }
-  | { type: "welcome"; value: VideoChatWelcome }
-  | { type: "resolved-mode"; id: string; mode: VideoChatMode }
-  | { type: "start"; turn: VideoChatTurn }
-  | { type: "opening-start"; id: string; line: string }
-  | { type: "opening-media"; id: string; media: VideoChatMedia }
-  | { type: "opening-end"; id: string }
-  | { type: "player"; id: string; stream: AsyncIterable<VideoEvent> }
-  | { type: "partial"; id: string; video: Video }
-  | { type: "complete"; id: string; video: Video; suggestions: VideoChatSuggestion[] }
-  | { type: "suggestions"; id: string; suggestions: VideoChatSuggestion[] }
-  | { type: "scene"; key: number; scene: VideoScene; index: number }
-  | { type: "playback-end"; key: number }
-  | { type: "warning"; id: string; message: string }
-  | { type: "error"; id: string; error: VideoError }
-  | { type: "cancelled" }
-  | { type: "pause" }
-  | { type: "resume" }
-  | { type: "mute"; value: boolean }
-  | { type: "select"; id: string }
-  | { type: "replay" }
-  | { type: "reset" }
-  | { type: "restore"; turns: VideoChatTurn[] };
-
-function initialState(muted: boolean): SessionState {
-  return {
-    turns: [],
-    status: "idle",
-    resumeStatus: "idle",
-    spokenUpTo: -1,
-    muted,
-    playbackEnded: false,
-    playerKey: 0,
-    openingSpeaking: false,
-  };
-}
-
-function replaceTurn(
-  turns: VideoChatTurn[],
-  id: string,
-  update: (turn: VideoChatTurn) => VideoChatTurn,
-): VideoChatTurn[] {
-  return turns.map((turn) => turn.id === id ? update(turn) : turn);
-}
-
-function reducer(state: SessionState, action: SessionAction): SessionState {
-  switch (action.type) {
-    case "capabilities": return { ...state, capabilities: action.value };
-    case "welcome": return { ...state, welcome: action.value };
-    case "resolved-mode":
-      if (state.turns.at(-1)?.id !== action.id) return state;
-      return { ...state, turns: replaceTurn(state.turns, action.id, turn => ({ ...turn, mode: action.mode })) };
-    case "start": return {
-      ...state,
-      turns: [...state.turns, action.turn],
-      playerKey: state.playerKey + 1,
-      shownTurnId: action.turn.id,
-      status: "composing",
-      resumeStatus: "composing",
-      error: undefined,
-      caption: undefined,
-      spokenUpTo: -1,
-      playbackEnded: false,
-      playback: undefined,
-      openingSpeaking: false,
-    };
-    case "opening-start":
-      if (state.turns.at(-1)?.id !== action.id) return state;
-      return {
-        ...state,
-        turns: replaceTurn(state.turns, action.id, (turn) => ({
-          ...turn,
-          opening: turn.opening ? `${turn.opening} ${action.line}` : action.line,
-        })),
-        status: state.status === "paused" ? "paused" : "playing",
-        resumeStatus: "playing",
-        caption: action.line,
-        openingSpeaking: true,
-      };
-    case "opening-media":
-      if (state.turns.at(-1)?.id !== action.id || state.playback) return state;
-      return {
-        ...state,
-        turns: replaceTurn(state.turns, action.id, (turn) => ({ ...turn, openingMedia: action.media })),
-      };
-    case "opening-end":
-      if (state.turns.at(-1)?.id !== action.id) return state;
-      return {
-        ...state,
-        status: state.status === "paused" ? "paused" : state.playback ? "playing" : "composing",
-        resumeStatus: state.playback ? "playing" : "composing",
-        openingSpeaking: false,
-      };
-    case "player":
-      if (state.turns.at(-1)?.id !== action.id) return state;
-      return {
-        ...state,
-        status: state.status === "paused" ? "paused" : "playing",
-        resumeStatus: "playing",
-        playback: { kind: "stream", stream: action.stream },
-        playerKey: state.playerKey + 1,
-        playbackEnded: false,
-      };
-    case "partial":
-      return { ...state, turns: replaceTurn(state.turns, action.id, (turn) => ({ ...turn, video: action.video })) };
-    case "complete":
-      return {
-        ...state,
-        turns: replaceTurn(state.turns, action.id, (turn) => ({
-          ...turn,
-          completed: true,
-          video: action.video,
-          suggestions: action.suggestions,
-        })),
-      };
-    case "suggestions":
-      return { ...state, turns: replaceTurn(state.turns, action.id, (turn) => ({ ...turn, suggestions: action.suggestions })) };
-    case "scene":
-      if (state.playerKey !== action.key) return state;
-      return {
-        ...state,
-        caption: action.scene.narration?.trim() || state.caption,
-        spokenUpTo: Math.max(state.spokenUpTo, action.index),
-      };
-    case "playback-end":
-      if (state.playerKey !== action.key) return state;
-      return { ...state, status: "ended", resumeStatus: "ended", playbackEnded: true, openingSpeaking: false };
-    case "warning":
-      return { ...state, turns: replaceTurn(state.turns, action.id, (turn) => ({
-        ...turn, warnings: [...new Set([...(turn.warnings ?? []), action.message])],
-      })) };
-    case "error":
-      if (state.turns.at(-1)?.id !== action.id) return state;
-      return {
-        ...state,
-        status: "error",
-        resumeStatus: "error",
-        error: action.error,
-        openingSpeaking: false,
-        playback: undefined,
-      };
-    case "cancelled":
-      return {
-        ...state,
-        status: "cancelled",
-        resumeStatus: "cancelled",
-        openingSpeaking: false,
-        playback: undefined,
-      };
-    case "pause":
-      if (state.status === "idle" || state.status === "paused" || state.status === "ended" || state.status === "cancelled" || state.status === "error") return state;
-      return { ...state, resumeStatus: state.status, status: "paused" };
-    case "resume":
-      return state.status === "paused" ? { ...state, status: state.resumeStatus } : state;
-    case "mute": return { ...state, muted: action.value };
-    case "select": {
-      const turn = state.turns.find((entry) => entry.id === action.id);
-      if (!turn?.video) return state;
-      return {
-        ...state,
-        shownTurnId: turn.id,
-        playback: { kind: "video", video: turn.video },
-        status: "playing",
-        resumeStatus: "playing",
-        playerKey: state.playerKey + 1,
-        playbackEnded: false,
-        spokenUpTo: -1,
-        caption: turn.opening,
-        error: undefined,
-      };
-    }
-    case "replay": {
-      const turn = state.turns.find((entry) => entry.id === state.shownTurnId);
-      if (!turn?.video) return state;
-      return {
-        ...state,
-        playback: { kind: "video", video: turn.video },
-        status: "playing",
-        resumeStatus: "playing",
-        playerKey: state.playerKey + 1,
-        playbackEnded: false,
-        spokenUpTo: -1,
-        caption: turn.opening,
-        error: undefined,
-      };
-    }
-    case "restore": {
-      const restored = {
-        ...initialState(state.muted),
-        capabilities: state.capabilities,
-        welcome: state.welcome,
-        turns: action.turns,
-        playerKey: state.playerKey,
-      };
-      const latest = action.turns.at(-1);
-      return latest ? reducer(restored, { type: "select", id: latest.id }) : restored;
-    }
-    case "reset": return { ...initialState(state.muted), capabilities: state.capabilities, welcome: state.welcome };
-  }
-}
-
-function actionEndpoint(endpoint: string | URL, action: string): string {
-  const value = String(endpoint);
-  return `${value}${value.includes("?") ? "&" : "?"}action=${encodeURIComponent(action)}`;
-}
-
 function defaultTurnId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -367,56 +119,12 @@ function monotonicNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
 }
 
-function transcriptFor(turn: VideoChatTurn): string[] {
-  return [
-    ...(turn.opening ? [turn.opening] : []),
-    ...(turn.video?.scenes.flatMap((entry) => entry.narration?.trim() ? [entry.narration.trim()] : []) ?? []),
-  ];
-}
-
-function conversationFor(turns: readonly VideoChatTurn[]): VideoChatConversationTurn[] {
-  return turns.filter((turn) => turn.completed && turn.video).slice(-12).map((turn) => ({
-    prompt: turn.prompt,
-    response: [...transcriptFor(turn).join(" ")].slice(0, 8_000).join(""),
-  }));
-}
-
-async function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  let abort: () => void = () => undefined;
-  const cancelled = new Promise<never>((_resolve, reject) => {
-    abort = () => reject(signal.reason ?? new DOMException("Cancelled", "AbortError"));
-    if (signal.aborted) abort();
-    else signal.addEventListener("abort", abort, { once: true });
-  });
-  try { return await Promise.race([work, cancelled]); }
-  finally { signal.removeEventListener("abort", abort); }
-}
-
-function errorFrom(cause: unknown): VideoError {
-  if (cause instanceof VideoError) return cause;
-  if (cause instanceof DOMException && cause.name === "AbortError") {
-    return new VideoError("Video chat was cancelled", { code: "aborted", recoverable: false });
-  }
-  if (cause instanceof DOMException && cause.name === "TimeoutError") {
-    return new VideoError("Video chat timed out", { code: "timeout", recoverable: false });
-  }
-  return new VideoError("Video chat could not produce a playable response", { code: "video_chat_failed", recoverable: false });
-}
-
-async function responseError(response: Response): Promise<VideoError> {
-  return new VideoError(response.status === 429
-    ? "Too many requests right now. Please try again shortly."
-    : "Video chat could not produce a playable response", {
-    code: "http_error", status: response.status, recoverable: false,
-  });
-}
-
 /** Own a complete video conversation while the application owns its UI. */
 export function useVideoChat(options: UseVideoChatOptions = {}): UseVideoChatResult {
   return useVideoChatSession(options).chat;
 }
 
-/** Internal shell access to in-memory history; not exported by the SDK entry. */
+/** Internal shell access to in-memory history and caption progress. */
 export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   chat: UseVideoChatResult;
   restoreSession(turns: readonly VideoChatTurn[]): void;
@@ -507,24 +215,8 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       source: optionsRef.current.voice ? "custom" : source === "generated" ? "generated" : "browser" });
   };
 
-  const request = useCallback(async (
-    action: string,
-    init: Omit<RequestInit, "signal"> = {},
-    signal?: AbortSignal,
-  ): Promise<Response> => {
-    const current = optionsRef.current;
-    const headers = new Headers(current.headers);
-    new Headers(init.headers).forEach((header, name) => headers.set(name, header));
-    if (init.body && !(init.body instanceof FormData) && !(init.body instanceof Blob)) {
-      headers.set("content-type", "application/json");
-    }
-    return (current.fetcher ?? fetch)(actionEndpoint(current.endpoint ?? "/api/video-chat", action), {
-      ...init,
-      headers,
-      credentials: current.credentials,
-      signal,
-    });
-  }, []);
+  const request = useCallback((action: string, init: Omit<RequestInit, "signal"> = {}, signal?: AbortSignal) =>
+    requestVideoChat(optionsRef.current, action, init, signal), []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -632,17 +324,13 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     dispatch({ type: "start", turn });
 
     let timeline: ReturnType<typeof createSceneTimeline> | undefined;
-    let style: VideoStyle | undefined;
     let openingActive = false;
-    let openingRequested = false;
-    let spokenHook = suppliedOpening;
     let planDone = false;
     let timelineCompleted = false;
     let terminal = false;
     let attempt = 0;
-    let ready: Array<VideoScene | undefined> = [];
-    let received: VideoScene[] = [];
     let appended = 0;
+    const responseState: ResponseStreamState = { ready: [], received: [], spokenHook: suppliedOpening, openingRequested: false };
 
     const isCurrent = () => mountedRef.current && runRef.current === run && !controller.signal.aborted && !terminal;
     const isOpeningCurrent = () => (
@@ -658,14 +346,14 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const flush = () => {
       if (!isCurrent()) return;
       let available = appended;
-      while (ready[available]) {
-        const group = ready[available]!.narrationGroup;
+      while (responseState.ready[available]) {
+        const group = responseState.ready[available]!.narrationGroup;
         if (!group) { available++; continue; }
         let end = available;
-        while (ready[end]?.narrationGroup?.id === group.id) end++;
-        const last = ready[end - 1]!.narrationGroup!;
+        while (responseState.ready[end]?.narrationGroup?.id === group.id) end++;
+        const last = responseState.ready[end - 1]!.narrationGroup!;
         if (Math.abs(last.offsetSeconds + last.durationSeconds - group.totalSeconds) > 0.02) break;
-        validateNarrationGroups(ready.slice(available, end) as VideoScene[]);
+        validateNarrationGroups(responseState.ready.slice(available, end) as VideoScene[]);
         available = end;
       }
       if (available === appended && timeline) {
@@ -677,18 +365,18 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return;
       }
       if (!timeline) {
-        if (!style || openingActive || heldRef.current || available === appended) return;
-        timeline = createSceneTimeline({ style, orientation });
+        if (!responseState.style || openingActive || heldRef.current || available === appended) return;
+        timeline = createSceneTimeline({ style: responseState.style, orientation });
         timelineRef.current = timeline;
         openingController.abort(new DOMException("Opening replaced by response", "AbortError"));
         if (openingRef.current === openingController) openingRef.current = undefined;
         dispatch({ type: "player", id, stream: timeline.stream });
       }
-      while (appended < available) timeline.add(ready[appended++]!);
+      while (appended < available) timeline.add(responseState.ready[appended++]!);
       dispatch({
         type: "partial",
         id,
-        video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: ready.slice(0, appended) as VideoScene[], style: style! },
+        video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: responseState.ready.slice(0, appended) as VideoScene[], style: responseState.style! },
       });
       if (planDone && !timelineCompleted) {
         timelineCompleted = true;
@@ -726,171 +414,49 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
       }
     };
 
-    if (spokenHook) {
-      openingRequested = true;
+    if (responseState.spokenHook) {
+      responseState.openingRequested = true;
       openingActive = true;
-      void speakOpening(spokenHook);
+      void speakOpening(responseState.spokenHook);
     }
 
-    const runAttempt = async (currentAttempt: number): Promise<{ video: Video; lines: string[] }> => {
-      const response = await request("response", {
-        method: "POST",
-        headers: { accept: "text/event-stream" },
-        body: JSON.stringify({
-          prompt,
-          ...(spokenHook ? { opening: spokenHook } : {}),
-          mode,
-          orientation,
-          conversation,
-          ...(currentOptions.style ? { style: currentOptions.style } : {}),
-        }),
-      }, controller.signal);
-      if (!response.ok) throw await responseError(response);
-      if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
-        throw new VideoError("Video chat endpoint did not return a video stream", { code: "invalid_response" });
-      }
-
-      const resolvedMode = response.headers.get("x-vanillasky-resolved-video-mode");
-      if (isCurrent() && (resolvedMode === "pexels" || resolvedMode === "cinematic")) {
+    const runAttempt = (currentAttempt: number) => consumeVideoChatResponse({
+      request,
+      body: {
+        prompt,
+        ...(responseState.spokenHook ? { opening: responseState.spokenHook } : {}),
+        mode,
+        orientation,
+        conversation,
+        ...(currentOptions.style ? { style: currentOptions.style } : {}),
+      },
+      id, orientation, signal: controller.signal, state: responseState, preparation,
+      voice: () => voiceRef.current,
+      isCurrent: () => isCurrent() && currentAttempt === attempt,
+      warn, flush,
+      onMode: (resolvedMode) => {
         mode = resolvedMode;
         dispatch({ type: "resolved-mode", id, mode });
         if (firstFrameRef.current?.turnId === id) firstFrameRef.current.mode = mode;
-      }
-
-      const planned: VideoScene[] = [];
-      const lines: string[] = spokenHook ? [spokenHook] : [];
-      const pending: Promise<void>[] = [];
-      let narrating: Promise<unknown> = Promise.resolve();
-      let terminalError: VideoError | undefined;
-
-      try {
-        for await (const event of decodeVideoSse(response.body)) {
-          if (!isCurrent() || currentAttempt !== attempt) return { video: { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, scenes: [], style: style! }, lines: [] };
-          if (event.type === "response.start") style = event.data.style;
-          if (event.type === "response.warning" || (event.type === "response.error" && !event.data.terminal)) {
-            warn(event.type === "response.warning" && event.data.warning.message === MEDIA_RECOVERY_NOTICE
-              ? MEDIA_RECOVERY_NOTICE
-              : "Some parts were simplified so the response could continue.");
-          }
-          if (event.type === "data.video-chat-preparation") {
-            preparation.announce(event.data);
-            continue;
-          }
-          if (event.type === "data.video-chat-opening") {
-            const payload = event.data && typeof event.data === "object" && !Array.isArray(event.data)
-              ? event.data as { line?: unknown; keyword?: unknown; fallbackKeyword?: unknown }
-              : {};
-            const line = typeof payload.line === "string" ? payload.line.trim().slice(0, 300) : "";
-            if (!openingRequested && line) {
-              spokenHook = line;
-              lines.push(line);
-              openingRequested = true;
-              openingActive = true;
-              void speakOpening(line);
-            }
-            continue;
-          }
-          if (event.type === "response.error" && event.data.terminal) {
-            terminalError = new VideoError("Video chat could not finish this response", {
-              code: event.data.error.code,
-              requestId: event.data.snapshot ? undefined : id,
-              recoverable: event.data.error.recoverable,
-            });
-          }
-          if (event.type === "response.abort") {
-            terminalError = new VideoError("Video chat was interrupted", { code: "aborted", recoverable: false });
-          }
-          if (event.type !== "scene.add") continue;
-          const position = event.data.position;
-          const plannedScene = event.data.scene;
-          planned[position] = plannedScene;
-          received[position] = plannedScene;
-          const visualPreparation = preparation.prepareVisual(plannedScene);
-
-          const narrated = narrating.then(async () => {
-            const supplied = plannedScene.narration?.trim();
-            if (supplied) return supplied;
-            return withDeadline(async (signal) => {
-              const narrationResponse = await request("narration", {
-                method: "POST",
-                body: JSON.stringify({ prompt, scene: plannedScene, earlier: [...lines] }),
-              }, signal);
-              if (!narrationResponse.ok) throw new Error("Narration unavailable");
-              const payload = await narrationResponse.json() as { line?: unknown };
-              const line = typeof payload.line === "string" ? payload.line.trim() : "";
-              if (!line) throw new Error("Narration unavailable");
-              return line;
-            }, 3_000, controller.signal);
-          }).catch((cause: unknown) => {
-            if (controller.signal.aborted) throw cause;
-            warn("Some narration was simplified so the response could continue.");
-            return Object.values(plannedScene.variables).filter((value): value is string => typeof value === "string" && !/^https?:/i.test(value)).join(" ").slice(0, 500);
-          }).then((line) => {
-            if (line) lines.push(line);
-            return line;
-          });
-          narrating = narrated.catch(() => "");
-          pending.push(narrated.then(async (line) => {
-            if (!isCurrent() || currentAttempt !== attempt) return;
-            const spoken = line
-              ? await prepareSpeech(plannedScene.narrationGroup?.text ?? line, controller.signal).catch((cause: unknown) => {
-                if (controller.signal.aborted) throw cause;
-                warn("Some narration is unavailable; the response will continue.");
-                return undefined;
-              })
-              : undefined;
-            if (!isCurrent() || currentAttempt !== attempt) return;
-            const visual = await visualPreparation;
-            const withNarration = line ? { ...visual, narration: line } : visual;
-            const group = plannedScene.narrationGroup;
-            if (group && (spoken?.supportsOffsets !== true || voiceRef.current.supportsOffsets !== true || Math.abs(spoken.seconds - group.totalSeconds) > 0.1)) throw new VideoError("Narration group requires matching measured audio with offset support", { code: "narration_group_invalid" });
-            ready[position] = group ? withNarration : preparation.pace(withNarration, spoken?.seconds, spoken?.supportsOffsets === true);
-            flush();
-          }).catch((cause: unknown) => {
-            if (!isCurrent() || currentAttempt !== attempt) return;
-            if (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) { terminalError = cause; return; }
-            ready[position] = { ...received[position]!, timing: { fixedDuration: 5 } };
-            warn("Some parts were simplified so the response could continue.");
-            flush();
-          }));
-        }
-      } catch (cause) {
-        if (controller.signal.aborted) throw cause;
-        terminalError = errorFrom(cause);
-      }
-      await Promise.all(pending);
-      if (terminalError && ["media_not_ready", "narration_group_invalid"].includes(terminalError.code)) throw terminalError;
-      validateNarrationGroups(ready.filter((scene): scene is VideoScene => Boolean(scene)));
-      if (terminalError && ready.some(Boolean) && style) {
-        warn("The response was interrupted; completed scenes are still available.");
-      } else if (terminalError) throw terminalError;
-      if (planned.length === 0 || ready.filter(Boolean).length === 0 || !style) {
-        throw new VideoError("The video response contained no playable scenes", { code: "empty_response" });
-      }
-
-      return {
-        video: {
-          schemaVersion: VIDEO_SCHEMA_VERSION,
-          orientation,
-          scenes: ready.filter((entry): entry is VideoScene => entry != null),
-          style,
-        },
-        lines,
-      };
-    };
+      },
+      onOpening: (line) => {
+        openingActive = true;
+        void speakOpening(line);
+      },
+    });
 
     try {
       let response: { video: Video; lines: string[] };
       try {
         response = await untilAborted(runAttempt(attempt), controller.signal);
       } catch (cause) {
-        if (mode !== "pexels" || controller.signal.aborted || timeline || spokenHook
-            || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) || received.some((scene) => scene?.narrationGroup)) throw cause;
+        if (mode !== "pexels" || controller.signal.aborted || timeline || responseState.spokenHook
+            || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) || responseState.received.some((scene) => scene?.narrationGroup)) throw cause;
         attempt += 1;
-        ready = [];
-        received = [];
+        responseState.ready = [];
+        responseState.received = [];
         appended = 0;
-        style = undefined;
+        responseState.style = undefined;
         response = await untilAborted(runAttempt(attempt), controller.signal);
       }
       if (!isCurrent()) return undefined;
@@ -920,20 +486,20 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
         return undefined;
       }
       terminal = true;
-      const recovered = received.some((scene) => scene?.narrationGroup) || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) ? [] : received.flatMap((scene, index) => scene
-        ? [ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
+      const recovered = responseState.received.some((scene) => scene?.narrationGroup) || (cause instanceof VideoError && ["media_not_ready", "narration_group_invalid"].includes(cause.code)) ? [] : responseState.received.flatMap((scene, index) => scene
+        ? [responseState.ready[index] ?? { ...scene, timing: { fixedDuration: 5 } }]
         : []);
       if (recovered.length > 0) {
-        style ??= { density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
+        responseState.style ??= { density: "normal", motion: "normal", defaultBackgroundEffect: "static", defaultTextArchetype: "subtle", defaultTransition: "crossfade" };
         openingController.abort(new DOMException("Continuing completed response", "AbortError"));
         if (!timeline) {
-          timeline = createSceneTimeline({ style, orientation });
+          timeline = createSceneTimeline({ style: responseState.style, orientation });
           dispatch({ type: "player", id, stream: timeline.stream });
         }
         for (const scene of recovered.slice(appended)) timeline.add(scene);
         timeline.complete();
         if (timelineRef.current === timeline) timelineRef.current = undefined;
-        const video: Video = { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, style, scenes: recovered };
+        const video: Video = { schemaVersion: VIDEO_SCHEMA_VERSION, orientation, style: responseState.style, scenes: recovered };
         dispatch({ type: "warning", id, message: "The response was interrupted; completed scenes are still available." });
         dispatch({ type: "complete", id, video, suggestions: [] });
         return video;
