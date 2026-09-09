@@ -44,8 +44,8 @@ export function prepareNarratedScene(scene: VideoScene, spokenSeconds: number | 
     : fit === undefined);
   const visual = recovered ? recoverSceneMedia(candidate)! : candidate;
   const prepared = preparedSceneDuration(visual, spokenSeconds, getBuiltinSceneDefinition(visual.templateId), clipDurationSec);
-  // Exceptional repetition serves the remaining voice, never a quiet tail.
-  const duration = fit && !recovered ? fit.repeat ? fit.durationSec : Math.min(prepared, clipDurationSec!) : prepared;
+  // Repetition serves the remaining voice, never a quiet tail.
+  const duration = fit && !recovered ? fit.repeatCount > 0 ? fit.durationSec : Math.min(prepared, clipDurationSec!) : prepared;
   // Playback assigns the prepared scenes a fresh ordered timeline.
   const { startTime: _start, endTime: _end, beatStart: _beatStart, beatEnd: _beatEnd, ...timing } = visual.timing;
   return { scene: { ...visual, timing: { ...timing, fixedDuration: duration } }, recovered, clipDurationSec };
