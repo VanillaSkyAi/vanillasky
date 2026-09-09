@@ -28,7 +28,9 @@ saved replay does not request another generation.
 
 Narration is estimated against each clip with a 0.8-second tail. An oversized
 beat gets at most one short rewrite that keeps one complete idea and its
-necessary qualifiers. If shortening fails, the original narration and footage
+necessary qualifiers. Generated footage starts alongside that rewrite; speech
+preparation uses only the final accepted narration. Stock selection still comes
+first so shortening uses the selected clip's actual duration. If shortening fails, the original narration and footage
 are retained. Healthy footage repeats at normal speed until narration finishes,
 using the same decoder while speech and subtitles continue once. Generated and
 browser voices use confirmed speech onset and completion; preparation estimates

@@ -38,6 +38,9 @@ export async function providerText(context, env, fetcher) {
 }
 export function providerStream(context, env, fetcher, onComplete) {
   return (async function* () {
+    const startedAt = performance.now();
+    const elapsed = () => Math.min(150000, Math.max(0, Math.floor(performance.now() - startedAt)));
+    let firstTextMs;
     const response = await call(context, env, fetcher, true);
     if (!response.body) throw new Error("Provider stream unavailable");
     const reader = response.body.getReader();
@@ -69,8 +72,10 @@ export function providerStream(context, env, fetcher, onComplete) {
           if (
             event.type === "content_block_delta" &&
             event.delta?.type === "text_delta"
-          )
+          ) {
+            if (typeof event.delta.text === 'string' && event.delta.text.length > 0) firstTextMs ??= elapsed();
             yield event.delta.text;
+          }
         }
         if (done) break;
       }
@@ -79,7 +84,7 @@ export function providerStream(context, env, fetcher, onComplete) {
       throw error;
     } finally {
       if (context.signal?.aborted) outcome = "canceled";
-      try { onComplete?.({ outcome, stopReason, inputTokens, outputTokens }); } catch { /* Diagnostics cannot alter provider output. */ }
+      try { onComplete?.({ outcome, stopReason, inputTokens, outputTokens, durationMs: elapsed(), ...(firstTextMs === undefined ? {} : { firstTextMs }) }); } catch { /* Diagnostics cannot alter provider output. */ }
       await reader.cancel().catch(() => {});
       reader.releaseLock();
     }

@@ -47,7 +47,10 @@ test('provider stream reports only bounded completion metadata and leaves text u
   let output = '';
   for await (const text of providerStream(context, {}, fetcher, event => reports.push(event))) output += text;
   assert.equal(output, 'private model text');
-  assert.deepEqual(reports, [{ outcome: 'complete', stopReason: 'max_tokens', inputTokens: 9, outputTokens: 4096 }]);
+  assert.equal(reports.length, 1);
+  const [{firstTextMs, durationMs, ...report}] = reports;
+  assert.ok(firstTextMs >= 0 && firstTextMs <= durationMs);
+  assert.deepEqual(report, { outcome: 'complete', stopReason: 'max_tokens', inputTokens: 9, outputTokens: 4096 });
 });
 
 test('provider failure and unknown completion values remain private', async () => {
@@ -58,7 +61,52 @@ test('provider failure and unknown completion values remain private', async () =
     { type: 'error', error: { message: 'private-secret' } },
   ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''));
   await assert.rejects(async () => { for await (const text of providerStream(context, {}, fetcher, event => reports.push(event))) { assert.equal(typeof text, "string"); } }, /Provider stream failed/);
-  assert.deepEqual(reports, [{ outcome: 'error', stopReason: 'unknown', inputTokens: 0, outputTokens: 4096 }]);
+  assert.equal(reports.length, 1);
+  const [{durationMs, ...report}] = reports;
+  assert.ok(durationMs >= 0);
+  assert.deepEqual(report, { outcome: 'error', stopReason: 'unknown', inputTokens: 0, outputTokens: 4096 });
+});
+
+test('provider timing distinguishes first text from completion without recording text', async (t) => {
+  let now = 100;
+  t.mock.method(performance, 'now', () => now);
+  const reports = [];
+  const context = { systemPrompt: 'private', userPrompt: 'private', signal: new AbortController().signal };
+  const encoder = new TextEncoder();
+  const fetcher = async () => {
+    now = 250;
+    return new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"private text"}}\n\n'));
+        controller.close();
+      },
+    }));
+  };
+  const stream = providerStream(context, {}, fetcher, event => reports.push(event))[Symbol.asyncIterator]();
+  assert.deepEqual(await stream.next(), { value: 'private text', done: false });
+  now = 600;
+  assert.equal((await stream.next()).done, true);
+  assert.equal(reports[0].firstTextMs, 150);
+  assert.equal(reports[0].durationMs, 500);
+  assert.doesNotMatch(JSON.stringify(reports), /private/);
+});
+
+test('provider timing fields are bounded and absent observations stay absent', () => {
+  const summary = (timing) => {
+    const logs = [];
+    const diagnostics = createPlannerDiagnostics('test', (_event, data) => logs.push(data));
+    diagnostics.onProvider({ outcome: 'complete', stopReason: 'end_turn', inputTokens: 1, outputTokens: 2, ...timing });
+    diagnostics.finish();
+    return logs[0].provider;
+  };
+  assert.deepEqual(summary({ firstTextMs: 24.9, durationMs: 1e20, text: 'private' }), {
+    outcome: 'complete', stopReason: 'end_turn', inputTokens: 1, outputTokens: 2, firstTextMs: 24, durationMs: 150000,
+  });
+  for (const value of [undefined, -1, Infinity, 'private']) {
+    const result = summary({ firstTextMs: value, durationMs: value });
+    assert.equal(Object.hasOwn(result, 'firstTextMs'), false);
+    assert.equal(Object.hasOwn(result, 'durationMs'), false);
+  }
 });
 
 test('terminal-order errors and rejected parts retain distinct static classifications', () => {
