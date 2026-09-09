@@ -59,6 +59,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const [endedKey, setEndedKey] = useState<string>();
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playbackRequest = useRef(0);
   const playableVideoUrl = useRef<string | undefined>(undefined);
   const startedVideoUrl = useRef<string | undefined>(undefined);
   const startedPlaybackId = useRef<string | undefined>(undefined);
@@ -84,6 +85,18 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       onError?.();
       reportMediaFailure?.(reason);
     }
+  };
+  const pauseVideo = (video: HTMLVideoElement) => {
+    // WebKit can keep play() pending while frames advance. Our own pause
+    // cancels that request; its later rejection is not a decoder failure.
+    playbackRequest.current++;
+    video.pause();
+  };
+  const playVideo = (video: HTMLVideoElement) => {
+    const request = ++playbackRequest.current;
+    void video.play().catch(() => {
+      if (request === playbackRequest.current) unavailable();
+    });
   };
   useEffect(() => {
     // Hidden preparation is bounded by mounted readiness once its cut is due.
@@ -189,7 +202,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     video.playbackRate = 1;
     if (!narrationActive && sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05 && !allowsRepeat(video)) {
-      video.pause();
+      pauseVideo(video);
       unavailable("duration-mismatch");
       return false;
     }
@@ -215,7 +228,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       const fit = video && measuredClipPlayback(measuredSpeechDurationSec, video.duration);
       if (!video || presentationRef.current.progress >= 1) return;
       if (narrationActive) {
-        if (!liveSpeaking() && liveNarratedKey.current === videoPresentationKey && repeatingKey === videoPresentationKey) { video.pause(); return; }
+        if (!liveSpeaking() && liveNarratedKey.current === videoPresentationKey && repeatingKey === videoPresentationKey) { pauseVideo(video); return; }
         frame = requestAnimationFrame(observe);
         return;
       }
@@ -263,7 +276,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       // Every restart must prove resumed motion within the existing stall
       // deadline, even when the browser omits a native waiting event.
       setWaitingKey(videoPresentationKey);
-      void video.play().catch(() => unavailable());
+      playVideo(video);
       return;
     }
     // Unknown measurements, exhausted budgets and unhealthy decoders retain
@@ -292,7 +305,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     video.currentTime = target - elapsedSeconds;
     failedPresentationRef.current = undefined;
     setExhaustedKey(undefined);
-    if (isPlaying && video.paused) void video.play().catch(() => unavailable());
+    if (isPlaying && video.paused) playVideo(video);
   }, [progress, videoPresentationKey, sceneDuration, measuredSpeechDurationSec, rewindPreroll, isPlaying, narrationActive]);
 
   useEffect(() => {
@@ -320,7 +333,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
       // The pool releases in layout cleanup, before another scene can acquire
       // this element. A later passive cleanup must not clear its new source.
       if (!videoPool) {
-        video.pause();
+        pauseVideo(video);
         video.removeAttribute("src");
         video.load();
       }
@@ -346,7 +359,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const video = videoRef.current;
     if (!video) return;
     if (!isPlaying) {
-      video.pause();
+      pauseVideo(video);
       // Keep silent prepared data intact through narration startup. Seeking
       // back a few milliseconds can trigger another cold Range request.
       if (rewindPreroll && !resolvedMuted && video.currentTime > 0) video.currentTime = 0;
@@ -354,13 +367,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     }
     if (startedPlaybackId.current === playbackId) {
       if (video.ended) finishMotion();
-      else void video.play().catch(() => unavailable());
+      else playVideo(video);
       return;
     }
     const changingSource = startedVideoUrl.current !== undefined && startedVideoUrl.current !== mediaUrl;
     if (!fitDuration(video)) return;
     if (!changingSource && video.currentTime > 0) video.currentTime = 0;
-    video.play().catch(() => unavailable());
+    playVideo(video);
     startedVideoUrl.current = mediaUrl;
     startedPlaybackId.current = playbackId;
   }, [isPlaying, mediaUrl, playbackId, rewindPreroll]);
@@ -369,7 +382,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     // WebKit may enter playback without a playing event while seeking or
     // waiting. Both native start events must honor the latest requested hold.
     if (presentationRef.current.playing) return;
-    video.pause();
+    pauseVideo(video);
     // A late start can advance WebKit's decoded frames while its paused clock
     // stays pinned. Reset this unexpected preroll, including silent footage,
     // so resuming narration does not wait for the clock to catch stale pixels.

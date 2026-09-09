@@ -51,8 +51,9 @@ for (const mode of ["normal", "repeat", "long-repeat", "unmeasured", "quiet-tail
     const maximumMotionStallMs = maximumMotionStall(active);
     await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
-    expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
+    expect(proof.events.filter(event => event === "player-error" || event === "audio-error")).toEqual([]);
     if (!["missing", "unusable"].includes(mode)) {
+      expect(proof.events.filter(event => event.includes("error") || event.startsWith("recovery:"))).toEqual([]);
       expect(new Set(active.flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
     }
     expect(maximumMotionStallMs).toBeLessThan(500);

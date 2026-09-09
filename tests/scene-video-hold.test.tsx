@@ -70,6 +70,40 @@ it.each([undefined, 5.2])("uses confirmed live narration instead of a stale %ss 
   expect(play).toHaveBeenCalledTimes(completed);
   expect(onError).not.toHaveBeenCalled();
 });
+it("keeps the decoder when deliberate speech completion cancels a pending native play", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  let cancelPlay: (() => void) | undefined;
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => cancelPlay?.());
+  let speaking = true;
+  const read = () => speaking, onError = vi.fn();
+  const shot = (progress: number, isPlaying = true) => <ExternalVideoBackdropProvider mode={false} narrationActive={read}>
+    <SceneVideoBackdrop mediaUrl="/complete.mp4" sceneDuration={12} measuredSpeechDurationSec={12} progress={progress} isPlaying={isPlaying} onError={onError} />
+  </ExternalVideoBackdropProvider>;
+  const view = render(shot(.4));
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { get: () => video.currentTime >= 5 } });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  // WebKit can show advancing frames without resolving the native play promise.
+  play.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+    cancelPlay = () => reject(new DOMException("Playback deliberately paused", "AbortError"));
+  }));
+  video.currentTime = 5; fireEvent.ended(video);
+  video.currentTime = .1;
+  await act(() => vi.advanceTimersByTimeAsync(60));
+  video.currentTime = .2;
+  await act(() => vi.advanceTimersByTimeAsync(60));
+  speaking = false;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(onError).not.toHaveBeenCalled();
+  expect(view.queryByRole("status")).toBeNull();
+  view.rerender(shot(1, false));
+  view.rerender(shot(0));
+  expect(view.container.querySelector("video")).toBe(video);
+  expect(video.currentTime).toBe(0);
+  expect(onError).not.toHaveBeenCalled();
+});
 it.each([7, 10, 12, 22])("reuses the decoder for every pass of %ss measured speech and resets only on replay", async speech => {
   vi.useFakeTimers();
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
