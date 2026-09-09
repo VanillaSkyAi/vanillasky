@@ -9,5 +9,3 @@ export const visualModes: VisualMode[] = [
   { id: "cinematic", label: "AI video", note: "Generated footage shaped by your prompt" },
   { id: "pexels", label: "Pexels", note: "Stock footage with lower generation costs" },
 ];
-export const defaultMode = visualModes[0]!;
-export const modeById = (id: string): VisualMode => visualModes.find((mode) => mode.id === id) ?? defaultMode;

@@ -53,12 +53,12 @@ const MAX_PROMPT_CHARACTERS = 8_000;
 const MAX_CONVERSATION_TURNS = 12;
 const MAX_CONVERSATION_RESPONSE_CHARACTERS = 8_000;
 
-export type VideoChatTextTask =
+type VideoChatTextTask =
   | "narration"
   | "narration-rewrite"
   | "suggestions";
 
-export interface VideoChatTextContext {
+interface VideoChatTextContext {
   task: VideoChatTextTask;
   systemPrompt: string;
   userPrompt: string;
@@ -66,35 +66,35 @@ export interface VideoChatTextContext {
   signal: AbortSignal;
 }
 
-export type VideoChatTextGenerator = (
+type VideoChatTextGenerator = (
   context: VideoChatTextContext,
 ) => string | Promise<string>;
 
-export interface VideoChatSpeechContext {
+interface VideoChatSpeechContext {
   text: string;
   signal: AbortSignal;
 }
 
-export interface VideoChatSpeechResult {
+interface VideoChatSpeechResult {
   audio: Uint8Array | ArrayBuffer;
   mediaType?: string;
 }
 
-export type VideoChatSpeechGenerator = (
+type VideoChatSpeechGenerator = (
   context: VideoChatSpeechContext,
 ) => VideoChatSpeechResult | Promise<VideoChatSpeechResult>;
 
-export interface VideoChatTranscriptionContext {
+interface VideoChatTranscriptionContext {
   audio: Uint8Array;
   mediaType: string;
   signal: AbortSignal;
 }
 
-export type VideoChatTranscriber = (
+type VideoChatTranscriber = (
   context: VideoChatTranscriptionContext,
 ) => string | Promise<string>;
 
-export interface VideoChatMediaContext {
+interface VideoChatMediaContext {
   purpose: "response" | "welcome" | "suggestion";
   orientation: VideoOrientation;
   generatedLook?: string;
@@ -107,19 +107,19 @@ export interface VideoChatMediaContext {
   fallbackQuery?: string;
 }
 
-export type VideoChatMediaResolver = (
+type VideoChatMediaResolver = (
   query: string,
   context: VideoChatMediaContext,
 ) => ResolvedMedia | null | Promise<ResolvedMedia | null>;
 
-export interface VideoChatVideoContext extends VideoChatMediaContext {
+interface VideoChatVideoContext extends VideoChatMediaContext {
   purpose: "response";
   requestedDurationSec: number;
   shotDirection: string;
   /** Absolute epoch-millisecond deadline; never automatically resubmit a paid job. */
   deadlineAt: number;
 }
-export type VideoChatVideoGenerator = (
+type VideoChatVideoGenerator = (
   query: string,
   context: VideoChatVideoContext,
 ) => ResolvedMedia | null | Promise<ResolvedMedia | null>;

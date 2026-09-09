@@ -7,7 +7,7 @@ const DAY = 86400000;
 // Keep historical reservations and their paid attempts in every public total.
 const PUBLIC_ROWS = `(SELECT actor, created, attempts FROM video_chat_fal_previews
  UNION ALL SELECT actor, created, attempts FROM video_chat_fal_answers)`;
-export const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_answers(id, actor, created)
+const FAL_RESERVE_SQL = `INSERT INTO video_chat_fal_answers(id, actor, created)
 SELECT ?, ?, ? WHERE
  (SELECT COALESCE(SUM(attempts), 0) FROM ${PUBLIC_ROWS} WHERE actor = ?) < 5
  AND (SELECT COUNT(*) FROM ${PUBLIC_ROWS} WHERE created >= ? AND created < ?) < ?

@@ -7,4 +7,3 @@ export function MediaScene({ variables, width, height, progress, sceneDuration, 
     <SceneBackground progress={progress} sceneDuration={sceneDuration} {...getMediaBackgroundProps(variables)} isPlaying={isPlaying} />
   </div>;
 }
-export const MediaSceneTemplate = MediaScene;

@@ -8,7 +8,7 @@ export interface ResolvedMedia {
   durationSec?: number;
 }
 
-export interface MediaResolverContext {
+interface MediaResolverContext {
   input: VideoInput;
   requestId: string;
   scene: Readonly<VideoScene>;

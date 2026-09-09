@@ -1,10 +1,9 @@
 import type { VideoNarrationGroup } from "./narration-group.js";
-export type { VideoNarrationGroup } from "./narration-group.js";
 export const VIDEO_PROTOCOL_VERSION = "0.6" as const;
 export const VIDEO_SCHEMA_VERSION = "0.2" as const;
 
 export type VideoOrientation = "portrait" | "landscape";
-export type VideoKnowledgeMode = "input-only" | "general";
+type VideoKnowledgeMode = "input-only" | "general";
 
 export interface VideoStyle {
   preset?: string;
@@ -99,7 +98,7 @@ export interface Video {
   };
 }
 
-export interface VideoSuppliedMedia {
+interface VideoSuppliedMedia {
   id: string;
   url: string;
   type: "image" | "video";
@@ -195,7 +194,7 @@ export type VideoPlanner = (
   context: VideoGenerationContext,
 ) => AsyncIterable<VideoPlanPart>;
 
-export interface VideoSceneValidationContext {
+interface VideoSceneValidationContext {
   input: VideoInput;
   previousScenes: readonly VideoScene[];
 }

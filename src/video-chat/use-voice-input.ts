@@ -44,7 +44,7 @@ function recorderAvailable(): boolean {
     && Boolean(window.navigator.mediaDevices?.getUserMedia);
 }
 
-export function supportsVoiceInput(transcriptionAvailable: boolean): boolean {
+function supportsVoiceInput(transcriptionAvailable: boolean): boolean {
   return recognitionConstructor() !== undefined
     || (transcriptionAvailable && recorderAvailable());
 }

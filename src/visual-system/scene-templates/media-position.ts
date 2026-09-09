@@ -1,4 +1,4 @@
-export type MediaPosition = "center" | "top" | "bottom" | "left" | "right";
+type MediaPosition = "center" | "top" | "bottom" | "left" | "right";
 
 const MEDIA_POSITIONS: Record<MediaPosition, string> = {
   center: "center center",

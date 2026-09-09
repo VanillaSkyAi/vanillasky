@@ -2,7 +2,7 @@
 // no read/check/write race and no per-isolate counters or eventual KV writes.
 // Normal conversation uses throughput limits only. Units remain accounting data;
 // the separate fal ledger owns the paid video preview allowance.
-export const RESERVE_SQL = `INSERT INTO video_chat_requests(id, actor, created, expires, units)
+const RESERVE_SQL = `INSERT INTO video_chat_requests(id, actor, created, expires, units)
 SELECT ?, ?, ?, ?, ? WHERE
  (SELECT COUNT(*) FROM video_chat_requests WHERE actor = ? AND created >= ?) < 20
  AND (SELECT COUNT(*) FROM video_chat_requests WHERE released = 0 AND expires > ?) < 12

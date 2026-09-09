@@ -35,7 +35,7 @@ function createRenderer(
 }
 
 const loaders: Record<BuiltinSceneId, () => Promise<SceneModule>> = {
-  cinemaMedia: () => import("../scene-templates/cinema-media.js").then(module => ({ default: module.MediaSceneTemplate })),
+  cinemaMedia: () => import("../scene-templates/cinema-media.js").then(module => ({ default: module.MediaScene })),
   chapterTitle: () => import("../scene-templates/chapter-title.js").then(module => ({ default: module.TitleSceneTemplate })),
 };
 const renderers = new Map(SCENE_DEFINITIONS.map(scene => [

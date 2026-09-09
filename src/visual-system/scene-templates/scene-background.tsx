@@ -5,7 +5,6 @@ import { useExternalVideoBackdrop } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
 import { SceneVideoBackdrop } from "./scene-video-backdrop";
 
-export { SceneVideoBackdrop } from "./scene-video-backdrop";
 
 export function getMediaBackgroundProps(variables: Record<string, unknown>) {
   return {

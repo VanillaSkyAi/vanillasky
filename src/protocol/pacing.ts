@@ -5,16 +5,9 @@ import type {
 } from "./types.js";
 import type { VideoWarning } from "./warnings.js";
 
-export const DEFAULT_SCENE_DURATION_SEC = 5;
-export const MINIMUM_OPENING_DURATION_SEC = 3;
-export const MINIMUM_CLOSER_RESERVE_SEC = 3;
-export const PACING_PLANNER_RULES = [
-  "Use each template's preferredDuration when no explicit duration is needed, and never request less than minDuration.",
-  `Give the first scene at least ${MINIMUM_OPENING_DURATION_SEC} seconds so the opening has time to register.`,
-  "Track the cumulative duration budget before emitting every scene; the runtime omits scenes that cannot remain readable.",
-  `Reserve at least ${MINIMUM_CLOSER_RESERVE_SEC} seconds for the final closer when the catalog includes jobs:[ask] or jobs:[payoff].`,
-] as const;
-
+const DEFAULT_SCENE_DURATION_SEC = 5;
+const MINIMUM_OPENING_DURATION_SEC = 3;
+const MINIMUM_CLOSER_RESERVE_SEC = 3;
 const WORDS_PER_SECOND = 4.5;
 const CHARACTERS_PER_SECOND = 12.5;
 const ITEM_BASE_SECONDS = 2;

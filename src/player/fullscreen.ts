@@ -1,4 +1,4 @@
-export type FullscreenToggleResult = "entered" | "exited" | "fallback" | "exit-failed";
+type FullscreenToggleResult = "entered" | "exited" | "fallback" | "exit-failed";
 
 type WebkitFullscreenDocument = Document & {
   webkitFullscreenElement?: Element | null;
@@ -11,7 +11,7 @@ type WebkitFullscreenElement = HTMLElement & {
   webkitRequestFullScreen?: () => Promise<void> | void;
 };
 
-export async function toggleFullscreen(container: HTMLElement): Promise<FullscreenToggleResult> {
+async function toggleFullscreen(container: HTMLElement): Promise<FullscreenToggleResult> {
   const fullscreenDocument = document as WebkitFullscreenDocument;
   const standardFullscreenElement = document.fullscreenElement;
   const webkitFullscreenElement = fullscreenDocument.webkitFullscreenElement;

@@ -4,7 +4,7 @@ import type { VideoState } from "../protocol/state.js";
 import type { Video, VideoOrientation, VideoScene } from "../protocol/types.js";
 import type { VideoPlaybackMode } from "./playback-policy.js";
 
-export interface NativeMediaAudioOptions {
+interface NativeMediaAudioOptions {
   /** Volume of the active scene video's embedded audio, from 0 to 1. */
   volume?: number;
 }

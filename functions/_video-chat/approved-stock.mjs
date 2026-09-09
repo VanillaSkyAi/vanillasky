@@ -17,7 +17,7 @@
 // historical event or scientific mechanism from these atmospheric shots.
 // Review evidence: tests/fixtures/cinematic-media/REVIEW.md.
 /** @type {readonly ApprovedStock[]} */
-export const approvedStock = Object.freeze([
+const approvedStock = Object.freeze([
   { id: '3184465', type: 'image', media: { type: 'image', url: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1280' }, queries: ['handshake across desk', 'people shaking hands'], orientations: ['landscape'], description: 'Two people shaking hands across a desk, with a laptop and coffee cups. Does not establish their identities, a signed contract, business success or a specific company.', reviewedAt: '2026-09-06', reviewVersion: 'image-1' },
   { id: '18680290', media: { type: 'video', url: 'https://videos.pexels.com/video-files/18680290/18680290-hd_1920_1080_25fps.mp4', posterUrl: 'https://images.pexels.com/videos/18680290/big-wave-blue-break-breaking-18680290.jpeg?auto=compress&cs=tinysrgb&w=1200' }, type: 'video', queries: ['breaking ocean wave', 'ocean wave breaking', 'ocean surf foam'], orientations: ['landscape', 'portrait', 'square'], centerCrops: ['portrait', 'square'], description: 'Blue ocean wave breaking into white foam. No demonstrated pollution, tsunami, geographic location or underwater mechanism.', reviewedAt: '2026-09-06', reviewVersion: 'crops-3' },
   { id: '7615707', media: { type: 'video', url: 'https://videos.pexels.com/video-files/7615707/7615707-hd_1920_1080_30fps.mp4', posterUrl: 'https://images.pexels.com/videos/7615707/aircraft-alien-astronaut-astronautics-7615707.jpeg?auto=compress&cs=tinysrgb&w=1200' }, type: 'video', queries: ['full moon night sky', 'orange full moon'], orientations: ['landscape'], description: 'Orange full Moon against black sky, subtle apparent motion. No spacecraft, surface landing, orbital diagram or eclipse claim.', reviewedAt: '2026-09-06', reviewVersion: 'frames-1' },
@@ -35,7 +35,7 @@ export function normalizeIntent(value) {
   return typeof value === 'string' ? value.trim().toLowerCase().replace(/\s+/g, ' ') : '';
 }
 
-export function matchingStock(query, orientation, index = approvedStock, preferredType = 'any') {
+function matchingStock(query, orientation, index = approvedStock, preferredType = 'any') {
   const normalized = normalizeIntent(query);
   if (!normalized || normalized.length > 100) return [];
   return index.filter(asset => /^\d+$/.test(asset.id) &&
