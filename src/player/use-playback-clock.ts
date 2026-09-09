@@ -1,5 +1,6 @@
 import { sceneReadinessKey } from "./mounted-scene-readiness.js";
 import type { SoundtrackPlayback } from "./buffer-soundtrack.js";
+import { getClipRepeatCount } from "./clip-repeat.js";
 import { useEffect } from "react";
 import type { VideoScene } from "../protocol/types.js";
 import type { VideoState } from "../protocol/state.js";
@@ -135,7 +136,7 @@ export function usePlaybackClock({
         // active playback time and leaves the same media element mounted.
         if (cued && !cued.scene.narrationGroup && narrationTime === undefined) {
           const measuredSpeech = cued.scene.variables.measuredSpeechDurationSec;
-          const tailSeconds = cued.scene.templateId === "cinemaMedia" && typeof measuredSpeech === "number" && Number.isFinite(measuredSpeech) && measuredSpeech > 0
+          let tailSeconds = cued.scene.templateId === "cinemaMedia" && typeof measuredSpeech === "number" && Number.isFinite(measuredSpeech) && measuredSpeech > 0
             ? Math.min(CLIP_NARRATION_TAIL_SEC, Math.max(0, cued.end - cued.start - measuredSpeech)) : CLIP_NARRATION_TAIL_SEC;
           let speaking = false;
           try { speaking = callbacksRef.current.narrationActive?.(cued.scene) === true; }
@@ -147,6 +148,14 @@ export function usePlaybackClock({
           if (speaking && narrationReady) narratedKey = key;
           const native = activeMediaRef?.current;
           const media = native?.video;
+          if (native?.key === key && media?.isConnected && !media.error
+            && media.getAttribute("src") === String(cued.scene.variables.mediaUrl || "") && media.currentSrc === media.src
+            && getClipRepeatCount(media) > 0) {
+            // A real decoder wrap serves live speech only. Its confirmed
+            // completion ends an estimated or fallback line without extra tail.
+            tailSeconds = 0;
+            if (!speaking && narrationReady && narratedKey === key) raw = Math.max(raw, cued.end);
+          }
           // After confirmed speech completion, use this scene's existing
           // decoder for its quiet tail. A late audio ended event must not
           // leave the visual clock behind already-presented footage.

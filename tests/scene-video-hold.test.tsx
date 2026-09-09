@@ -8,6 +8,68 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "currentSrc", "get").mockImplementation(function (this: HTMLMediaElement) { return this.src; });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+it("never authorizes repetition for a pending or failed live voice without confirmed onset", () => {
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  const view = render(<ExternalVideoBackdropProvider mode={false} narrationActive={() => false}>
+    <SceneVideoBackdrop mediaUrl="/pending.mp4" sceneDuration={10} progress={.5} isPlaying onError={onError} />
+  </ExternalVideoBackdropProvider>);
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { get: () => video.currentTime >= 5 } });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  const calls = play.mock.calls.length;
+  video.currentTime = 5; fireEvent.ended(video);
+  expect(play).toHaveBeenCalledTimes(calls);
+  expect(onError).toHaveBeenCalledOnce();
+});
+it.each([undefined, 5.2])("uses confirmed live narration instead of a stale %ss measurement and stops repeating at completion", async measurement => {
+  vi.useFakeTimers();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+  const onError = vi.fn();
+  let active = false;
+  const read = () => active;
+  const shot = (progress: number, isPlaying = true) => <ExternalVideoBackdropProvider mode={false} narrationActive={read}>
+    <SceneVideoBackdrop mediaUrl="/live.mp4" sceneDuration={8} measuredSpeechDurationSec={measurement} progress={progress} isPlaying={isPlaying} onError={onError} />
+  </ExternalVideoBackdropProvider>;
+  const view = render(shot(0));
+  const video = view.container.querySelector("video")!;
+  Object.defineProperties(video, { duration: { value: 5 }, readyState: { value: 4 }, ended: { get: () => video.currentTime >= 5 } });
+  fireEvent.loadedMetadata(video); fireEvent.playing(video);
+  expect(onError).not.toHaveBeenCalled();
+  active = true;
+  for (let pass = 1; pass <= 2; pass++) {
+    video.currentTime = 5;
+    view.rerender(shot(Math.min(.999, pass * 5 / 8)));
+    const calls = play.mock.calls.length;
+    fireEvent.ended(video);
+    expect(play).toHaveBeenCalledTimes(calls + 1);
+    expect(video.currentTime).toBe(0);
+    video.currentTime = .1;
+    await act(async () => vi.advanceTimersByTimeAsync(60));
+    video.currentTime = .2;
+    await act(async () => vi.advanceTimersByTimeAsync(60));
+    expect(onError).not.toHaveBeenCalled();
+  }
+  view.rerender(shot(.999, false));
+  await act(async () => vi.advanceTimersByTimeAsync(1200));
+  view.rerender(shot(.999));
+  expect(video.currentTime).toBe(.2);
+  active = false;
+  pause.mockClear();
+  await act(async () => vi.advanceTimersByTimeAsync(32));
+  expect(pause).toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+  const completed = play.mock.calls.length;
+  video.currentTime = 5; fireEvent.ended(video);
+  view.rerender(shot(1, false));
+  await act(async () => vi.advanceTimersByTimeAsync(100));
+  expect(play).toHaveBeenCalledTimes(completed);
+  expect(onError).not.toHaveBeenCalled();
+});
 it.each([7, 10, 12, 22])("reuses the decoder for every pass of %ss measured speech and resets only on replay", async speech => {
   vi.useFakeTimers();
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);

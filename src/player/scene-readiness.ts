@@ -24,7 +24,7 @@ export function preparedSceneDuration(
 }
 
 /** Prepare one narrated scene against delivered footage, or its requested budget when unknown. */
-export function prepareNarratedScene(scene: VideoScene, spokenSeconds: number | undefined, measured = false): {
+export function prepareNarratedScene(scene: VideoScene, spokenSeconds: number | undefined, measured = false, liveNarration = false): {
   scene: VideoScene; recovered: boolean; clipDurationSec?: number;
 } {
   const requested = scene.timing.fixedDuration;
@@ -39,7 +39,7 @@ export function prepareNarratedScene(scene: VideoScene, spokenSeconds: number | 
     ...(scene.templateId === "cinemaMedia" && measuredSeconds !== undefined ? { measuredSpeechDurationSec: measuredSeconds } : {}),
   } };
   const fit = clipDurationSec === undefined ? undefined : measuredClipPlayback(measuredSeconds, clipDurationSec);
-  const recovered = clipDurationSec !== undefined && (measuredSeconds === undefined
+  const recovered = !(liveNarration && scene.narration?.trim()) && clipDurationSec !== undefined && (measuredSeconds === undefined
     ? preparedSceneDuration(candidate, spokenSeconds, getBuiltinSceneDefinition(scene.templateId), clipDurationSec) > clipDurationSec
     : fit === undefined);
   const visual = recovered ? recoverSceneMedia(candidate)! : candidate;

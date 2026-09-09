@@ -3,6 +3,14 @@ import { prepareNarratedScene, preparedSceneDuration } from "../src/player/scene
 import type { VideoScene } from "../src/protocol/types";
 const scene = (seconds: number): VideoScene => ({ id: String(seconds), templateId: "points", variables: { items: ["One", "Two", "Three", "Four"] }, timing: { fixedDuration: seconds } });
 describe("cinematic preparation", () => {
+  it("retains estimated footage only when live narration will own its completion", () => {
+    const footage: VideoScene = { id: "browser", templateId: "cinemaMedia", variables: { mediaDurationSec: 5, measuredSpeechDurationSec: 99 }, narration: "The complete browser-spoken line.", timing: { fixedDuration: 5 } };
+    const prepared = prepareNarratedScene(footage, 10, false, true);
+    expect(prepared.recovered).toBe(false);
+    expect(prepared.scene.templateId).toBe("cinemaMedia");
+    expect(prepared.scene.variables.measuredSpeechDurationSec).toBeUndefined();
+    expect(prepareNarratedScene(footage, 10, false).recovered).toBe(true);
+  });
   it("does not certify an estimated duration or use it for exceptional repeat or a shorter tail", () => {
     const footage: VideoScene = { id: "estimated", templateId: "cinemaMedia", variables: { mediaDurationSec: 5 }, narration: "The whole line is preserved.", timing: { fixedDuration: 5 } };
     for (const seconds of [4.5, 5.5]) {

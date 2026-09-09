@@ -1,8 +1,8 @@
 import { audioVolume, rampMediaVolume } from "../../player/audio-volume.js";
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { type MediaRecoveryReason, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
+import { type MediaRecoveryReason, useActiveNarration, useMediaAudio, useMediaFailure, useNarrationPreroll } from "./external-video-backdrop";
 import { resolveMediaPosition } from "./media-position";
-import { measuredClipPlayback } from "../../player/clip-repeat.js";
+import { measuredClipPlayback, setClipRepeatCount } from "../../player/clip-repeat.js";
 import { IosVideoPoolContext, IosVideoSurface } from "../../player/ios-video-pool.js";
 
 export interface SceneVideoBackdropProps {
@@ -45,6 +45,8 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const inheritedAudio = useMediaAudio();
   const reportMediaFailure = useMediaFailure();
   const inheritedPreroll = useNarrationPreroll();
+  const narrationActive = useActiveNarration();
+  const liveNarratedKey = useRef<string | undefined>(undefined);
   const rewindPreroll = preparingNarration || inheritedPreroll;
   const [gainUnavailable, setGainUnavailable] = useState(false);
   const resolvedMuted = (muted ?? inheritedAudio.muted) || gainUnavailable;
@@ -67,6 +69,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   const repeatedPresentationRef = useRef<{ key: string; count: number; elapsedSeconds: number } | undefined>(undefined);
   const previousProgressRef = useRef({ key: videoPresentationKey, progress });
   presentationRef.current = { key: videoPresentationKey, playing: isPlaying, progress };
+  const liveSpeaking = () => {
+    try {
+      const active = narrationActive?.() === true;
+      if (active) liveNarratedKey.current = videoPresentationKey;
+      return active;
+    } catch { return false; }
+  };
   const unavailable = (reason: MediaRecoveryReason = "playback-error") => {
     if (mounted.current && presentationRef.current.key === videoPresentationKey && failedPresentationRef.current !== videoPresentationKey
       && (presentationRef.current.playing || reason === "duration-mismatch")) {
@@ -179,13 +188,13 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
   };
   const fitDuration = useCallback((video: HTMLVideoElement) => {
     video.playbackRate = 1;
-    if (sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05 && !allowsRepeat(video)) {
+    if (!narrationActive && sceneDuration && Number.isFinite(video.duration) && video.duration > 0 && sceneDuration > video.duration + .05 && !allowsRepeat(video)) {
       video.pause();
       unavailable("duration-mismatch");
       return false;
     }
     return true;
-  }, [sceneDuration, measuredSpeechDurationSec, videoPresentationKey]);
+  }, [sceneDuration, measuredSpeechDurationSec, videoPresentationKey, narrationActive]);
   useEffect(() => {
     if (videoRef.current) fitDuration(videoRef.current);
   }, [fitDuration]);
@@ -199,12 +208,17 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     return () => clearTimeout(timer);
   }, [endedKey, videoPresentationKey, isPlaying]);
   useEffect(() => {
-    if (!isPlaying || repeatingKey !== videoPresentationKey) return;
+    if (!isPlaying || (repeatingKey !== videoPresentationKey && !narrationActive)) return;
     let frame: number;
     const observe = () => {
       const video = videoRef.current;
       const fit = video && measuredClipPlayback(measuredSpeechDurationSec, video.duration);
       if (!video || presentationRef.current.progress >= 1) return;
+      if (narrationActive) {
+        if (!liveSpeaking() && liveNarratedKey.current === videoPresentationKey && repeatingKey === videoPresentationKey) { video.pause(); return; }
+        frame = requestAnimationFrame(observe);
+        return;
+      }
       const repeated = repeatedPresentationRef.current;
       const elapsed = repeated?.key === videoPresentationKey ? repeated.elapsedSeconds : 0;
       // Count all completed passes against the measurement, including after a
@@ -217,7 +231,7 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     };
     frame = requestAnimationFrame(observe);
     return () => cancelAnimationFrame(frame);
-  }, [repeatingKey, videoPresentationKey, isPlaying, measuredSpeechDurationSec]);
+  }, [repeatingKey, videoPresentationKey, isPlaying, measuredSpeechDurationSec, narrationActive]);
   const finishMotion = () => {
     if (!isPlaying) return;
     const video = videoRef.current;
@@ -225,9 +239,14 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const repeated = repeatedPresentationRef.current;
     const count = repeated?.key === videoPresentationKey ? repeated.count : 0;
     const elapsed = repeated?.key === videoPresentationKey ? repeated.elapsedSeconds : 0;
+    const speaking = liveSpeaking();
+    if (narrationActive && !speaking && liveNarratedKey.current === videoPresentationKey) {
+      setEndedKey(videoPresentationKey);
+      return;
+    }
     // Native ended may precede the final animation-frame commit. A completed
     // fitting line needs neither recovery nor a repeat during that last tick.
-    if (video?.ended && fit && sceneDuration !== undefined
+    if ((!narrationActive || !speaking) && video?.ended && fit && sceneDuration !== undefined
       && sceneDuration <= elapsed + video.duration + .05 && (1 - progress) * sceneDuration <= .05) {
       setEndedKey(videoPresentationKey);
       return;
@@ -235,9 +254,10 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     if (video && video.ended && !video.error && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
       && video.currentSrc === video.src && playableVideoUrl.current === mediaUrl
       && failedPresentationRef.current !== videoPresentationKey && waitingKey !== videoPresentationKey
-      && fit && count < fit.repeatCount && elapsed + video.duration < fit.durationSec
-      && progress < 1 && allowsRepeat(video)) {
+      && (narrationActive ? speaking : fit && count < fit.repeatCount && elapsed + video.duration < fit.durationSec && allowsRepeat(video))
+      && progress < 1) {
       repeatedPresentationRef.current = { key: videoPresentationKey, count: count + 1, elapsedSeconds: elapsed + video.duration };
+      setClipRepeatCount(video, count + 1);
       setRepeatingKey(videoPresentationKey);
       video.currentTime = 0;
       // Every restart must prove resumed motion within the existing stall
@@ -262,15 +282,22 @@ export const SceneVideoBackdrop: React.FC<SceneVideoBackdropProps> = ({
     const target = Math.max(0, progress * sceneDuration);
     setEndedKey(undefined);
     const fit = measuredClipPlayback(measuredSpeechDurationSec, video.duration);
-    const count = allowsRepeat(video) && fit ? Math.min(fit.repeatCount, Math.floor(target / video.duration)) : 0;
+    const count = narrationActive && Number.isFinite(video.duration) && video.duration > 0 ? Math.floor(target / video.duration)
+      : allowsRepeat(video) && fit ? Math.min(fit.repeatCount, Math.floor(target / video.duration)) : 0;
     const elapsedSeconds = count > 0 ? count * video.duration : 0;
     setRepeatingKey(count > 0 ? videoPresentationKey : undefined);
     repeatedPresentationRef.current = { key: videoPresentationKey, count, elapsedSeconds };
+    setClipRepeatCount(video, count);
+    if (progress <= .001) liveNarratedKey.current = undefined;
     video.currentTime = target - elapsedSeconds;
     failedPresentationRef.current = undefined;
     setExhaustedKey(undefined);
     if (isPlaying && video.paused) void video.play().catch(() => unavailable());
-  }, [progress, videoPresentationKey, sceneDuration, measuredSpeechDurationSec, rewindPreroll, isPlaying]);
+  }, [progress, videoPresentationKey, sceneDuration, measuredSpeechDurationSec, rewindPreroll, isPlaying, narrationActive]);
+
+  useEffect(() => {
+    if (videoRef.current) setClipRepeatCount(videoRef.current, 0);
+  }, [videoPresentationKey]);
 
   useEffect(() => {
     const video = videoRef.current;

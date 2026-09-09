@@ -80,7 +80,7 @@ export function createScenePreparation(options: {
     return prepared;
   };
   const pace = (scene: VideoScene, seconds: number | undefined, measured: boolean): VideoScene => {
-    const prepared = prepareNarratedScene(scene, seconds, measured);
+    const prepared = prepareNarratedScene(scene, seconds, measured, true);
     if (prepared.recovered) options.warn(MEDIA_RECOVERY_NOTICE);
     if (seconds !== undefined && prepared.clipDurationSec !== undefined) {
       try { options.onDuration?.({ speechDurationSec: seconds, clipDurationSec: prepared.clipDurationSec, recovered: prepared.recovered }); }

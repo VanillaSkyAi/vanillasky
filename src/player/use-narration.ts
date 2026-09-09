@@ -43,7 +43,7 @@ export interface Narration {
   /** Pair with VideoPlayer.narrationReady to hold grouped cuts until actual audio onset. */
   isReady: () => boolean;
   getTime: (scene: VideoScene) => number | undefined;
-  /** Pair with VideoPlayer.narrationActive to respect unclocked speech completion. */
+  /** Confirmed onset through completion; pair with VideoPlayer.narrationActive. */
   isSpeaking: (scene: VideoScene) => boolean;
   /**
    * Hand this to the player's `onSceneChange`.
@@ -67,6 +67,7 @@ export function useNarration(options: NarrationOptions): Narration {
   const clockRef = useRef<number | undefined>(undefined);
   const clockSceneRef = useRef<string | undefined>(undefined);
   const readyRef = useRef(true);
+  const startedRef = useRef(false);
   const getTime = useCallback((scene: VideoScene) => {
     const group = groupRef.current;
     if (optionsRef.current.enabled === false || (group ? scene.narrationGroup?.id !== group.id : scene.id !== clockSceneRef.current)) return undefined;
@@ -74,6 +75,7 @@ export function useNarration(options: NarrationOptions): Narration {
     const time = currentRef.current ? optionsRef.current.voice.getCurrentTime() : undefined;
     if (currentRef.current && readyRef.current && time === undefined) return undefined;
     if (time !== undefined && Number.isFinite(time)) {
+      if (currentRef.current && time >= (group?.offsetSeconds ?? 0) + .04) startedRef.current = true;
       // Browsers may expose duration before dispatching ended. Keep the final
       // audio frame inside its scene until speak resolves, so a cut cannot
       // abort the still-active utterance at that boundary.
@@ -87,13 +89,14 @@ export function useNarration(options: NarrationOptions): Narration {
     || (clockRef.current !== undefined && clockRef.current >= (groupRef.current?.offsetSeconds ?? 0) + 0.04), []);
   const currentRef = useRef<AbortController | undefined>(undefined);
   const isSpeaking = useCallback((scene: VideoScene) => optionsRef.current.enabled !== false
-    && Boolean(currentRef.current) && (groupRef.current ? scene.narrationGroup?.id === groupRef.current.id : scene.id === clockSceneRef.current), []);
+    && startedRef.current && Boolean(currentRef.current) && (groupRef.current ? scene.narrationGroup?.id === groupRef.current.id : scene.id === clockSceneRef.current), []);
   // The index a line was started for, so a scene reported twice - which the
   // player does on a re-render - is not said twice, while a loop back to it is.
   const spokenIndexRef = useRef<number | undefined>(undefined);
 
   const stop = useCallback(() => {
     readyRef.current = true;
+    startedRef.current = false;
     currentRef.current?.abort();
     currentRef.current = undefined;
     groupRef.current = undefined;
@@ -143,6 +146,7 @@ export function useNarration(options: NarrationOptions): Narration {
             if (started || controller.signal.aborted || currentRef.current !== controller
               || (!group && spokenIndexRef.current !== index) || optionsRef.current.enabled === false) return;
             started = true;
+            startedRef.current = true;
             readyRef.current = true;
             try { void Promise.resolve(optionsRef.current.onSpeechStart?.(source)).catch(() => undefined); }
             catch { /* Observer failures do not affect narration. */ }

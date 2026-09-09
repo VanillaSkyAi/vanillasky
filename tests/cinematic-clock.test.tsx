@@ -7,7 +7,32 @@ import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
 import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 import { prepareNarratedScene } from "../src/player/scene-readiness";
+import { setClipRepeatCount } from "../src/player/clip-repeat";
 afterEach(() => {cleanup(); vi.useRealTimers();});
+it("ends clockless narration immediately after its last live repeat, within the existing eight-second overrun bound", async () => {
+  vi.useFakeTimers();
+  let active = true;
+  const prepared = prepareNarratedScene({ id: "live", templateId: "cinemaMedia", variables: { mediaUrl: "/live.mp4", mediaDurationSec: 5 }, narration: "The complete browser-spoken paragraph.", timing: { fixedDuration: 5 } }, 7, false, true).scene;
+  const video: Video = { schemaVersion: "0.2", style: {}, scenes: [prepared] };
+  const native = document.createElement("video");
+  native.src = "/live.mp4"; document.body.append(native);
+  Object.defineProperties(native, { duration: { value: 5 }, currentTime: { value: 4.3 }, readyState: { value: 4 }, currentSrc: { get: () => native.src } });
+  setClipRepeatCount(native, 2);
+  const timeRef = { current: 0 }, stop = vi.fn(), error = vi.fn();
+  const hook = renderHook(() => usePlaybackClock({ isPlaying: true,
+    stateRef: { current: { ...createVideoState(), status: "complete", config: video } }, timeRef,
+    activeMediaRef: { current: { key: sceneReadinessKey(prepared), video: native } },
+    audioRef: { current: null }, loopRef: { current: false }, sceneIndexRef: { current: 0 },
+    callbacksRef: { current: { narrationActive: () => active, onError: error } }, setCurrentTime: vi.fn(), setIsPlaying: stop }));
+  await act(() => vi.advanceTimersByTimeAsync(14300));
+  expect(stop).not.toHaveBeenCalled();
+  expect(error).not.toHaveBeenCalled();
+  active = false;
+  await act(() => vi.advanceTimersByTimeAsync(32));
+  expect(stop).toHaveBeenCalledWith(false);
+  expect(timeRef.current).toBe(prepared.timing.fixedDuration);
+  hook.unmount(); native.remove();
+});
 it.each(["completed", "speaking", "not ready", "different scene", "unobserved", "repeat"])("uses the native quiet-tail clock only after measured speech completes: %s", async state => {
   vi.useFakeTimers();
   let active = true;
