@@ -1,6 +1,6 @@
 # Development
 
-Use Node 22+ and the npm version in `package.json`. Run `npm ci`, copy
+Use Node 22.12+ (22.23.1 is tested in CI) and the npm version in `package.json`. Run `npm ci`, copy
 `.dev.vars.example` to ignored `.dev.vars`, and add your provider keys.
 
 ```bash
@@ -23,8 +23,12 @@ types, unused code, unit tests and API tests without starting browsers or builds
 Docs-only edits use `npm run check:docs`, which needs Node and Git but no install.
 It checks tracked Markdown structure, local links and heading anchors offline.
 
+Before your first browser run, install the browsers with `npm run browser:install`.
+On Linux, `npx playwright install --with-deps` also installs required OS libraries.
 Run `npm run verify` on the final application candidate; it adds docs checks,
-chat acceptance, builds, preview checks and the application browser journey.
+builds, preview checks and the application browser journey. The unit tests already
+include the chat acceptance journey; `npm run acceptance:chat` remains available
+for its standalone report.
 Playback/UI changes also need relevant `npm run browser:test` media scenarios.
 Keep the candidate and HEAD unchanged during browser runs.
 

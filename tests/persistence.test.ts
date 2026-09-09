@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { getVideoDuration } from "../src/protocol/timeline";
 import { VideoValidationError, parseVideo, type VideoValidationErrorCode } from "../src/protocol/persistence";
 import { type Video } from "../src/protocol/types";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 import { checksumVideo } from "../src/protocol/checksum";
 
 function minimalVideo(): Video {

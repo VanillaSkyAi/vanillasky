@@ -1,6 +1,6 @@
 # Getting started
 
-Use Node 22+ and the npm version recorded in `package.json`.
+Use Node 22.12+ (22.23.1 is tested in CI) and the npm version recorded in `package.json`.
 
 ```bash
 git clone https://github.com/VanillaSkyAi/video.git

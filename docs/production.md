@@ -1,85 +1,128 @@
-# Deploying the application
+# Deploy your application
 
-The frontend and Cloudflare Pages Functions build from this repository. Local
-development, preview and production use the same application.
+Deploy your fork to Cloudflare Pages with its own D1 database and provider keys.
+The same application runs locally and in production. Existing deployments can
+skip to [releasing](maintainers/releasing.md).
 
-Docs-only changes need no deployment. After merging an approved application PR
-and waiting for main CI, run:
+## First deployment
+
+### 1. Create the project and database
+
+Fork this repository and enable GitHub Actions in your fork. Clone your fork
+so GitHub CLI commands target your repository:
 
 ```bash
+git clone https://github.com/YOUR_ACCOUNT/video.git
+cd video
+```
+
+Complete [local setup](getting-started.md) starting at `npm ci`; keep using this
+fork checkout. From its root, sign in to Cloudflare and choose your own project
+and database names:
+
+```bash
+npx wrangler login
+npx wrangler pages project create my-video-chat --production-branch main
+npx wrangler d1 create my-video-chat-quota
+```
+
+Keep the returned database UUID. Use a Direct Upload Pages project so the
+repository workflow owns deployment. See Cloudflare's [Pages commands](https://developers.cloudflare.com/workers/wrangler/commands/pages/).
+
+### 2. Initialize the remote quota database
+
+Create `.generated/instance/wrangler.jsonc` (ignored by Git) with the database
+name and UUID returned above. This separate configuration keeps `npm run dev`
+pointing at local data:
+
+```json
+{
+  "name": "video-chat-setup",
+  "compatibility_date": "2026-04-09",
+  "d1_databases": [{
+    "binding": "VIDEO_CHAT_QUOTAS",
+    "database_name": "my-video-chat-quota",
+    "database_id": "YOUR_DATABASE_UUID",
+    "migrations_dir": "../../migrations"
+  }]
+}
+```
+
+Apply the committed migrations to your new remote database, then confirm none
+remain pending:
+
+```bash
+npx wrangler d1 migrations apply VIDEO_CHAT_QUOTAS --remote --config .generated/instance/wrangler.jsonc
+npx wrangler d1 migrations list VIDEO_CHAT_QUOTAS --remote --config .generated/instance/wrangler.jsonc
+```
+
+The application requires all quota tables and spending-limit triggers. A D1
+binding alone is not enough: an empty database rejects conversations. Local
+migration setup does not initialize a remote database. See Cloudflare's
+[migration guide](https://developers.cloudflare.com/d1/reference/migrations/).
+
+### 3. Add the application secrets
+
+In your Cloudflare Pages project's production settings, add these as encrypted
+[secrets](https://developers.cloudflare.com/pages/functions/bindings/#secrets):
+
+| Secret | Purpose |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Required AI planning |
+| `FAL_KEY` | Generated video; configure `PEXELS_API_KEY` instead for stock footage |
+| `VIDEO_CHAT_QUOTA_SALT` | Required stable random secret, at least 32 characters |
+| `XAI_API_KEY` | Optional generated narration; otherwise browser speech |
+| `PEXELS_API_KEY` | Optional stock alternative and public personal-allowance fallback |
+
+For a new quota salt, generate 32 random bytes in your password manager or with
+`openssl rand -hex 32` and save the result as `VIDEO_CHAT_QUOTA_SALT`. Keep it
+stable for that instance: changing an existing salt changes viewer identities.
+Application secrets belong in Cloudflare, not frontend variables or GitHub's
+build environment. `npm run dev` manages a separate local salt.
+
+### 4. Configure GitHub and deploy
+
+In your fork, create a GitHub environment named `production`. Add the variables
+and deployment secret listed in [instance configuration](maintainers/releasing.md#instance-configuration).
+Use your new Pages project and D1 identifiers. Initially set `PRODUCTION_URL` to
+`https://YOUR_PROJECT.pages.dev`; configure your custom domain and update it later.
+Update `public/robots.txt` and `public/sitemap.xml` for your domain too.
+
+The GitHub `CLOUDFLARE_API_TOKEN` is a deployment credential, separate from the
+application's provider keys. Give it Cloudflare Pages edit access to your account;
+see [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
+
+Install and authenticate the GitHub CLI (`gh auth login`) if needed. Run CI on
+your fork's main branch and wait for success, then deploy:
+
+```bash
+gh workflow run ci.yml --ref main
+# Wait for this CI run to succeed before the next command.
 gh workflow run deploy.yml --ref main -f target=production -f confirmation=DEPLOY
 ```
 
-The workflow deploys the exact verified CI artifact, checks the live frontend
-and API, and attempts rollback if verification fails. Use `target=preview` for
-a separate, non-billable preview. See the [release procedure](maintainers/releasing.md)
-for initial environment configuration, artifact retention and manual rollback.
+The workflow uploads the exact verified build and checks the frontend, API,
+configuration and served assets. It permits a first production upload only when
+Cloudflare confirms there is no previous production deployment. There is no
+rollback target on that first upload; failure is reported explicitly. Later
+releases retain the existing rollback protection. A project with broken or
+unverifiable production history needs that history resolved first.
 
-## Instance configuration
+Open your site, ask a question, and let its speech and moving footage finish.
+This final manual check uses your paid providers; automated CI uses test doubles.
 
-Use the committed Wrangler configuration as the shape of your deployment, with
-your own Cloudflare project and D1 binding. Keep account/database identifiers in
-instance configuration and credentials in the deployment secret store. Never
-commit `.dev.vars` or copy production credentials into a preview.
+## Preview and later releases
 
-Configure `ANTHROPIC_API_KEY` for planning and `FAL_KEY` for generated video.
-The committed configuration enables fal with `VIDEO_CHAT_FAL_PREVIEW=enabled`.
-Add `XAI_API_KEY` for generated speech and optionally `PEXELS_API_KEY` for the
-stock alternative and the personal-allowance fallback described below.
-The server also needs its quota database and private quota salt. Local development
-initializes separate local state; it must never point at production data.
+For an isolated preview, create a separate Pages project, D1 database and GitHub
+`preview` environment using the same setup. Keep its data and secrets separate
+from production. The workflow disables paid providers for `target=preview`, so
+this shows configuration guidance rather than a canned conversation.
 
-Missing planning or footage setup must be visible. A credential-free preview is
-a setup preview, never a canned conversation. Untrusted PRs must receive no
-provider or production secrets and make no paid calls.
+Follow [releasing](maintainers/releasing.md) for subsequent deployments, exact
+build verification and rollback. Apply any newly reviewed remote migrations
+before a release that needs them; the deployment workflow does not mutate schema.
+Docs-only commits need no application deployment.
 
-## Preserve the admission boundary
-
-The API owns request admission, origin policy, bounded bodies, provider budgets
-and quota reservations. Keep those controls before billable work. A UI setting
-cannot authorize spending. Preserve the distinction between unavailable footage
-configuration and a recoverable failure during an admitted turn. A public viewer's
-exhausted personal AI-video allowance can use configured Pexels, including for
-remaining footage; a failed or late clip alone uses chapter recovery.
-
-Forward cancellation to every provider. Retain uncertain accepted attempts;
-network cancellation does not prove a provider cancelled billing. Keep raw
-provider errors and credentials private and expose only safe typed failures.
-
-When customizing for a multi-user application, preserve the application's
-identity and tenant boundary, request limits, concurrency and spending policy.
-CORS is not authentication. Local development can use the bounded owner
-reservation path only with an explicit local server flag and loopback URL. Public
-production limits stay active; production owner access requires verified identity.
-See [security](security.md).
-
-## Release and rollback
-
-Verify the application and API before merging. Deploy only a reviewed commit
-through the repository workflow. Compare the deployed frontend and API identity
-with that exact commit, and verify UI readiness and configuration after rollout.
-Retain the previous working Cloudflare deployment for rollback.
-
-When moving an existing deployment to this repository, only one workflow may
-own production deployment. Coordinate the previous trigger's retirement with
-the new trigger, preserve the existing data/domain, and do not archive the prior
-repository until the replacement is verified and the owner approves archival.
-Changing secrets or deployment credentials needs separate authorization.
-See [release procedure](maintainers/releasing.md).
-
-## Playback, data and evidence
-
-Let ready scenes stream while upcoming media prepares. Preserve the opening,
-full ending and chapter recovery; do not wait for every generated clip before
-starting playback. Measure speech availability, first planned scene, first ready
-media and first moving frame separately.
-
-The default fal adapter returns playable provider URLs directly. Add storage only
-when retention or a different provider requires it. Validate saved `Video`
-objects with `parseVideo`, apply tenant retention rules and keep media URLs valid
-for the required replay window. See [persistence](persistence.md).
-
-Keyless tests cover API security and actual browser playback using recorded media.
-They do not establish live model accuracy, visual relevance or provider latency.
-Real-provider evaluation requires an explicitly authorized budget and evidence
-from the configured application.
+The API's admission, cancellation and spending controls must remain in place.
+See [security](security.md). Provider URLs play directly; add storage only when
+retention or your chosen provider requires it. See [persistence](persistence.md).

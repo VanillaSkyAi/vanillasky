@@ -4,7 +4,7 @@ import { createVideo } from "../../../src/server/compose-video";
 import { type Video } from "../../../src/protocol/types";
 import { VideoFrame } from "../../../src/player/video-frame";
 import { VideoPlayer } from "../../../src/player/video-player";
-import { TEST_VIDEO_STYLE as style } from "../../semantic-brand-fixture";
+import { TEST_VIDEO_STYLE as style } from "../../helpers/video-style";
 import firstVideo from "./media-transition/waterfall.mp4?url";
 import firstPoster from "./media-transition/waterfall.jpg?url";
 import secondVideo from "./media-transition/tram.mp4?url";

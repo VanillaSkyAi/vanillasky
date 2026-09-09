@@ -560,7 +560,7 @@ test('one answer plus opening and speech burst reproduces request throttling wit
   assert.ok(held.every(Boolean));
   const denied=await handleVideoChatRequest({request:request('speech',{text:'The next beat.'}),env,fetcher:()=>assert.fail('No provider after rejection')});
   assert.equal(denied.status,429);assert.equal((await denied.json()).error.code,'request_throttled');
-  // Removing the unnecessary opening request leaves room for the SDK's two speech workers.
+  // Removing the unnecessary opening request leaves room for the runtime's two speech workers.
   await releaseQuota(env.VIDEO_CHAT_QUOTAS,held[1]);
   const admitted=await handleVideoChatRequest({request:request('speech',{text:'The next beat.'}),env,fetcher:async()=>new Response(new Uint8Array([1,2,3]),{headers:{'content-type':'audio/mpeg'}})});
   assert.equal(admitted.status,200);await admitted.arrayBuffer();

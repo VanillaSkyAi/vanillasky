@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import type { Video } from "../../../src/protocol/types";
 import { VideoPlayer } from "../../../src/player/video-player";
-import { TEST_VIDEO_STYLE as style } from "../../semantic-brand-fixture";
+import { TEST_VIDEO_STYLE as style } from "../../helpers/video-style";
 
 const audioUrl = "data:audio/wav;base64,UklGRg==";
 

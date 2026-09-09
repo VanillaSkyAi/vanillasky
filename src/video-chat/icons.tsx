@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
 
-/**
- * The chrome's icons, drawn rather than installed.
- *
- * This is an example whose job is to show how the SDK is used, so its
- * dependency list is part of what it demonstrates. Six glyphs are not worth an
- * icon package, and a reader who has to install one to understand the video chat
- * has been taught the wrong thing.
- */
+/** Small inline icons keep the chat interface self-contained. */
 const stroke = {
   fill: "none" as const,
   stroke: "currentColor",

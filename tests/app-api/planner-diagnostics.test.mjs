@@ -73,7 +73,7 @@ test('terminal-order errors and rejected parts retain distinct static classifica
   assert.equal(logs.at(-1).rejectedSceneCount, 3);
 });
 
-test('SDK timing diagnostics retain only bounded enums, counts and anonymous shot numbers', () => {
+test('runtime timing diagnostics retain only bounded enums, counts and anonymous shot numbers', () => {
   const logs=[];
   const diagnostics=createPlannerDiagnostics('host-request', (event,data)=>logs.push({event,...data}));
   diagnostics.onDiagnostic({requestId:'private-user-prompt',mode:'pexels',phase:'media-end',elapsedMs:125.9,durationMs:94.3,sceneId:'private-topic-shot-2',reason:'ready',prompt:'secret',url:'https://private.invalid',body:{key:'secret'}});

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { VideoChat } from '../../../src/react';
 import type { Video, VideoScene } from "../../../src/protocol/types";
 import { checksumVideo } from '../../../src/protocol/checksum';
-import { TEST_VIDEO_STYLE } from '../../semantic-brand-fixture';
+import { TEST_VIDEO_STYLE } from '../../helpers/video-style';
 import '../../../styles/video-chat.css';
 
 type Sample = { at: number; opening: boolean; videos: number; frame: boolean; visibleFrame: boolean; moving: boolean };

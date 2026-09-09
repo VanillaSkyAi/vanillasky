@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { Video, VideoScene } from "../src/protocol/types";
 import { checksumVideo } from "../src/protocol/checksum";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 function scene(id: string, value: string, narration?: string): VideoScene {
   return {

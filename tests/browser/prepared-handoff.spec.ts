@@ -55,7 +55,7 @@ for (const delayMs of [1500, 9000]) test(`prepares three cold clips with ${delay
         const priorEnd = events.filter(event => event.kind === 'ended')[index - 1];
         expect(firstSurface!.at - priorEnd.at).toBeGreaterThan(1000);
         // Once the outgoing clip ends, an authored chapter covers a slow
-        // generation/decode wait; the SDK does not loop footage to hide it.
+        // generation/decode wait; the runtime does not loop footage to hide it.
         expect(events.some(event => event.kind === 'surface' && event.recovery
           && event.active === String(index - 1) && event.at < firstSurface!.at)).toBe(true);
       }

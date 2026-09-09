@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Video } from "../src/protocol/types";
 import { VideoFrame } from "../src/player/video-frame";
 import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 beforeAll(async () => { await preloadBuiltinTemplate("cinemaMedia"); await preloadBuiltinTemplate("chapterTitle"); });
 describe("VideoFrame layout", () => {

@@ -4,7 +4,7 @@ import {VideoChat} from '../../../src/react';
 import {WELCOME_CARDS} from '../../../src/video-chat/welcome-cards';
 import {checksumVideo} from '../../../src/protocol/checksum';
 import type {Video} from '../../../src/protocol/types';
-import {TEST_VIDEO_STYLE} from '../../semantic-brand-fixture';
+import {TEST_VIDEO_STYLE} from '../../helpers/video-style';
 import '../../../styles/video-chat.css';
 
 // Local UI preview: selecting a card never calls a generation provider.

@@ -6,6 +6,9 @@ Run the deterministic chat journey with:
 npm run acceptance:chat
 ```
 
+The same journey already runs within `npm test`; the standalone command above
+prints its reports for focused inspection.
+
 It calls `createVideoChatHandler` with in-memory provider doubles, sends requests,
 and decodes the actual response stream. It requires no credentials, makes no
 provider calls, and spends no FAL credits. The seven turns cover an explanation,

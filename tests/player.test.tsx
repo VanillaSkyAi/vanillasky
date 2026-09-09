@@ -9,7 +9,7 @@ import { createVideo } from "../src/server/compose-video";
 import { createVideoEventFactory } from "../src/protocol/events";
 import { SCENE_DEFINITIONS } from "../src/visual-system/catalog/builtin-metadata";
 import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 
 describe("VideoPlayer", () => {
   afterEach(() => {

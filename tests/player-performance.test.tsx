@@ -7,7 +7,7 @@ import { usePlaybackClock } from "../src/player/use-playback-clock";
 import { createVideoState } from "../src/protocol/state";
 import { preloadBuiltinTemplate } from "../src/visual-system/catalog/builtin-player";
 beforeAll(async () => { await preloadBuiltinTemplate("chapterTitle"); });
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 import type { Video } from "../src/protocol/types";
 
 const video: Video = { schemaVersion: "0.2", orientation: "landscape", style: TEST_VIDEO_STYLE,

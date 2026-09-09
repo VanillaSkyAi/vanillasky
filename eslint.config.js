@@ -10,11 +10,6 @@ export default tseslint.config(
       ".generated/**",
       ".wrangler/**",
       "coverage/**",
-      "examples/*/.next/**",
-      // Every example's build output, not the two that happened to exist when
-      // this list was written - a stale local build in a third one made `npm
-      // run lint` fail with a thousand errors in minified code.
-      "examples/*/dist/**",
       "test-results/**",
     ],
   },

@@ -76,7 +76,7 @@ export function createChatDiagnostics(changed: (rows: DiagnosticRow[]) => void) 
               try {
                 const event = JSON.parse(line.slice(5)) as {type?: string};
                 if (event.type && Object.hasOwn(phases, event.type)) mark(phases[event.type], run);
-              } catch { /* Incomplete or non-JSON event; the SDK retains protocol ownership. */ }
+              } catch { /* Incomplete or non-JSON event; the runtime retains protocol ownership. */ }
             }
           },
         }));

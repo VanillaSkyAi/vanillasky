@@ -6,7 +6,7 @@ path. Participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Working loop
 
-Use Node 22+, the locked npm version and an isolated worktree. Run `npm ci`,
+Use Node 22.12+ (22.23.1 is tested in CI), the locked npm version and an isolated worktree. Run `npm ci`,
 configure your ignored `.dev.vars`, then `npm run dev`. This runs the same app
 as the website with local API and quota storage. See [setup](docs/getting-started.md).
 

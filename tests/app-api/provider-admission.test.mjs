@@ -41,7 +41,7 @@ test('lazy stream cannot start or resume after host release', async () => {
   released = false; const active = callback({}); assert.equal((await active.next()).value, 'first');
   released = true; await assert.rejects(active.next(), /not admitted/); assert.equal(calls, 1);
 });
-test('host and SDK cancellation both reach the provider signal', async () => {
+test('host and runtime cancellation both reach the provider signal', async () => {
   for (const cancelHost of [true, false]) {
     const host = new AbortController(), sdk = new AbortController();
     let received;
@@ -50,12 +50,12 @@ test('host and SDK cancellation both reach the provider signal', async () => {
     (cancelHost ? host : sdk).abort(); assert.equal(received.aborted, true);
   }
 });
-test('an already canceled SDK task never invokes the paid callback', async () => {
+test('an already canceled runtime task never invokes the paid callback', async () => {
   let calls = 0;
   const callback = guardPaidProvider('generateSpeech', admission('speech'), async () => { calls++; });
   await assert.rejects(callback({ signal: AbortSignal.abort() }), /not admitted/); assert.equal(calls, 0);
 });
-test('future SDK operations and wrong methods cannot reach admission or providers', async () => {
+test('future runtime operations and wrong methods cannot reach admission or providers', async () => {
   const { handleVideoChatRequest } = await import('../../functions/api/video-chat.mjs');
   let queries = 0, calls = 0;
   const env = { ANTHROPIC_API_KEY: 'test-only', VIDEO_CHAT_QUOTA_SALT: 's'.repeat(32),
@@ -71,7 +71,7 @@ test('future SDK operations and wrong methods cannot reach admission or provider
 });
 
 for (const kind of ['generateVideo', 'searchMedia']) {
-  test(`${kind} preserves the query and combines SDK and host cancellation`, async () => {
+  test(`${kind} preserves the query and combines runtime and host cancellation`, async () => {
     for (const cancelHost of [true, false]) {
       const host = new AbortController(), sdk = new AbortController();
       let calls = 0, received;
@@ -83,7 +83,7 @@ for (const kind of ['generateVideo', 'searchMedia']) {
       await assert.rejects(invoke(kind, callback, { signal: sdk.signal }), /not admitted/); assert.equal(calls, 1);
     }
   });
-  test(`${kind} refuses an already canceled SDK task without provider calls`, async () => {
+  test(`${kind} refuses an already canceled runtime task without provider calls`, async () => {
     let calls = 0;
     const callback = guardPaidProvider(kind, admission('response'), async () => { calls++; });
     await assert.rejects(invoke(kind, callback, { signal: AbortSignal.abort() }), /not admitted/);

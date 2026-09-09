@@ -5,7 +5,7 @@ import { usePlaybackClock } from "../src/player/use-playback-clock";
 import { createVideoState } from "../src/protocol/state";
 import { sceneReadinessKey } from "../src/player/mounted-scene-readiness";
 import type { Video } from "../src/protocol/types";
-import { TEST_VIDEO_STYLE } from "./semantic-brand-fixture";
+import { TEST_VIDEO_STYLE } from "./helpers/video-style";
 import { prepareNarratedScene } from "../src/player/scene-readiness";
 afterEach(() => {cleanup(); vi.useRealTimers();});
 it.each(["completed", "speaking", "not ready", "different scene", "unobserved", "repeat"])("uses the native quiet-tail clock only after measured speech completes: %s", async state => {
