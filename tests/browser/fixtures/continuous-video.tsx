@@ -50,7 +50,7 @@ HTMLMediaElement.prototype.play = function () {
   phases.push({kind:this instanceof HTMLAudioElement ? "audio-play-call" : "video-play-call",at:performance.now(),time:this.currentTime});
   if (this instanceof HTMLAudioElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    this.addEventListener("ended", () => { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); });
+    this.addEventListener("ended", () => { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); }, { capture: true });
     this.addEventListener("playing", () => events.push("audio-playing"));
     this.addEventListener("error", () => events.push("audio-error"));
   }
@@ -58,7 +58,7 @@ HTMLMediaElement.prototype.play = function () {
     this.dataset.observed = "true";
     for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
       events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
-    });
+    }, { capture: true });
   }
   return nativePlay.call(this);
 };

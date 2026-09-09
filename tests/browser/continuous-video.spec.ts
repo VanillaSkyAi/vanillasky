@@ -52,7 +52,7 @@ for (const mode of ["normal", "repeat", "long-repeat", "unmeasured", "quiet-tail
     await writeFile(info.outputPath("continuous-video-proof.json"), JSON.stringify({ mode, browser: browserName, platform: process.platform, codec: webm ? "VP8/Opus" : "H264/AAC", maximumFrozenMs, maximumMotionStallMs, ...proof }));
     expect(proof.events.filter(event => event === "audio-ended")).toHaveLength(2);
     expect(proof.events.filter(event => event.includes("error"))).toEqual([]);
-    if (!["missing", "unusable", "short"].includes(mode)) {
+    if (!["missing", "unusable"].includes(mode)) {
       expect(new Set(active.flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
     }
     expect(maximumMotionStallMs).toBeLessThan(500);
@@ -80,18 +80,24 @@ for (const mode of ["normal", "repeat", "long-repeat", "unmeasured", "quiet-tail
       expect(longestHoldMs).toBeGreaterThanOrEqual(800);
     }
     if (mode === "audible") expect(active.some(sample => !sample.muted)).toBe(true);
-    if (!["missing", "unusable", "short"].includes(mode)) {
+    if (!["missing", "unusable"].includes(mode)) {
       expect(active.every(sample => sample.rate === 1)).toBe(true);
       expect(active.filter(sample => sample.status === "Visual unavailable")).toHaveLength(0);
       expect(active.some(sample => sample.chapter)).toBe(false);
       const wraps = active.flatMap((sample, index) => index > 0 && sample.time < active[index - 1]!.time - .5 ? [index] : []);
-      const expectedRepeats = mode === "long-repeat" || mode === "unmeasured" ? 2 : mode === "repeat" || mode === "oversized" ? 1 : 0;
+      const expectedRepeats = mode === "long-repeat" || mode === "unmeasured" ? 2 : ["repeat", "oversized", "short"].includes(mode) ? 1 : 0;
       expect(wraps).toHaveLength(expectedRepeats);
       if (expectedRepeats) {
         const lastAudio = proof.phases.filter(phase => phase.kind === "audio-ended").at(-1)!;
         expect(proof.samples.at(-1)!.at - lastAudio.at).toBeLessThan(150);
         expect(proof.phases.filter(phase => phase.kind === "speech-onset")).toHaveLength(1);
-        expect(active.some((sample, index) => index > 0 && sample.audioTime < active[index - 1]!.audioTime - .05)).toBe(false);
+        // The voice releases its clock after ended, before the final React
+        // paint. Check continuity only during the actual spoken recording.
+        const onset = proof.phases.find(phase => phase.kind === "speech-onset")!;
+        const speaking = active.filter(sample => sample.at >= onset.at && sample.at < lastAudio.at);
+        expect(speaking.length).toBeGreaterThan(5);
+        expect(speaking.every(sample => sample.audioTime >= 0)).toBe(true);
+        expect(speaking.some((sample, index) => index > 0 && sample.audioTime < speaking[index - 1]!.audioTime - .05)).toBe(false);
         for (const [pass, start] of wraps.entries()) {
           expect(new Set(active.slice(start, wraps[pass + 1]).flatMap(sample => sample.frameFingerprint == null ? [] : [sample.frameFingerprint])).size).toBeGreaterThan(3);
         }
@@ -137,7 +143,7 @@ test("multiple repeats preserve decoder identity through pause, replay and inter
     await page.waitForFunction(() => {
       const proof = (window as unknown as { continuityProof: { events: string[] } }).continuityProof;
       return proof.events.filter(event => event.startsWith("video:ended:")).length === 4 && (document.querySelector("video")?.currentTime ?? 0) > .1;
-    });
+    }, undefined, { timeout: 15000 });
     expect(await decoder!.evaluate(video => video === document.querySelector("video"))).toBe(true);
     await page.getByRole("button", { name: "Interrupt narration", exact: true }).click();
     await expect(page.locator("video")).toHaveJSProperty("paused", true);
@@ -150,7 +156,10 @@ test("multiple repeats preserve decoder identity through pause, replay and inter
     expect(proof.samples.some(sample => sample.chapter || sample.loop)).toBe(false);
     expect(proof.events.some(event => event.includes("error"))).toBe(false);
     await writeFile(info.outputPath("repeated-narration-lifecycle-proof.json"), JSON.stringify(proof));
-  } finally { await context.close(); }
+  } finally {
+    await info.attach("lifecycle-proof", { body: JSON.stringify(await page.evaluate(() => (window as unknown as { continuityProof: unknown }).continuityProof)), contentType: "application/json" });
+    await context.close();
+  }
 });
 
 
