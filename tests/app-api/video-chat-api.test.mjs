@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { decodeVideoSse } from "../../src/protocol/sse.ts";
 import {
   handleVideoChatRequest,
   configurationStatus,
@@ -251,6 +252,68 @@ test("successful live operations use the fixed provider and bounded output token
     if (action === "suggestions")
       assert.equal(JSON.parse(text).suggestions.length, 1);
   }
+});
+
+test("response planning preserves its grammar and accepts one chunked answer-and-shots array without a retry", async () => {
+  const prompt = "Explain how energy travels in ocean waves";
+  const developing = {
+    type: "shot", title: "Passing energy", narration: "Water rises as a wave passes.",
+    subject: "ocean waves", action: "A wave passes a floating buoy.", durationSec: 5, continuity: "cut",
+  };
+  const ending = {
+    title: "Wave motion", narration: "The water falls while energy moves onward.",
+    subject: "ocean waves", action: "The buoy falls after the wave passes.", durationSec: 5, continuity: "continue",
+  };
+  const brief = {
+    type: "answer", intent: "explanation", visualStyle: "realistic", musicMood: "off",
+    opening: "Waves carry energy through water.", subject: "ocean waves",
+    development: "A floating buoy reveals how water and energy move.",
+    visualDirection: "Observe the same buoy in clear daylight.", ending,
+  };
+  const modelText = JSON.stringify([brief, developing], null, 2);
+  let plannerCalls = 0;
+  const response = await handleVideoChatRequest({
+    request: request("response", { prompt, mode: "pexels", musicMood: "off" }),
+    env: live(),
+    fetcher: async (url, options) => {
+      if (String(url).startsWith("https://api.pexels.com/")) return Response.json({ videos: [] });
+      assert.equal(url, "https://api.anthropic.com/v1/messages");
+      plannerCalls++;
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.stream, true);
+      assert.equal(payload.messages[0].role, "user");
+      assert.ok(payload.messages[0].content.includes(prompt));
+      // Inspect the actual serialized record contracts after admission and all
+      // callback wrappers, without depending on the surrounding guidance prose.
+      const contracts = payload.system.split("\n").flatMap(line => {
+        const start = line.search(/\{\s*"type"\s*:/);
+        return start < 0 ? [] : [JSON.parse(line.slice(start, line.lastIndexOf("}") + 1))];
+      });
+      assert.deepEqual(contracts.map(contract => contract.type), ["answer", "shot"]);
+      for (const key of ["opening", "subject", "development"]) assert.equal(typeof contracts[0][key], "string");
+      for (const contract of [contracts[0].ending, contracts[1]]) {
+        for (const key of ["title", "narration", "subject", "action", "continuity"]) assert.equal(typeof contract[key], "string");
+        assert.equal(typeof contract.durationSec, "number");
+      }
+      const records = [];
+      for (let offset = 0; offset < modelText.length; offset += 37) {
+        records.push({ type: "content_block_delta", delta: { type: "text_delta", text: modelText.slice(offset, offset + 37) } });
+      }
+      records.push({ type: "message_delta", delta: { stop_reason: "end_turn" } });
+      return new Response(records.map(event => `data: ${JSON.stringify(event)}\n\n`).join(""));
+    },
+  });
+  assert.equal(response.status, 200);
+  const events = [];
+  for await (const event of decodeVideoSse(response.body)) events.push(event);
+  assert.equal(plannerCalls, 1);
+  assert.equal(events.find(event => event.type === "data.video-chat-opening")?.data.line, brief.opening);
+  const scenes = events.filter(event => event.type === "scene.add").map(event => event.data.scene);
+  assert.deepEqual(scenes.map(scene => scene.narration), [developing.narration, ending.narration]);
+  assert.deepEqual(scenes.map(scene => scene.variables.title), [developing.title, ending.title]);
+  assert.equal(events.some(event => event.type === "response.error"), false);
+  assert.equal(events.at(-1)?.type, "response.complete");
+  assert.deepEqual(events.at(-1).data.snapshot.scenes, scenes);
 });
 
 test("cancelling a live response aborts its provider and releases its active reservation", async () => {
