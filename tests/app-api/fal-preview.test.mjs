@@ -195,6 +195,47 @@ test('successful queue request uses fixed model, options, no retries and safe me
     assert.equal(init.headers['X-Fal-Request-Timeout'], '90');
   }
 });
+test('server-selected clip durations reach both the paid payload and visual direction', async () => {
+  for (const requestedDurationSec of [8, 5]) {
+    const configured = env();
+    const previewId = await reserveFalAnswer(configured.VIDEO_CHAT_QUOTAS, actor);
+    const submissions = [];
+    const result = await generateRaw('Ocean waves', {
+      env: configured, actor, previewId, requestedDurationSec,
+      fetcher: async (url, init) => {
+        if (init.method === 'POST') { submissions.push(JSON.parse(init.body)); return response(urls); }
+        if (url === `${urls.status_url}/stream`) return streamed({ status: 'COMPLETED' });
+        if (url === urls.response_url) return response({ video: { url: 'https://fal.media/video.mp4' } });
+        throw new Error('Unexpected fixture transport');
+      },
+    });
+    assert.ok(result.media);
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0].duration, requestedDurationSec);
+    assert.match(submissions[0].prompt, new RegExp(`\\b${requestedDurationSec}-second\\b`));
+    assert.equal(configured.VIDEO_CHAT_QUOTAS.sql.prepare('SELECT attempts FROM video_chat_fal_reservations WHERE id = ?').get(previewId).attempts, 1);
+  }
+});
+test('unsupported clip durations fail before quota reservation or provider submission', async () => {
+  let quotaCalls = 0;
+  let submissions = 0;
+  const configured = {
+    VIDEO_CHAT_FAL_PREVIEW: 'enabled', FAL_KEY: 'test-only-key',
+    VIDEO_CHAT_QUOTAS: { prepare() { quotaCalls++; throw new Error('Must not reserve'); } },
+  };
+  for (const requestedDurationSec of [null, 0, 4, 6, 7, 9, 15, 5.5, '5', '8', NaN, Infinity]) {
+    const diagnostics = [];
+    const result = await generateRaw('Ocean waves', {
+      env: configured, actor, previewId: crypto.randomUUID(), requestedDurationSec,
+      onDiagnostic: value => diagnostics.push(value),
+      fetcher: async () => { submissions++; throw new Error('Must not submit'); },
+    });
+    assert.deepEqual(result, { media: null, reason: 'unavailable' });
+    assert.deepEqual(diagnostics, [{ reason: 'invalid_input', stage: 'preflight' }]);
+  }
+  assert.equal(quotaCalls, 0);
+  assert.equal(submissions, 0);
+});
 test('public attempts submit after trigger writes and stop when the database trigger denies them', async () => {
   for (const table of ['video_chat_fal_answers', 'video_chat_fal_previews']) {
     const configured = env();

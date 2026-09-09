@@ -179,7 +179,7 @@ export async function generateFalPreview(query, options) {
   }
 }
 
-async function generatePreview(query, timing, { env, actor, previewId, signal, orientation, scene, generatedLook, fetcher = fetch, onDiagnostic, owner = false }) {
+async function generatePreview(query, timing, { env, actor, previewId, signal, orientation, scene, generatedLook, requestedDurationSec = 5, fetcher = fetch, onDiagnostic, owner = false }) {
   const unavailable = { media: null, reason: 'unavailable' };
   let stage = 'preflight';
   let diagnosed = false;
@@ -196,11 +196,11 @@ async function generatePreview(query, timing, { env, actor, previewId, signal, o
   if (env.VIDEO_CHAT_FAL_PREVIEW !== 'enabled' || !env.FAL_KEY || !env.VIDEO_CHAT_QUOTAS?.prepare) {
     report('configuration'); return unavailable;
   }
-  if (!/^[a-f0-9]{64}$/.test(actor ?? '') || typeof query !== 'string' || !query.trim() || query.length > 2000) {
+  if (!/^[a-f0-9]{64}$/.test(actor ?? '') || typeof query !== 'string' || !query.trim() || query.length > 2000 || ![5, 8].includes(requestedDurationSec)) {
     report('invalid_input'); return unavailable;
   }
   let prompt;
-  try { prompt = compileShotPrompt(query, { scene, generatedLook, orientation }); }
+  try { prompt = compileShotPrompt(query, { scene, generatedLook, orientation, requestedDurationSec }); }
   catch { report('invalid_input'); return unavailable; }
   if (typeof previewId !== 'string' || !/^[a-f0-9-]{36}$/.test(previewId)) {
     report('quota_limit'); return { media: null, reason: 'limit' };
@@ -223,7 +223,7 @@ async function generatePreview(query, timing, { env, actor, previewId, signal, o
     const submitted = await timing.measure('submitMs', async () => json(await fetcher(SUBMIT, {
       method: 'POST', headers, redirect: 'manual', signal: controller.signal,
       body: JSON.stringify({
-        prompt, duration: 5,
+        prompt, duration: requestedDurationSec,
         resolution: '768P', aspect_ratio: orientation === 'portrait' ? '9:16' : '16:9',
         prompt_expansion_mode: 'balanced', enable_safety_checker: true,
         sync_mode: false,
