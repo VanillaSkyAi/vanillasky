@@ -1,4 +1,5 @@
 import { compileShotPrompt } from './shot-direction.mjs';
+import { streamFalStatus } from './fal-status.mjs';
 // Fixed pilot configuration. Never accept a model, URL or generation options
 // from the browser. https://fal.ai/models/minimax/h3-max-turbo/text-to-video/api
 export const FAL_MODEL = 'minimax/h3-max-turbo/text-to-video';
@@ -145,11 +146,12 @@ async function json(response) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
-// Wall-clock phases include HTTP body reads. Poll sleep overlaps provider work.
+// HTTP phases include body reads. Status streaming spans provider work and any
+// watchdog HTTP requests; record it separately because those durations overlap.
 export async function generateFalPreview(query, options) {
   const started = performance.now();
   const bounded = value => Math.min(150000, Math.max(0, Math.round(value)));
-  const values = {quotaMs:0, submitMs:0, statusHttpMs:0, resultHttpMs:0, pollSleepMs:0, cancelMs:0, pollCount:0};
+  const values = {quotaMs:0, submitMs:0, statusStreamMs:0, statusHttpMs:0, resultHttpMs:0, pollSleepMs:0, cancelMs:0, pollCount:0};
   const timing = {
     async measure(key, operation) {
       const start = performance.now();
@@ -232,11 +234,29 @@ async function generatePreview(query, timing, { env, actor, previewId, signal, o
     cancelUrl = queueUrl(submitted.cancel_url);
     const statusUrl = queueUrl(submitted.status_url);
     const responseUrl = queueUrl(submitted.response_url);
+    stage = 'queue';
+    let streamedStatus;
+    try {
+      streamedStatus = await timing.measure('statusStreamMs', () => streamFalStatus(statusUrl, {
+        fetcher, headers, signal: controller.signal, onStatus: status => timing.status(status),
+        poll: async signal => {
+          timing.poll();
+          return timing.measure('statusHttpMs', async () => json(await fetcher(statusUrl, { headers, redirect: 'manual', signal })));
+        },
+      }));
+    } catch {
+      // Recover only observation of the existing job. Never resubmit or reserve.
+      controller.signal.throwIfAborted();
+    }
     while (true) {
       controller.signal.throwIfAborted();
       stage = 'queue';
-      timing.poll();
-      const status = await timing.measure('statusHttpMs', async () => json(await fetcher(statusUrl, { headers, redirect: 'manual', signal: controller.signal })));
+      let status = streamedStatus;
+      streamedStatus = null;
+      if (!status) {
+        timing.poll();
+        status = await timing.measure('statusHttpMs', async () => json(await fetcher(statusUrl, { headers, redirect: 'manual', signal: controller.signal })));
+      }
       timing.status(status);
       if (!status || typeof status !== 'object') throw new DiagnosticError('invalid_metadata');
       if (status.status === 'COMPLETED') {

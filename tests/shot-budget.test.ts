@@ -131,13 +131,47 @@ describe("clip budget before paid generation", () => {
     expect(rewrite).not.toHaveBeenCalled();
     expect(generateVideo).not.toHaveBeenCalled();
   });
-  it("rewrites once before buying a clip, then prepares the accepted narration", async () => {
+  it("rewrites once alongside buying a clip, then prepares the accepted narration", async () => {
     const { handler, text, generation } = setup("The result depends on these conditions.");
     const events = await collect(await handler(request()));
     expect(text).toHaveBeenCalledOnce();
-    expect(text.mock.invocationCallOrder[0]).toBeLessThan(generation.mock.invocationCallOrder[0]!);
     expect(generation.mock.calls[0]?.[1]).toMatchObject({ requestedDurationSec: 5, shotDirection: expect.stringContaining("Show the shore"), deadlineAt: expect.any(Number) });
     expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { narration: "The result depends on these conditions.", variables: { mediaDurationSec: 5 } } });
+  });
+  it.each(["rewrite", "video"] as const)("starts video during narration repair and waits for both when %s finishes first", async first => {
+    vi.useFakeTimers();
+    let finishRewrite!: (narration: string) => void;
+    const rewrite = new Promise<string>(resolve => { finishRewrite = resolve; });
+    let finishVideo!: (media: { type: "video"; url: string; durationSec: number }) => void;
+    const video = new Promise<{ type: "video"; url: string; durationSec: number }>(resolve => { finishVideo = resolve; });
+    const generateText = vi.fn(() => rewrite), generateVideo = vi.fn(() => video);
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateText, generateVideo,
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
+    });
+    const response = await handler(request());
+    const seen: Awaited<ReturnType<typeof collect>> = [];
+    const pending = (async () => { for await (const event of decodeVideoSse(response.body!)) seen.push(event); })();
+    const narration = "The result depends on these conditions.";
+    const media = { type: "video" as const, url: "https://app.test/parallel.mp4", durationSec: 5 };
+    try {
+      await vi.advanceTimersByTimeAsync(1);
+      expect(generateText).toHaveBeenCalledOnce();
+      expect(generateVideo).toHaveBeenCalledOnce();
+      expect(seen.filter(e => e.type === "data.video-chat-preparation" || e.type === "scene.add")).toEqual([]);
+      if (first === "rewrite") finishRewrite(narration); else finishVideo(media);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(seen.filter(e => e.type === "scene.add")).toEqual([]);
+      const preparations = seen.filter(e => e.type === "data.video-chat-preparation");
+      if (first === "rewrite") expect(preparations).toEqual([expect.objectContaining({ data: expect.objectContaining({ narration }) })]);
+      else expect(preparations).toEqual([]);
+    } finally {
+      finishRewrite(narration);
+      finishVideo(media);
+      await pending;
+    }
+    expect(seen.filter(e => e.type === "scene.add")).toEqual([expect.objectContaining({ data: expect.objectContaining({ scene: expect.objectContaining({ narration, variables: expect.objectContaining({ mediaUrl: media.url }) }) }) })]);
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(generateVideo).toHaveBeenCalledOnce();
   });
   it.each(["", "[]", oversized])("preserves the entire oversized line with footage when rewrite is unusable", async rewrite => {
     const { handler, text, generation } = setup(rewrite);
@@ -183,21 +217,25 @@ describe("clip budget before paid generation", () => {
     expect(events.at(-1)?.type).toBe("response.complete");
     expect(JSON.stringify(events)).not.toContain("private-media-detail");
   });
-  it("cancels a stalled rewrite before any paid video job starts", async () => {
-    let started!: () => void;
-    const rewriting = new Promise<void>(resolve => { started = resolve; });
-    const generateVideo = vi.fn(() => null);
+  it("cancels both a stalled rewrite and its parallel video job without emitting a scene", async () => {
+    vi.useFakeTimers();
+    const signals: AbortSignal[] = [];
+    const generateVideo = vi.fn<NonNullable<Parameters<typeof createVideoChatHandler>[0]["generateVideo"]>>((_query, context) => { signals.push(context.signal); return new Promise<null>(() => undefined); });
     const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateVideo,
-      generateText: async () => { started(); return new Promise<string>(() => undefined); },
+      generateText: async context => { signals.push(context.signal); return new Promise<string>(() => undefined); },
       streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
     });
     const controller = new AbortController();
     const response = await handler(new Request(request(), { signal: controller.signal }));
     const events = collect(response);
-    await rewriting;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(generateVideo).toHaveBeenCalledOnce();
+    expect(signals).toHaveLength(2);
     controller.abort();
-    expect((await events).at(-1)?.type).toBe("response.abort");
-    expect(generateVideo).not.toHaveBeenCalled();
+    const seen = await events;
+    expect(seen.at(-1)?.type).toBe("response.abort");
+    expect(seen.filter(e => e.type === "scene.add")).toEqual([]);
+    expect(signals.every(signal => signal.aborted)).toBe(true);
   });
   it("announces later resolved media while an earlier paid job is still pending", async () => {
     let release!: (value: { type: "video"; url: string }) => void;
