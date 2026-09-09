@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
+import { writeFile } from "node:fs/promises";
 
-test("intro music survives audible AI footage while both recorded voice lines finish on iOS output", async ({ page, browserName }, testInfo) => {
+test("intro music and complete voice survive three audible AI clips after the iOS gesture expires", async ({ page, browserName }, testInfo) => {
   test.setTimeout(30_000);
   await page.addInitScript(() => Object.defineProperty(navigator, "platform", { configurable: true, value: "iPhone" }));
   await page.setViewportSize({ width: 390, height: 844 });
@@ -13,7 +14,8 @@ test("intro music survives audible AI footage while both recorded voice lines fi
   const proof = () => page.evaluate(() => (window as unknown as { iosAudioProof: {
     speech: Array<{ text: string; event: string; at: number }>;
     contexts: number; nativeAudio: number; nativeInterruptions: number; frames: number;
-    mixedSamples: number; musicStarts: number; musicGains: number[]; fallback: number;
+    mixedSamples: number; musicStarts: number; musicGains: number[]; fallback: number; videoPlayers: number;
+    videoEvents: Array<{ kind: string }>;
   } }).iosAudioProof);
   const music = page.locator('[data-soundtrack="active"]');
   await expect(music).toHaveAttribute("data-audio-output", "buffer");
@@ -22,15 +24,19 @@ test("intro music survives audible AI footage while both recorded voice lines fi
   await expect.poll(async () => (await proof()).musicStarts).toBe(1);
   await page.getByRole("button", { name: "Deliver body", exact: true }).click();
   // Await real clocks in-page; polling page.evaluate can renew WebKit activation.
-  await page.waitForFunction(() => (window as unknown as { iosAudioProof: { speech: Array<{ event: string }> } }).iosAudioProof.speech.filter(event => event.event === "end").length === 2);
+  await page.waitForFunction(() => (window as unknown as { iosAudioProof: { speech: Array<{ event: string }> } }).iosAudioProof.speech.filter(event => event.event === "end").length === 4);
   await expect(music).toHaveAttribute("data-track-id", track!);
   const result = await proof();
-  await testInfo.attach("ios-audio-proof.json", { body: JSON.stringify({ ...result, webm, physicalIos: false }), contentType: "application/json" });
-  expect(result.speech.map(event => event.event)).toEqual(["start", "end", "start", "end"]);
+  const evidence = testInfo.outputPath("ios-audio-proof.json");
+  await writeFile(evidence, JSON.stringify({ ...result, webm, physicalIos: false }));
+  await testInfo.attach("ios-audio-proof.json", { path: evidence, contentType: "application/json" });
+  expect(result.speech.map(event => event.event)).toEqual(["start", "end", "start", "end", "start", "end", "start", "end"]);
   expect(result.speech[1].at - result.speech[0].at).toBeGreaterThan(6000);
-  expect(result.speech[3].at - result.speech[2].at).toBeGreaterThan(1700);
+  for (const start of [2, 4, 6]) expect(result.speech[start + 1].at - result.speech[start].at).toBeGreaterThan(1700);
   expect(result.frames).toBeGreaterThan(10);
   expect(result.mixedSamples).toBeGreaterThan(5);
+  expect(result.videoPlayers).toBeLessThanOrEqual(2);
+  expect(result.videoEvents.filter(event => ["rejected", "recovery", "error"].includes(event.kind))).toEqual([]);
   expect(result.contexts).toBe(1);
   expect(result.nativeAudio).toBe(0);
   expect(result.nativeInterruptions).toBe(0);

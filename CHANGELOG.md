@@ -8,7 +8,9 @@ of previously published npm releases.
 - Keep Auto's intro music track for the entire answer, even when the answer
   brief suggests a different mood. On iPhone and iPad, play generated voice and
   music through one shared audio context so audible AI footage cannot interrupt
-  their separate native audio players. Preserve volume, pause, replay and fades.
+  their separate native audio players. Reuse native video elements unlocked on
+  Ask so the first audible clip can start after a long intro without another tap.
+  Preserve volume, pause, replay and fades.
 - Correct the sound settings hint to describe steady listening levels.
 - Keep the intro's completed subtitle phrase in place while generated footage
   prepares, instead of restarting the subtitle animation when the player mounts.

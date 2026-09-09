@@ -18,6 +18,8 @@ import { visualModes } from "./modes";
 import { AudioSettings } from "./audio-settings";
 import { Soundtrack } from "../player/soundtrack";
 import type { SoundtrackPlayback } from "../player/buffer-soundtrack.js";
+import { createIosVideoPool, IosVideoPoolContext } from "../player/ios-video-pool.js";
+import { isIosAudioOutput, resumeIosAudioContext } from "../player/ios-audio-output.js";
 const DESKTOP_WIDTH = 900;
 const CAPTION_STYLE_KEY = "vanillasky:caption-style";
 type CaptionStyle = "classic" | "words";
@@ -75,6 +77,13 @@ export interface VideoChatProps {
 
 /** A complete voice-and-video chat interface backed by createVideoChatHandler. */
 export function VideoChat({ options = {}, className, welcomeTitle, branding, showRecoveryNotice = false }: VideoChatProps) {
+  const [iosVideoPool] = useState(() => isIosAudioOutput() ? createIosVideoPool() : undefined);
+  useEffect(() => () => iosVideoPool?.dispose(), [iosVideoPool]);
+  const primeIosPlayback = () => {
+    if (!iosVideoPool) return;
+    iosVideoPool.prime();
+    void resumeIosAudioContext();
+  };
   const appName = branding?.name.trim() || "VanillaSky";
   const customHome = safeHomeUrl(branding?.homeUrl);
   const [dismissedNoticeTurn, setDismissedNoticeTurn] = useState<string>();
@@ -286,7 +295,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     return () => observer.disconnect();
   }, []);
 
-  return <div
+  return <IosVideoPoolContext.Provider value={iosVideoPool}><div
     className={`vanillasky-video-chat${className ? ` ${className}` : ""}`}
     data-soundtrack-owner=""
     data-orientation={stageOrientation}
@@ -295,7 +304,11 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     aria-label="Video conversation"
     onPointerMove={controls.reveal}
     onPointerDown={controls.reveal}
-    onKeyDownCapture={controls.reveal}
+    onClickCapture={primeIosPlayback}
+    onKeyDownCapture={event => {
+      if (event.key === "Enter" || event.key === " ") primeIosPlayback();
+      controls.reveal();
+    }}
   >
     {shown && !["idle", "cancelled", "error"].includes(chat.status) && <Soundtrack
       key={`${shown.id}:${chat.playerProps?.video ? chat.playerKey : "live"}`}
@@ -473,7 +486,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
         {!showing && chat.turns.length === 0 && <p className="dock-hint">Speak or type. See where it takes you.</p>}
       </div>
     </div>
-  </div>;
+  </div></IosVideoPoolContext.Provider>;
 }
 
 function safeHomeUrl(value: string | undefined): string | undefined {

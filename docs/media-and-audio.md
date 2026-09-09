@@ -219,6 +219,9 @@ one gesture-resumed Web Audio context, with separate gains. Audible native video
 can interrupt ordinary audio elements on iOS; routing those elements through
 Web Audio does not remove that restriction. Remote video retains its native
 audio path. Other browsers retain native narration and soundtrack playback.
+Ask also unlocks a pool of two native video elements on iOS. Reusing those
+elements for the active and upcoming clips preserves audible playback permission
+after the initial gesture expires; switching sources keeps the same permission.
 Music downloads are limited to 8 MiB, five minutes and 128 MiB of decoded PCM
 per track; a shuffle retains at most two tracks during its crossfade. Generated
 speech uses a 32 MiB decoded cache, allowing a single larger current line.

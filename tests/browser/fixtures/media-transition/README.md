@@ -88,6 +88,8 @@ The iOS audio-mix fixture runs the actual intro-to-body chat handoff with these
 recordings. It injects the iPhone Audio/VideoAudio interruption rule into native
 media playback, while real Web Audio decoding, clocks and analyser samples
 prove simultaneous voice and music output over advancing audible footage.
-It verifies complete speech and one uninterrupted looping music source. It
+It verifies the full intro and three successive audible clips without another
+gesture, complete speech, one uninterrupted looping music source, and no more
+than two native video elements. It
 does not emulate the physical iPhone's audio session or prove speaker output;
 that remains a device check.
