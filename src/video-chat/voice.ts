@@ -1,4 +1,5 @@
 import { primeSoundtrackGesture } from "../player/soundtrack-gesture.js";
+import { getIosAudioContext, isIosAudioOutput, resumeIosAudioContext } from "../player/ios-audio-output.js";
 import { audioVolume, rampMediaVolume } from "../player/audio-volume.js";
 import type { NarrationVoice } from "../player/use-narration.js";
 import { withDeadline } from "./deadline.js";
@@ -9,13 +10,15 @@ const DEFAULT_MAX_CACHED_LINES = 60;
 const SPEECH_PREPARATION_TIMEOUT_MS = 3_000;
 const FALLBACK_BITS_PER_SECOND = 128_000;
 const MAX_AUDIO_BYTES = 1024 * 1024;
+const MAX_DECODED_CACHE_BYTES = 32 * 1024 * 1024;
 // 25ms of silent PCM, played unmuted to retain Safari permission on this sink.
 const ACTIVATION_AUDIO = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YZABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 let sharedContext: AudioContext | undefined;
 
 type PreparedLine =
-  | { source: "generated"; src: string; seconds: number; measured?: boolean; wordTimings?: SpeechWordTiming[] }
+  | ({ source: "generated"; seconds: number; measured?: boolean; wordTimings?: SpeechWordTiming[] }
+    & ({ src: string; buffer?: never } | { buffer: AudioBuffer; src?: never }))
   | { source: "browser"; seconds: number };
 
 export interface VideoChatPreparedSpeech {
@@ -77,6 +80,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   const endpoint = options.endpoint ?? "/api/video-chat";
   const fetcher = options.fetcher ?? fetch;
   const maximum = options.maxCachedLines ?? DEFAULT_MAX_CACHED_LINES;
+  const bufferOutput = isIosAudioOutput();
   if (!Number.isInteger(maximum) || maximum <= 0) throw new Error("maxCachedLines must be a positive integer");
 
   const lines = new Map<string, PreparedLine>();
@@ -92,6 +96,10 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   let volume = 1;
   let utterance: SpeechSynthesisUtterance | undefined;
   let activeSpeech = false;
+  let buffered: {
+    context: AudioContext; gain: GainNode;
+    time: () => number; pause: () => void; resume: () => void; fail: () => void;
+  } | undefined;
   let outputContext: AudioContext | undefined;
   let nativeVolumeSupported: boolean | undefined;
   let output: { source: MediaElementAudioSourceNode; gain: GainNode } | undefined;
@@ -99,6 +107,12 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   const applyVolume = (immediate = false) => {
     cancelVolumeRamp?.();
     cancelVolumeRamp = undefined;
+    if (buffered) {
+      const { context, gain } = buffered;
+      gain.gain.cancelScheduledValues(context.currentTime);
+      if (immediate || silent) gain.gain.setValueAtTime(silent ? 0 : volume, context.currentTime);
+      else gain.gain.setTargetAtTime(volume, context.currentTime, .035);
+    }
     if (generatedElement) {
       generatedElement.muted = silent || volume === 0;
       if (output && outputContext) {
@@ -160,12 +174,16 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   };
 
   const forgetOldest = () => {
-    while (lines.size > maximum) {
+    const decodedBytes = () => [...lines.values()].reduce((total, line) => total + (line.source === "generated" && line.buffer
+      ? line.buffer.length * line.buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT : 0), 0);
+    // A single larger current line may remain cached; queued PCM cannot grow
+    // to sixty compressed-response equivalents on memory-constrained phones.
+    while (lines.size > maximum || (lines.size > 1 && decodedBytes() > MAX_DECODED_CACHE_BYTES)) {
       const oldest = lines.keys().next();
       if (oldest.done) return;
       const line = lines.get(oldest.value);
       lines.delete(oldest.value);
-      if (line?.source === "generated") URL.revokeObjectURL(line.src);
+      if (line?.source === "generated" && line.src) URL.revokeObjectURL(line.src);
     }
   };
 
@@ -227,6 +245,16 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
               bytes = await response.arrayBuffer();
             }
             preparationSignal.throwIfAborted();
+            if (!bytes.byteLength || bytes.byteLength > MAX_AUDIO_BYTES) throw new Error("Speech response is too large");
+            if (bufferOutput) {
+              const context = getIosAudioContext();
+              if (!context) throw new Error("Speech audio output is unavailable");
+              const buffer = await context.decodeAudioData(bytes.slice(0));
+              preparationSignal.throwIfAborted();
+              if (!Number.isFinite(buffer.duration) || buffer.duration <= 0) throw new Error("Invalid speech duration");
+              if (wordTimings) wordTimings = parseSpeechWordTimings(wordTimings, normalized, buffer.duration);
+              return { source: "generated", buffer, seconds: buffer.duration, measured: true, ...(wordTimings ? { wordTimings } : {}) };
+            }
             const seconds = await measureSeconds(bytes);
             if (wordTimings && seconds.measured) wordTimings = parseSpeechWordTimings(wordTimings, normalized, seconds.seconds);
             preparationSignal.throwIfAborted();
@@ -246,12 +274,12 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       }
 
       if (disposed || controller.signal.aborted) {
-        if (prepared.source === "generated") URL.revokeObjectURL(prepared.src);
+        if (prepared.source === "generated" && prepared.src) URL.revokeObjectURL(prepared.src);
         throw controller.signal.reason ?? new DOMException("Video chat voice was disposed", "AbortError");
       }
       const existing = lines.get(normalized);
       if (existing) {
-        if (prepared.source === "generated") URL.revokeObjectURL(prepared.src);
+        if (prepared.source === "generated" && prepared.src) URL.revokeObjectURL(prepared.src);
         lines.delete(normalized);
         lines.set(normalized, existing);
         return existing;
@@ -285,9 +313,78 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     browserFinish?.();
   };
 
+  const speakBuffer = (buffer: AudioBuffer, text: string, signal: AbortSignal, initialTime: number, notifyStart: () => void) => new Promise<void>((resolve, reject) => {
+    const context = getIosAudioContext();
+    if (!context) { reject(new Error("Speech audio output is unavailable")); return; }
+    const gain = context.createGain();
+    gain.connect(context.destination);
+    let source: AudioBufferSourceNode | undefined;
+    let offset = initialTime;
+    let since = context.currentTime;
+    let generation = 0;
+    let finished = false;
+    const time = () => Math.min(buffer.duration, offset + (source ? Math.max(0, context.currentTime - since) : 0));
+    const stopSource = () => {
+      generation++;
+      const previous = source;
+      source = undefined;
+      if (!previous) return;
+      previous.onended = null;
+      try { previous.stop(); } catch { /* Already ended or never started. */ }
+      previous.disconnect();
+    };
+    const finish = (failed = false) => {
+      if (finished) return;
+      finished = true;
+      stopSource();
+      gain.disconnect();
+      clearWatchdog();
+      clearInterval(onsetTimer);
+      signal.removeEventListener("abort", stop);
+      speechStops.delete(stop);
+      if (stopGenerated === stop) stopGenerated = undefined;
+      if (buffered === playback) { buffered = undefined; activeSpeech = false; }
+      if (failed) reject(new Error("Generated speech playback failed"));
+      else resolve();
+    };
+    const stop = () => finish();
+    const fail = () => finish(true);
+    const resume = () => {
+      if (finished || disposed || signal.aborted || held || source) return;
+      const attempt = ++generation;
+      const start = () => {
+        if (finished || attempt !== generation || disposed || signal.aborted || held || source) return;
+        if (context.state !== "running") { fail(); return; }
+        try {
+          const node = context.createBufferSource();
+          source = node;
+          node.buffer = buffer;
+          node.connect(gain);
+          node.onended = () => { if (source === node && attempt === generation && !held) finish(); };
+          since = context.currentTime;
+          node.start(0, offset);
+        } catch { fail(); }
+      };
+      if (context.state === "running") start();
+      else void resumeIosAudioContext().then(start, () => { if (attempt === generation && !held) fail(); });
+    };
+    const playback = { context, gain, time, resume, fail, pause: () => { offset = time(); stopSource(); } };
+    buffered = playback;
+    stopGenerated = stop;
+    applyVolume(true);
+    const clearWatchdog = watchSpeech(Math.max(buffer.duration, estimatedBrowserSeconds(text)), fail);
+    const onsetTimer = setInterval(() => {
+      if (!finished && !held && source && context.state === "running" && time() >= initialTime + .04) notifyStart();
+    }, 16);
+    speechStops.add(stop);
+    signal.addEventListener("abort", stop, { once: true });
+    if (signal.aborted) stop();
+    else resume();
+  });
+
   return {
     supportsOffsets: true,
-    getCurrentTime: () => sounding?.currentTime,
+    getCurrentTime: () => buffered?.time() ?? sounding?.currentTime,
     async prepare(text, preparation = {}) {
       const line = await load(text, preparation.signal);
       return { seconds: line.seconds, ...(line.source === "generated" && line.measured === true ? { supportsOffsets: true } : {}),
@@ -296,13 +393,24 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     pause() {
       playbackAttempt++;
       held = true;
+      buffered?.pause();
       sounding?.pause();
       globalThis.speechSynthesis?.pause();
     },
     resume() {
       held = false;
-      if (!disposed) primeSoundtrackGesture();
-      if (!disposed && nativeVolumeSupported !== true && globalThis.navigator?.userActivation?.isActive) {
+      if (!disposed && bufferOutput) {
+        // Resume synchronously from Ask/replay gestures. Voice pause/dispose
+        // never suspends or closes the context shared with music.
+        const playback = buffered;
+        const attempt = ++playbackAttempt;
+        const current = () => attempt === playbackAttempt && buffered === playback && !held && !disposed;
+        void resumeIosAudioContext().then(
+          context => { if (current()) { if (context) playback?.resume(); else playback?.fail(); } },
+          () => { if (current()) playback?.fail(); },
+        );
+      } else if (!disposed) primeSoundtrackGesture();
+      if (!bufferOutput && !disposed && nativeVolumeSupported !== true && globalThis.navigator?.userActivation?.isActive) {
         try {
           const Context = globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
           if (Context) {
@@ -313,7 +421,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       }
       // Ask/replay/resume already enter here synchronously from their gesture.
       // Prime only a fresh sink; never replace current speech or prime on timers.
-      if (!disposed && !silent && !generatedElement && globalThis.navigator?.userActivation?.isActive) {
+      if (!bufferOutput && !disposed && !silent && !generatedElement && globalThis.navigator?.userActivation?.isActive) {
         const element = generatedElement = new Audio();
         element.src = ACTIVATION_AUDIO;
         applyVolume(true);
@@ -420,66 +528,70 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       let playbackFailed = false;
       try {
         stopGenerated?.();
-        const element = generatedElement ??= new Audio();
-        element.src = line.src;
-        applyVolume(true);
-        connectOutput();
-        element.currentTime = offsetSeconds ?? 0;
-        sounding = element;
-        await new Promise<void>((resolve) => {
-          let finished = false;
-          let onsetTimer: ReturnType<typeof setTimeout> | undefined;
-          const initialTime = offsetSeconds ?? 0;
-          const finish = () => {
-            if (finished) return;
-            finished = true;
-            clearWatchdog();
-            clearTimeout(onsetTimer);
-            signal.removeEventListener("abort", stop);
-            speechStops.delete(stop);
-            element.onplaying = null;
-            element.onended = null;
-            element.onerror = null;
-            if (stopGenerated === stop) stopGenerated = undefined;
-            if (sounding === element) {
-              sounding = undefined;
-              activeSpeech = false;
-              playbackFailure = undefined;
-            }
-            resolve();
-          };
-          const stop = () => {
-            if (finished) return;
-            element.pause();
-            finish();
-          };
-          const fail = () => { if (!finished) { playbackFailed = true; stop(); } };
-          stopGenerated = stop;
-          const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
-          speechStops.add(stop);
-          playbackFailure = fail;
-          // A native playing event may precede a working audio sink. Wait for
-          // the actual media clock to advance beyond its seek position; a tiny
-          // decoder priming increment alone is not audible onset evidence.
-          const observeClock = () => {
-            clearTimeout(onsetTimer);
-            if (finished || started) return;
-            if (!held && element.currentTime >= initialTime + 0.04) notifyStart("generated");
-            if (!started) onsetTimer = setTimeout(observeClock, 16);
-          };
-          element.onplaying = observeClock;
-          element.onended = finish;
-          element.onerror = fail;
-          signal.addEventListener("abort", stop, { once: true });
-          if (!held) playGenerated(element, fail);
-        });
+        if (line.buffer) {
+          await speakBuffer(line.buffer, text, signal, offsetSeconds ?? 0, () => notifyStart("generated"));
+        } else {
+          const element = generatedElement ??= new Audio();
+          element.src = line.src;
+          applyVolume(true);
+          connectOutput();
+          element.currentTime = offsetSeconds ?? 0;
+          sounding = element;
+          await new Promise<void>((resolve) => {
+            let finished = false;
+            let onsetTimer: ReturnType<typeof setTimeout> | undefined;
+            const initialTime = offsetSeconds ?? 0;
+            const finish = () => {
+              if (finished) return;
+              finished = true;
+              clearWatchdog();
+              clearTimeout(onsetTimer);
+              signal.removeEventListener("abort", stop);
+              speechStops.delete(stop);
+              element.onplaying = null;
+              element.onended = null;
+              element.onerror = null;
+              if (stopGenerated === stop) stopGenerated = undefined;
+              if (sounding === element) {
+                sounding = undefined;
+                activeSpeech = false;
+                playbackFailure = undefined;
+              }
+              resolve();
+            };
+            const stop = () => {
+              if (finished) return;
+              element.pause();
+              finish();
+            };
+            const fail = () => { if (!finished) { playbackFailed = true; stop(); } };
+            stopGenerated = stop;
+            const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
+            speechStops.add(stop);
+            playbackFailure = fail;
+            // A native playing event may precede a working audio sink. Wait for
+            // the actual media clock to advance beyond its seek position; a tiny
+            // decoder priming increment alone is not audible onset evidence.
+            const observeClock = () => {
+              clearTimeout(onsetTimer);
+              if (finished || started) return;
+              if (!held && element.currentTime >= initialTime + 0.04) notifyStart("generated");
+              if (!started) onsetTimer = setTimeout(observeClock, 16);
+            };
+            element.onplaying = observeClock;
+            element.onended = finish;
+            element.onerror = fail;
+            signal.addEventListener("abort", stop, { once: true });
+            if (!held) playGenerated(element, fail);
+          });
+        }
       } catch {
         playbackFailed = true;
       }
       if (playbackFailed && offsetSeconds !== undefined) throw new Error("Grouped narration playback failed");
       if (playbackFailed && !disposed && !signal.aborted && !silent) {
         notifyFallback();
-        URL.revokeObjectURL(line.src);
+        if (line.src) URL.revokeObjectURL(line.src);
         lines.set(text.trim(), { source: "browser", seconds: estimatedBrowserSeconds(text) });
         await this.speak(text, { signal, onStart: notifyStart, onBoundary, onPlaybackSource });
       }
@@ -509,7 +621,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       stopGenerated = undefined;
       stopBrowser();
       for (const line of lines.values()) {
-        if (line.source === "generated") URL.revokeObjectURL(line.src);
+        if (line.source === "generated" && line.src) URL.revokeObjectURL(line.src);
       }
       lines.clear();
     },
