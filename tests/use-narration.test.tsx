@@ -56,13 +56,17 @@ describe("useNarration", () => {
     const { result, unmount } = renderHook(() => useNarration({ voice, onSpeechStart }));
     act(() => result.current.onSceneChange(scene("first", "First line."), 0));
     expect(onSpeechStart).not.toHaveBeenCalled();
+    expect(result.current.isSpeaking(scene("first"))).toBe(false);
     act(() => result.current.onSceneChange(scene("second", "Second line."), 1));
     starts[0]?.("browser");
     expect(onSpeechStart).not.toHaveBeenCalled();
     starts[1]?.("generated");
     starts[1]?.("generated");
     expect(onSpeechStart).toHaveBeenCalledExactlyOnceWith("generated");
+    expect(result.current.isSpeaking(scene("second"))).toBe(true);
+    expect(result.current.isSpeaking(scene("first"))).toBe(false);
     act(() => result.current.interrupt());
+    expect(result.current.isSpeaking(scene("second"))).toBe(false);
     act(() => result.current.onSceneChange(scene("third", "Third line."), 2));
     unmount();
     starts[2]?.("browser");

@@ -13,6 +13,7 @@ import fittingAudioUrl from "./media-transition/clip-narration.wav?url";
 // ffmpeg -i paragraph.wav -af atempo=1.36 quiet-tail-paragraph.wav (4.714s)
 import repeatAudioUrl from "./media-transition/bounded-paragraph.wav?url";
 import quietTailAudioUrl from "./media-transition/quiet-tail-paragraph.wav?url";
+import longAudioUrl from "./media-transition/long-narration.wav?url";
 import { prepareNarratedScene } from "../../../src/player/scene-readiness";
 import fullWebm from "./media-transition/waterfall-hold.webm?url";
 import shortWebm from "./media-transition/waterfall-short.webm?url";
@@ -21,12 +22,19 @@ import full from "./media-transition/waterfall.mp4?url";
 import audible from "./media-transition/waterfall-audio.mp4?url";
 import short from "./media-transition/waterfall-short.mp4?url";
 const params = new URLSearchParams(location.search);
-const text = params.has("oversized") || params.has("repeat") || params.has("quiet-tail") ? "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light." : "Water keeps flowing through the forest.";
+const text = params.has("long-repeat") || params.has("unmeasured")
+  ? "Water tumbles over the rocks and gathers in a clear pool. Small ripples spread across the surface while leaves drift slowly toward the narrow stream at the edge of the forest. Sunlight catches the falling water, making each new ripple shimmer as it travels across the pool."
+  : params.has("oversized") || params.has("repeat") || params.has("quiet-tail") ? "First we see the water flowing. Then the tram moves through the city. Finally the flowers turn toward the light." : "Water keeps flowing through the forest.";
 const clips = params.has("webm") ? { full: fullWebm, short: shortWebm, audible: audibleWebm } : { full, short, audible };
 const samples: Array<Record<string, number | string | boolean | null>> = [];
 const events: string[] = [];
 const phases: Array<Record<string, number | string | boolean>> = [];
 Object.assign(window, { continuityProof: { samples, events, phases } });
+document.addEventListener("vanillasky:media-recovery", event => {
+  const reason = String((event as CustomEvent<{ reason?: string }>).detail?.reason ?? "unknown");
+  events.push(`recovery:${reason}`);
+  phases.push({ kind: "media-recovery", reason, at: performance.now() });
+});
 // iOS narration uses decoded sources. Observe their real completion while
 // excluding explicitly stopped sources (pause, interruption and cancellation).
 if (isIosAudioOutput()) {
@@ -47,15 +55,16 @@ HTMLMediaElement.prototype.play = function () {
   phases.push({kind:this instanceof HTMLAudioElement ? "audio-play-call" : "video-play-call",at:performance.now(),time:this.currentTime});
   if (this instanceof HTMLAudioElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    this.addEventListener("ended", () => { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); });
+    this.addEventListener("ended", () => { events.push("audio-ended"); phases.push({ kind: "audio-ended", at: performance.now() }); }, { capture: true });
     this.addEventListener("playing", () => events.push("audio-playing"));
     this.addEventListener("error", () => events.push("audio-error"));
   }
   if (this instanceof HTMLVideoElement && !this.dataset.observed) {
     this.dataset.observed = "true";
-    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended"]) this.addEventListener(kind, () => {
+    for (const kind of ["play", "waiting", "playing", "pause", "seeking", "seeked", "ended", "error"]) this.addEventListener(kind, () => {
       events.push(`video:${kind}:${this.currentTime.toFixed(3)}:${this.paused}:${getComputedStyle(this).visibility}`);
-    });
+      if (kind === "error") phases.push({ kind: "video-error", at: performance.now(), code: this.error?.code ?? 0, readyState: this.readyState });
+    }, { capture: true });
   }
   return nativePlay.call(this);
 };
@@ -81,8 +90,16 @@ HTMLMediaElement.prototype.pause = function () {
   }
   return result;
 };
-const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : params.has("repeat") ? repeatAudioUrl : params.has("quiet-tail") ? quietTailAudioUrl : params.has("oversized") ? audioUrl : fittingAudioUrl) });
-const playbackVoice = { ...voice, speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
+const voice = createVideoChatVoice({ fetcher: (_url, init) => fetch(JSON.parse(String(init?.body)).text === "Opening cue" ? cueUrl : params.has("long-repeat") || params.has("unmeasured") ? longAudioUrl : params.has("repeat") ? repeatAudioUrl : params.has("quiet-tail") ? quietTailAudioUrl : params.has("oversized") ? audioUrl : fittingAudioUrl) });
+const playbackVoice = { ...voice,
+  // Exercise browser/custom voice timing with real audio completion, while
+  // exposing only an estimate and no audio clock to the player.
+  prepare: async (...args: Parameters<typeof voice.prepare>) => {
+    const prepared = await voice.prepare(...args);
+    return params.has("unmeasured") ? { ...prepared, seconds: 7, supportsOffsets: false } : prepared;
+  },
+  getCurrentTime: params.has("unmeasured") ? undefined : voice.getCurrentTime,
+  speak: async (line: string, options: Parameters<typeof voice.speak>[1]) => {
   if (params.has("delayed")) {
     phases.push({kind:"speech-delay-start",at:performance.now()});
     const deadline = performance.now() + 1000;
@@ -104,12 +121,12 @@ function App() {
     if (isIosAudioOutput()) voice.resume();
     await voice.prepare("Opening cue");
     await voice.speak("Opening cue", { signal: new AbortController().signal });
-    const prepared = await voice.prepare(text);
+    const prepared = await playbackVoice.prepare(text);
     phases.push({ kind: "prepared-speech", at: performance.now(), seconds: prepared.seconds ?? -1 });
     setVideo({ schemaVersion: "0.2", orientation: "portrait", style: {}, scenes: (params.has("same-url") ? ["one", "two", "three"] : ["one"]).map(id => prepareNarratedScene({
       id, templateId: "cinemaMedia", variables: { mediaUrl: params.has("missing") ? "" : params.has("unusable") ? "data:video/mp4;base64,aW52YWxpZA==" : params.has("short") ? clips.short : params.has("audible") ? clips.audible : clips.full, mediaType: "video", fallbackText: "Water keeps moving" },
       timing: { fixedDuration: 5 }, narration: text,
-    }, prepared.seconds, prepared.supportsOffsets === true).scene) });
+    }, prepared.seconds, prepared.supportsOffsets === true, true).scene) });
     // Sample actual decoded pixels from this same-origin moving fixture. Native
     // WebKit may pin currentTime at clip duration while native looping moves.
     const canvas = document.createElement("canvas");

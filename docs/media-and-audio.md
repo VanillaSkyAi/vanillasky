@@ -150,22 +150,26 @@ Set `generatedClipDurationSec` to the duration your video adapter actually
 requests (default 5, supported range 2–20 seconds). Keep it aligned with provider
 settings and host spending limits. The planner fits natural spoken beats to that
 budget with a 0.8-second tail. One bounded rewrite may shorten an oversized
-beat before generation; otherwise its complete narration stays on a chapter.
-Measured audio and actual decoded footage are checked before playback. Normal
-footage plays once at native speed. If measured speech itself exceeds a healthy
-clip by at most the smaller of one second or 25% of its length, playback may
-repeat that same clip once, stopping when speech finishes. It never repeats just
-to fill the quiet tail: when speech already fits, a shorter available tail is
-allowed. Larger or unmeasured speech overruns, missing media and failed/stalled
-decoders still recover to a chapter without cutting off narration or buying
-another clip. The mounted decoder rechecks the bound against actual footage;
-pause/resume does not grant another repeat, and explicit replay starts a fresh
-playback lifecycle.
+beat before generation, keeping one complete idea and its necessary qualifiers.
+Failed shortening retains the original narration and still requests or keeps
+the scene's footage. It does not request longer or additional generated clips.
 
-Repeat eligibility uses the prepared audio's decoded duration, not a browser
-speech estimate. A custom voice must return `supportsOffsets: true` from
-`prepare` only when its audio is measured and seekable. In-memory replay keeps
-that prepared timing; the mounted decoder still enforces the repeat bound.
+Healthy footage plays at native speed and repeats on the same decoder for as
+long as its narration needs. Chat uses confirmed speech onset and the actual
+completion promise, including browser speech and generated-voice fallback. A
+pending voice cannot start repetitions. Playback retains its eight-second
+over-budget completion deadline and the voice's own timeout. Repetition ends
+with speech; it never fills an extra quiet tail. Fitting speech retains the
+available tail within its first pass. Pause holds the current pass, and replay
+starts a fresh playback lifecycle. Missing media and failed/stalled decoders
+still recover to a chapter without cutting off narration or buying another clip.
+
+Without a live narration-completion callback, repetition requires fresh measured
+speech and is bounded by that recording's duration. A custom voice must return
+`supportsOffsets: true` from `prepare` only when its audio is measured and
+seekable. Browser speech estimates and persisted variables cannot certify a
+measurement. In-memory replay keeps its prepared timing; the mounted decoder
+checks each pass against the actual footage duration and playback health.
 
 `generateVideoTimeoutMs` sets the first-shot preparation budget (default 15 seconds).
 Later deadlines account for their position in the answer rather than restarting

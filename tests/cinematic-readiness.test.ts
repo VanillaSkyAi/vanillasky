@@ -3,6 +3,14 @@ import { prepareNarratedScene, preparedSceneDuration } from "../src/player/scene
 import type { VideoScene } from "../src/protocol/types";
 const scene = (seconds: number): VideoScene => ({ id: String(seconds), templateId: "points", variables: { items: ["One", "Two", "Three", "Four"] }, timing: { fixedDuration: seconds } });
 describe("cinematic preparation", () => {
+  it("retains estimated footage only when live narration will own its completion", () => {
+    const footage: VideoScene = { id: "browser", templateId: "cinemaMedia", variables: { mediaDurationSec: 5, measuredSpeechDurationSec: 99 }, narration: "The complete browser-spoken line.", timing: { fixedDuration: 5 } };
+    const prepared = prepareNarratedScene(footage, 10, false, true);
+    expect(prepared.recovered).toBe(false);
+    expect(prepared.scene.templateId).toBe("cinemaMedia");
+    expect(prepared.scene.variables.measuredSpeechDurationSec).toBeUndefined();
+    expect(prepareNarratedScene(footage, 10, false).recovered).toBe(true);
+  });
   it("does not certify an estimated duration or use it for exceptional repeat or a shorter tail", () => {
     const footage: VideoScene = { id: "estimated", templateId: "cinemaMedia", variables: { mediaDurationSec: 5 }, narration: "The whole line is preserved.", timing: { fixedDuration: 5 } };
     for (const seconds of [4.5, 5.5]) {
@@ -14,13 +22,16 @@ describe("cinematic preparation", () => {
   });
   it.each([
     { clip: 2, speech: 2.5 },
-    { clip: 5, speech: 6 },
-  ])("retains footage only within one bounded measured overrun ($clip seconds)", ({ clip, speech }) => {
+    { clip: 5, speech: 7 },
+    { clip: 5, speech: 10 },
+    { clip: 5, speech: 12 },
+    { clip: 5, speech: 22 },
+  ])("retains footage for the complete measured narration ($clip seconds, $speech spoken)", ({ clip, speech }) => {
     const footage: VideoScene = { id: "repeat", templateId: "cinemaMedia", variables: { mediaUrl: "/clip.mp4", mediaType: "video", mediaDurationSec: clip }, narration: "The complete recorded line.", timing: { fixedDuration: clip } };
     const prepared = prepareNarratedScene(footage, speech, true);
     expect(prepared).toMatchObject({ recovered: false, scene: { templateId: "cinemaMedia", narration: footage.narration } });
     expect(prepared.scene.timing.fixedDuration).toBeCloseTo(speech);
-    expect(prepareNarratedScene(footage, speech + .01, true)).toMatchObject({ recovered: true, scene: { templateId: "chapterTitle", narration: footage.narration } });
+    expect(prepared.scene.variables.measuredSpeechDurationSec).toBe(speech);
   });
   it.each([
     { requested: 2, actual: undefined },
@@ -31,9 +42,9 @@ describe("cinematic preparation", () => {
     expect(prepared).toMatchObject({ recovered: false, clipDurationSec: 2, scene: { templateId: "cinemaMedia", narration: footage.narration } });
     expect(prepared.scene.timing.fixedDuration).toBeCloseTo(2);
     expect(prepared.scene.timing.fixedDuration).toBeLessThanOrEqual(2);
-    const oversized = prepareNarratedScene(footage, 2.51, true);
-    expect(oversized).toMatchObject({ recovered: true, scene: { templateId: "chapterTitle", narration: footage.narration } });
-    expect(oversized.scene.timing.fixedDuration).toBeCloseTo(3.31);
+    const repeated = prepareNarratedScene(footage, 2.51, true);
+    expect(repeated).toMatchObject({ recovered: false, scene: { templateId: "cinemaMedia", narration: footage.narration } });
+    expect(repeated.scene.timing.fixedDuration).toBeCloseTo(2.51);
   });
   it.each([1.7, 2])("does not extend footage just to fill a quiet tail after %s seconds of measured speech", speech => {
     const footage: VideoScene = { id: "tail", templateId: "cinemaMedia", variables: { mediaDurationSec: 2 }, narration: "Waves rise.", timing: { fixedDuration: 2 } };
@@ -41,7 +52,7 @@ describe("cinematic preparation", () => {
     expect(prepared.recovered).toBe(false);
     expect(prepared.scene.timing.fixedDuration).toBe(2);
   });
-  it.each([undefined, NaN, Infinity])("does not trust persisted speech measurement when current speech is %s", speech => {
+  it.each([undefined, NaN, Infinity, 0, -1])("does not trust persisted speech measurement when current speech is %s", speech => {
     const footage: VideoScene = { id: "unknown", templateId: "cinemaMedia", variables: { mediaDurationSec: 2, measuredSpeechDurationSec: 2.1 }, narration: "The wave rises near the shore and carries energy through the water.", timing: { fixedDuration: 2 } };
     const prepared = prepareNarratedScene(footage, speech, true);
     expect(prepared).toMatchObject({ recovered: true, scene: { templateId: "chapterTitle", narration: footage.narration } });
@@ -67,13 +78,13 @@ describe("cinematic preparation", () => {
     const footage: VideoScene = { id: "wave", templateId: "cinemaMedia", variables: {}, narration: "The wave rises near the shore and carries energy through the water.", timing: { fixedDuration: 2 } };
     expect(prepareNarratedScene(footage, undefined).scene.timing.fixedDuration).toBeGreaterThan(2);
   });
-  it("recovers complete narration when reported footage is shorter than requested", () => {
+  it("repeats delivered footage when it is shorter than measured narration", () => {
     const footage: VideoScene = { id: "wave", templateId: "cinemaMedia", variables: { mediaUrl: "https://media.test/wave.mp4", mediaType: "video", mediaDurationSec: 5, fallbackText: "The wave rises" }, narration: "The wave rises near the shore.", timing: { fixedDuration: 6 } };
     expect(prepareNarratedScene(footage, 4, true).scene).toMatchObject({ templateId: "cinemaMedia", timing: { fixedDuration: 4.8 } });
-    const recovered = prepareNarratedScene(footage, 6.01, true);
-    expect(recovered.recovered).toBe(true);
-    expect(recovered.scene).toMatchObject({ templateId: "chapterTitle", narration: footage.narration, variables: { title: "The wave rises" } });
-    expect(recovered.scene.timing.fixedDuration).toBeCloseTo(6.81);
+    const repeated = prepareNarratedScene(footage, 6.01, true);
+    expect(repeated.recovered).toBe(false);
+    expect(repeated.scene).toMatchObject({ templateId: "cinemaMedia", narration: footage.narration });
+    expect(repeated.scene.timing.fixedDuration).toBeCloseTo(6.01);
     expect(footage.templateId).toBe("cinemaMedia");
   });
   it("short speech cannot erase the reading and authored minimum", () => {

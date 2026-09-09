@@ -415,7 +415,7 @@ export function VideoPlayerRuntime({
     : config;
   const duration = config ? getVideoDuration(config) : 0;
   const terminal = state.status === "complete" || state.status === "error" || state.status === "aborted";
-  const playheadAtEnd = terminal && duration > 0 && currentTime >= duration - 0.001;
+  const playheadAtEnd = terminal && duration > 0 && currentTime >= duration;
   const ended = !loop && playheadAtEnd;
   useEffect(() => {
     if (!playheadAtEnd) {
@@ -468,6 +468,7 @@ export function VideoPlayerRuntime({
     }
     if (!isPlaying && ended) {
       activeMediaRef.current = undefined;
+      sceneIndexRef.current = -1;
       timeRef.current = 0;
       setCurrentTime(0);
       if (audioRef.current) audioRef.current.currentTime = 0;
@@ -543,6 +544,7 @@ export function VideoPlayerRuntime({
           height={dimensions.height}
           playing={mediaPlaying}
           preparingNarration={isPlaying && !mediaPlaying}
+          narrationActive={narrationActive}
           mediaAudioMuted={!nativeMediaAudio || isMuted}
           mediaAudioAmbientOnly={nativeMediaAudio?.ambientOnly}
           mediaAudioVolume={nativeMediaVolume}

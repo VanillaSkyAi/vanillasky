@@ -13,6 +13,7 @@ interface BackdropContextValue {
   audioMuted: boolean;
   audioVolume: number;
   preparingNarration?: boolean;
+  narrationActive?: () => boolean;
   onMediaError?: (reason?: MediaRecoveryReason) => void;
 }
 
@@ -29,6 +30,7 @@ export function ExternalVideoBackdropProvider({
   audioMuted = true,
   audioVolume = 1,
   preparingNarration = false,
+  narrationActive,
   onMediaError,
   children,
 }: {
@@ -36,12 +38,13 @@ export function ExternalVideoBackdropProvider({
   audioMuted?: boolean;
   audioVolume?: number;
   preparingNarration?: boolean;
+  narrationActive?: () => boolean;
   onMediaError?: (reason?: MediaRecoveryReason) => void;
   children: React.ReactNode;
 }) {
   const value = React.useMemo(
-    () => ({ mode, audioMuted, audioVolume, preparingNarration, onMediaError }),
-    [mode, audioMuted, audioVolume, preparingNarration, onMediaError],
+    () => ({ mode, audioMuted, audioVolume, preparingNarration, narrationActive, onMediaError }),
+    [mode, audioMuted, audioVolume, preparingNarration, narrationActive, onMediaError],
   );
   return (
     <BackdropContext.Provider value={value}>
@@ -62,6 +65,11 @@ export function useMediaAudio(): { muted: boolean; volume: number } {
 /** Internal first-frame priming state; an explicit viewer pause never sets it. */
 export function useNarrationPreroll(): boolean {
   return React.useContext(BackdropContext).preparingNarration === true;
+}
+
+/** Scene-bound live speech; the player owns its completion and timeout policy. */
+export function useActiveNarration(): (() => boolean) | undefined {
+  return React.useContext(BackdropContext).narrationActive;
 }
 
 /** Routes local decoder/playback failures to the scene-owned recovery surface. */

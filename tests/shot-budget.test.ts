@@ -93,10 +93,10 @@ describe("clip budget before paid generation", () => {
     expect(generated).toEqual([durationSec]);
     expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "cinemaMedia", narration: "Conditions matter." } });
   });
-  it.each(["empty", "oversized", "provider-error", "timeout"] as const)("identifies a %s rewrite without exposing its content", async reason => {
+  it.each(["empty", "oversized", "provider-error", "timeout"] as const)("retains healthy footage after a %s rewrite without exposing its content", async reason => {
     vi.useFakeTimers();
     const diagnostics: unknown[] = [];
-    const generateVideo = vi.fn(() => null);
+    const generateVideo = vi.fn(() => ({ type: "video" as const, url: "https://app.test/clip.mp4", durationSec: 5 }));
     const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateVideo,
       onDiagnostic: event => { diagnostics.push(event); },
       generateText: () => {
@@ -112,8 +112,9 @@ describe("clip budget before paid generation", () => {
     expect(diagnostics).toContainEqual(expect.objectContaining({ phase: "narration-rewrite", reason, clipDurationSec: 5, durationMs: expect.any(Number) }));
     expect(JSON.stringify(diagnostics)).not.toContain(oversized);
     expect(JSON.stringify(diagnostics)).not.toContain("private-provider-detail");
-    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "chapterTitle", narration: oversized } });
-    expect(generateVideo).not.toHaveBeenCalled();
+    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "cinemaMedia", narration: oversized, variables: { mediaUrl: "https://app.test/clip.mp4" } } });
+    expect(generateVideo).toHaveBeenCalledOnce();
+    expect(events.filter(e => e.type === "response.warning")).toEqual([]);
   });
   it("uses available stock duration rather than the generated-video budget through speech preparation", async () => {
     const narration = "Water moving across the shallow sea floor slows the wave before it breaks near shore.";
@@ -138,12 +139,49 @@ describe("clip budget before paid generation", () => {
     expect(generation.mock.calls[0]?.[1]).toMatchObject({ requestedDurationSec: 5, shotDirection: expect.stringContaining("Show the shore"), deadlineAt: expect.any(Number) });
     expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { narration: "The result depends on these conditions.", variables: { mediaDurationSec: 5 } } });
   });
-  it.each(["", "[]", oversized])("preserves the entire oversized line as a chapter when rewrite is unusable", async rewrite => {
+  it.each(["", "[]", oversized])("preserves the entire oversized line with footage when rewrite is unusable", async rewrite => {
     const { handler, text, generation } = setup(rewrite);
     const events = await collect(await handler(request()));
     expect(text).toHaveBeenCalledOnce();
-    expect(generation).toHaveBeenCalledTimes(1); // Only the short ending is billable.
-    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "chapterTitle", narration: oversized } });
+    expect(generation).toHaveBeenCalledTimes(2);
+    expect(generation.mock.calls.map(([, context]) => context.requestedDurationSec)).toEqual([5, 5]);
+    expect(events.find(e => e.type === "scene.add")?.data).toMatchObject({ scene: { templateId: "cinemaMedia", narration: oversized, timing: { fixedDuration: 5 } } });
+    expect(events.filter(e => e.type === "response.warning")).toEqual([]);
+    expect(events.find(e => e.type === "response.complete")?.data.snapshot.scenes).toEqual(events.filter(e => e.type === "scene.add").map(e => e.data.scene));
+  });
+  it("retains selected short stock footage after an oversized rewrite without generating or searching again", async () => {
+    const rewrite = vi.fn(() => oversized);
+    const generateVideo = vi.fn(() => null);
+    const searchMedia = vi.fn(() => ({ type: "video" as const, url: "https://app.test/stock.mp4", durationSec: 5 }));
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false,
+      generateText: rewrite, generateVideo, searchMedia,
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
+    });
+    const events = await collect(await handler(new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "Explain waves", mode: "pexels" }) })));
+    expect(searchMedia).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
+    expect(searchMedia.mock.invocationCallOrder[0]).toBeLessThan(rewrite.mock.invocationCallOrder[0]!);
+    expect(generateVideo).not.toHaveBeenCalled();
+    expect(events.find(e => e.type === "scene.add")?.data.scene).toMatchObject({ templateId: "cinemaMedia", narration: oversized, variables: { mediaUrl: "https://app.test/stock.mp4", mediaDurationSec: 5 } });
+    expect(events.filter(e => e.type === "response.warning")).toEqual([]);
+  });
+  it.each([
+    { mode: "cinematic", failure: "missing" }, { mode: "cinematic", failure: "rejected" },
+    { mode: "pexels", failure: "missing" }, { mode: "pexels", failure: "rejected" },
+  ] as const)("preserves complete narration on a chapter for actual $mode media $failure", async ({ mode, failure }) => {
+    const failedMedia = () => { if (failure === "rejected") throw new Error("private-media-detail"); return null; };
+    const generateVideo = vi.fn(failedMedia), searchMedia = vi.fn(failedMedia);
+    const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false,
+      generateText: () => "", generateVideo, searchMedia,
+      streamText: async function* () { yield JSON.stringify({ ...brief, development: "", ending: { ...ending, narration: oversized } }) + "\n"; },
+    });
+    const events = await collect(await handler(new Request("https://app.test/video?action=response", { method: "POST", body: JSON.stringify({ prompt: "Explain waves", mode }) })));
+    expect(generateVideo).toHaveBeenCalledTimes(mode === "cinematic" ? 1 : 0);
+    expect(searchMedia).toHaveBeenCalledTimes(mode === "pexels" ? 1 : 0);
+    expect(events.find(e => e.type === "scene.add")?.data.scene).toMatchObject({ templateId: "chapterTitle", narration: oversized, variables: { title: ending.title } });
+    expect(events.filter(e => e.type === "response.warning")).toContainEqual(expect.objectContaining({ data: { warning: expect.objectContaining({ code: "provider_warning", recoverable: true }) } }));
+    expect(events.at(-1)?.type).toBe("response.complete");
+    expect(JSON.stringify(events)).not.toContain("private-media-detail");
   });
   it("cancels a stalled rewrite before any paid video job starts", async () => {
     let started!: () => void;

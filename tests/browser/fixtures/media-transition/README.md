@@ -4,9 +4,18 @@
 flowing through the forest.” at 170 words per minute, converted to mono 24 kHz
 PCM WAV. Its measured 1.965 seconds plus the 0.8-second tail fits the five-second
 normal clip without slowing or repeating it. The `oversized` case keeps the full
-6.419-second paragraph and verifies recovery before footage playback; the
-`short` case verifies the mounted decoder's actual-duration recovery. Neither
+6.419-second paragraph and verifies one repeat with complete speech. The
+`short` case checks the mounted decoder against shorter actual footage. No
 case truncates its original audio. No paid generation is involved.
+
+`long-narration.wav` is a 14.282-second offline Samantha recording of the
+waterfall paragraph in `continuous-video.tsx`, synthesized with `say` at 170
+words per minute and converted with FFmpeg to mono 24 kHz PCM WAV. It verifies
+two repeats of the five-second footage, moving pixels after each wrap, one
+complete spoken line, and decoder identity through pause and replay. The
+`unmeasured` case plays this same recording but exposes a seven-second estimate
+and no audio clock, exercising completion-driven browser/custom voice timing
+without pretending the estimate is a measured duration.
 
 `waterfall-hold.webm` is a VP8, 360 × 640, 30 fps, five-second derivative of
 `waterfall.mp4`, showing the same waterfall footage. Its source attribution is
@@ -31,7 +40,7 @@ claiming continuous H264 playback is verified on Linux WebKit.
 The delayed-speech regression waits inside the page with `waitForFunction`. Do not poll through repeated `page.evaluate` calls while waiting for gesture expiry: those protocol calls renewed activation in WebKit and masked the original `NotAllowedError`. Read telemetry only after the in-page completion signal.
 
 The continuous-narration fixture uses the same offline paragraph in full over
-moving footage. `waterfall-short.mp4` is its deliberately insufficient 1.5-second
+moving footage. `waterfall-short.mp4` is its deliberately shorter 1.5-second
 H264 excerpt; `waterfall-audio.mp4` adds a synthetic 220 Hz AAC tone to the full
 clip to verify native audible playback without repeating dialogue. Their WebM
 variants use VP8 and Opus for Linux WebKit, following the documented native H264

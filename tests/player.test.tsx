@@ -229,6 +229,44 @@ describe("VideoPlayer", () => {
     expect(onPlaybackEnd).toHaveBeenCalledOnce();
   });
 
+  it("does not report completion just before the clock holds for unfinished narration", async () => {
+    await preloadBuiltinTemplate("chapterTitle");
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let frameId = 0, now = 0, speaking = true;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      queuedFrames.set(++frameId, callback);
+      return frameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queuedFrames.delete(id));
+    const nextFrame = (time: number) => {
+      now = time;
+      const callbacks = [...queuedFrames.values()];
+      queuedFrames.clear();
+      for (const callback of callbacks) callback(now);
+    };
+    const { VideoPlayer } = await import("../src/player/video-player");
+    const video: Video = { schemaVersion: "0.2", style: TEST_VIDEO_STYLE,
+      scenes: [{ id: "only", templateId: "chapterTitle", variables: { title: "A complete thought" }, narration: "The whole thought continues.", timing: { fixedDuration: 2 } }] };
+    const onPlaybackEnd = vi.fn(), onSceneChange = vi.fn();
+    const view = render(createElement(VideoPlayer, { video, autoPlay: true, onPlaybackEnd, onSceneChange, narrationActive: () => speaking }));
+    act(() => nextFrame(16));
+    act(() => nextFrame(32));
+    expect(onSceneChange).toHaveBeenCalledOnce();
+    const player = view.getByTestId("video-player");
+    const current = Number(player.getAttribute("data-current-time"));
+    // A browser RAF can land less than a millisecond before the estimated end.
+    act(() => nextFrame(now + (2 - current) * 1000 - .5));
+    expect(player.getAttribute("data-ended")).toBe("false");
+    expect(onPlaybackEnd).not.toHaveBeenCalled();
+    act(() => nextFrame(now + 32));
+    expect(player.getAttribute("data-ended")).toBe("false");
+    speaking = false;
+    act(() => nextFrame(now + 1000));
+    expect(player.getAttribute("data-ended")).toBe("true");
+    expect(onPlaybackEnd).toHaveBeenCalledOnce();
+  });
+
   it("reports playback end again for replacement content", async () => {
     const { preloadBuiltinTemplate } = await import("../src/visual-system/catalog/builtin-player");
     await preloadBuiltinTemplate("chapterTitle");

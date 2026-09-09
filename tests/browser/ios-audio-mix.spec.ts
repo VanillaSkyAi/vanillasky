@@ -44,3 +44,121 @@ test("intro music and complete voice survive three audible AI clips after the iO
   expect(result.musicStarts).toBe(1);
   expect(result.musicGains.every(gain => Math.abs(gain - .2) < .005)).toBe(true);
 });
+
+test("the final audible iOS clip repeats through complete long narration and continuous music", async ({ page, browserName }, testInfo) => {
+  test.setTimeout(45_000);
+  await page.addInitScript(() => Object.defineProperty(navigator, "platform", { configurable: true, value: "iPhone" }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/audio-library/*.mp3", route => route.fulfill({ path: path.resolve("tests/browser/fixtures/media-transition/music.mp3"), contentType: "audio/mpeg" }));
+  const webm = process.platform === "linux" && browserName === "webkit";
+  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/ios-audio-mix.html?longFinal${webm ? "&webm" : ""}`);
+  await page.getByRole("textbox", { name: "Prompt" }).fill("Keep showing the water while the complete explanation finishes");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await page.waitForFunction(() => {
+    const proof = (window as unknown as { iosAudioProof: { speech: Array<{ event: string }>; musicStarts: number } }).iosAudioProof;
+    return proof.speech.some(event => event.event === "start") && proof.musicStarts === 1;
+  });
+  const track = await page.locator('[data-soundtrack="active"]').getAttribute("data-track-id");
+  await page.getByRole("button", { name: "Deliver body", exact: true }).click();
+  // Observe inside the page through the entire intro and final narration.
+  // No evaluate polling or further gestures may grant new Safari permission.
+  await page.waitForFunction(() => {
+    const proof = (window as unknown as { iosAudioProof: { speech: Array<{ event: string }>; playbackEndAt?: number } }).iosAudioProof;
+    return proof.speech.filter(event => event.event === "end").length === 4 && proof.playbackEndAt !== undefined;
+  }, undefined, { timeout: 40_000 });
+  const result = await page.evaluate(() => (window as unknown as { iosAudioProof: {
+    speech: Array<{ text: string; event: string; at: number }>;
+    bufferEnds: Array<{ at: number; duration: number }>;
+    playbackEndAt: number;
+    contexts: number; nativeAudio: number; nativeInterruptions: number; frames: number;
+    mixedSamples: number; musicStarts: number; musicGains: number[]; fallback: number; videoPlayers: number;
+    videoEvents: Array<{ kind: string; scene?: string }>;
+    samples: Array<{
+      at: number; scene: string; videoId: number; time: number; audioTime: number;
+      speaking: boolean; music: boolean; voice: boolean; trackId: string | null;
+      muted: boolean; hidden: boolean; chapter: boolean; rate: number;
+      readyState: number; seeking: boolean; videoWidth: number;
+      presentedTime: number | null; presentedFrames: number; fingerprint: number | null; luma: number | null;
+    }>;
+  } }).iosAudioProof);
+  const final = result.samples.filter(sample => sample.speaking);
+  const wraps = final.flatMap((sample, index) => index > 0 && sample.time < final[index - 1].time - .5 ? [index] : []);
+  const evidence = testInfo.outputPath("ios-long-narration-proof.json");
+  await writeFile(evidence, JSON.stringify({ ...result, wraps, webm, physicalIos: false }));
+  await testInfo.attach("ios-long-narration-proof.json", { path: evidence, contentType: "application/json" });
+
+  expect(result.speech.map(event => event.event)).toEqual(["start", "end", "start", "end", "start", "end", "start", "end"]);
+  expect(result.speech[1].at - result.speech[0].at).toBeGreaterThan(6000);
+  expect(result.speech[7].at - result.speech[6].at).toBeGreaterThan(14_000);
+  expect(result.bufferEnds).toHaveLength(4);
+  expect(result.bufferEnds.at(-1)!.duration).toBeGreaterThan(14.27);
+  expect(result.bufferEnds.at(-1)!.duration).toBeLessThan(14.3);
+  expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeGreaterThanOrEqual(0);
+  expect(result.playbackEndAt - result.bufferEnds.at(-1)!.at).toBeLessThan(150);
+  expect(final.length).toBeGreaterThan(100);
+  expect(final.every(sample => sample.scene === "water-2" && !sample.hidden && !sample.chapter && sample.rate === 1)).toBe(true);
+  // onStart releases the narration hold; native audio follows on the next
+  // player render. Bound that initial handoff, then forbid any later muting.
+  const audibleStart = final.findIndex(sample => !sample.muted);
+  expect(audibleStart).toBeGreaterThanOrEqual(0);
+  expect(final[audibleStart].at - result.speech[6].at).toBeLessThan(100);
+  expect(final.slice(audibleStart).every(sample => !sample.muted)).toBe(true);
+  expect(final.filter(sample => sample.luma !== null).every(sample => sample.luma! > 2)).toBe(true);
+  // A 5s → 0 seek can briefly make decoded pixels unavailable: readFrame
+  // returns null, not black pixels. Accept only that bounded seam between valid
+  // presented frames from this same decoder. Missing pixels elsewhere fail.
+  for (let index = 0; index < final.length; index++) {
+    if (final[index].luma !== null) continue;
+    const start = index;
+    while (index < final.length && final[index].luma === null) index++;
+    expect(wraps).toContain(start);
+    const before = final[start - 1], after = final[index];
+    expect(before).toBeDefined();
+    expect(after).toBeDefined();
+    expect(after.at - before.at).toBeLessThan(100);
+    expect(before.time).toBeGreaterThan(4.5);
+    expect(final[start].time).toBeLessThan(.05);
+    expect(after.time).toBeLessThan(.2);
+    expect(after.videoId).toBe(before.videoId);
+    expect(after.presentedFrames).toBeGreaterThan(before.presentedFrames);
+    expect(after.presentedTime).not.toBeNull();
+    expect(after.presentedTime!).toBeLessThan(.2);
+  }
+  expect(final.every(sample => sample.trackId === track)).toBe(true);
+  expect(final.at(-1)!.audioTime).toBeGreaterThan(14.1);
+  expect(final.some((sample, index) => index > 0 && sample.audioTime < final[index - 1].audioTime - .05)).toBe(false);
+  expect(wraps).toHaveLength(2);
+  expect(result.videoEvents.filter(event => event.kind === "ended" && event.scene === "water-2")).toHaveLength(2);
+  const passStarts = [0, ...wraps];
+  for (const [pass, start] of passStarts.entries()) {
+    const samples = final.slice(start, passStarts[pass + 1]);
+    expect(new Set(samples.flatMap(sample => sample.fingerprint === null ? [] : [sample.fingerprint])).size).toBeGreaterThan(3);
+    const presented = samples.flatMap(sample => sample.presentedTime === null ? [] : [sample.presentedTime]);
+    expect(Math.max(...presented) - Math.min(...presented)).toBeGreaterThan(1);
+    expect(samples.filter(sample => sample.music && sample.voice).length).toBeGreaterThan(5);
+  }
+  // Canvas pixels and video-frame callbacks can update on alternating RAFs.
+  // Both must keep advancing, without requiring them to change in one sample.
+  for (const signal of ["fingerprint", "presentedTime"] as const) {
+    let lastMotion = final[0].at;
+    let previous = final[0][signal];
+    for (const sample of final.slice(1)) {
+      const value = sample[signal];
+      if (value !== null && value !== previous) {
+        lastMotion = sample.at;
+        previous = value;
+      }
+      expect(sample.at - lastMotion).toBeLessThan(500);
+    }
+  }
+  expect(new Set(final.map(sample => sample.videoId)).size).toBe(1);
+  expect(new Set(result.samples.filter(sample => sample.scene.startsWith("water-") && sample.videoId > 0).map(sample => sample.videoId)).size).toBe(2);
+  expect(result.videoPlayers).toBe(2);
+  expect(result.videoEvents.filter(event => ["rejected", "recovery", "error"].includes(event.kind))).toEqual([]);
+  expect(result.contexts).toBe(1);
+  expect(result.nativeAudio).toBe(0);
+  expect(result.nativeInterruptions).toBe(0);
+  expect(result.fallback).toBe(0);
+  expect(result.musicStarts).toBe(1);
+  expect(result.musicGains.every(gain => Math.abs(gain - .2) < .005)).toBe(true);
+});

@@ -100,6 +100,7 @@ export interface VideoFrameProps {
   height: number;
   playing?: boolean;
   preparingNarration?: boolean;
+  narrationActive?: (scene: VideoScene) => boolean;
   mediaAudioMuted?: boolean;
   mediaAudioVolume?: number;
   mediaAudioAmbientOnly?: boolean;
@@ -117,6 +118,7 @@ interface SceneLayerProps {
   height: number;
   playing: boolean;
   preparingNarration: boolean;
+  narrationActive?: (scene: VideoScene) => boolean;
   mediaAudioMuted: boolean;
   mediaAudioVolume: number;
   layer: "active" | "incoming";
@@ -136,6 +138,7 @@ function SceneLayer({
   height,
   playing,
   preparingNarration,
+  narrationActive,
   mediaAudioMuted,
   mediaAudioVolume,
   layer,
@@ -150,6 +153,7 @@ function SceneLayer({
     ? (typeof range.scene.variables.fallbackText === "string" && range.scene.variables.fallbackText.trim()) || "Your response continues." : undefined;
   const template = getBuiltinSceneRenderer(recoveryTitle ? "chapterTitle" : range.scene.templateId);
   const duration = range.end - range.start;
+  const readNarration = useCallback(() => layer === "active" && narrationActive?.(range.scene) === true, [layer, narrationActive, range.scene]);
 
   return (
     <ExternalVideoBackdropProvider
@@ -157,6 +161,7 @@ function SceneLayer({
       audioMuted={mediaAudioMuted || !playing}
       audioVolume={mediaAudioVolume}
       preparingNarration={preparingNarration}
+      narrationActive={narrationActive && range.scene.narration?.trim() ? readNarration : undefined}
       onMediaError={onMediaError}
     >
       <div
@@ -223,6 +228,7 @@ export function VideoFrame({
   height,
   playing = false,
   preparingNarration = false,
+  narrationActive,
   mediaAudioMuted = true,
   mediaAudioVolume = 1,
   mediaAudioAmbientOnly = false,
@@ -437,6 +443,7 @@ export function VideoFrame({
               height={canvas.height}
               playing={handoffPending ? playing || preparingNarration : playing}
               preparingNarration={handoffPending ? false : preparingNarration}
+              narrationActive={narrationActive}
               mediaAudioMuted={audioMutedFor(active)}
               mediaAudioVolume={mediaAudioVolume}
               layer="active"
@@ -454,6 +461,7 @@ export function VideoFrame({
               height={canvas.height}
               playing={Boolean(preparingNext && (!preparedMedia.has(sceneReadinessKey(contiguousNext.scene)) || handoffPending) && (playing || preparingNarration))}
               preparingNarration={preparingNext}
+              narrationActive={narrationActive}
               mediaAudioMuted={true}
               mediaAudioVolume={mediaAudioVolume}
               layer="incoming"
@@ -476,6 +484,7 @@ export function VideoFrame({
             height={canvas.height}
             playing={playing}
             preparingNarration={preparingNarration}
+            narrationActive={narrationActive}
             mediaAudioMuted={audioMutedFor(active)}
             mediaAudioVolume={mediaAudioVolume}
             layer="active"
