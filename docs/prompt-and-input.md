@@ -112,6 +112,8 @@ The shot examples and writing request both state the applicable limits. Each
 narration should be one short sentence; count quantities in their spoken form
 and allow extra room for technical words and pauses. Preserve supplied facts,
 relationships and step order across the complete answer.
+See the [one-time narration fit evaluation](maintainers/narration-fit-evaluation.md)
+for measured results and their limits.
 
 Each view should add context, a useful detail, an action or a meaningful reaction.
 Realistic footage can carry human emotion; illustration is useful when the
