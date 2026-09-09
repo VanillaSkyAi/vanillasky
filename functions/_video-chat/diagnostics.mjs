@@ -102,6 +102,9 @@ export function createPlannerDiagnostics(requestId, log = (event, data) => conso
         outcome: ['complete', 'error', 'canceled'].includes(event.outcome) ? event.outcome : 'unknown',
         stopReason: ['end_turn', 'max_tokens', 'stop_sequence', 'tool_use', 'pause_turn', 'refusal'].includes(event.stopReason) ? event.stopReason : 'unknown',
         inputTokens: count(event.inputTokens, 100000), outputTokens: count(event.outputTokens, 4096),
+        ...Object.fromEntries(['firstTextMs', 'durationMs']
+          .filter(key => Number.isFinite(event[key]) && event[key] >= 0)
+          .map(key => [key, count(event[key], 150000)])),
       };
     },
     onComplete,

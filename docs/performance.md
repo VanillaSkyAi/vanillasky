@@ -42,6 +42,22 @@ results, cancellation and absent configuration. These records contain no
 prompt, narration, query, media URL or provider response. They are never sent
 to the browser automatically, and callback failures cannot stop an answer.
 
+The application's planner summary also includes `provider.firstTextMs` when
+nonempty text was observed, and `provider.durationMs` for the consumed stream.
+These begin at the provider request, not browser submission. Stream duration
+includes consumer backpressure; it is not pure model processing time. Missing
+first-text observations are omitted. `shot-authored` marks the accepted narration
+being announced for preparation; with concurrent shortening, media can start
+before that event. Use `narration-rewrite.durationMs` to identify repair time.
+
+Generated footage and narration shortening run concurrently. Fal completion
+arrives through its status stream, with status checks on the same job if updates
+are idle or unavailable. The adapter never resubmits that paid job. Its
+`statusStreamMs` measures the stream's open duration and overlaps generation and
+any watchdog status checks; do not add it to polling HTTP time as an end-to-end
+latency breakdown. Model, resolution, prompt expansion and the spoken opening
+are unchanged by these scheduling improvements.
+
 ## What the measurements mean
 
 `first-frame` is the first committed active scene reaching an animation-frame

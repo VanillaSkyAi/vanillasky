@@ -35,6 +35,7 @@ async function generateFalPreview(query, options) {
   return generateRaw(query, { ...options, previewId });
 }
 const response = (body, status = 200) => Response.json(body, { status });
+const streamed = body => new Response(`data: ${JSON.stringify(body)}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
 const urls = {
   cancel_url: 'https://queue.fal.run/fal-ai/wan/requests/abc/cancel',
   status_url: 'https://queue.fal.run/fal-ai/wan/requests/abc/status',
@@ -176,7 +177,7 @@ test('successful queue request uses fixed model, options, no retries and safe me
   const fetcher = async (url, init) => {
     calls.push({ url, init });
     if (calls.length === 1) return response(urls);
-    if (calls.length === 2) return response({ status: 'COMPLETED' });
+    if (calls.length === 2) return streamed({ status: 'COMPLETED' });
     return response({ video: { url: 'https://v3.fal.media/files/sample.mp4' } });
   };
   const result = await generateFalPreview('Ocean waves', { env: env(), actor, orientation: 'portrait', fetcher });
@@ -212,7 +213,7 @@ test('public attempts submit after trigger writes and stop when the database tri
     let submissions = 0;
     const fetcher = async (url, init) => {
       if (init.method === 'POST') { submissions++; return response(urls); }
-      if (url === urls.status_url) return response({ status: 'COMPLETED' });
+      if (url === `${urls.status_url}/stream`) return streamed({ status: 'COMPLETED' });
       return response({ video: { url: 'https://fal.media/video.mp4' } });
     };
     const before = database.sql.prepare('SELECT total_changes() AS count').get().count;
@@ -266,11 +267,11 @@ test('untrusted queue URLs never receive credentials; redirects explicitly rejec
 test('invalid output URL and provider safety errors never escape to client', async () => {
   for (const output of ['https://evil.example/video.mp4', 'https://fal.media.evil.example/video', 'http://fal.media/video', 'https://key@fal.media/video']) {
     let calls = 0;
-    const fetcher = async () => response(++calls === 1 ? urls : calls === 2 ? { status: 'COMPLETED' } : { video: { url: output } });
+    const fetcher = async () => ++calls === 2 ? streamed({ status: 'COMPLETED' }) : response(calls === 1 ? urls : { video: { url: output } });
     assert.equal((await generateFalPreview('Ocean', { env: env(), actor, fetcher })).reason, 'unavailable');
   }
   let calls = 0;
-  const fetcher = async () => response(++calls === 1 ? urls : { status: 'COMPLETED', error: 'unsafe content' });
+  const fetcher = async () => ++calls === 1 ? response(urls) : streamed({ status: 'COMPLETED', error: 'unsafe content' });
   assert.deepEqual(await generateFalPreview('Ocean', { env: env(), actor, fetcher }), { media: null, reason: 'unavailable' });
   assert.equal(calls, 2);
 });
@@ -299,6 +300,7 @@ test('polling progresses without resubmission', async () => {
   let submissions = 0;
   const fetcher = async (url, init) => {
     if (init.method === 'POST') { submissions++; return response(urls); }
+    if (url === `${urls.status_url}/stream`) return new Response('Unsupported stream', { status: 404 });
     if (url === urls.status_url) return response({ status: ++statusCalls === 1 ? 'IN_PROGRESS' : 'COMPLETED' });
     return response({ video: { url: 'https://fal.media/video.mp4' } });
   };
@@ -490,9 +492,9 @@ test('queue failure and invalid result metadata are generic and bounded to one d
     let calls = 0;
     await generateFalPreview('Private prompt', {
       env: env(), actor, onDiagnostic: event => diagnostics.push(event),
-      fetcher: async () => response(++calls === 1 ? urls : calls === 2 ? {
+      fetcher: async () => ++calls === 2 ? streamed({
         status: 'COMPLETED', ...(providerFailure ? { error: 'secret prompt', error_type: 'private safety reason' } : {}),
-      } : { video: { url: 'https://private.example/secret-key' } }),
+      }) : response(calls === 1 ? urls : { video: { url: 'https://private.example/secret-key' } }),
     });
     assert.deepEqual(diagnostics, [{ reason: providerFailure ? 'provider_failed' : 'invalid_metadata', stage: providerFailure ? 'queue' : 'result' }]);
   }
@@ -536,7 +538,7 @@ test('successful generation emits no diagnostic', async () => {
   let calls = 0;
   const result = await generateFalPreview('Ocean', {
     env: env(), actor, onDiagnostic: event => diagnostics.push(event),
-    fetcher: async () => response(++calls === 1 ? urls : calls === 2 ? { status: 'COMPLETED' } : { video: { url: 'https://fal.media/video.mp4' } }),
+    fetcher: async () => ++calls === 2 ? streamed({ status: 'COMPLETED' }) : response(calls === 1 ? urls : { video: { url: 'https://fal.media/video.mp4' } }),
   });
   assert.equal(result.reason, null);
   assert.deepEqual(diagnostics, []);
@@ -610,7 +612,7 @@ test('provider payload carries bounded shot direction, visual look and orientati
     env: env(), actor, orientation: 'portrait', scene, generatedLook,
     fetcher: async (url, options) => {
       if (options.method === 'POST') { captured.push(JSON.parse(options.body)); return response(urls); }
-      if (url === urls.status_url) return response({ status: 'COMPLETED' });
+      if (url === `${urls.status_url}/stream`) return streamed({ status: 'COMPLETED' });
       if (url === urls.response_url) return response({ video: { url: 'https://v3.fal.media/fixture.mp4' } });
       throw new Error('Unexpected fixture transport');
     },

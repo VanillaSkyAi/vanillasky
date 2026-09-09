@@ -361,8 +361,8 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     let durationSec = part.scene.timing.fixedDuration ?? 5;
     let narration = original;
     const { mediaKeyword } = part.scene.variables;
-    let mediaScene = part.scene;
-    const resolveMedia = () => typeof mediaKeyword === "string" && mediaKeyword && options.resolveMedia
+    const mediaScene = part.scene;
+    const resolveMedia = async () => typeof mediaKeyword === "string" && mediaKeyword && options.resolveMedia
       ? options.resolveMedia(mediaKeyword, {
         input: context.request.input, requestId: context.request.requestId, scene: mediaScene, templateId: "cinemaMedia", preferredType: "video", generatedLook: generatedLook() ?? context.request.input.style?.generatedLook, signal: context.signal,
       }) : undefined;
@@ -370,6 +370,11 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     // and any single rewrite use the selected clip, not a generated-video cap.
     let media = options.mode === "pexels" ? await resolveMedia() : undefined;
     context.signal.throwIfAborted();
+    // Generated footage depends on authored shot direction, not its speech
+    // repair. Start the same bounded job now and handle rejection immediately,
+    // even if narration preparation fails or the response is cancelled first.
+    const pendingMedia = options.mode !== "pexels"
+      ? resolveMedia().then(media => ({ media }), error => ({ error })) : undefined;
     if (options.mode === "pexels") durationSec = media?.durationSec ?? Math.max(durationSec, estimateNarrationSeconds(narration) + CLIP_NARRATION_TAIL_SEC);
     if (!narrationFitsClip(narration, durationSec) && options.resolveMedia && options.rewriteNarration) {
       const rewriteStartedAt = Date.now();
@@ -388,11 +393,14 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     const clipBudget = options.mode === "pexels" && !media?.durationSec ? undefined : durationSec;
     if (clipBudget !== undefined) options.onNarrationFit?.(part.scene.id, estimateNarrationSeconds(narration), clipBudget, !fits ? "oversized" : narration === original ? "fit" : "rewritten");
     part = { ...part, scene: { ...part.scene, narration } };
-    mediaScene = part.scene;
     options.prepareScene?.({ sceneId: part.scene.id, narration, clipDurationSec: clipBudget });
     // A speech estimate can request one shortening pass, never discard usable
     // footage. The player covers the final measured line with the same clip.
-    if (options.mode !== "pexels") media = await resolveMedia();
+    if (pendingMedia) {
+      const result = await pendingMedia;
+      if ("error" in result) throw result.error;
+      media = result.media;
+    }
     context.signal.throwIfAborted();
     if (!media) getGenerationLifecycleSink(context)?.reportWarning?.({ code: "provider_warning", category: "provider", message: MEDIA_RECOVERY_NOTICE, recoverable: true });
     const title = part.scene.variables.fallbackText;

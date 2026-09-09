@@ -5,6 +5,13 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Start generated footage while narration shortening runs, and receive fal
+  completion updates without waiting for the next polling interval. Retain
+  same-job status checks when the stream is idle or unavailable, with the
+  existing cancellation, deadlines and spending limits.
+- Include time to first planner text and observed stream duration in the
+  content-free server diagnostics to distinguish planning and media delays.
+
 - Introduce VanillaSky with “Ask a question. Watch the answer.”, the goosebumps
   demo and an invitation to contribute to AI video answers. Rename the repository
   to `VanillaSkyAi/vanillasky` and update current setup and support links.

@@ -410,7 +410,7 @@ for (const identity of ["public", "owner", "forged", "local", "local-flag-remote
       assert.equal(url,'https://queue.fal.run/minimax/h3-max-turbo/text-to-video');
       return Response.json({request_id:'test',status_url:'https://queue.fal.run/status',response_url:'https://queue.fal.run/result',cancel_url:'https://queue.fal.run/cancel'});
     }
-    if (url === 'https://queue.fal.run/status') return Response.json({status:'COMPLETED'});
+    if (url === 'https://queue.fal.run/status/stream') return new Response('data: {"status":"COMPLETED"}\n\n',{headers:{'Content-Type':'text/event-stream'}});
     if (url === 'https://queue.fal.run/result') return Response.json({video:{url:'https://v3.fal.media/files/test.mp4'}});
     throw Error(`Unexpected provider URL ${url}`);
   };
@@ -734,7 +734,7 @@ test('an answer spends its last AI credit then continues every remaining shot wi
    generated++;
    return Response.json({request_id:'test',status_url:'https://queue.fal.run/status',response_url:'https://queue.fal.run/result',cancel_url:'https://queue.fal.run/cancel'});
   }
-  if(url==='https://queue.fal.run/status') return Response.json({status:'COMPLETED'});
+  if(url==='https://queue.fal.run/status/stream') return new Response('data: {"status":"COMPLETED"}\n\n',{headers:{'Content-Type':'text/event-stream'}});
   if(url==='https://queue.fal.run/result') return Response.json({video:{url:'https://v3.fal.media/files/test.mp4'}});
   assert.match(url,/api.pexels.com/);stock++;
   return Response.json({videos:[{url:'https://www.pexels.com/video/ocean-waves-123/',video_files:[{file_type:'video/mp4',width:1280,height:720,link:'https://videos.pexels.com/video-files/waves.mp4'}]}]});

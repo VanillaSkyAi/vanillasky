@@ -9,19 +9,23 @@ function setup(t) {
 }
 test('fal timing separates HTTP phases and provider-reported durations without private data',async t=>{
  const {advance,options}=setup(t);const events=[];let polls=0;
- const nativeTimeout=setTimeout;t.mock.method(globalThis,'setTimeout',(fn,ms,...args)=>ms===1500?(advance(ms),queueMicrotask(fn),0):nativeTimeout(fn,ms,...args));
- const result=await generateFalPreview('private prompt',{...options,onTiming:event=>events.push(event),fetcher:async url=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const pending=generateFalPreview('private prompt',{...options,onTiming:event=>events.push(event),fetcher:async url=>{
   if(url.endsWith('/text-to-video')){advance(20);return Response.json(urls);}
+  if(url.endsWith('/stream')) return new Response('Unsupported stream',{status:404});
   if(url===urls.status_url){advance(30);return Response.json(++polls===1?{status:'IN_PROGRESS'}:{status:'COMPLETED',metrics:{inference_time:2.5,private:'secret'}});}
   advance(40);return Response.json({video:{url:'https://fal.media/private.mp4'},timings:{inference:1.2,secret:500}});
  }});
- assert.ok(result.media);assert.deepEqual(events,[{outcome:'ready',totalMs:1631,quotaMs:11,submitMs:20,statusHttpMs:60,resultHttpMs:40,pollSleepMs:1500,cancelMs:0,pollCount:2,firstInProgressMs:61,firstCompletedMs:1591,runnerProcessingMs:2500,gpuInferenceMs:1200}]);
+ await new Promise(resolve=>setImmediate(resolve));advance(1500);t.mock.timers.tick(1500);
+ const result=await pending;
+ assert.ok(result.media);assert.deepEqual(events,[{outcome:'ready',totalMs:1631,quotaMs:11,submitMs:20,statusStreamMs:0,statusHttpMs:60,resultHttpMs:40,pollSleepMs:1500,cancelMs:0,pollCount:2,firstInProgressMs:61,firstCompletedMs:1591,runnerProcessingMs:2500,gpuInferenceMs:1200}]);
  assert.doesNotMatch(JSON.stringify(events),/private|secret|https|prompt/);
 });
 test('failed fal timing includes cancellation and ignores invalid provider duration fields',async t=>{
  const {advance,options}=setup(t);const events=[];
  const result=await generateFalPreview('private prompt',{...options,onTiming:e=>events.push(e),fetcher:async url=>{
   if(url.endsWith('/text-to-video')){advance(20);return Response.json(urls);}
+  if(url.endsWith('/stream')) return new Response('Unsupported stream',{status:404});
   if(url===urls.status_url){advance(30);throw Error('private-secret');}
   advance(50);throw Error('cancel-private');
  }});
@@ -33,7 +37,7 @@ test('fal timing omits invalid numeric metrics and bounds valid provider duratio
  const {options}=setup(t);
  for(const value of [null,undefined,'private',-1,Infinity,1e20]) {
   const events=[];
-  await generateFalPreview('test',{...options,onTiming:e=>events.push(e),fetcher:async url=>Response.json(url.endsWith('/text-to-video')?urls:url===urls.status_url?{status:'COMPLETED',metrics:{inference_time:value}}:{video:{url:'https://fal.media/video.mp4'},timings:{inference:value}})});
+  await generateFalPreview('test',{...options,onTiming:e=>events.push(e),fetcher:async url=>url.endsWith('/stream')?new Response('Unsupported stream',{status:404}):Response.json(url.endsWith('/text-to-video')?urls:url===urls.status_url?{status:'COMPLETED',metrics:{inference_time:value}}:{video:{url:'https://fal.media/video.mp4'},timings:{inference:value}})});
   if(value===1e20) {assert.equal(events[0].runnerProcessingMs,150000);assert.equal(events[0].gpuInferenceMs,150000);}
   else {assert.equal('runnerProcessingMs' in events[0],false);assert.equal('gpuInferenceMs' in events[0],false);}
  }
@@ -44,8 +48,9 @@ test('throwing and rejecting timing callbacks preserve successful result and pro
   const calls=[];
   const result=await generateFalPreview('test',{...options,onTiming,fetcher:async url=>{
    calls.push(url);assert.ok(url.startsWith('https://queue.fal.run/'),'never download the returned MP4');
+   if(url.endsWith('/stream')) return new Response('Unsupported stream',{status:404});
    return Response.json(url.endsWith('/text-to-video')?urls:url===urls.status_url?{status:'COMPLETED'}:{video:{url:'https://fal.media/video.mp4'}});
   }});
-  assert.equal(result.media.url,'https://fal.media/video.mp4');assert.equal(calls.length,3);
+  assert.equal(result.media.url,'https://fal.media/video.mp4');assert.equal(calls.length,4);
  }
 });
