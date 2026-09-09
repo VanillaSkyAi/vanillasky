@@ -19,37 +19,65 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
-it("offers an optional word style without interrupting playback or shortening the transcript", () => {
-  const { container } = render(<VideoChat />);
-  expect(container.querySelector(".word-captions")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-  const classic = screen.getByRole<HTMLInputElement>("radio", { name: "Classic" });
-  expect(classic.checked).toBe(true);
-  fireEvent.click(screen.getByRole("radio", { name: "Word by word" }));
+it("defaults to word captions and reserves the full transcript for the ending", () => {
+  const { container, rerender } = render(<VideoChat />);
   expect(container.querySelector(".word-captions")?.textContent).toBe("The tide rises,");
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Word by word" }).checked).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
+  expect(container.querySelector(".word-captions")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull();
   expect(session.current.pause).not.toHaveBeenCalled();
   expect(session.current.ask).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
-  fireEvent.click(screen.getByRole("button", { name: "Expand subtitles" }));
-  expect(screen.getByRole("region", { name: "Expanded subtitles" }).textContent).toContain("The tide rises, then the water falls.");
-  fireEvent.click(screen.getByRole("button", { name: "Collapse subtitles" }));
-  expect(container.querySelector(".word-captions")).toBeTruthy();
+  session.current = { ...session.current, playbackEnded: true, speaking: false, status: "ended" };
+  rerender(<VideoChat />);
+  fireEvent.click(screen.getByRole("button", { name: "Show transcript" }));
+  expect(screen.getByRole("region", { name: "Transcript" }).textContent).toContain("The tide rises, then the water falls.");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Hide transcript" }));
+  fireEvent.click(screen.getByRole("button", { name: "Hide transcript" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Show transcript" }));
+  expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Show transcript" })).toBeTruthy();
 });
 
-it("remembers the style while the subtitles switch stays independent", () => {
+it.each([null, "unexpected", "words", "classic"])("respects an explicit Classic preference and otherwise defaults to words (%s)", (stored) => {
+  if (stored !== null) localStorage.setItem("vanillasky:caption-style", stored);
+  const { container } = render(<VideoChat />);
+  expect(Boolean(container.querySelector(".word-captions"))).toBe(stored !== "classic");
+});
+
+it("makes the finished transcript available even with subtitles switched off", () => {
+  const { rerender } = render(<VideoChat />);
+  fireEvent.click(screen.getByRole("button", { name: "Hide subtitles" }));
+  expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
+  session.current = { ...session.current, playbackEnded: true, speaking: false, status: "ended" };
+  rerender(<VideoChat />);
+  fireEvent.click(screen.getByRole("button", { name: "Show transcript" }));
+  expect(screen.getByRole("region", { name: "Transcript" }).textContent).toContain("The tide rises, then the water falls.");
+  session.current = { ...session.current, playbackEnded: false, speaking: true, status: "playing", playerKey: 1 };
+  rerender(<VideoChat />);
+  expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
+});
+
+it("remembers an explicit Classic choice while the subtitles switch stays independent", () => {
   let view = render(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Word by word" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
   fireEvent.click(screen.getByRole("switch", { name: /Subtitles/ }));
   expect(view.container.querySelector(".caption-slot")?.getAttribute("aria-hidden")).toBe("true");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Word by word" }).checked).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Classic" }).checked).toBe(true);
   view.unmount();
   view = render(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Word by word" }).checked).toBe(true);
-  expect(view.container.querySelector(".word-captions")).toBeTruthy();
-  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Classic" }).checked).toBe(true);
   expect(view.container.querySelector(".word-captions")).toBeNull();
+  fireEvent.click(screen.getByRole("radio", { name: "Word by word" }));
+  expect(view.container.querySelector(".word-captions")).toBeTruthy();
 });
 
 it("still changes style when browser storage is unavailable", () => {
@@ -57,6 +85,7 @@ it("still changes style when browser storage is unavailable", () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Blocked"); });
   const { container } = render(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Word by word" }));
-  expect(container.querySelector(".word-captions")).toBeTruthy();
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Word by word" }).checked).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
+  expect(container.querySelector(".word-captions")).toBeNull();
 });

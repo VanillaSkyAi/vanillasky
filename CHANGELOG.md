@@ -5,9 +5,10 @@ of previously published npm releases.
 
 ## Unreleased
 
-- Add an optional word-by-word subtitle style with short phrases, a warm active-word
-  highlight and reduced-motion support. Remember the chosen style while preserving
-  classic subtitles and the complete transcript. Align generated speech to xAI's
+- Default to word-by-word subtitles with short phrases, a warm active-word
+  highlight and reduced-motion support. Remember the chosen style, including
+  Classic, without switching styles between speech segments. Keep the complete
+  transcript available only after playback. Align generated speech to xAI's
   timestamps and use native word boundaries for supported browser voices.
 
 - Support the first production deployment to an empty Pages project while keeping

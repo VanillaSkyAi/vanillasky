@@ -26,11 +26,59 @@ describe("short caption phrases", () => {
 });
 
 describe("word highlighting", () => {
-  it("shows the complete cue when muted or unavailable speech provides no clock", () => {
+  it("keeps short word phrases progressing when muted speech provides no clock", () => {
+    vi.useFakeTimers();
     const text = "First we see the water flowing through the ancient city.";
-    const view = render(<CaptionWords text={text} getProgress={() => undefined} />);
-    expect(view.container.textContent).toBe(text);
+    const getter = () => undefined;
+    const view = render(<CaptionWords text={text} getProgress={getter} silent />);
+    expect(view.container.textContent).toBe("First we see");
+    act(() => { vi.advanceTimersByTime(1200); });
+    const active = view.container.querySelector('[data-active="true"]')?.textContent;
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent paused />);
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(view.container.querySelector('[data-active="true"]')?.textContent).toBe(active);
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent />);
+    act(() => { vi.advanceTimersByTime(6000); });
+    expect(view.container.textContent).toContain("ancient city.");
+    expect(view.container.textContent).not.toBe(text);
+    expect(view.container.querySelector(".word-captions")?.getAttribute("data-caption-alignment")).toBe("estimated");
+  });
+
+  it("holds the final native phrase when speech ends before its estimated duration", () => {
+    vi.useFakeTimers();
+    const text = "First we see the water flowing through the ancient city.";
+    let state: CaptionProgress | undefined = { text, elapsedSeconds: 2, durationSeconds: 8, timing: "estimated", alignment: "browser", wordIndex: 9 };
+    const getter = () => state;
+    const view = render(<CaptionWords text={text} getProgress={getter} />);
+    const finalPhrase = view.container.textContent;
+    expect(finalPhrase).toContain("city.");
+    state = undefined;
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent />);
+    act(() => { vi.advanceTimersByTime(50); });
+    expect(view.container.textContent).toBe(finalPhrase);
     expect(view.container.querySelector('[data-active="true"]')).toBeNull();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(view.container.textContent).toBe(finalPhrase);
+  });
+
+  it("continues muted native speech without rewinding the current word", () => {
+    vi.useFakeTimers();
+    const text = "First we see the water flowing through the ancient city.";
+    let state: CaptionProgress | undefined = { text, elapsedSeconds: 1, durationSeconds: 8, timing: "estimated", alignment: "browser", wordIndex: 5 };
+    const getter = () => state;
+    const view = render(<CaptionWords text={text} getProgress={getter} />);
+    expect(view.container.querySelector('[data-active="true"]')?.textContent).toBe("flowing");
+    state = undefined;
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent muted />);
+    act(() => { vi.advanceTimersByTime(50); });
+    expect(view.container.querySelector('[data-active="true"]')?.textContent).toBe("flowing");
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent />);
+    act(() => { vi.advanceTimersByTime(8000); });
+    expect(view.container.textContent).toContain("city.");
+    const finalPhrase = view.container.textContent;
+    view.rerender(<CaptionWords text={text} getProgress={getter} silent />);
+    act(() => { vi.advanceTimersByTime(50); });
+    expect(view.container.textContent).toBe(finalPhrase);
   });
   const words = ["First", "the", "water", "moves."];
   const wordTimings = words.map((text, index) => ({ text, start: 1 + index, end: 1.5 + index }));
@@ -76,7 +124,7 @@ describe("word highlighting", () => {
     state = undefined;
     act(() => { vi.advanceTimersByTime(50); });
     expect(active()).toBeUndefined();
-    expect(line().textContent).toBe(groupedText);
+    expect(line().textContent).toBe("Then the city wakes.");
     view.rerender(<CaptionWords text="A different opening starts." getProgress={getter} />);
     expect(line().textContent).toBe("A different opening starts.");
     expect(active()).toBeUndefined();

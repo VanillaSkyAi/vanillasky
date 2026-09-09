@@ -99,11 +99,11 @@ describe("VideoChat", () => {
     let finishOpening = () => {};
     render(<VideoChat options={{ fetcher: (input, init) => new URL(String(input), "https://app.example").searchParams.get("action") === "response"
       ? new Promise<Response>(() => {}) : base(input, init),
-      voice: { prepare: async () => ({seconds: 1}), speak: () => new Promise<void>(resolve => { finishOpening = resolve; }),
+      voice: { prepare: async () => ({seconds: 1}), speak: (_text, { onStart }) => new Promise<void>(resolve => { onStart?.("browser"); finishOpening = resolve; }),
         pause() {}, resume() {}, setMuted() {} },
     }} />);
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    await waitFor(() => expect(screen.getByText("Tonight, the impossible feels close enough to touch.", { selector: ".line" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Tonight,", { selector: ".caption-word" })).toBeTruthy());
     expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
     await act(async () => { finishOpening(); });
     expect(screen.queryByRole("status", { name: "Video preparation" })).toBeNull();
@@ -175,8 +175,8 @@ describe("VideoChat", () => {
       voice: { prepare: async () => ({ seconds: 1 }), speak: async () => {}, pause() {}, resume() {}, setMuted() {} },
     }} />);
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Expand subtitles" }));
-    await waitFor(() => expect(screen.getByRole("region", { name: "Expanded subtitles" }).textContent).toContain("The ocean brings a new wave"));
+    expect(await screen.findByRole("button", { name: "Hide subtitles" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
     if (showRecoveryNotice) {
       expect(screen.getByRole("status").textContent).toContain("Some visuals were replaced");
       fireEvent.click(screen.getByRole("button", { name: "Dismiss notice" }));

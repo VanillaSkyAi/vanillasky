@@ -15,6 +15,13 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
     expect(next!.y).toBe(initial!.y);
     await page.waitForTimeout(400);
     await expect(active).toHaveText("we");
+    await page.evaluate(() => (window as unknown as { captionSetTime: (time: undefined) => void }).captionSetTime(undefined));
+    await expect(active).toHaveCount(0);
+    await expect(line).toHaveText("First we see");
+    await expect(line.locator(".caption-word")).toHaveCount(3);
+    expect((await line.boundingBox())!.height).toBe(initial!.height);
+    await page.evaluate(() => (window as unknown as { captionSetTime: (time: number) => void }).captionSetTime(.45));
+    await expect(active).toHaveText("we");
     await page.getByRole("button", { name: "Switch style" }).click();
     await expect(line).toHaveCount(0);
     await page.getByRole("button", { name: "Switch style" }).click();
@@ -80,8 +87,11 @@ test("the app's subtitle selector supports arrow keys, persists, and stays separ
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const classic = page.getByRole("radio", { name: "Classic", exact: true });
   const words = page.getByRole("radio", { name: "Word by word", exact: true });
+  await expect(words).toBeChecked();
+  await words.focus();
+  await page.keyboard.press("ArrowLeft");
   await expect(classic).toBeChecked();
-  await classic.focus();
+  await expect(classic).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(words).toBeChecked();
   await expect(words).toBeFocused();

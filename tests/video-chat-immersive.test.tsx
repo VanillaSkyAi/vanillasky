@@ -6,7 +6,7 @@ import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
 import { VideoChat } from "../src/video-chat/video-chat";
 
 const session = vi.hoisted(() => ({ current: {} as UseVideoChatResult }));
-vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => ({ chat: session.current, restoreSession: vi.fn(), getCaptionProgress: () => undefined }) }));
+vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => ({ chat: session.current, restoreSession: vi.fn(), getCaptionProgress: () => session.current.caption ? ({ text: session.current.caption, elapsedSeconds: 0, durationSeconds: 4, timing: "estimated" }) : undefined }) }));
 
 vi.mock("../src/player/video-player", () => ({ VideoPlayer: (props: { orientation?: string }) => <div data-testid="player" data-orientation={props.orientation} /> }));
 
@@ -29,17 +29,25 @@ it("replaces full-response and appearance controls with subtitle preferences", (
   expect(screen.getByRole("switch", { name: "Keep controls visible Keep the input bar on screen" })).toBeTruthy();
 });
 
-it("expands the available transcript, hides it and restores subtitles", () => {
-  render(<VideoChat />);
-  fireEvent.click(screen.getByRole("button", { name: "Expand subtitles" }));
-  const transcript = screen.getByRole("region", { name: "Expanded subtitles" });
+it("shows the available transcript only after playback, then restores subtitles for replay", () => {
+  const { rerender } = render(<VideoChat />);
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
+  session.current = { ...session.current, playbackEnded: true, status: "ended", speaking: false };
+  rerender(<VideoChat />);
+  fireEvent.click(screen.getByRole("button", { name: "Show transcript" }));
+  const transcript = screen.getByRole("region", { name: "Transcript" });
   expect(transcript.textContent).toContain("The Moon moves our oceans.");
   expect(transcript.textContent).toContain("Then the tide falls.");
+  fireEvent.click(screen.getByRole("button", { name: "Hide transcript" }));
+  expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull();
+  session.current = { ...session.current, playbackEnded: false, status: "playing", speaking: true, playerKey: 1 };
+  rerender(<VideoChat />);
   fireEvent.click(screen.getByRole("button", { name: "Hide subtitles" }));
-  expect(screen.queryByRole("region", { name: "Expanded subtitles" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   fireEvent.click(screen.getByRole("switch", { name: "Subtitles Read along with the answer" }));
-  expect(screen.getByRole("button", { name: "Expand subtitles" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Hide subtitles" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
 });
 
 it("pauses to type a follow-up and resumes on canceling the question", () => {
@@ -160,13 +168,13 @@ it("does not let a final caption hide the input after playback has already ended
   }
 });
 
-it("shows the spoken opening in both the held chapter and subtitle line", () => {
+it("keeps the opening chapter while subtitles show its current short phrase", () => {
   session.current = { ...session.current, caption: session.current.shownTurn!.opening };
   const { container, rerender } = render(<VideoChat />);
   const title = container.querySelector('[data-opening-chapter] [data-title-composition="centered"]');
   expect(title?.textContent).toBe("The Moon moves our oceans.");
-  expect(container.querySelector('.line')?.textContent).toBe("The Moon moves our oceans.");
-  expect(screen.getByRole("button", { name: "Expand subtitles" })).toBeTruthy();
+  expect(container.querySelector('.word-captions')?.textContent).toBe("The Moon moves");
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
   session.current = { ...session.current, playerProps: { video: { schemaVersion: "0.2", scenes: [], style: {} } } };
   rerender(<VideoChat />);
   expect(container.querySelector('[data-opening-chapter] [data-title-composition="centered"]')).toBe(title);

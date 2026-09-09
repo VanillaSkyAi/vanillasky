@@ -8,11 +8,14 @@ all credentials out of React and the browser bundle.
 
 ## Subtitle styles
 
-Settings → Watching offers **Classic** subtitles and **Word by word**. Classic
-remains the default. Word by word displays short phrases and highlights the
+Settings → Watching offers **Classic** subtitles and **Word by word**. Word by word
+is the default. It displays short phrases and highlights the
 spoken word, with motion disabled when reduced motion is preferred. The style
 is remembered in this browser; hiding subtitles does not change the choice.
-Both styles preserve the complete expanded transcript.
+During playback, both styles keep the complete transcript out of the way.
+**Show transcript** becomes available when the answer ends, even with subtitles off.
+Word captions hold their phrase between voice segments; muted or unavailable
+speech uses estimated reading time in the same style.
 
 The xAI speech adapter requests character timestamps with the audio and converts
 them to validated word intervals. Highlighting follows the same audio clock as

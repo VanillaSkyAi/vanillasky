@@ -13,7 +13,7 @@ const text = "First we see the water flowing. Then the tram moves through the ci
 // Controlled word intervals exercise the presentation boundary. This fixture
 // uses existing offline speech and makes no claim about live provider alignment.
 const wordTimings = text.split(" ").map((text, index) => ({ text, start: .12 + index * .27, end: .35 + index * .27 }));
-let elapsed = .2;
+let elapsed: number | undefined = .2;
 let audio: HTMLAudioElement | undefined;
 let controller: AbortController | undefined;
 let audioEnded = false;
@@ -31,9 +31,9 @@ const engine = createVideoChatVoice({ fetcher: async () => {
   return Response.json({ audio: btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join("")), mediaType: "audio/mpeg", wordTimings });
 } });
 const observed = createCaptionVoice(engine);
-const progress = recorded ? observed.getCaptionProgress : () => ({ text, elapsedSeconds: elapsed, durationSeconds: 6.42, timing: "audio" as const, alignment: "provider" as const, wordTimings });
+const progress = recorded ? observed.getCaptionProgress : () => elapsed === undefined ? undefined : ({ text, elapsedSeconds: elapsed, durationSeconds: 6.42, timing: "audio" as const, alignment: "provider" as const, wordTimings });
 Object.assign(window, {
-  captionSetTime: (time: number) => { elapsed = time; },
+  captionSetTime: (time: number | undefined) => { elapsed = time; },
   captionMediaState: () => ({ time: audio?.currentTime ?? 0, ended: audioEnded, videoTime: document.querySelector("video")?.currentTime ?? 0,
     frames: presentedFrames }),
 });

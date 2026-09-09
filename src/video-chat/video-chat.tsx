@@ -20,8 +20,8 @@ const CAPTION_STYLE_KEY = "vanillasky:caption-style";
 type CaptionStyle = "classic" | "words";
 
 function savedCaptionStyle(): CaptionStyle {
-  try { return localStorage.getItem(CAPTION_STYLE_KEY) === "words" ? "words" : "classic"; }
-  catch { return "classic"; }
+  try { return localStorage.getItem(CAPTION_STYLE_KEY) === "classic" ? "classic" : "words"; }
+  catch { return "words"; }
 }
 
 type Status = "idle" | "drawing" | "narrating" | "paused" | "ended";
@@ -115,6 +115,8 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const instanceId = useId();
   const historyId = `${instanceId}-history`;
   const settingsId = `${instanceId}-settings`;
+  const transcriptId = `${instanceId}-transcript`;
+  const transcriptControlRef = useRef<HTMLButtonElement>(null);
   const promptId = `${instanceId}-prompt`;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<HTMLElement>(null);
@@ -226,6 +228,13 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   }, [chat.playbackEnded, shown?.id, chat.playerKey]);
   const line = chat.caption ?? "";
   const fullTranscript = shown?.video ? [shown.opening, ...shown.video.scenes.map((scene) => scene.narration)].filter((entry): entry is string => Boolean(entry)) : chat.transcript;
+  const transcriptExpanded = chat.playbackEnded && captionsExpanded;
+  const captionSlotVisible = chat.playbackEnded ? fullTranscript.length > 0 : captionsOn && Boolean(line);
+  const previousTranscriptExpanded = useRef(false);
+  useEffect(() => {
+    if (previousTranscriptExpanded.current !== transcriptExpanded && chat.playbackEnded) transcriptControlRef.current?.focus();
+    previousTranscriptExpanded.current = transcriptExpanded;
+  }, [transcriptExpanded, chat.playbackEnded]);
   const transport = status === "narrating"
     ? { label: "Pause", action: chat.pause, icon: <Stop /> }
     : status === "paused"
@@ -406,18 +415,19 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
 
     <div ref={panelRef} className="panel" data-input-visible={controls.visible || !captionsOn || !line}>
       <div className="panel-inner">
-        <div className="caption-slot" data-captions={captionsOn && Boolean(line)} aria-hidden={!captionsOn || !line}>
+        <div className="caption-slot" data-captions={captionSlotVisible} aria-hidden={!captionSlotVisible}>
           <div className="caption-clip">
-            {chat.playbackEnded && !captionsExpanded ? <button type="button" className="transcript-toggle" aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={captionsExpanded} data-caption-style={captionStyle} data-actions-visible={captionControls.visible}
+            {chat.playbackEnded && !transcriptExpanded ? <button type="button" ref={transcriptControlRef} className="transcript-toggle" aria-controls={transcriptId} aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={transcriptExpanded} data-caption-style={captionStyle} data-actions-visible={captionControls.visible}
               onPointerMove={captionControls.onPointerEnter} onPointerLeave={captionControls.onPointerLeave}
               onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
-              {captionsOn && line && <div className="caption-actions">
-                <button type="button" className="caption-action" aria-label={captionsExpanded ? "Collapse subtitles" : "Expand subtitles"} aria-expanded={captionsExpanded} onClick={() => setCaptionsExpanded((open) => !open)}>{captionsExpanded ? "Collapse" : "Expand"}<ChevronUp /></button>
-                <button type="button" className="caption-action" aria-label="Hide subtitles" onClick={() => { setCaptionsOn(false); setCaptionsExpanded(false); }}><Close /></button>
+              {transcriptExpanded ? <div className="caption-actions">
+                <button type="button" ref={transcriptControlRef} className="caption-action" aria-controls={transcriptId} aria-expanded={true} onClick={() => setCaptionsExpanded(false)}>Hide transcript<Close /></button>
+              </div> : captionsOn && line && !chat.playbackEnded && <div className="caption-actions">
+                <button type="button" className="caption-action" aria-label="Hide subtitles" onClick={() => setCaptionsOn(false)}><Close /></button>
               </div>}
-              {captionsExpanded ? <div className="expanded-captions" role="region" tabIndex={0} aria-label="Expanded subtitles">
+              {transcriptExpanded ? <div id={transcriptId} className="expanded-captions" role="region" tabIndex={0} aria-label="Transcript">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}
-              </div> : captionStyle === "words" ? <CaptionWords key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} /> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
+              </div> : captionStyle === "words" ? <CaptionWords key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} paused={status === "paused"} silent={!chat.speaking} muted={chat.muted} /> : <CaptionPages key={`${shown?.id}:${chat.playerKey}`} text={line} getProgress={getCaptionProgress} />}
             </div>}
           </div>
         </div>
