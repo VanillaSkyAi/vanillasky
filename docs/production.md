@@ -21,8 +21,10 @@ your own Cloudflare project and D1 binding. Keep account/database identifiers in
 instance configuration and credentials in the deployment secret store. Never
 commit `.dev.vars` or copy production credentials into a preview.
 
-`ANTHROPIC_API_KEY` enables real planning. Configure `PEXELS_API_KEY` for stock,
-optionally `FAL_KEY` for generated video and `XAI_API_KEY` for generated speech.
+Configure `ANTHROPIC_API_KEY` for planning and `FAL_KEY` for generated video.
+The committed configuration enables fal with `VIDEO_CHAT_FAL_PREVIEW=enabled`.
+Add `XAI_API_KEY` for generated speech and optionally `PEXELS_API_KEY` for the
+stock alternative and the personal-allowance fallback described below.
 The server also needs its quota database and private quota salt. Local development
 initializes separate local state; it must never point at production data.
 

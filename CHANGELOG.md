@@ -5,6 +5,9 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Lead the README and setup docs with generated video, the fal inspiration and
+  the included video/voice providers. Keep stock footage as an optional alternative.
+
 - Patch development image and YAML dependencies flagged by the release security gate.
 
 - Remove the retired SDK test kit, test-only package entry points and redundant
