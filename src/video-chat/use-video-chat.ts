@@ -141,6 +141,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
   chat: UseVideoChatResult;
   restoreSession(turns: readonly VideoChatTurn[]): void;
   getCaptionProgress(): CaptionProgress | undefined;
+  captionKey: number;
 } {
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -795,5 +796,5 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     playerKey: state.playerKey,
     playerProps,
   };
-  return { chat, restoreSession, getCaptionProgress: captionVoice.getCaptionProgress };
+  return { chat, restoreSession, getCaptionProgress: captionVoice.getCaptionProgress, captionKey: state.captionKey };
 }

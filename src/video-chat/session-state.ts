@@ -56,6 +56,8 @@ interface SessionState {
   muted: boolean;
   playbackEnded: boolean;
   playerKey: number;
+  /** Caption progress survives first-player preparation, but not a new viewing. */
+  captionKey: number;
   playback?: Playback;
   openingSpeaking: boolean;
 }
@@ -95,6 +97,7 @@ export function initialState(muted: boolean): SessionState {
     muted,
     playbackEnded: false,
     playerKey: 0,
+    captionKey: 0,
     openingSpeaking: false,
   };
 }
@@ -129,6 +132,7 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
       ...state,
       turns: [...state.turns, action.turn],
       playerKey: state.playerKey + 1,
+      captionKey: state.captionKey + 1,
       shownTurnId: action.turn.id,
       status: "composing",
       resumeStatus: "composing",
@@ -242,6 +246,7 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
       return {
         ...state,
         shownTurnId: turn.id,
+        captionKey: state.captionKey + 1,
         playback: { kind: "video", video: turn.video },
         status: "playing",
         resumeStatus: "playing",
@@ -257,6 +262,7 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
       if (!turn?.video) return state;
       return {
         ...state,
+        captionKey: state.captionKey + 1,
         playback: { kind: "video", video: turn.video },
         status: "playing",
         resumeStatus: "playing",
@@ -274,6 +280,7 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
         welcome: state.welcome,
         turns: action.turns,
         playerKey: state.playerKey,
+        captionKey: state.captionKey,
       };
       const latest = action.turns.at(-1);
       return latest ? reducer(restored, { type: "select", id: latest.id }) : restored;
