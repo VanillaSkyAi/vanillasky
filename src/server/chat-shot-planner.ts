@@ -187,9 +187,12 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
         const acceptDirection = (value: Brief) => {
           const direction = compileVisualDirection(value, context.request.input.style?.generatedLook);
           generatedLooks.set(context, direction.generatedLook);
-          const mood = options.musicMood && options.musicMood !== "auto" ? options.musicMood : value.musicMood;
+          const preference = options.musicMood ?? "auto";
+          const mood = preference === "auto" ? value.musicMood : preference;
           const initialTrack = options.initialTrackId ? getMusicTrack(options.initialTrackId) : undefined;
-          const track = initialTrack?.mood === mood ? initialTrack : selectMusicTrack(mood, options.previousTrackId);
+          // Auto keeps the track already started on Ask throughout this answer.
+          const track = initialTrack && (preference === "auto" || initialTrack.mood === mood)
+            ? initialTrack : selectMusicTrack(mood, options.previousTrackId);
           getGenerationLifecycleSink(context)?.setPlannedAudio?.(track ? createMusicAudio(track) : undefined);
         };
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {

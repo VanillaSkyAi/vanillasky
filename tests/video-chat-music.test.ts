@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
+import type { VideoChatVideoGenerator } from "../src/server/video-chat-options";
 import { parseResponseRequest } from "../src/server/video-chat-input";
 import { decodeVideoSse } from "../src/protocol/sse";
 import { applyVideoEvent, createVideoState } from "../src/protocol/state";
@@ -18,10 +19,10 @@ function answer(musicMood?: unknown) {
       subject: "Green leaf", action: "Sunlight reaches a leaf.", durationSec: 5, continuity: "cut" } };
 }
 
-async function response(briefMood?: unknown, requestOptions: Record<string, unknown> = {}) {
+async function response(briefMood?: unknown, requestOptions: Record<string, unknown> = {}, generateVideo?: VideoChatVideoGenerator) {
   const streamText = vi.fn(() => (async function* () { yield JSON.stringify(answer(briefMood)) + "\n"; })());
   const generateText = vi.fn(() => "unused");
-  const handler = createVideoChatHandler({ authorize: "none", streamText, generateText, heartbeatMs: false });
+  const handler = createVideoChatHandler({ authorize: "none", streamText, generateText, generateVideo, heartbeatMs: false });
   const result = await handler(new Request("https://app.example/api/video-chat?action=response", {
     method: "POST", body: JSON.stringify({ prompt: "Explain plants", ...requestOptions }),
   }));
@@ -74,15 +75,50 @@ describe("chat soundtrack selection", () => {
     } finally { random.mockRestore(); }
   });
 
-  it.each(["florist", "retired-track", "https://untrusted.example/track.mp3"])("does not let initial track %s override the resolved mood or trusted catalog", async initialTrackId => {
+  it.each(["focused", "upbeat", "off"] as const)("keeps Auto's initial track through the first footage scene when the brief asks for %s", async model => {
+    const initial = createMusicAudio(getMusicTrack("florist")!);
+    const generateVideo = vi.fn(() => ({ type: "video" as const, url: "https://media.example/leaf.mp4", durationSec: 5 }));
+    const events = await response(model, { musicMood: "auto", initialTrackId: initial.trackId }, generateVideo);
+    const audioEvents = events.filter(event => event.type === "audio.set");
+    expect(audioEvents).toHaveLength(1);
+    expect(audioEvents[0].data.audio).toEqual(initial);
+    const firstSceneIndex = events.findIndex(event => event.type === "scene.add");
+    const openingIndex = events.findIndex(event => event.type === "data.video-chat-opening");
+    expect(events.findIndex(event => event.type === "audio.set")).toBeLessThan(firstSceneIndex);
+    expect(openingIndex).toBeGreaterThanOrEqual(0);
+    expect(openingIndex).toBeLessThan(firstSceneIndex);
+    expect(generateVideo).toHaveBeenCalledTimes(1);
+    const scene = events[firstSceneIndex];
+    expect(scene?.type === "scene.add" && scene.data.scene).toMatchObject({
+      templateId: "cinemaMedia", variables: { mediaUrl: "https://media.example/leaf.mp4" },
+    });
+    let state = createVideoState();
+    for (const event of events) {
+      state = applyVideoEvent(state, event);
+      if (event.type === "scene.add") expect(state.config?.audio).toEqual(initial);
+    }
+    expect(parseVideo(JSON.parse(JSON.stringify(state.config))).audio).toEqual(initial);
+  });
+
+  it("keeps the initial track when the caller omits the Auto preference", async () => {
+    const events = await response("focused", { initialTrackId: "florist" });
+    expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({ audio: { trackId: "florist" } });
+  });
+
+  it("lets a manual mood replace an initial track from another mood", async () => {
+    const events = await response("calm", { musicMood: "focused", initialTrackId: "florist", previousTrackId: "cue" });
+    expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({ audio: { trackId: "bartender" } });
+  });
+
+  it.each(["retired-track", "https://untrusted.example/track.mp3"])("does not let unknown initial track %s override the trusted catalog", async initialTrackId => {
     const events = await response("focused", { musicMood: "auto", initialTrackId, previousTrackId: "cue" });
     expect(events.find(event => event.type === "audio.set")?.data).toMatchObject({
       audio: { trackId: "bartender", audioUrl: "/audio-library/bartender.mp3" },
     });
   });
 
-  it.each([{ model: "off", preference: "auto" }, { model: "focused", preference: "off" }])("stops provisional music when resolved preference is off: %j", async ({ model, preference }) => {
-    const events = await response(model, { musicMood: preference, initialTrackId: "bartender" });
+  it("stops provisional music when the viewer chooses Off", async () => {
+    const events = await response("focused", { musicMood: "off", initialTrackId: "bartender" });
     expect(events.some(event => event.type === "audio.set")).toBe(false);
   });
 
