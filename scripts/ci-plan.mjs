@@ -48,7 +48,7 @@ function createPlan() {
     }
   }
   const matrix = { include: ["chromium", "firefox", "webkit"].flatMap(browser =>
-    (kind === "server" ? [1] : [1, 2, 3]).map(shard => ({ browser, shard, app: kind === "server" || shard === 3 }))) };
+    (kind === "server" ? [1] : [1, 2, 3, 4, 5]).map(shard => ({ browser, shard, app: kind === "server" || shard === 5 }))) };
   mkdirSync(".generated", { recursive: true });
   writeFileSync(".generated/ci-plan.json", JSON.stringify({ kind, commit }) + "\n");
   output("kind", kind);

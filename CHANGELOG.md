@@ -9,7 +9,7 @@ of previously published npm releases.
   dormant helpers and exports.
 - Validate docs without installing dependencies or deploying the app. Select
   browser checks by change scope, share their setup and distribute long media
-  scenarios across runners to shorten application verification.
+  scenarios across five standard Playwright shards to shorten app verification.
 
 - Lead the README and setup docs with generated video, the fal inspiration and
   the included video/voice providers. Keep stock footage as an optional alternative.

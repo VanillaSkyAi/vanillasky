@@ -40,8 +40,9 @@ CI selects checks conservatively:
 `application-checks` requires every selected job to pass. Only a successful docs
 plan permits skipped application jobs. Manually running CI always selects the
 full suite. Browser setup journeys share the existing browser containers. The full media
-suite spreads neighboring cases across three groups per browser, keeping one
-media worker per runner and covering each discovered test exactly once.
+suite uses five standard Playwright shards per browser, keeping one media worker
+per runner. This shortens the required playback wait without speeding up footage
+or dropping scenarios.
 
 `npm run check:unused` runs Knip without a baseline or blanket ignores. Keep its
 entrypoints limited to real runtime boundaries that static imports cannot show,

@@ -96,7 +96,7 @@ it("plans actual changes, handles renames and fails safe without usable history"
     for (const [name, event] of [["workflow_dispatch", { before: base }], ["push", {}], ["push", { before: "0".repeat(40) }], ["push", { before: "f".repeat(40) }]] as const) {
       const result = plan(name, event);
       expect(result.kind).toBe("full");
-      expect(result.matrix).toHaveLength(9);
+      expect(result.matrix).toHaveLength(15);
       expect(result.matrix.filter(job => job.app)).toHaveLength(3);
     }
     mkdirSync(join(root, "functions"));

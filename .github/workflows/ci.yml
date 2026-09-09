@@ -102,7 +102,7 @@ jobs:
             pactl load-module module-null-sink sink_name=cinematic_test
             pactl set-default-sink cinematic_test
             pactl list short sinks
-            node scripts/browser-shard.mjs ${{ matrix.browser }} ${{ matrix.shard }}/3
+            npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/5 --workers=1
           '
       - name: Preserve browser evidence
         if: always()
