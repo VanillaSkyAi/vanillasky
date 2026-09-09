@@ -1,5 +1,6 @@
 import type { VideoFinishReason } from "../protocol/events.js";
 import type { VideoWarning } from "../protocol/warnings.js";
+import type { VideoAudio } from "../protocol/types.js";
 
 const MAX_RAW_PROVIDER_BYTES = 16_384;
 const MAX_RAW_DEPTH = 6;
@@ -46,6 +47,8 @@ export interface VideoProviderLifecycleResult {
 }
 
 export interface VideoGenerationLifecycleSink {
+  /** Trusted first-brief selection, consumed by composition before its first generated scene. */
+  setPlannedAudio?(audio: VideoAudio | undefined): void;
   recoverGeneratedParts?: boolean;
   reportWarning?(warning: VideoWarning): void;
   rejectPart?(error: Error): boolean;

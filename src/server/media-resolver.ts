@@ -6,6 +6,8 @@ export interface ResolvedMedia {
   posterUrl?: string;
   /** Actual footage duration when the provider or delivery pipeline knows it. */
   durationSec?: number;
+  /** Provider-approved natural ambience/action audio, without speech or music. */
+  audio?: "ambient";
 }
 
 interface MediaResolverContext {

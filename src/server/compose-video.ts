@@ -9,6 +9,7 @@ import {
   type CreateVideoOptions,
   type VideoInput,
   type VideoRun,
+  type VideoAudio,
 } from "../protocol/types.js";
 import { parseVideo } from "../protocol/persistence.js";
 import { parseVideoPlanPart } from "../protocol/validation.js";
@@ -79,6 +80,15 @@ export function createVideo(
   const eventSource = (async function* (): AsyncGenerator<VideoEvent> {
     let state = createVideoState();
     let composition = createCompositionSession();
+    let plannedAudio: VideoAudio | undefined;
+    let audioSelected = false;
+    lifecycle.setPlannedAudio = (audio) => {
+      // Explicit input audio wins, and duplicate/late planner metadata cannot
+      // replace a soundtrack already committed to the replayable response.
+      if (audioSelected || input.audio === false || state.config?.audio || state.config?.scenes.length) return;
+      audioSelected = true;
+      plannedAudio = audio;
+    };
     lifecycle.recoverGeneratedParts = options.invalidPartBehavior === "drop";
     lifecycle.rejectPart = (error) => {
       reportError(error);
@@ -143,6 +153,10 @@ export function createVideo(
       const context = { request, systemPrompt, initialConfig, signal: controller.signal };
       attachGenerationLifecycleSink(context, lifecycle);
       for await (const untrustedPart of options.generate(context)) {
+        if (plannedAudio) {
+          yield emit(events.create("audio.set", { audio: plannedAudio }));
+          plannedAudio = undefined;
+        }
         let attemptedScene = false;
         try {
           const part = resolveSuppliedMediaPlanPart(parseVideoPlanPart(untrustedPart), input);

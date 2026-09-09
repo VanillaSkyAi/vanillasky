@@ -1,0 +1,86 @@
+{
+  "processedOn": "2026-09-09",
+  "tool": "ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers",
+  "targetIntegratedLufs": -18,
+  "targetTruePeakDbtp": -3,
+  "targetLoudnessRangeLu": 11,
+  "tracks": [
+    {
+      "file": "bartender.mp3",
+      "sourceSha256": "5cbbbe5058ed31d5a9288529ac7b4c3e16a440aad5a4b603bb8bc90df54708d4",
+      "sha256": "bfc1aa17218523ffff045bf5ddac9b0eeea435d8ea2d98350c33d590e02d18d7",
+      "bytes": 3947667,
+      "durationSec": 246.700408,
+      "sourceIntegratedLufs": -19.48,
+      "integratedLufs": -18.36,
+      "truePeakDbtp": -2.45,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-19.48:measured_TP=-0.23:measured_LRA=7.60:measured_thresh=-29.63:offset=-0.38:linear=true:print_format=json"
+    },
+    {
+      "file": "cat-caffe.mp3",
+      "sourceSha256": "896b036154c439e0790fa821bf4a5a1d208d17954c8db1b10c72a6d053c7d3d9",
+      "sha256": "d183e790612a31fb348f2c581882edecc9d20fb9f250c775320ee1e38fcd0ad1",
+      "bytes": 2129127,
+      "durationSec": 133.041633,
+      "sourceIntegratedLufs": -19.87,
+      "integratedLufs": -18.47,
+      "truePeakDbtp": -2.79,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-19.87:measured_TP=-0.13:measured_LRA=3.10:measured_thresh=-29.99:offset=0.09:linear=true:print_format=json"
+    },
+    {
+      "file": "countryside.mp3",
+      "sourceSha256": "db4ecc6a540b08cfb8cc95c0703ee8616801db9d588f33686f9743f50955e442",
+      "sha256": "e585d68c09119dfcea6d83f0582d8a6d1b9a1eebed44323e61df96f0cbb5e4a3",
+      "bytes": 1475856,
+      "durationSec": 92.212245,
+      "sourceIntegratedLufs": -18.34,
+      "integratedLufs": -18.35,
+      "truePeakDbtp": -3.17,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-18.34:measured_TP=-0.37:measured_LRA=5.80:measured_thresh=-28.38:offset=-0.89:linear=true:print_format=json"
+    },
+    {
+      "file": "cue.mp3",
+      "sourceSha256": "c97929e1a7b209d0ce24445d33396e3272b4675f50c3d72dbaa315c0152372a4",
+      "sha256": "14c3c2f27ec7f9e0b13513e7cced138915a69e8d5cf26296e9075caa02656dda",
+      "bytes": 2346465,
+      "durationSec": 146.625306,
+      "sourceIntegratedLufs": -15.97,
+      "integratedLufs": -18.47,
+      "truePeakDbtp": -3.26,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-15.97:measured_TP=0.02:measured_LRA=6.90:measured_thresh=-26.27:offset=0.15:linear=true:print_format=json"
+    },
+    {
+      "file": "florist.mp3",
+      "sourceSha256": "c68ac934076d05883376badb440d945738b9e075d493e03d4d00e05354945738",
+      "sha256": "0c29c14234b6659fb5c90799cf910c5673a701f1f814b82f2c684adbd8580735",
+      "bytes": 1808970,
+      "durationSec": 113.031837,
+      "sourceIntegratedLufs": -16.38,
+      "integratedLufs": -18.43,
+      "truePeakDbtp": -2.99,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-16.38:measured_TP=-0.05:measured_LRA=4.40:measured_thresh=-26.82:offset=-0.27:linear=true:print_format=json"
+    },
+    {
+      "file": "oceanside.mp3",
+      "sourceSha256": "deff92ce46a101ee4ded838de9afcfcb99d6d8f4d227a483a5000d91684d69f6",
+      "sha256": "e250ed6f85d04b7cb9bda66b84279c0a3e9df617dbda9ac65e1b393569d87876",
+      "bytes": 1642622,
+      "durationSec": 102.635102,
+      "sourceIntegratedLufs": -15.44,
+      "integratedLufs": -18.45,
+      "truePeakDbtp": -3.23,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-15.44:measured_TP=-0.08:measured_LRA=8.00:measured_thresh=-25.50:offset=-1.17:linear=true:print_format=json"
+    },
+    {
+      "file": "rainy-forest.mp3",
+      "sourceSha256": "36dcdeb142c22b691eb8a487520da2d49149e2df4430f65c2f8a44df6d7d2e1a",
+      "sha256": "055a078a20c3902988cf0b1d468a2fbad8b1645ec32733925b40151b2b228418",
+      "bytes": 1593721,
+      "durationSec": 99.578776,
+      "sourceIntegratedLufs": -15.56,
+      "integratedLufs": -18.62,
+      "truePeakDbtp": -3.36,
+      "filter": "loudnorm=I=-18:TP=-3:LRA=11:measured_I=-15.56:measured_TP=-0.12:measured_LRA=6.60:measured_thresh=-25.74:offset=-1.33:linear=true:print_format=json"
+    }
+  ]
+}
