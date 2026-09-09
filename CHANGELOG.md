@@ -5,6 +5,12 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Choose complementary visual moments that connect explanations with relevant
+  human experiences. Prefer realistic human reactions, describe observable
+  behavior in generated shots, and include essential actions in stock queries.
+  Allow subtle natural movement in quiet footage while preserving clip limits
+  and the early first-shot planning flow.
+
 - Plan the first generated shot before writing the saved ending, so footage
   can start from the compact answer brief while the rest of the answer develops.
   Keep the spoken intro, visual direction, final ending and generation limits.

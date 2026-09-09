@@ -1,5 +1,33 @@
 [
   {
+    "id": "goosebumps-cinematic",
+    "category": "explanation",
+    "prompt": "Why does music sometimes give me goosebumps?",
+    "mode": "cinematic",
+    "duration": 5,
+    "clips": 3,
+    "available": true,
+    "criteria": [
+      "Connect an emotional response to involuntary contraction of tiny skin muscles and raised hairs; do not claim every listener or every musical chill has visible goosebumps.",
+      "Combine an observable skin detail with a relevant human listening experience; each view contributes something distinct, without a prescribed order or ratio.",
+      "Use concrete, feasible behavior and restrained reactions in ordinary surroundings; a scientific topic alone should not force every shot into abstract illustration."
+    ]
+  },
+  {
+    "id": "cold-breath-cinematic",
+    "category": "explanation",
+    "prompt": "Why can I see my breath on a cold morning?",
+    "mode": "cinematic",
+    "duration": 5,
+    "clips": 3,
+    "available": true,
+    "criteria": [
+      "Explain that cooling condenses water vapor in breath into tiny visible droplets; do not describe the mist as smoke or claim it always appears at one temperature.",
+      "Show the visible breath phenomenon and a relevant human experience of cold with complementary views; winter scenery alone does not establish visible breath.",
+      "Keep realistic exhalation and any human reaction observable and natural; narration may explain the invisible mechanism without requiring every shot to be an illustration or a fixed sequence."
+    ]
+  },
+  {
     "id": "waves-cinematic",
     "category": "explanation",
     "prompt": "Why do waves break near shore? Explain for a beginner.",
@@ -249,6 +277,34 @@
     "available": true,
     "criteria": [
       "Answer request with answer/shot JSON only; no provider URLs, lifecycle records or invented citations."
+    ]
+  },
+  {
+    "id": "goosebumps-pexels",
+    "category": "explanation",
+    "prompt": "Why does music sometimes give me goosebumps?",
+    "mode": "pexels",
+    "duration": 5,
+    "clips": 3,
+    "available": true,
+    "criteria": [
+      "Connect an emotional response to involuntary contraction of tiny skin muscles and raised hairs; do not claim every listener or every musical chill has visible goosebumps.",
+      "Seek an observable goosebumps skin detail and a relevant human listening experience using literal stock queries and selection hints, without a prescribed order or ratio.",
+      "Inspect footage for the intended detail or activity: a generic arm is not visible goosebumps, and generic happiness is not listening to music. Use honest chapter recovery if a necessary detail cannot be sourced; illustrative stock is not physiological evidence."
+    ]
+  },
+  {
+    "id": "cold-breath-pexels",
+    "category": "explanation",
+    "prompt": "Why can I see my breath on a cold morning?",
+    "mode": "pexels",
+    "duration": 5,
+    "clips": 3,
+    "available": true,
+    "criteria": [
+      "Explain that cooling condenses water vapor in breath into tiny visible droplets; do not describe the mist as smoke or claim it always appears at one temperature.",
+      "Seek visible exhaled mist and a relevant human experience of cold with complementary, literal stock queries and selection hints, without a fixed shot sequence.",
+      "Inspect footage for breath emerging from a person: scenery, smoke and unrelated fog do not establish the phenomenon. Use honest chapter recovery if the needed detail is unavailable; retain the complete explanation."
     ]
   },
   {

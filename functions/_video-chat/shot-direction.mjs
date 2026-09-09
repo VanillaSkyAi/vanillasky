@@ -15,7 +15,7 @@ export function compileShotPrompt(query, { scene, generatedLook, orientation } =
     direction ? `Shot direction: ${direction}` : undefined,
     look ? `Visual treatment: ${look}` : undefined,
     orientation === 'portrait' ? 'Compose the subject for a vertical 9:16 frame.' : 'Compose the subject for a horizontal 16:9 frame.',
-    'Follow the authored visual style and action. Keep the subject or environment in continuous motion throughout the five-second shot; no freeze frames or held still images. A stationary camera is valid when the action continues.',
+    'Follow the authored visual style and action in one continuous five-second shot. Keep the subject or environment in continuous motion appropriate to the scene. Quiet moments can use subtle expressions, breathing or moving fabric. A stationary camera is valid; no freeze frames or held still images.',
     'Include subtle natural ambient and action sounds that match the visible scene. Keep them quiet and unobtrusive, without sudden loud effects. No music, human voices, speech, narration, dialogue, singing or voiceover. No overlaid text, captions, subtitles, watermarks or logos.',
   ].filter(Boolean).join('\n');
 }

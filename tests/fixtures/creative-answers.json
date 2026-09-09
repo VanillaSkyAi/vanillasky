@@ -1,6 +1,40 @@
 [
   {
     "intent": "explanation",
+    "prompt": "Why does music sometimes give me goosebumps?",
+    "opening": "Music can make emotion visible.",
+    "subject": "music listener and goosebumps",
+    "development": "Connect the listening experience to an involuntary skin response and a possible pleasant feeling.",
+    "visualDirection": "Illustrative documentary views of a listener and skin detail; natural light, ordinary surroundings and restrained behavior. These authored directions are not recorded physiological evidence.",
+    "beats": [
+      {
+        "title": "An absorbed listener",
+        "narration": "Moving music can trigger an involuntary emotional response.",
+        "subject": "person headphones listening",
+        "action": "Eye-level close view of a seated headphone listener becoming still.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "The visible response",
+        "narration": "Tiny muscles contract, raising hairs and forming goosebumps.",
+        "subject": "goosebumps forearm closeup",
+        "action": "Stationary close view of visible goosebumps and raised forearm hairs.",
+        "durationSec": 5,
+        "continuity": "cut"
+      },
+      {
+        "title": "A pleasurable chill",
+        "narration": "Listeners may experience these chills as pleasure.",
+        "subject": "person headphones eyes closed",
+        "action": "Close view of a headphone listener with closed eyes and a small smile.",
+        "durationSec": 5,
+        "continuity": "cut"
+      }
+    ]
+  },
+  {
+    "intent": "explanation",
     "prompt": "Explain to a beginner how a bicycle turns pedalling into movement.",
     "opening": "Pedals start a connected chain reaction.",
     "subject": "bicycle drivetrain",
