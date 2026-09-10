@@ -314,7 +314,7 @@ export async function handleVideoChatRequest({
         : context),
       searchMedia: async (query, context) => {
         if (docsMode && action === "response") {
-          const shot = matchPocScreenshot(query);
+          const shot = matchPocScreenshot(query, new URL(request.url).origin);
           if (shot) return shot;
         }
         return baseSearchMedia(query, context);

@@ -42,7 +42,9 @@ function blocks(body) {
     if (image) {
       const path = image[2];
       if (/\.(png|jpe?g|webp|gif)$/i.test(path)) {
-        out.push({ type: "image", alt: image[1].replace(/\s+/g, " ").trim(), path });
+        // Alt text carries the same Liquid machinery as prose, and it is what
+        // the planner matches on, so it has to be cleaned the same way.
+        out.push({ type: "image", alt: prose(image[1]), path });
       }
       continue;
     }

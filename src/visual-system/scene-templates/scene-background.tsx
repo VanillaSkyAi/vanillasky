@@ -57,7 +57,10 @@ export function SceneBackground({
           onError={() => setFailedUrl(mediaUrl)} />
       : <img src={mediaUrl} alt="" aria-hidden="true" draggable={false} data-media-position={mediaPosition}
           onError={() => setFailedUrl(mediaUrl)}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%",
+            // POC: a UI screenshot is information, not atmosphere. Cropping it to
+            // fill the frame destroys the thing the viewer is meant to read.
+            objectFit: mediaUrl.includes("/poc-docs/") ? "contain" : "cover",
             objectPosition: resolveMediaPosition(mediaPosition) }} />)}
   </>;
 }
