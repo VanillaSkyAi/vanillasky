@@ -8,7 +8,13 @@ describe("change-aware verification", () => {
   it("checks isolated edge changes with the real app setup browsers", () => {
     expect(classifyChanges(["functions/_video-chat/fal.mjs", "tests/app-api/fal.test.mjs", "README.md"])).toBe("server");
   });
-  it.each(["src/player/VideoPlayer.tsx", "src/server/chat-shot-planner.ts", "app/home.css", "styles/video-chat.css", "package-lock.json", ".github/workflows/ci.yml", "scripts/ci-plan.mjs", ".dev.vars.example", "tests/fixtures/creative-answers.md", "docs/example.ts", "new-feature/file.md"])(
+  it("checks repository tooling and its own tests without the media matrix", () => {
+    expect(classifyChanges(["scripts/ci-plan.mjs", "scripts/check-docs.mjs", "scripts/acceptance/prompt-cases.json", "tests/ci-plan.test.ts", "tests/check-docs.test.ts", "CHANGELOG.md"])).toBe("server");
+  });
+  it("keeps tooling changes on the full path when they arrive with application source", () => {
+    expect(classifyChanges(["scripts/ci-plan.mjs", "src/player/video-player.tsx"])).toBe("full");
+  });
+  it.each(["src/player/VideoPlayer.tsx", "src/server/chat-shot-planner.ts", "app/home.css", "styles/video-chat.css", "package-lock.json", ".github/workflows/ci.yml", "playwright.config.ts", ".dev.vars.example", "tests/fixtures/creative-answers.md", "docs/example.ts", "new-feature/file.md"])(
     "requires full checks for shared, executable, fixture or unknown path %s", (file) => {
       expect(classifyChanges(["README.md", file])).toBe("full");
     },

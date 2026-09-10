@@ -8,6 +8,10 @@ available; their notes are kept as history and are not maintained.
 
 ## Unreleased
 
+- Verify repository tooling and its own tests with the build, release and setup
+  checks instead of the full media browser matrix. Tooling ships nothing to the
+  browser; arriving alongside application source still selects full verification.
+
 - Validate documentation links that point back into this repository on a branch,
   so a moved or deleted file is caught offline like a relative link. Commit-pinned
   links still reference history. Describe how answer quality is judged in the

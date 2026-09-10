@@ -38,8 +38,9 @@ CI selects checks conservatively:
 
 - Docs-only changes to root documentation or Markdown under `docs/` and `tasks/`
   run the offline docs check. They do not build or deploy the application.
-- Changes limited to `.mjs` files under `functions/` and `tests/app-api/` run all
-  application checks and setup journeys in Chromium, Firefox and WebKit.
+- Changes limited to `.mjs` files under `functions/` and `tests/app-api/`, or to
+  repository tooling under `scripts/` and its own tests, run all application
+  checks and setup journeys in Chromium, Firefox and WebKit.
 - Shared source, UI, playback, dependencies, workflows, fixtures and unknown
   paths run the full media browser matrix as well. Missing history runs it too.
 

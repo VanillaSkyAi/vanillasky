@@ -6,11 +6,14 @@ import { fileURLToPath } from "node:url";
 const kinds = new Set(["docs", "server", "full"]);
 const rootDocs = /^(README|CHANGELOG|CONTRIBUTING|CODE_OF_CONDUCT|SECURITY|SUPPORT|AGENTS|CLAUDE)\.md$/;
 const isDoc = path => rootDocs.test(path) || /^(docs|tasks)\/.*\.md$/.test(path);
+// Repository tooling and its own tests ship nothing to the browser, so they
+// cannot change playback. They still need the build, release and setup checks.
+const isTooling = path => /^scripts\//.test(path) || /^tests\/(check-docs|ci-plan)\.test\.ts$/.test(path);
 
 export function classifyChanges(paths) {
   if (!paths.length) return "full";
   if (paths.every(isDoc)) return "docs";
-  if (paths.every(path => isDoc(path) || /^(functions|tests\/app-api)\/.*\.mjs$/.test(path))) return "server";
+  if (paths.every(path => isDoc(path) || isTooling(path) || /^(functions|tests\/app-api)\/.*\.mjs$/.test(path))) return "server";
   return "full";
 }
 
