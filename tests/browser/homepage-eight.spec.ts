@@ -35,6 +35,25 @@ test('desktop shows four current-size cards and browses all eight without hover 
   await expect(page.getByRole('button', {name:'Next suggestions'})).toHaveCount(0);
 });
 
+test('desktop rail arrows are visually centered inside their circular buttons', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/homepage-eight.html');
+  const next = page.getByRole('button', {name:'Next suggestions'});
+  await expect(next).toBeVisible();
+  const icon = next.locator('svg');
+  await expect(icon).toBeVisible();
+  const offset = await next.evaluate(button => {
+    const buttonBox = button.getBoundingClientRect();
+    const contentBox = button.querySelector('svg')!.getBoundingClientRect();
+    return {
+      x: contentBox.left + contentBox.width / 2 - (buttonBox.left + buttonBox.width / 2),
+      y: contentBox.top + contentBox.height / 2 - (buttonBox.top + buttonBox.height / 2),
+    };
+  });
+  expect(Math.abs(offset.x)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(offset.y)).toBeLessThanOrEqual(0.5);
+});
+
 test('phone keeps 172px cards and native horizontal scrolling without desktop arrows', async ({page}) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/homepage-eight.html');

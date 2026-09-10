@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { VideoChatMedia, VideoChatSuggestion } from "./types.js";
+import { ChevronLeft, ChevronRight } from "./icons.js";
 
 /** Hero footage plays continuously; inactive cards with posters use images. */
 export function Frame({ media, poster, playing, onReady, onError, revealWhenReady = false }: {
@@ -110,8 +111,8 @@ export function SuggestionCards({ suggestions, label, onAsk, browse = false }: {
   </>;
   return browse ? <div className="suggestion-rail">{cards}
     {(overflow.before || overflow.after) && <div className="rail-arrows">
-      <button type="button" aria-label="Previous suggestions" aria-controls={railId} disabled={!overflow.before} onClick={() => move(-1)}>‹</button>
-      <button type="button" aria-label="Next suggestions" aria-controls={railId} disabled={!overflow.after} onClick={() => move(1)}>›</button>
+      <button type="button" aria-label="Previous suggestions" aria-controls={railId} disabled={!overflow.before} onClick={() => move(-1)}><ChevronLeft /></button>
+      <button type="button" aria-label="Next suggestions" aria-controls={railId} disabled={!overflow.after} onClick={() => move(1)}><ChevronRight /></button>
     </div>}
   </div> : cards;
 }

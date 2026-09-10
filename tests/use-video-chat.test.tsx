@@ -665,6 +665,37 @@ describe("useVideoChat", () => {
     expect(result.current.playerKey).toBeGreaterThan(keyBefore + 1);
   });
 
+  it("replays the complete opening chapter before restarting the saved video", async () => {
+    const { useVideoChat } = await import("../src/react");
+    let finishReplayOpening!: () => void;
+    let speechCount = 0;
+    const voice = {
+      ...fakeVoice(),
+      speak: vi.fn(async (_text: string, options: { onStart?: () => void }) => {
+        options.onStart?.();
+        speechCount += 1;
+        if (speechCount === 2) await new Promise<void>(resolve => { finishReplayOpening = resolve; });
+      }),
+    };
+    const { result } = renderHook(() => useVideoChat({ fetcher: videoChatFetcher(), voice }));
+
+    await act(async () => { await result.current.ask("First response"); });
+    act(() => result.current.playerProps?.onPlaybackEnd?.(result.current.shownTurn!.video!));
+    expect(result.current.playbackEnded).toBe(true);
+
+    act(() => result.current.replay());
+    await waitFor(() => expect(voice.speak).toHaveBeenCalledTimes(2));
+    expect(voice.speak).toHaveBeenLastCalledWith(
+      "Let us begin somewhere unexpected.",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(result.current.playerProps).toBeUndefined();
+    expect(result.current.caption).toBe("Let us begin somewhere unexpected.");
+
+    await act(async () => { finishReplayOpening(); });
+    await waitFor(() => expect(result.current.playerProps?.video).toBe(result.current.shownTurn?.video));
+  });
+
   it("does not abort composition when replay has no completed video yet", async () => {
     const { useVideoChat } = await import("../src/react");
     let responseSignal: AbortSignal | undefined;
