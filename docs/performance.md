@@ -99,11 +99,12 @@ a mock voice, verify pause exclusion, and attach the observed metrics as JSON.
 These checks detect sequencing regressions. Their results are not live-provider
 benchmarks and do not predict generated-video latency.
 
-The initial fallback limits are 15 seconds for generated video and 3 seconds
-for stock media, generated speech preparation, and fallback narration. Validate
-these against an explicitly authorized, bounded live run before treating them
-as tuned provider budgets. Compare first-frame/speech times, stalled duration,
-and visual/voice quality together; faster fallback alone does not prove quality.
+The initial fallback limits are 15 seconds for generated video, 3 seconds for
+stock media, and 12 seconds for generated speech preparation. Unavailable speech
+continues silently. Validate these against an explicitly authorized, bounded live
+run before treating them as tuned provider budgets. Compare first-frame/speech
+times, stalled duration, and visual/voice quality together; faster fallback alone
+does not prove quality.
 
 ## Opening and media preparation
 

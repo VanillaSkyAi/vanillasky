@@ -16,9 +16,10 @@ ANTHROPIC_API_KEY=your-anthropic-key
 FAL_KEY=your-fal-key
 ```
 
-This gives real Haiku planning, fal-generated footage and browser speech. The
-committed configuration already enables fal; no extra local flag is needed.
-Add `XAI_API_KEY` for generated voice. `PEXELS_API_KEY` is optional for stock
+This gives real Haiku planning and fal-generated footage. The committed
+configuration already enables fal; no extra local flag is needed. Add
+`XAI_API_KEY` for generated voice; without it, answers play silently.
+`PEXELS_API_KEY` is optional for stock
 footage as an alternative or when generated video is not configured.
 Never commit `.dev.vars` or put these keys in frontend environment variables.
 
@@ -39,8 +40,7 @@ active. Restart after changing provider keys.
 - Without an Anthropic key, the app explains that planning must be configured.
 - Without fal, footage uses Pexels. Pexels requires its own key.
 - Without either footage provider, the app reports the missing setup.
-- Without xAI, speech uses the browser. If browser speech is unavailable,
-  subtitles remain available.
+- Without xAI, answers play without narration and retain their transcript.
 
 The actual footage mode is visible in the app. With both footage providers,
 you can deliberately select Pexels or generated video. On a public deployment,

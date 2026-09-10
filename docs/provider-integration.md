@@ -9,7 +9,7 @@ generated footage, then replace the provider callbacks you need.
 
 - `fal.mjs`: MiniMax H3 Max Turbo, five-second 768P generated footage.
 - `provider.mjs`: Anthropic Haiku 4.5 for streaming planning and small text tasks.
-- `speech.mjs`: optional xAI Eve speech; the browser speaks when unavailable.
+- `speech.mjs`: optional xAI Eve speech; answers remain silent when unavailable.
 - `stock.mjs`: optional Pexels video search and selection.
 
 Set `ANTHROPIC_API_KEY` and `FAL_KEY` in ignored `.dev.vars` locally or your
@@ -19,7 +19,7 @@ for generated speech or `PEXELS_API_KEY` for the stock alternative.
 
 The API advertises configured capabilities before a turn. Missing planning
 or footage configuration gives a setup requirement. No generated-video provider
-means configured Pexels; no generated voice means browser speech. Once a footage
+means configured Pexels; no generated voice means silent playback. Once a footage
 mode is selected, a failed or late clip uses chapter recovery. The application's
 separate quota policy can use configured Pexels when a public viewer exhausts
 their personal generated-video allowance, including during an answer. It never

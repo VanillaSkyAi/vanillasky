@@ -934,7 +934,7 @@ describe("useVideoChat", () => {
     const { result } = renderHook(() => useVideoChat({ fetcher }));
     await act(async () => { await result.current.ask("Keep speaking"); });
     expect(result.current.currentTurn?.video?.scenes).toHaveLength(2);
-    expect(result.current.warnings).toContain("Using browser voice for this response.");
+    expect(result.current.warnings).toContain("Generated voice is unavailable. Continuing without narration.");
     expect(JSON.stringify(result.current.warnings)).not.toContain("private");
   });
 
@@ -1054,16 +1054,13 @@ describe("createVideoChatVoice", () => {
     vi.unstubAllGlobals();
   });
 
-  it.each(["browser", "generated"])("settles %s speech when playback never reports completion", async (source) => {
+  it("settles generated speech when playback never reports completion", async () => {
     const { createVideoChatVoice } = await import("../src/react");
     vi.useFakeTimers();
-    vi.stubGlobal("speechSynthesis", { speak: (utterance: { onstart?: () => void }) => utterance.onstart?.(), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class { constructor(public text: string) {} });
     vi.stubGlobal("Audio", class { play() { return Promise.resolve(); } pause() {} });
     vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:audio"), revokeObjectURL: vi.fn() }));
-    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => source === "browser"
-      ? new Response(null, { status: 204 })
-      : new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "audio/mpeg" } })) });
+    const voice = createVideoChatVoice({ fetcher: vi.fn(async () =>
+      new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "audio/mpeg" } })) });
     let settled = false;
     const speaking = Promise.resolve(voice.speak("Keep going.", { signal: new AbortController().signal })).then(() => { settled = true; });
     await vi.advanceTimersByTimeAsync(0);
@@ -1078,63 +1075,35 @@ describe("createVideoChatVoice", () => {
     voice.dispose?.();
   });
 
-  it.each(["end", "abort", "dispose"])("cleans the speech watchdog and abort listener on %s", async (finish) => {
-    const { createVideoChatVoice } = await import("../src/react");
-    vi.useFakeTimers();
-    let utterance: { onend?: () => void } | undefined;
-    vi.stubGlobal("speechSynthesis", { speak: (value: typeof utterance) => { utterance = value; }, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class { constructor(public text: string) {} });
-    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response(null, { status: 204 })) });
-    const controller = new AbortController();
-    const remove = vi.spyOn(controller.signal, "removeEventListener");
-    const speaking = voice.speak("Keep going.", { signal: controller.signal });
-    await vi.advanceTimersByTimeAsync(0);
-    remove.mockClear();
-    if (finish === "abort") controller.abort();
-    else if (finish === "dispose") voice.dispose?.();
-    else utterance?.onend?.();
-    await speaking;
-    expect(vi.getTimerCount()).toBe(0);
-    expect(remove).toHaveBeenCalledWith("abort", expect.any(Function));
-    voice.dispose?.();
-  });
-
-  it("remembers the server's browser-voice fallback without repeating requests", async () => {
+  it("remembers server voice unavailability without repeating requests", async () => {
     const { createVideoChatVoice } = await import("../src/react");
     const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
     const voice = createVideoChatVoice({ fetcher });
 
-    await voice.prepare("The first browser-spoken line.");
-    await voice.prepare("The second browser-spoken line.");
+    await voice.prepare("The first silent line.");
+    await voice.prepare("The second silent line.");
 
     expect(fetcher).toHaveBeenCalledOnce();
     voice.dispose?.();
   });
 
-  it("falls back to browser speech when generated speech is unavailable", async () => {
+  it("continues silently when generated speech is unavailable", async () => {
     const { createVideoChatVoice } = await import("../src/react");
-    const speak = vi.fn((utterance: { onend?: () => void }) => utterance.onend?.());
-    vi.stubGlobal("speechSynthesis", { speak, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class {
-      rate = 1;
-      onend?: () => void;
-      onerror?: () => void;
-      constructor(public text: string) {}
-    });
+    const speak = vi.fn();
+    vi.stubGlobal("speechSynthesis", { speak });
     const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response("missing", { status: 404 })) });
 
     expect((await voice.prepare("A short spoken response.")).seconds).toBeGreaterThan(0);
     await voice.speak("A short spoken response.", { signal: new AbortController().signal });
 
-    expect(speak).toHaveBeenCalledOnce();
+    expect(speak).not.toHaveBeenCalled();
     voice.dispose?.();
   });
 
-  it.each(["play", "resume"])("uses browser speech when generated audio cannot %s", async (failure) => {
+  it.each(["play", "resume"])("continues silently when generated audio cannot %s", async (failure) => {
     const { createVideoChatVoice } = await import("../src/react");
-    const speak = vi.fn((utterance: { onend?: () => void }) => utterance.onend?.());
-    vi.stubGlobal("speechSynthesis", { speak, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class { constructor(public text: string) {} });
+    const speak = vi.fn();
+    vi.stubGlobal("speechSynthesis", { speak });
     vi.stubGlobal("Audio", class {
       play() { return Promise.reject(new Error("private playback failure")); }
       pause() {}
@@ -1148,7 +1117,7 @@ describe("createVideoChatVoice", () => {
       voice.resume();
     }
     await speaking;
-    expect(speak).toHaveBeenCalledOnce();
+    expect(speak).not.toHaveBeenCalled();
     voice.dispose?.();
   });
 
@@ -1312,13 +1281,12 @@ it("forwards the prepared audio clock through the actual chat player props", asy
   }
 });
 
-it("keeps received video playable with a warning when native browser speech never starts", async () => {
+it("keeps received video playable silently when generated speech is unavailable", async () => {
   const { useVideoChat } = await import("../src/react");
   const { usePlaybackClock } = await import("../src/player/use-playback-clock");
   const { createVideoState } = await import("../src/protocol/state");
-  const cancel = vi.fn();
-  vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel, pause: vi.fn(), resume: vi.fn() });
-  vi.stubGlobal("SpeechSynthesisUtterance", class {});
+  const browserSpeak = vi.fn();
+  vi.stubGlobal("speechSynthesis", { speak: browserSpeak });
   const base = videoChatFetcher();
   const fetcher: typeof fetch = (input, init) => String(input).includes("action=response")
     ? Promise.resolve(responseStream("blocked-voice", [scene("one", "First", "A thought worth seeing.")], { line: "", keyword: "", fallbackKeyword: "" }))
@@ -1332,10 +1300,9 @@ it("keeps received video playable with a warning when native browser speech neve
   try {
     await act(() => vi.advanceTimersByTimeAsync(3500));
     expect(timeRef.current).toBeGreaterThan(1);
-    expect(cancel).toHaveBeenCalled();
     expect(chat.result.current.error).toBeUndefined();
     expect(chat.result.current.currentTurn!.video).toEqual(video);
-    expect(chat.result.current.warnings).toContain("Voice playback is unavailable. Continuing with subtitles.");
+    expect(browserSpeak).not.toHaveBeenCalled();
     expect(chat.result.current.playerProps).toBeDefined();
   } finally {
     clock.unmount(); chat.unmount(); vi.useRealTimers(); vi.unstubAllGlobals();

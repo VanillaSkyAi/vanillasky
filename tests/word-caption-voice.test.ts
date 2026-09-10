@@ -40,15 +40,12 @@ describe("aligned generated speech", () => {
     f.voice.dispose?.();
   });
 
-  it("restarts caption timing when audible generated speech falls back to a browser voice without boundaries", async () => {
+  it("stops caption timing when generated speech playback fails", async () => {
     vi.useFakeTimers();
     const f = fixture();
-    let utterance!: SpeechSynthesisUtterance;
     const element = { currentTime: 0, onplaying: null as (() => void) | null, onerror: null as (() => void) | null,
       play: async () => {}, pause: () => {}, removeAttribute: () => {}, load: () => {} };
     vi.stubGlobal("Audio", function () { return element; });
-    vi.stubGlobal("SpeechSynthesisUtterance", class {});
-    vi.stubGlobal("speechSynthesis", { speak: (value: SpeechSynthesisUtterance) => { utterance = value; }, cancel: vi.fn() });
     let now = 0;
     const captions = createCaptionVoice(f.voice, () => now);
     await captions.voice.prepare(text);
@@ -60,14 +57,9 @@ describe("aligned generated speech", () => {
     element.onerror?.();
     await vi.advanceTimersByTimeAsync(0);
     now = 5000;
-    utterance.onstart?.({} as SpeechSynthesisEvent);
-    expect(captions.getCaptionProgress()).toMatchObject({ alignment: "estimated", elapsedSeconds: 0 });
-    expect(captions.getCaptionProgress()?.wordTimings).toBeUndefined();
-    expect(onStart).toHaveBeenCalledOnce();
-    now = 5200;
-    expect(captions.getCaptionProgress()?.elapsedSeconds).toBeCloseTo(.2);
-    utterance.onend?.({} as SpeechSynthesisEvent);
     await speaking;
+    expect(captions.getCaptionProgress()).toBeUndefined();
+    expect(onStart).toHaveBeenCalledOnce();
     f.voice.dispose?.();
   });
 
@@ -87,34 +79,4 @@ describe("aligned generated speech", () => {
     }
     expect(allocate).not.toHaveBeenCalled();
   });
-});
-
-it("observes native word boundaries only for the active, audible utterance", async () => {
-  vi.useFakeTimers();
-  let utterance!: SpeechSynthesisUtterance;
-  vi.stubGlobal("SpeechSynthesisUtterance", class {});
-  vi.stubGlobal("speechSynthesis", { speak: (value: SpeechSynthesisUtterance) => { utterance = value; }, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-  const voice = createVideoChatVoice({ fetcher: async () => new Response(null, { status: 204 }) });
-  const onBoundary = vi.fn();
-  const controller = new AbortController();
-  const speaking = voice.speak(text, { signal: controller.signal, onBoundary });
-  await vi.advanceTimersByTimeAsync(0);
-  const boundary = (index: number, name = "word") => utterance.onboundary?.({ charIndex: index, name } as SpeechSynthesisEvent);
-  boundary(0);
-  expect(onBoundary).not.toHaveBeenCalled();
-  utterance.onstart?.({} as SpeechSynthesisEvent);
-  boundary(0);
-  expect(onBoundary).toHaveBeenLastCalledWith(0);
-  voice.pause(); boundary(6);
-  expect(onBoundary).toHaveBeenCalledOnce();
-  voice.resume(); boundary(6);
-  expect(onBoundary).toHaveBeenLastCalledWith(6);
-  boundary(12, "sentence"); boundary(-1); boundary(Infinity); boundary(text.length + 1);
-  expect(onBoundary).toHaveBeenCalledTimes(2);
-  const stale = utterance.onboundary;
-  controller.abort(); await speaking;
-  expect(utterance.onboundary).toBeNull();
-  stale?.call(utterance, { charIndex: 13, name: "word" } as SpeechSynthesisEvent);
-  expect(onBoundary).toHaveBeenCalledTimes(2);
-  voice.dispose?.();
 });

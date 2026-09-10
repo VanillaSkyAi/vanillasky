@@ -25,15 +25,15 @@ budgets detect regressions in the local mocked path; they do not measure live
 model latency. Grounding and readability checks preserve the planned short copy
 and narration with readable durations. No template diversity or background music
 requirement forces an answer to become longer than needed. The journey also checks
-follow-up context reaches the planner and absent or failed speech returns the
-redacted response that the browser uses to select local voice.
+follow-up context reaches the planner and absent or failed speech returns a
+redacted response while the client continues without narration.
 
 Automated acceptance makes no claim about human visual quality and assigns no
 human score. For an authorized live check, use the actual app on localhost to ask an
 explanation, follow up, and request a creative response. Watch the opening and
 completed scenes, check text readability and voice synchronization, and verify
-that browser voice continues when generated speech is unavailable. Browser
-playback and speech recovery have separate automated integration coverage;
+that playback continues silently when generated speech is unavailable. Browser
+playback and generated-speech recovery have separate automated integration coverage;
 this server journey does not simulate a human watching or listening.
 
 Use live providers only for an explicitly authorized manual test. Keep credentials

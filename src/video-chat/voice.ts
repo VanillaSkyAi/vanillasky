@@ -7,7 +7,9 @@ import { estimateNarrationSeconds } from "../protocol/clip-budget.js";
 import { parseSpeechWordTimings, type SpeechWordTiming } from "../protocol/speech-timing.js";
 
 const DEFAULT_MAX_CACHED_LINES = 60;
-const SPEECH_PREPARATION_TIMEOUT_MS = 3_000;
+// Leave room for the server's ten-second synthesis and timestamp-alignment
+// budget, plus network transfer and browser decoding.
+const SPEECH_PREPARATION_TIMEOUT_MS = 12_000;
 const FALLBACK_BITS_PER_SECOND = 128_000;
 const MAX_AUDIO_BYTES = 1024 * 1024;
 const MAX_DECODED_CACHE_BYTES = 32 * 1024 * 1024;
@@ -19,7 +21,7 @@ let sharedContext: AudioContext | undefined;
 type PreparedLine =
   | ({ source: "generated"; seconds: number; measured?: boolean; wordTimings?: SpeechWordTiming[] }
     & ({ src: string; buffer?: never } | { buffer: AudioBuffer; src?: never }))
-  | { source: "browser"; seconds: number };
+  | { source: "unavailable"; seconds: number };
 
 export interface VideoChatPreparedSpeech {
   /** Measured or conservatively estimated spoken duration, in seconds. */
@@ -35,7 +37,7 @@ export interface VideoChatVoice extends NarrationVoice {
   pause(): void;
   resume(): void;
   setMuted(muted: boolean): void;
-  /** Change loudness without changing timing; browser speech applies it to the next utterance. */
+  /** Change loudness without changing timing. */
   setVolume?(volume: number): void;
   dispose?(): void;
 }
@@ -46,7 +48,7 @@ export interface CreateVideoChatVoiceOptions {
   credentials?: RequestCredentials;
   fetcher?: typeof fetch;
   maxCachedLines?: number;
-  /** Called when optional generated speech falls back to browser speech. */
+  /** Called when generated speech is unavailable and playback continues silently. */
   onFallback?: () => unknown;
 }
 
@@ -55,7 +57,7 @@ function actionEndpoint(endpoint: string | URL, action: string): string {
   return `${value}${value.includes("?") ? "&" : "?"}action=${encodeURIComponent(action)}`;
 }
 
-function estimatedBrowserSeconds(text: string): number {
+function estimatedSpeechSeconds(text: string): number {
   return Math.max(1, estimateNarrationSeconds(text));
 }
 
@@ -71,10 +73,10 @@ async function measureSeconds(bytes: ArrayBuffer): Promise<{ seconds: number; me
 }
 
 /**
- * Create the generated-speech client with a browser-voice fallback.
+ * Create the generated-speech client with silent recovery.
  *
  * The endpoint is provider-neutral. A no-content response (or a compatible
- * endpoint's 404) selects browser speech for the rest of the session.
+ * endpoint's 404) disables narration for the rest of the session.
  */
 export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}): VideoChatVoice {
   const endpoint = options.endpoint ?? "/api/video-chat";
@@ -90,11 +92,9 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
   // that played the opening when later lines arrive after user activation expires.
   let generatedElement: HTMLAudioElement | undefined;
   let stopGenerated: (() => void) | undefined;
-  let browserFinish: (() => void) | undefined;
   let held = false;
   let silent = false;
   let volume = 1;
-  let utterance: SpeechSynthesisUtterance | undefined;
   let activeSpeech = false;
   let buffered: {
     context: AudioContext; gain: GainNode;
@@ -209,7 +209,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     try {
       try {
         if (generatedSpeechUnavailable) {
-          prepared = { source: "browser", seconds: estimatedBrowserSeconds(normalized) };
+          prepared = { source: "unavailable", seconds: estimatedSpeechSeconds(normalized) };
         } else {
           prepared = await withDeadline(async (preparationSignal): Promise<PreparedLine> => {
             const response = await fetcher(actionEndpoint(endpoint, "speech"), {
@@ -222,7 +222,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             preparationSignal.throwIfAborted();
             if (response.status === 204 || response.status === 404) {
               generatedSpeechUnavailable = true;
-              return { source: "browser", seconds: estimatedBrowserSeconds(normalized) };
+              return { source: "unavailable", seconds: estimatedSpeechSeconds(normalized) };
             }
             if (!response.ok) throw new Error("Speech is unavailable");
             let bytes: ArrayBuffer;
@@ -259,7 +259,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             if (wordTimings && seconds.measured) wordTimings = parseSpeechWordTimings(wordTimings, normalized, seconds.seconds);
             preparationSignal.throwIfAborted();
             // Allocate only after every asynchronous step succeeds. A late decode
-            // cannot leak an object URL or replace the cached browser fallback.
+            // cannot leak an object URL or replace the cached unavailable result.
             createdSrc = URL.createObjectURL(new Blob([bytes], {
               type: mediaType,
             }));
@@ -270,7 +270,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         if (createdSrc) URL.revokeObjectURL(createdSrc);
         if (controller.signal.aborted) throw controller.signal.reason ?? cause;
         notifyFallback();
-        prepared = { source: "browser", seconds: estimatedBrowserSeconds(normalized) };
+        prepared = { source: "unavailable", seconds: estimatedSpeechSeconds(normalized) };
       }
 
       if (disposed || controller.signal.aborted) {
@@ -306,11 +306,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       }
     }, 250);
     return () => clearInterval(timer);
-  };
-
-  const stopBrowser = () => {
-    globalThis.speechSynthesis?.cancel();
-    browserFinish?.();
   };
 
   const speakBuffer = (buffer: AudioBuffer, text: string, signal: AbortSignal, initialTime: number, notifyStart: () => void) => new Promise<void>((resolve, reject) => {
@@ -372,7 +367,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
     buffered = playback;
     stopGenerated = stop;
     applyVolume(true);
-    const clearWatchdog = watchSpeech(Math.max(buffer.duration, estimatedBrowserSeconds(text)), fail);
+    const clearWatchdog = watchSpeech(Math.max(buffer.duration, estimatedSpeechSeconds(text)), fail);
     const onsetTimer = setInterval(() => {
       if (!finished && !held && source && context.state === "running" && time() >= initialTime + .04) notifyStart();
     }, 16);
@@ -395,7 +390,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       held = true;
       buffered?.pause();
       sounding?.pause();
-      globalThis.speechSynthesis?.pause();
     },
     resume() {
       held = false;
@@ -427,21 +421,19 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
         applyVolume(true);
         connectOutput();
         try { void element.play().catch(() => undefined); }
-        catch { /* Actual speech retains the existing fallback behavior. */ }
+        catch { /* Actual generated speech can still use the prepared sink. */ }
       }
       if (sounding) playGenerated(sounding, playbackFailure);
-      if (!silent) globalThis.speechSynthesis?.resume();
     },
     setMuted(muted) {
       silent = muted;
       applyVolume();
-      if (muted) stopBrowser();
     },
     setVolume(next) {
       volume = audioVolume(next);
       applyVolume(!activeSpeech);
     },
-    async speak(text, { signal, onStart, offsetSeconds, onBoundary, onPlaybackSource }): Promise<void> {
+    async speak(text, { signal, onStart, offsetSeconds, onPlaybackSource }): Promise<void> {
       let started = false;
       const notifyStart = (source?: "browser" | "generated") => {
         if (started || disposed || signal.aborted || silent || held) return;
@@ -457,73 +449,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       const line = await load(text, signal);
       if (disposed || signal.aborted || silent) return;
       if (offsetSeconds !== undefined && (line.source !== "generated" || !line.measured || !Number.isFinite(offsetSeconds) || offsetSeconds < 0 || offsetSeconds >= line.seconds)) throw new Error("Narration group requires measured, seekable audio");
-      if (line.source === "browser") {
-        const synthesis = globalThis.speechSynthesis;
-        if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") throw new Error("Browser voice is unavailable");
-        const browserUtterance = utterance = new SpeechSynthesisUtterance(text);
-        browserUtterance.rate = 1;
-        // Browsers do not define live mutation of an utterance already passed
-        // to speak(). Keep its gain fixed until it ends.
-        browserUtterance.volume = volume;
-        let unavailable = false;
-        await new Promise<void>((resolve) => {
-          let finished = false;
-          let onsetRemainingMs = 2_000;
-          const finish = () => {
-            if (finished) return;
-            finished = true;
-            if (utterance === browserUtterance) { utterance = undefined; activeSpeech = false; }
-            clearWatchdog();
-            clearInterval(onsetTimer);
-            signal.removeEventListener("abort", stop);
-            speechStops.delete(stop);
-            browserUtterance.onstart = null;
-            browserUtterance.onend = null;
-            browserUtterance.onerror = null;
-            browserUtterance.onboundary = null;
-            if (browserFinish === finish) browserFinish = undefined;
-            resolve();
-          };
-          const stop = () => {
-            finish();
-            synthesis.cancel();
-          };
-          const clearWatchdog = watchSpeech(estimatedBrowserSeconds(text), stop);
-          speechStops.add(stop);
-          browserFinish = finish;
-          const fail = () => { unavailable = true; stop(); };
-          // Some embedded/headless browsers accept speak() but never dispatch
-          // onstart. Cancel that pending utterance before the player deadline,
-          // so late speech cannot start over subtitle-only playback.
-          const onsetTimer = setInterval(() => {
-            if (held || finished) return;
-            onsetRemainingMs -= 250;
-            if (onsetRemainingMs <= 0) fail();
-          }, 250);
-          browserUtterance.onstart = () => {
-            if (finished) return;
-            clearInterval(onsetTimer);
-            notifyStart("browser");
-          };
-          browserUtterance.onend = finish;
-          browserUtterance.onerror = fail;
-          browserUtterance.onboundary = event => {
-            if (finished || !started || disposed || signal.aborted || silent || held || event.name !== "word"
-              || !Number.isInteger(event.charIndex) || event.charIndex < 0 || event.charIndex >= text.length) return;
-            try { void Promise.resolve(onBoundary?.(event.charIndex)).catch(() => undefined); }
-            catch { /* Caption observers cannot interrupt speech. */ }
-          };
-          signal.addEventListener("abort", stop, { once: true });
-          try {
-            synthesis.speak(browserUtterance);
-            if (held) synthesis.pause();
-          } catch {
-            fail();
-          }
-        });
-        if (unavailable) throw new Error("Browser voice is unavailable");
-        return;
-      }
+      if (line.source === "unavailable") return;
 
       let playbackFailed = false;
       try {
@@ -566,7 +492,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             };
             const fail = () => { if (!finished) { playbackFailed = true; stop(); } };
             stopGenerated = stop;
-            const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedBrowserSeconds(text)), fail);
+            const clearWatchdog = watchSpeech(Math.max(line.seconds, estimatedSpeechSeconds(text)), fail);
             speechStops.add(stop);
             playbackFailure = fail;
             // A native playing event may precede a working audio sink. Wait for
@@ -592,8 +518,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       if (playbackFailed && !disposed && !signal.aborted && !silent) {
         notifyFallback();
         if (line.src) URL.revokeObjectURL(line.src);
-        lines.set(text.trim(), { source: "browser", seconds: estimatedBrowserSeconds(text) });
-        await this.speak(text, { signal, onStart: notifyStart, onBoundary, onPlaybackSource });
+        lines.set(text.trim(), { source: "unavailable", seconds: estimatedSpeechSeconds(text) });
+        return;
       }
     },
     dispose() {
@@ -619,7 +545,6 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
       generatedElement?.load?.();
       generatedElement = undefined;
       stopGenerated = undefined;
-      stopBrowser();
       for (const line of lines.values()) {
         if (line.source === "generated" && line.src) URL.revokeObjectURL(line.src);
       }

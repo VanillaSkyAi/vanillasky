@@ -46,7 +46,7 @@ ANTHROPIC_API_KEY=your-anthropic-key
 FAL_KEY=your-fal-key
 ```
 
-Add `XAI_API_KEY` for generated narration, or start with browser speech. Then run:
+Add `XAI_API_KEY` for generated narration, or start with silent playback. Then run:
 
 ```bash
 npm run dev
@@ -64,7 +64,7 @@ every conversation uses real AI planning.
 | --- | --- | --- |
 | Generated video | [MiniMax H3 Max Turbo on fal](https://fal.ai/models/minimax/h3-max-turbo/text-to-video) — five-second clips at 768P | `FAL_KEY` |
 | Answer and scene planning | Anthropic Haiku 4.5 | `ANTHROPIC_API_KEY` |
-| Narration | xAI Eve, with browser speech when no voice provider is configured | Optional `XAI_API_KEY` |
+| Narration | xAI Eve, with silent playback when no voice provider is configured | Optional `XAI_API_KEY` |
 
 Provider calls live in [`functions/_video-chat/`](functions/_video-chat/), so you
 can change a model or connect another provider without rewriting the player.

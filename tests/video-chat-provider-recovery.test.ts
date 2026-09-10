@@ -155,6 +155,8 @@ describe("video chat provider deadlines", () => {
       method: "POST", body: JSON.stringify(action === "speech" ? { text: "Ocean currents" } : { prompt: "Ocean", lines: [] }),
     })).then((response) => response.json()).then((body) => { completed = true; return body; });
     await vi.advanceTimersByTimeAsync(3_000);
+    expect(completed).toBe(action === "suggestions");
+    if (action === "speech") await vi.advanceTimersByTimeAsync(7_000);
     expect(completed).toBe(true);
     expect(await result).toEqual(action === "suggestions" ? { suggestions: [] } : {
       error: { code: "speech_failed", message: "Speech could not be generated" },

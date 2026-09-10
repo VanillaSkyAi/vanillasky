@@ -6,9 +6,10 @@ Clone this repository, run `npm ci`, configure ignored `.dev.vars`, and start
 VanillaSky inside this app.
 
 Use the actual application and provider defaults. Keep AI planning required,
-Pexels as the configured fallback when generated video is absent, and browser
-speech when generated voice is absent. Never make missing setup look functional
-with canned answers. Provider doubles belong only in automated tests.
+Pexels as the configured fallback when generated video is absent, and silent
+playback when generated voice is absent. Never make missing setup look functional
+with canned answers or device-dependent browser speech. Provider doubles belong
+only in automated tests.
 
 The application route owns provider admission and spending. Internal modules own
 planning, validation, voice timing and playback. Change guidance in the handler,

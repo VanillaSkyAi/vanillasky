@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { VideoChat, type VideoChatVoice } from "../../../src/react";
 
 // Predictable silent voice keeps this browser test independent of OS voices.
-// The production voice fallback is exercised separately by the voice suite.
+// Generated-voice recovery is exercised separately by the voice suite.
 const holdOpening = new URLSearchParams(location.search).has("hold-opening");
 let releaseOpening = () => {};
 let firstLine = true;

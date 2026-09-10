@@ -40,46 +40,6 @@ it('keeps zero-volume generated narration on its measured clock while user gain 
   voice.dispose?.();
 });
 
-it('keeps browser gain fixed for each utterance and applies user changes to the next line', async () => {
-  vi.useFakeTimers();
-  let utterance!: { volume: number; onstart?: () => void; onend?: () => void };
-  const synthesis = { speak: vi.fn(value => { utterance = value; }), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() };
-  vi.stubGlobal('speechSynthesis', synthesis);
-  vi.stubGlobal('SpeechSynthesisUtterance', class { volume = 1; });
-  const voice = createVideoChatVoice({ fetcher: async () => new Response(null, { status: 204 }) });
-  const started = vi.fn();
-  const task = voice.speak('Keep every word.', { signal: new AbortController().signal, onStart: started });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(utterance.volume).toBe(1);
-  utterance.onstart?.();
-  voice.setVolume!(0);
-  expect(utterance.volume).toBe(1);
-  voice.pause(); expect(synthesis.pause).toHaveBeenCalledOnce();
-  voice.resume(); expect(synthesis.resume).toHaveBeenCalledOnce();
-  expect(synthesis.speak).toHaveBeenCalledTimes(1);
-  expect(synthesis.cancel).not.toHaveBeenCalled();
-  utterance.onend?.(); await task;
-
-  const silentLine = voice.speak('The next complete line.', { signal: new AbortController().signal, onStart: started });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(utterance.volume).toBe(0);
-  utterance.onstart?.();
-  expect(started.mock.calls).toEqual([['browser'], ['browser']]);
-  voice.setVolume!(.4);
-  expect(utterance.volume).toBe(0);
-  expect(synthesis.speak).toHaveBeenCalledTimes(2);
-  expect(synthesis.cancel).not.toHaveBeenCalled();
-  utterance.onend?.(); await silentLine;
-
-  const quieterLine = voice.speak('A quieter next line.', { signal: new AbortController().signal, onStart: started });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(utterance.volume).toBe(.4);
-  utterance.onstart?.();
-  expect(started).toHaveBeenCalledTimes(3);
-  utterance.onend?.(); await quieterLine;
-  voice.dispose?.();
-});
-
 it.each([false, true])('uses a generated-speech gain graph only when native volume is fixed (%s)', async fixed => {
   vi.useFakeTimers();
   const element = { src: '', volume: 1, currentTime: 0, muted: false, play: vi.fn(async () => {}), pause: vi.fn(), removeAttribute: vi.fn(), load: vi.fn() };

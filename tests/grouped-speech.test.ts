@@ -34,7 +34,7 @@ describe("prepared paragraph audio", () => {
     expect(audio.pause).toHaveBeenCalled();
     voice.dispose?.();
   });
-  it("rejects browser speech for timed group playback", async () => {
+  it("rejects unavailable speech for timed group playback", async () => {
     const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response(null, { status: 204 })) });
     await expect(voice.speak("One. Two.", { signal: new AbortController().signal, offsetSeconds: 0 })).rejects.toThrow("seekable");
     voice.dispose?.();
