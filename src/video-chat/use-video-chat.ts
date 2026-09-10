@@ -582,17 +582,40 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     narrationRef.current.interrupt();
     heldRef.current = false;
     voiceRef.current.resume();
-    // The opening chapter covers generation latency. A saved answer has none, so
-    // replay starts at the first scene, exactly as selecting it from history does.
-    if (turn.video.scenes.some((scene) => scene.narrationGroup)) {
-      const selection = ++runRef.current;
-      dispatch({ type: "pause" });
-      void prepareSavedGroups(turn.video).then(() => {
-        if (mountedRef.current && runRef.current === selection) dispatch({ type: "replay" });
-      }).catch((cause: unknown) => {
-        if (mountedRef.current && runRef.current === selection) dispatch({ type: "error", id: turn.id, error: errorFrom(cause) });
-      });
-    } else dispatch({ type: "replay" });
+    const groupsNeedPreparation = turn.video.scenes.some((scene) => scene.narrationGroup);
+    if (!turn.opening && !groupsNeedPreparation) {
+      dispatch({ type: "replay" });
+      return;
+    }
+
+    const selection = ++runRef.current;
+    const openingController = new AbortController();
+    openingRef.current = openingController;
+    if (turn.opening) dispatch({ type: "replay-opening-start", id: turn.id });
+    else dispatch({ type: "pause" });
+    void (async () => {
+      const groupPreparation = groupsNeedPreparation ? prepareSavedGroups(turn.video!) : Promise.resolve();
+      if (turn.opening) {
+        try {
+          await withDeadline((signal) => voiceRef.current.prepare(turn.opening!, { signal }), 3000, openingController.signal);
+          if (!openingController.signal.aborted && runRef.current === selection) {
+            await voiceRef.current.speak(turn.opening, { signal: openingController.signal });
+          }
+        } catch {
+          if (!openingController.signal.aborted && runRef.current === selection) {
+            dispatch({ type: "warning", id: turn.id, message: "Some narration is unavailable; the response will continue." });
+          }
+        }
+      }
+      try {
+        await groupPreparation;
+        if (mountedRef.current && !openingController.signal.aborted && runRef.current === selection) dispatch({ type: "replay" });
+      } catch (cause: unknown) {
+        if (mountedRef.current && !openingController.signal.aborted && runRef.current === selection) dispatch({ type: "error", id: turn.id, error: errorFrom(cause) });
+      } finally {
+        if (openingRef.current === openingController) openingRef.current = undefined;
+      }
+    })();
   }, [endTiming, prepareSavedGroups]);
 
   const selectTurn = useCallback((id: string) => {
