@@ -1,5 +1,3 @@
-[← Documentation home](../README.md) · [Previous: Core concepts](architecture.md) · [Next: Streaming protocol →](reference/protocol.md)
-
 # Persistence and replay
 
 A completed `Video` is ordinary JSON. The app keeps chat history in memory and

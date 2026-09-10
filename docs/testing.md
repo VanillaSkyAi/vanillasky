@@ -66,5 +66,3 @@ invalid scenes and interrupted streams.
 Keep fast tests focused on behavior. Run the fresh application setup check when
 installation changes and browser media tests when playback changes.
 A deterministic fixture proves integration, not live-video quality or latency.
-
-[Documentation home](../README.md)

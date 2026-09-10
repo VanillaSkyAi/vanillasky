@@ -1,5 +1,3 @@
-[← Documentation home](../README.md) · [Next: Generate your first video →](getting-started.md)
-
 # Prompt and conversation input
 
 VanillaSky turns the same things people ask an AI chat into spoken video
@@ -153,5 +151,3 @@ Check these boundaries in order:
 
 Log request IDs, safe warning codes, provider finish reasons, model IDs, and
 token usage. Never log credentials or expose raw provider errors in the video.
-
-[← Documentation home](../README.md) · [Next: Generate your first video →](getting-started.md)

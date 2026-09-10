@@ -1,5 +1,3 @@
-[← Documentation home](../README.md) · [Previous: Streaming protocol](reference/protocol.md) · [Next: Errors and recovery →](errors.md)
-
 # Security
 
 Internal modules validate protocol shape. Identity, authorization, data policy

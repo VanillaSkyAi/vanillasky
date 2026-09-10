@@ -86,8 +86,6 @@ Keep the player in a container with a usable width and height.
 History in `VideoChat` is in memory. Nothing persists answers by default;
 see [persistence](persistence.md) for adding storage.
 
-[Documentation home](../README.md)
-
 ## Hosting policy
 
 When changing video providers, add only their approved media CDN origins to

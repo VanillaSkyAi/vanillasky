@@ -1,9 +1,17 @@
 # Changelog
 
-Application changes are recorded below. Versioned sections preserve the history
-of previously published npm releases.
+Unreleased entries describe the application, which is not versioned: `main`
+deploys to production and there is nothing to publish. Every numbered section
+below — 0.1.0 through 0.11.3 — is the release history of the npm package this
+repository used to ship. That package is retired and those versions remain
+available; their notes are kept as history and are not maintained.
 
 ## Unreleased
+
+- Give the documentation one index in the README instead of a half-maintained
+  breadcrumb chain, let getting started own first-run setup, move the visual-style
+  evaluation beside the other evaluations, and explain what the versioned sections
+  below refer to.
 
 - Rewrite the documentation from the running app's point of view instead of a
   library consumer's: name the real route, provider modules and call sites,
@@ -418,7 +426,7 @@ Before:
 
 ### Adoption
 
-Remove brand options and regenerate source-owned templates from the new catalog. Re-author or regenerate saved videos from retained source material; do not rename old IDs or change their version field blindly. See [cinematic migration](https://github.com/VanillaSkyAi/video/blob/main/docs/maintainers/cinematic-migration.md).
+Remove brand options and regenerate source-owned templates from the new catalog. Re-author or regenerate saved videos from retained source material; do not rename old IDs or change their version field blindly. See [cinematic migration](https://github.com/VanillaSkyAi/vanillasky/blob/aff41867b79799b5eea01da07137d2c992ad61d2/docs/maintainers/cinematic-migration.md).
 
 ```tsx
 <VideoChat options={{ endpoint: "/api/video-chat" }} />
