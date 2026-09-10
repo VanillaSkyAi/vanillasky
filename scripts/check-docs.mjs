@@ -93,18 +93,42 @@ function parse(file, source, errors) {
   return { anchors, links };
 }
 
+/** Owner and repository from package.json, so links back to this repository resolve offline. */
+function repositorySlug(root) {
+  try {
+    const { repository } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+    const url = typeof repository === "string" ? repository : repository?.url ?? "";
+    return /github\.com[/:]([^/]+\/[^/.]+)/.exec(url)?.[1] ?? null;
+  } catch { return null; }
+}
+
 /** Validate tracked Markdown without dependencies, network access or generated files. */
 export function checkDocs(root, trackedFiles) {
   const files = trackedFiles ?? execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
   const tracked = new Set(files), errors = [], documents = new Map();
+  const slug = repositorySlug(root);
+  const repositoryLink = slug && new RegExp(`^https?://(?:www\\.)?github\\.com/${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/(?:blob|tree)/([^/]+)/([^#?]+)`, "i");
+  const present = candidate => tracked.has(candidate)
+    || candidate === "." || candidate === "./"
+    || files.some(file => file.startsWith(`${candidate.replace(/\/$/, "")}/`));
   for (const file of files.filter(markdown)) {
     try { documents.set(file, parse(file, readFileSync(resolve(root, file), "utf8"), errors)); }
     catch { errors.push({ file, line: 1, message: "Cannot read tracked Markdown file" }); }
   }
   for (const [file, document] of documents) for (const { target, line } of document.links) {
     const value = entities(unescape(target));
-    if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(value)) continue;
     const fail = message => errors.push({ file, line, message });
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(value)) {
+      // Links into this repository on a branch must still exist; commit-pinned links reference history.
+      const repository = repositoryLink && repositoryLink.exec(value);
+      if (repository && !/^[\da-f]{7,40}$/i.test(repository[1])) {
+        let candidate;
+        try { candidate = posix.normalize(decodeURIComponent(repository[2])); }
+        catch { fail(`Invalid URL encoding in ${target}`); continue; }
+        if (!present(candidate)) fail(`Missing tracked repository target: ${target}`);
+      }
+      continue;
+    }
     let path, fragment;
     try {
       const hash = value.indexOf("#");
@@ -112,8 +136,7 @@ export function checkDocs(root, trackedFiles) {
       fragment = hash < 0 ? "" : decodeURIComponent(value.slice(hash + 1));
     } catch { fail(`Invalid URL encoding in ${target}`); continue; }
     const resolved = path ? posix.normalize(path.startsWith("/") ? path.slice(1) : posix.join(posix.dirname(file), path)) : file;
-    const directory = resolved === "." || resolved === "./" || files.some(candidate => candidate.startsWith(`${resolved.replace(/\/$/, "")}/`));
-    if (!tracked.has(resolved) && !directory) { fail(`Missing tracked local target: ${target}`); continue; }
+    if (!present(resolved)) { fail(`Missing tracked local target: ${target}`); continue; }
     if (fragment && markdown(resolved) && !documents.get(resolved)?.anchors.has(fragment)) fail(`Missing Markdown anchor: ${target}`);
   }
   return errors;
