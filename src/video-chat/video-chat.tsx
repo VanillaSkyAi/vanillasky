@@ -4,7 +4,7 @@ import { CREDIT_FALLBACK_NOTICE, MEDIA_RECOVERY_NOTICE } from "./recovery";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { VideoOrientation } from "../protocol/types.js";
 import { VideoPlayer } from "../player/video-player.js";
-import { useVideoChatSession, type UseVideoChatOptions, type VideoChatTurn } from "./use-video-chat.js";
+import { useVideoChatSession, type UseVideoChatOptions } from "./use-video-chat.js";
 import type { VideoChatSuggestion, VideoChatMode } from "./types.js";
 import { ChevronUp, Close, Gear, Mic, Replay, Send, Sound, Stop, Muted, Play, Plus, Sessions, Warning } from "./icons";
 import { useDismiss, useFocusTrap } from "./use-dismiss";
@@ -20,6 +20,7 @@ import { Soundtrack } from "../player/soundtrack";
 import type { SoundtrackPlayback } from "../player/buffer-soundtrack.js";
 import { createIosVideoPool, IosVideoPoolContext } from "../player/ios-video-pool.js";
 import { isIosAudioOutput, resumeIosAudioContext } from "../player/ios-audio-output.js";
+import { mergeSavedSessions, readSavedSessions, saveSessions, type SavedVideoChatSession } from "./session-storage.js";
 const DESKTOP_WIDTH = 900;
 const CAPTION_STYLE_KEY = "vanillasky:caption-style";
 type CaptionStyle = "classic" | "words";
@@ -89,7 +90,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const [dismissedNoticeTurn, setDismissedNoticeTurn] = useState<string>();
   const [draft, setDraft] = useState("");
   const [selectedMode, setSelectedMode] = useState<VideoChatMode>();
-  const [savedSessions, setSavedSessions] = useState<Array<{ id: string; turns: readonly VideoChatTurn[] }>>([]);
+  const [savedSessions, setSavedSessions] = useState<SavedVideoChatSession[]>(readSavedSessions);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -168,6 +169,14 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     });
   }, [chat, listen]);
 
+  useEffect(() => {
+    const completed = chat.turns.filter((turn) => turn.completed && turn.video);
+    saveSessions(mergeSavedSessions([
+      ...(completed.length ? [{ id: completed[0]!.id, turns: completed }] : []),
+      ...savedSessions,
+    ]));
+  }, [chat.turns, savedSessions]);
+
   const newSession = useCallback(() => {
     if (chat.turns.length === 0) {
       setHistoryOpen(false);
@@ -178,7 +187,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     listen.stop();
     setDraft("");
     const completed = chat.turns.filter((turn) => turn.completed && turn.video);
-    if (completed.length) setSavedSessions((sessions) => [{ id: completed[0]!.id, turns: completed }, ...sessions].slice(0, 10));
+    if (completed.length) setSavedSessions((sessions) => mergeSavedSessions([{ id: completed[0]!.id, turns: completed }, ...sessions]));
     chat.reset();
     setHistoryOpen(false);
     setSettingsOpen(false);
@@ -396,7 +405,7 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
           {savedSessions.map((session) => <button type="button" className="history-row" key={session.id} onClick={() => {
             listen.stop(); setDraft(""); setEditing(false); resumeAfterInput.current = false;
             const completed = chat.turns.filter((turn) => turn.completed && turn.video);
-            setSavedSessions((sessions) => [...(completed.length ? [{ id: completed[0]!.id, turns: completed }] : []), ...sessions.filter((entry) => entry.id !== session.id)].slice(0, 10));
+            setSavedSessions((sessions) => mergeSavedSessions([...(completed.length ? [{ id: completed[0]!.id, turns: completed }] : []), ...sessions.filter((entry) => entry.id !== session.id)]));
             restoreSession(session.turns); setHistoryOpen(false); setCaptionsExpanded(false);
           }}><Replay /><span className="prompt">{session.turns[0]?.prompt}<small>{session.turns.length} {session.turns.length === 1 ? "answer" : "answers"}</small></span></button>)}
         </>}

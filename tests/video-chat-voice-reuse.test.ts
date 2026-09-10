@@ -110,3 +110,47 @@ it('ignores a superseded same-line play rejection after pause and resume', async
   await observed;
   voice.dispose?.();
 });
+
+it('keeps replay speech active when the reused sink reports a stale ended event', async () => {
+  vi.useFakeTimers();
+  const element = {
+    src: '', currentTime: 0, muted: false, ended: false,
+    onplaying: null as (() => void) | null,
+    onended: null as (() => void) | null,
+    onerror: null as (() => void) | null,
+    play: vi.fn(async () => {}), pause: vi.fn(), removeAttribute: vi.fn(), load: vi.fn(),
+  };
+  vi.stubGlobal('Audio', function () { return element; });
+  vi.stubGlobal('AudioContext', class { decodeAudioData() { return Promise.resolve({ duration: 6 }); } });
+  let next = 0;
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:line-${++next}`);
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const voice = createVideoChatVoice({ fetcher: async () => new Response(new Uint8Array([1, 2, 3])) });
+
+  await voice.prepare('Opening');
+  const body = voice.speak('Body', { signal: new AbortController().signal });
+  await vi.advanceTimersByTimeAsync(0);
+  element.currentTime = .1;
+  element.onplaying?.();
+  await vi.advanceTimersByTimeAsync(20);
+  element.ended = true;
+  element.onended?.();
+  await body;
+
+  element.currentTime = 0;
+  element.ended = false;
+  let replayFinished = false;
+  const replay = Promise.resolve(voice.speak('Opening', { signal: new AbortController().signal })).then(() => { replayFinished = true; });
+  await vi.advanceTimersByTimeAsync(0);
+  element.onended?.();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(replayFinished).toBe(false);
+
+  element.currentTime = .1;
+  element.onplaying?.();
+  await vi.advanceTimersByTimeAsync(20);
+  element.ended = true;
+  element.onended?.();
+  await replay;
+  voice.dispose?.();
+});

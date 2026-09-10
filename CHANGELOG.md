@@ -5,6 +5,9 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Keep the replay introduction visible until its own generated voice line has fully finished.
+- Retain completed answers in the Sessions menu while the browser tab remains open.
+
 - Center the welcome carousel arrows with font-independent vector icons inside
   their circular controls.
 

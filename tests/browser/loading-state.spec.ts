@@ -76,3 +76,16 @@ test('mounting a player does not restart the completed speech delay', async ({ p
   await page.unroute('**/media-transition/sunflowers.mp4');
   await expect(loading).toHaveCount(0);
 });
+
+test('completed answers remain in Sessions after returning to a fresh homepage', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4274/tests/browser/fixtures/loading-preview.html?mode=video', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'How do sunflowers follow the light?', exact: true }).click();
+  await page.getByRole('button', { name: 'Preview: release local video' }).click();
+  await expect(page.getByRole('button', { name: 'Play again', exact: true })).toBeVisible({ timeout: 12_000 });
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+  await page.getByRole('button', { name: /How do sunflowers follow the light\?.*1 answer/ }).click();
+  await expect(page.locator('[data-video-frame]')).toHaveAttribute('data-scene-id', 'local-video');
+  await expect(page.getByRole('button', { name: 'Play again', exact: true })).toBeVisible({ timeout: 12_000 });
+});
