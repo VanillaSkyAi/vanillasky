@@ -14,14 +14,16 @@ spoken word, with motion disabled when reduced motion is preferred. The style
 is remembered in this browser; hiding subtitles does not change the choice.
 During playback, both styles keep the complete transcript out of the way.
 **Show transcript** becomes available when the answer ends, even with subtitles off.
-Word captions hold their phrase between voice segments; muted or unavailable
-speech uses estimated reading time in the same style.
+Word captions hold their phrase between voice segments; muted speech uses
+estimated reading time in the same style. The complete transcript remains
+available after silent playback.
 
 The xAI speech adapter requests character timestamps with the audio and converts
 them to validated word intervals. Highlighting follows the same audio clock as
-playback, including pauses and replay. Supported browser voices provide native
-word boundaries. Audio without usable alignment uses estimated pacing. Requesting
-xAI timestamps includes a provider alignment pass, which can add preparation time.
+playback, including pauses and replay. Audio without usable alignment uses
+estimated pacing. Requesting xAI timestamps includes a provider alignment pass,
+so the application gives speech generation ten seconds and the browser twelve
+seconds for the complete request, transfer and decode.
 
 ## AI-first video answers
 
@@ -167,7 +169,7 @@ floor, using a shorter portion of the available footage when appropriate.
 
 Healthy footage plays at native speed and repeats on the same decoder for as
 long as its narration needs. Chat uses confirmed speech onset and the actual
-completion promise, including browser speech and generated-voice fallback. A
+completion promise for generated-voice playback. A
 pending voice cannot start repetitions. Playback retains its eight-second
 over-budget completion deadline and the voice's own timeout. Repetition ends
 with speech; it never fills an extra quiet tail. Fitting speech retains the
@@ -178,8 +180,8 @@ still recover to a chapter without cutting off narration or buying another clip.
 Without a live narration-completion callback, repetition requires fresh measured
 speech and is bounded by that recording's duration. A custom voice must return
 `supportsOffsets: true` from `prepare` only when its audio is measured and
-seekable. Browser speech estimates and persisted variables cannot certify a
-measurement. In-memory replay keeps its prepared timing; the mounted decoder
+seekable. Estimates and persisted variables cannot certify a measurement.
+In-memory replay keeps its prepared timing; the mounted decoder
 checks each pass against the actual footage duration and playback health.
 
 `generateVideoTimeoutMs` sets the first-shot preparation budget (default 15 seconds).
@@ -189,8 +191,8 @@ authored chapter instead of a second paid generation or cross-mode stock search.
 
 ## Voice and transcription
 
-Without `generateSpeech`, `VideoChat` uses the browser voice. Add a speech
-callback for a consistent generated voice:
+Without `generateSpeech`, `VideoChat` plays without narration. Add a speech
+callback for generated voice:
 
 ```ts
 generateSpeech: async ({ text, signal }) => {
@@ -201,7 +203,8 @@ generateSpeech: async ({ text, signal }) => {
 
 The chat runtime measures or estimates each line, keeps narration synchronized with the
 picture, and prevents a new scene from replacing speech that is still playing.
-If generated speech fails, the interface can fall back to browser speech.
+If generated speech fails, playback continues silently and never substitutes
+the device's browser voice.
 
 Add `transcribe` for server-side microphone transcription when browser speech
 recognition is unavailable. Set `maxAudioBytes`, validate the media type, and
@@ -214,9 +217,8 @@ levels are 100%, 20% and 60%; the speaker button mutes all three without losing
 their settings. Listening preferences are remembered on the device. Background
 levels stay constant during narration, speech pauses and buffering. Music fades
 at the beginning and end; deliberate pause and microphone capture pause playback together.
-Generated narration volume changes immediately. Browser fallback voices apply
-the level to the next spoken line. The speaker button still mutes the current
-line immediately.
+Generated narration volume changes immediately. The speaker button still mutes
+the current line immediately.
 
 Music starts when the viewer presses Ask, continuing through loading,
 the opening and the answer with one continuous track. Auto starts with a calm

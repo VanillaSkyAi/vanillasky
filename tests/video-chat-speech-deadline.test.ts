@@ -14,7 +14,7 @@ describe("generated speech preparation deadlines", () => {
     vi.unstubAllGlobals();
   });
 
-  it.each(["request", "body", "decode"] as const)("uses browser speech after a stuck %s and ignores late audio", async (stage) => {
+  it.each(["request", "body", "decode"] as const)("waits beyond three seconds, then continues without browser speech after a stuck %s", async (stage) => {
     vi.useFakeTimers();
     const request = deferred<Response>();
     const body = deferred<ArrayBuffer>();
@@ -37,9 +37,9 @@ describe("generated speech preparation deadlines", () => {
     const parent = new AbortController();
     let ready = false;
     const preparing = voice.prepare("A short response.", { signal: parent.signal }).then((value) => { ready = true; return value; });
-    await vi.advanceTimersByTimeAsync(2_999);
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(ready).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(9_000);
     expect(ready).toBe(true);
     await expect(preparing).resolves.toEqual({ seconds: expect.any(Number) });
     expect(childSignal?.aborted).toBe(true);
@@ -51,9 +51,9 @@ describe("generated speech preparation deadlines", () => {
     decode.resolve({ duration: 25 } as AudioBuffer);
     await vi.advanceTimersByTimeAsync(0);
     await expect(voice.prepare("A short response.")).resolves.toEqual({ seconds: expect.any(Number) });
-    await voice.speak("A short response.", { signal: parent.signal });
+    await expect(voice.speak("A short response.", { signal: parent.signal })).resolves.toBeUndefined();
     expect(fetcher).toHaveBeenCalledOnce();
-    expect(browserSpeak).toHaveBeenCalledOnce();
+    expect(browserSpeak).not.toHaveBeenCalled();
     expect(createUrl.mock.calls.length).toBe(revokeUrl.mock.calls.length);
     expect(vi.getTimerCount()).toBe(0);
     voice.dispose?.();

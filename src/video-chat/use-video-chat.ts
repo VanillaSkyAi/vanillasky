@@ -361,7 +361,7 @@ export function useVideoChatSession(options: UseVideoChatOptions = {}): {
     const warn = (message: string) => {
       if (isCurrent()) dispatch({ type: "warning", id, message });
     };
-    voiceWarningRef.current = (message = "Using browser voice for this response.") => warn(message);
+    voiceWarningRef.current = (message = "Generated voice is unavailable. Continuing without narration.") => warn(message);
     const flush = () => {
       if (!isCurrent()) return;
       let available = appended;

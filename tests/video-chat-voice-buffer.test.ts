@@ -163,27 +163,16 @@ it("can evict queued PCM without stopping the current decoded line", async () =>
   expect(fetcher).toHaveBeenCalledTimes(3);
 });
 
-function browserSpeech() {
-  let utterance!: SpeechSynthesisUtterance;
-  vi.stubGlobal("SpeechSynthesisUtterance", class {});
-  vi.stubGlobal("speechSynthesis", { speak: vi.fn((value: SpeechSynthesisUtterance) => { utterance = value; }), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-  return () => utterance;
-}
-
-it("falls back to browser speech when a decoded source cannot start", async () => {
-  const utterance = browserSpeech();
+it("continues silently when a decoded source cannot start", async () => {
   context.createBufferSource.mockImplementationOnce(() => { throw new Error("Output unavailable"); });
   const fallback = vi.fn(), start = vi.fn();
   const { voice, fetcher } = await fixture({ onFallback: fallback });
   const task = voice.speak("Continue this line.", { signal: new AbortController().signal, onStart: start });
   await vi.advanceTimersByTimeAsync(0);
+  await task;
   expect(fallback).toHaveBeenCalledOnce();
   expect(gains[0]!.disconnect).toHaveBeenCalledOnce();
   expect(start).not.toHaveBeenCalled();
-  utterance().onstart?.({} as SpeechSynthesisEvent);
-  expect(start).toHaveBeenCalledExactlyOnceWith("browser");
-  utterance().onend?.({} as SpeechSynthesisEvent);
-  await task;
   expect(fetcher).toHaveBeenCalledOnce();
   expect(nativeAudio).not.toHaveBeenCalled();
 });
@@ -238,7 +227,6 @@ it("disposes a pending resume without starting or closing shared audio later", a
 
 it("does not let an old resume rejection cancel a replacement line", async () => {
   const fallback = vi.fn();
-  browserSpeech();
   const { voice } = await fixture({ onFallback: fallback });
   const firstController = new AbortController();
   const first = voice.speak("First line.", { signal: firstController.signal });

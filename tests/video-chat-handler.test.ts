@@ -256,7 +256,7 @@ describe("createVideoChatHandler", () => {
 
     const speech = await handler(new Request("https://app.example/api/video-chat?action=speech", {
       method: "POST",
-      body: JSON.stringify({ text: "Use the browser voice" }),
+      body: JSON.stringify({ text: "Continue without narration" }),
     }));
     expect(speech.status).toBe(204);
     expect(await speech.text()).toBe("");

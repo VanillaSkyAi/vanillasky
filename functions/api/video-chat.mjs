@@ -50,7 +50,7 @@ export function configurationStatus(env) {
     ready: missing.length === 0,
     missing,
     videoMode: generatedVideo ? "cinematic" : stockVideo ? "pexels" : null,
-    speech: configured(env.XAI_API_KEY) ? "generated" : "browser",
+    speech: configured(env.XAI_API_KEY) ? "generated" : "silent",
   };
 }
 async function readBounded(request) {

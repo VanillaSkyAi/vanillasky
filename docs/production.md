@@ -90,7 +90,7 @@ In your Cloudflare Pages project's production settings, add these as encrypted
 | `ANTHROPIC_API_KEY` | Required AI planning |
 | `FAL_KEY` | Generated video; configure `PEXELS_API_KEY` instead for stock footage |
 | `VIDEO_CHAT_QUOTA_SALT` | Required stable random secret, at least 32 characters |
-| `XAI_API_KEY` | Optional generated narration; otherwise browser speech |
+| `XAI_API_KEY` | Optional generated narration; otherwise silent playback |
 | `PEXELS_API_KEY` | Stock alternative and fallback when public AI credits run out |
 
 For a new quota salt, generate 32 random bytes in your password manager or with
