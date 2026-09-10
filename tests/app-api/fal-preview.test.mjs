@@ -196,10 +196,9 @@ test('successful queue request uses fixed model, options, no retries and safe me
     assert.equal(init.headers['X-Fal-Request-Timeout'], '90');
   }
 });
-test('both automatic treatments and caller overrides lead the paid prompt without truncation', async () => {
+test('the shared treatment and caller overrides lead the paid prompt without truncation', async () => {
   const treatments = [
-    compileVisualDirection({ visualStyle: 'realistic' }).generatedLook,
-    compileVisualDirection({ visualStyle: 'illustrated' }).generatedLook,
+    compileVisualDirection({}).generatedLook,
     'Tactile clay stop-motion, keeping the caller-selected medium.',
   ];
   for (const generatedLook of treatments) {

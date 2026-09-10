@@ -3,12 +3,12 @@ import { createVideoChatHandler } from "../src/server/create-video-chat-handler"
 import { decodeVideoSse } from "../src/protocol/sse";
 import { compileVisualDirection } from "../src/server/chat-visual-direction";
 
-const brief = { type: "answer", intent: "story", visualStyle: "illustrated", musicMood: "calm",
+const brief = { type: "answer", intent: "story", musicMood: "calm",
   opening: "A robot plants something unexpected.", subject: "robot garden", development: "Plant, grow, then share.",
   visualDirection: "Copper robot, blue scarf, warm miniature garden." };
-const shot = { type: "shot", visualStyle: "realistic", title: "Planting", narration: "The robot plants a tiny seed.", subject: "robot planting",
+const shot = { type: "shot", title: "Planting", narration: "The robot plants a tiny seed.", subject: "robot planting",
   action: "Copper hands lower a seed into soil.", durationSec: 5, continuity: "cut" };
-const nextShot = { ...shot, visualStyle: "illustrated", title: "Growing", narration: "Green shoots reach toward the sun.", subject: "garden shoots" };
+const nextShot = { ...shot, title: "Growing", narration: "Green shoots reach toward the sun.", subject: "garden shoots" };
 const ending = { ...shot, type: "ending", title: "Sharing", narration: "The robot shares its garden with everyone.", subject: "shared garden" };
 const records = [brief, shot, ending, nextShot];
 const encode = (values: unknown[]) => values.map(value => JSON.stringify(value)).join("\n");
@@ -51,13 +51,13 @@ describe("first shot before the authored ending", () => {
     try {
       await vi.waitFor(() => expect(narrations(seen)).toEqual([shot.narration]));
       expect(test.generateVideo).toHaveBeenCalledOnce();
-      expect(test.generateVideo.mock.calls[0]?.[1].generatedLook).toBe(compileVisualDirection({visualStyle: 'realistic'}).generatedLook);
+      expect(test.generateVideo.mock.calls[0]?.[1].generatedLook).toBe(compileVisualDirection({}).generatedLook);
       expect(endingSent).toBe(false);
     } finally { waiting.release(); await consuming; }
     expect(narrations(seen)).toEqual([shot.narration, nextShot.narration, ending.narration]);
     expect(test.generateVideo).toHaveBeenCalledTimes(3);
     expect(test.generateVideo.mock.calls.map(call => call[1].generatedLook)).toEqual(
-      ['realistic', 'illustrated', 'realistic'].map(visualStyle => compileVisualDirection({visualStyle}).generatedLook));
+      Array(3).fill(compileVisualDirection({}).generatedLook));
     expect(test.errors).toEqual([]);
     expect(seen.at(-1)).toMatchObject({ type: "response.complete", data: { finishReason: "stop" } });
   });
@@ -120,15 +120,15 @@ describe("first shot before the authored ending", () => {
     expect(JSON.stringify(events)).not.toContain("private provider failure");
   });
 
-  it("preserves the saved ending's own style after a planning interruption", async () => {
+  it("preserves the shared treatment after a planning interruption", async () => {
     const test = setup(async function* () {
-      yield encode([brief, shot, { ...ending, visualStyle: 'illustrated' }]);
+      yield encode([brief, shot, ending]);
       throw new Error('private provider failure');
     });
     const events = await test.start();
     expect(narrations(events)).toEqual([shot.narration, ending.narration]);
     expect(test.generateVideo.mock.calls.map(call => call[1].generatedLook)).toEqual(
-      ['realistic', 'illustrated'].map(visualStyle => compileVisualDirection({visualStyle}).generatedLook));
+      Array(2).fill(compileVisualDirection({}).generatedLook));
     expectIncomplete(events);
   });
 
