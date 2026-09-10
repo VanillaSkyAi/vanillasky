@@ -458,7 +458,8 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
           await speakBuffer(line.buffer, text, signal, offsetSeconds ?? 0, () => notifyStart("generated"));
         } else {
           const element = generatedElement ??= new Audio();
-          element.src = line.src;
+          const selectedSrc = line.src;
+          element.src = selectedSrc;
           applyVolume(true);
           connectOutput();
           element.currentTime = offsetSeconds ?? 0;
@@ -509,6 +510,7 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
             // ended event after its src has already changed. Only completion of
             // the currently selected resource may release this speech promise.
             element.onended = () => {
+              if (element.currentSrc && element.currentSrc !== selectedSrc) return;
               if ("ended" in element && !element.ended) return;
               finish();
             };
