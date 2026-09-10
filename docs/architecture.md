@@ -81,11 +81,17 @@ the separate user prompt carries the request and bounded conversation.
 The model emits structured directions, never React, HTML, or executable code.
 Approved media URLs enter only through server callbacks.
 
-The answer brief selects one automatic footage treatment for the whole answer,
-including its ending: photographic live-action or drawn 2D illustration.
-Photographic treatment is the default for depictable subjects, including
-imagined situations; hypothetical subject matter alone does not imply drawing.
-Illustration serves an explicit drawing request or a necessary schematic view.
+Each shot and saved ending selects its own automatic footage treatment:
+photographic live-action by default, or drawn 2D illustration for a necessary
+diagram, cutaway or schematic. Filmable subjects return to photographic
+treatment, including imagined situations such as Earth without humans.
+An explicit drawing request can apply to all requested clips. The answer brief
+keeps shared subject identity and setting without choosing a rendering medium.
+Missing or invalid shot styles default independently to photographic. The
+server holds each look privately by scene ID within its request, so overlapping
+generation and a saved ending cannot overwrite another clip's treatment.
+Selection uses the existing streamed shot record and adds no planning call or
+wait for later scenes.
 The server supplies the bounded treatment first in each generation prompt;
 the planner adds compatible subjects, settings and actions. Explicit caller
 looks take precedence. Stock searches keep their literal vocabulary and do not

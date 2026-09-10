@@ -4,11 +4,16 @@ import { decodeVideoSse } from '../src/protocol/sse';
 import { chatAnswer, chatShot } from './helpers/chat-shot-fixture';
 import { compileVisualDirection } from '../src/server/chat-visual-direction';
 
-async function run({ intent = 'explanation', visualStyle, callerLook, mode = 'cinematic', longDirection = false }: {intent?: unknown; visualStyle?: unknown; callerLook?: string; mode?: 'cinematic' | 'pexels'; longDirection?: boolean} = {}) {
+async function run({ intent = 'explanation', visualStyle, callerLook, mode = 'cinematic', longDirection = false, shotStyles = [undefined], endingStyle }: {intent?: unknown; visualStyle?: unknown; callerLook?: string; mode?: 'cinematic' | 'pexels'; longDirection?: boolean; shotStyles?: unknown[]; endingStyle?: unknown} = {}) {
   const brief = { ...chatAnswer(chatShot('fox jumping', 'The fox clears the stream.'), 'A fox finds a crossing.', 'fox'), intent, visualStyle, visualDirection: longDirection ? 'v'.repeat(600) : 'One red fox in a snowy forest; blue and gold palette.' };
+  const { ending, ...outline } = brief;
   const streamText = vi.fn(async function* (_context: unknown) {
-    yield JSON.stringify(brief) + '\n';
-    yield JSON.stringify({ ...chatShot('fox walking', 'The fox walks toward the stream.'), ...(longDirection ? {action: 'a'.repeat(600)} : {}) }) + '\n';
+    yield JSON.stringify(outline) + '\n';
+    for (const [index, style] of shotStyles.entries()) {
+      yield JSON.stringify({ ...chatShot('fox walking', `The fox takes step ${index + 1}.`), visualStyle: style, ...(longDirection ? {action: 'a'.repeat(600)} : {}) }) + '\n';
+      if (index === 0) yield JSON.stringify({ ...ending, type: 'ending', visualStyle: endingStyle }) + '\n';
+    }
+    if (!shotStyles.length) yield JSON.stringify({ ...ending, type: 'ending', visualStyle: endingStyle }) + '\n';
   });
   const generateVideo = vi.fn(async (_query: string, _context: unknown) => ({ url: 'https://media.example.test/clip.mp4', type: 'video' as const }));
   const searchMedia = vi.fn(generateVideo.getMockImplementation()!);
@@ -18,8 +23,8 @@ async function run({ intent = 'explanation', visualStyle, callerLook, mode = 'ci
   return { streamText, generateVideo, searchMedia, events, brief };
 }
 
-describe('brief-driven visual style delivery', () => {
-  it.each(['explanation', 'practical', 'story', 'comedy', 'imagination'])('uses one %s brief and consistent body/ending look with one model stream', async intent => {
+describe('per-shot visual style delivery', () => {
+  it.each(['explanation', 'practical', 'story', 'comedy', 'imagination'])('defaults each %s shot and ending to photographic with one model stream', async intent => {
     const result = await run({ intent });
     expect(result.streamText).toHaveBeenCalledOnce();
     expect(result.generateVideo).toHaveBeenCalledTimes(2);
@@ -31,15 +36,30 @@ describe('brief-driven visual style delivery', () => {
       expect(context.scene.variables.shotDirection).toContain(result.brief.visualDirection);
     }
     const scenes = result.events.flatMap(event => event.type === 'scene.add' ? [event.data.scene] : []);
-    expect(scenes.map(scene => scene.narration)).toEqual(['The fox walks toward the stream.', 'The fox clears the stream.']);
+    expect(scenes.map(scene => scene.narration)).toEqual(['The fox takes step 1.', 'The fox clears the stream.']);
     expect(scenes.every(scene => scene.templateId === 'cinemaMedia')).toBe(true);
     expect(scenes.every(scene => !('generatedLook' in scene.variables) && !('visualStyle' in scene.variables))).toBe(true);
   });
-  it('respects a planned style override and explicit caller look precedence', async () => {
-    const planned = await run({ intent: 'practical', visualStyle: 'illustrated' });
-    expect(planned.generateVideo.mock.calls[0]?.[1]).toMatchObject({ generatedLook: compileVisualDirection({ visualStyle: 'illustrated' }).generatedLook });
-    const explicit = await run({ callerLook: 'Tactile clay stop-motion', visualStyle: 'realistic' });
-    expect(explicit.generateVideo.mock.calls[0]?.[1]).toMatchObject({ generatedLook: 'Tactile clay stop-motion' });
+  it('illustrates only the diagram clip and returns to photographic, including the saved ending', async () => {
+    const result = await run({ visualStyle: 'illustrated', shotStyles: ['realistic', 'illustrated', undefined] });
+    expect(result.generateVideo.mock.calls.map(call => (call[1] as {generatedLook: string}).generatedLook)).toEqual(
+      ['realistic', 'illustrated', 'realistic', 'realistic'].map(visualStyle => compileVisualDirection({visualStyle}).generatedLook));
+    expect(result.streamText).toHaveBeenCalledOnce();
+  });
+  it.each([undefined, null, '', 'unknown', 'cinematic', 'constructor', {}, 1])('defaults an invalid shot style independently of an illustrated ending (%j)', async style => {
+    const result = await run({ shotStyles: [style], endingStyle: 'illustrated' });
+    expect(result.generateVideo.mock.calls.map(call => (call[1] as {generatedLook: string}).generatedLook)).toEqual(
+      ['realistic', 'illustrated'].map(visualStyle => compileVisualDirection({visualStyle}).generatedLook));
+  });
+  it('uses the ending style in an ending-only answer', async () => {
+    const result = await run({ shotStyles: [], endingStyle: 'illustrated' });
+    expect(result.generateVideo).toHaveBeenCalledOnce();
+    expect(result.generateVideo.mock.calls[0]?.[1]).toMatchObject({generatedLook: compileVisualDirection({visualStyle: 'illustrated'}).generatedLook});
+  });
+  it('gives explicit caller look precedence over all shot styles', async () => {
+    const explicit = await run({ callerLook: 'Tactile clay stop-motion', shotStyles: ['realistic', 'illustrated'], endingStyle: 'illustrated' });
+    expect(explicit.generateVideo).toHaveBeenCalledTimes(3);
+    for (const call of explicit.generateVideo.mock.calls) expect(call[1]).toMatchObject({ generatedLook: 'Tactile clay stop-motion' });
     expect(explicit.streamText.mock.calls[0]?.[0]).toMatchObject({ userPrompt: expect.stringContaining('CALLER VISUAL DIRECTION') });
   });
   it('keeps maximum authored direction and action within the provider direction bound', async () => {
@@ -58,10 +78,12 @@ describe('brief-driven visual style delivery', () => {
     const streamText = vi.fn(async function* (context: {userPrompt: string}) {
       const explanation = context.userPrompt.includes('Request A');
       const subject = explanation ? 'ocean waves' : 'city running';
-      yield JSON.stringify({ ...chatAnswer(chatShot(subject, 'This is the complete ending.')), intent: explanation ? 'explanation' : 'practical', visualStyle: explanation ? 'illustrated' : 'realistic' }) + '\n';
+      const visualStyle = explanation ? 'illustrated' : 'realistic';
+      const ending = { ...chatShot(subject, 'This is the complete ending.'), visualStyle };
+      yield JSON.stringify({ ...chatAnswer(ending), intent: explanation ? 'explanation' : 'practical' }) + '\n';
       if (++entered === 2) release();
       await bothBriefs;
-      yield JSON.stringify(chatShot(subject, 'This action develops the answer.')) + '\n';
+      yield JSON.stringify({ ...chatShot(subject, 'This action develops the answer.'), visualStyle }) + '\n';
     });
     const handler = createVideoChatHandler({authorize: 'none', heartbeatMs: false, generateText: () => '', streamText, generateVideo});
     await Promise.all(['Request A', 'Request B'].map(async prompt => {
@@ -75,7 +97,7 @@ describe('brief-driven visual style delivery', () => {
     }
   });
   it('keeps stock queries literal and does not ask stock to apply an automatic rendering style', async () => {
-    const result = await run({ mode: 'pexels', intent: 'imagination', visualStyle: 'illustrated' });
+    const result = await run({ mode: 'pexels', intent: 'imagination', shotStyles: ['illustrated'], endingStyle: 'illustrated' });
     expect(result.generateVideo).not.toHaveBeenCalled();
     expect(result.searchMedia).toHaveBeenCalledTimes(2);
     expect(result.searchMedia.mock.calls.map(call => call[0])).toEqual(['fox walking', 'fox jumping']);

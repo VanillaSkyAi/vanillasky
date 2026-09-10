@@ -6,9 +6,11 @@ of previously published npm releases.
 ## Unreleased
 
 - Use two automatic footage treatments: photographic documentary cinematography
-  and drawn 2D illustration. Put the selected treatment first in generation
-  prompts, preserve it across the answer and ending, and describe concrete
-  materials, light and movement without conflicting illustration instructions.
+  by default and drawn 2D illustration for individual clips that need a diagram.
+  Select each shot and ending independently, preserve explicit caller looks,
+  and put its treatment first in generation prompts. Describe concrete materials,
+  light and movement without conflicting illustration instructions; keep imagined
+  real-world scenes photographic and the first clip's streaming start intact.
 
 - Keep the first AI clip at five seconds and use eight seconds for later scenes.
   Give later narration a conservative eleven-word drafting limit, retain six

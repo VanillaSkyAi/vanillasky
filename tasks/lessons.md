@@ -52,7 +52,11 @@
 - A hypothetical or fictional question does not imply illustration. Select
   rendering from the visible subjects and the user's requested treatment;
   imagined real-world scenes can still look photographic. Evaluate automatic
-  style selection separately from fixed-shot rendering comparisons.
+  style selection separately from fixed-shot rendering comparisons. Default
+  each clip to cinematic photography; a necessary diagram is a local exception,
+  not a reason to illustrate the surrounding answer. Keep shared direction
+  independent of the rendering medium and the saved ending's style independent
+  of the shot most recently dispatched.
 
 - Product deletion is a complete dependency-graph change: remove its CLI, public surface, generated artifacts, fixtures, docs, and tests together. Keep real consumer and playback boundaries for the remaining product.
 
