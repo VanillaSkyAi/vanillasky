@@ -39,8 +39,11 @@ for (const mode of ['video', 'fallback', 'error', 'cancel']) {
       await expect(page.locator('[data-opening-chapter]')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Play again', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Play again', exact: true }).click();
-      // A saved answer has no generation wait, so replay returns straight to the
-      // video instead of showing the opening chapter and reading its line again.
+      // A saved answer has no generation wait, so replay restarts the video without
+      // reading the opening again. The chapter only covers the frame handoff, and
+      // reduced motion holds that handoff until the explicit start control.
+      await expect(page.locator('body')).toHaveAttribute('data-preview-voice', 'finished');
+      await page.getByRole('button', { name: 'Play video response' }).click();
       await expect(page.locator('[data-video-frame]')).toHaveAttribute('data-scene-id', 'local-video');
       await expect(page.locator('[data-opening-chapter]')).toHaveCount(0);
       await expect(loading).toHaveCount(0);
