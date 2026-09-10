@@ -31,12 +31,12 @@ export function App() {
 }
 ```
 
-The chat runtime sends nothing to a telemetry service. Events contain only an opaque
+Nothing is sent to a telemetry service. Events contain only an opaque
 turn ID, mode, relative timing, and fixed event categories. Keep custom turn IDs
-opaque; do not put prompts or customer information into them.
+opaque; do not put prompts or viewer information into them.
 
 The handler's optional `onDiagnostic(event)` observes accepted requests,
-authored openings and shots, and media start/end/skip timings on the host.
+authored openings and shots, and media start/end/skip timings on the server.
 Fixed reasons distinguish allowance, deadline, timeout, provider error, empty
 results, cancellation and absent configuration. These records contain no
 prompt, narration, query, media URL or provider response. They are never sent

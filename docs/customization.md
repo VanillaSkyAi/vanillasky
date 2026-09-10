@@ -2,7 +2,8 @@
 
 The default interface places footage behind a floating conversation field,
 with on-video subtitles, pause/mute controls, suggestions, settings, and history.
-Keep that interface unless your application needs to own it.
+`app/pages/Home.tsx` renders it; the options below reshape it without forking the
+player.
 
 ```tsx
 <VideoChat
@@ -42,8 +43,8 @@ navigates normally and never resets the current session first. Only root-relativ
 paths and HTTP(S) links without embedded credentials are accepted; other values
 fall back to the existing Home behavior.
 
-`showDeveloperLinks` defaults to true. It controls the chat runtime's Docs/About/GitHub
-section in Settings, not an About page for your application. This is a small UI
+`showDeveloperLinks` defaults to true. It controls the Docs/About/GitHub
+section in Settings, not a separate About page. This is a small UI
 option, not a theme system; it does not affect narration, providers or history.
 
 The chapter
@@ -82,8 +83,8 @@ The saved orientation stays stable. For responsive display without changing the
 saved response, `<VideoPlayer orientation="auto" />` follows container width.
 Keep the player in a container with a usable width and height.
 
-History in `VideoChat` is in memory. Durable storage belongs to the host;
-see [persistence](persistence.md).
+History in `VideoChat` is in memory. Nothing persists answers by default;
+see [persistence](persistence.md) for adding storage.
 
 [Documentation home](../README.md)
 

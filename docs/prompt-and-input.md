@@ -3,18 +3,20 @@
 # Prompt and conversation input
 
 VanillaSky turns the same things people ask an AI chat into spoken video
-answers. The chat runtime owns the video-planning prompt and conversation formatting;
-the application owns the model, product guidance, authentication, and data.
+answers. Internal modules in `src/server/` own the video-planning prompt and
+conversation formatting; `functions/api/video-chat.mjs` owns the model, product
+guidance, authentication and data.
 
 ## What the viewer sends
 
-`<VideoChat />` and `useVideoChat` send the current prompt plus a bounded set of
-earlier turns to one `/api/video-chat` endpoint. Prompts can ask for an
-explanation, story, recommendation, ad, recap, or any other general-purpose AI
-response. Do not put provider keys, private policy, or unrelated personal data
-in the conversation.
+`<VideoChat />` and the `useVideoChat` hook beneath it send the current prompt
+plus a bounded set of earlier turns to one `/api/video-chat` endpoint. The
+planner reads each prompt as an explanation, practical instruction, story,
+comedy or imagination request; comparisons resolve to explanation or practical.
+Do not put provider keys, private policy, or unrelated personal data in the
+conversation.
 
-When using the custom hook, ask in plain language:
+Prompts reach the hook in plain language:
 
 ```ts
 await chat.ask("Pitch a playful ad for a coffee mug that never spills");
@@ -33,31 +35,30 @@ await chat.ask(card.prompt, {
 That path starts immediately. A typed prompt instead receives its short spoken
 hook and media keyword from the beginning of the planner stream.
 
-## Application guidance
+## Product guidance
 
-Use the server handler's `instructions` option for durable product direction:
+The route passes durable product direction through the handler's `instructions`
+option in `functions/api/video-chat.mjs`:
 
-```ts
-createVideoChatHandler({
-  authorize: verifySession,
-  streamText: planWithYourModel,
-  generateText: runSmallTextTask,
-  instructions: [
-    "Speak like a warm, concise creative partner.",
-    "Prefer concrete examples over abstract explanations.",
-  ].join(" "),
+```js
+const handler = createVideoChatHandler({
+  authorize: "none", // Host validation and atomic admission apply above.
+  streamText: paidStreamText,
+  generateText: paidGenerateText,
+  instructions:
+    "Avoid inventing statistics. Stock is illustrative: search metadata never proves a scientific mechanism, identity or event.",
 });
 ```
 
-This can define a character, audience, subject area, tone, or answer style. It
-does not change the protocol, authorize media, or weaken validation. Keep the
-viewer prompt separate from these trusted server-side instructions.
+`instructions` can define a character, audience, subject area, tone, or answer
+style. It does not change the protocol, authorize media, or weaken validation.
+Keep the viewer prompt separate from these trusted server-side instructions.
 
 ## What reaches the model
 
 `createVideoChatHandler` builds the shot-planning instructions, video rules,
-conversation context, and application guidance. Your provider adapter receives
-two complete strings:
+conversation context, and product guidance. The provider adapter in
+`functions/_video-chat/provider.mjs` receives two complete strings:
 
 ```ts
 streamText: ({ systemPrompt, userPrompt, signal }) => streamText({
@@ -126,7 +127,7 @@ Every `scene.add` is validated before the browser receives it. The model never
 returns React, HTML, CSS, or executable JavaScript. Invalid planning content
 produces safe diagnostics. A media failure does not delete valid narration.
 
-AI mode generates footage within the host allowance. Pexels mode searches
+AI mode generates footage within the viewer's allowance. Pexels mode searches
 stock without calling the video generator. Each authored beat includes a short
 chapter title; missing footage becomes that chapter with its complete narration.
 
@@ -135,7 +136,7 @@ chapter title; missing footage becomes that chapter with its complete narration.
 General chat permits stable model knowledge, but it still forbids invented
 citations, quotations, URLs, personal details, live facts, and guarantees. If
 exact numbers, names, dates, or wording matter, include them in the prompt or
-conversation. Use retrieval in the application before calling VanillaSky when
+conversation. Add retrieval in the route, before planning starts, when
 the answer depends on private or current data.
 
 ## Debugging weak answers

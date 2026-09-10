@@ -1,8 +1,12 @@
 # Video Response Protocol 0.6
 
+The stream between `functions/api/video-chat.mjs` and the browser. It is
+versioned so both halves of the app stay in sync, and validated on arrival;
+it is not a public API for other clients.
+
 ## Transport
 
-The public transport is UTF-8 Server-Sent Events returned from a `POST` request.
+The transport is UTF-8 Server-Sent Events returned from a `POST` request.
 Responses use `Content-Type: text/event-stream`,
 `x-vanillasky-video-stream: 0.6`, `Cache-Control: no-cache, no-transform`, and
 `X-Accel-Buffering: no`. Each block has an SSE `id`, the event name
@@ -64,13 +68,13 @@ the source does not support another distinct readable scene.
 ## Extensions
 
 Extension events use a namespaced `data.*` type, for example
-`data.customer.status`. They are accepted only when the exact name was
+`data.playback.status`. They are accepted only when the exact name was
 negotiated in `response.start.capabilities.extensions`. Extensions cannot
 change core video state.
 
 ## Planning boundary
 
-LLMs do not emit public protocol envelopes. Default `createVideoChatHandler`
+LLMs do not emit protocol envelopes. Default `createVideoChatHandler`
 planning uses an internal answer brief and shot descriptions. The runtime
 translates them into footage scenes and completes the answer at stream end,
 without asking the model for lifecycle commands.
@@ -83,37 +87,37 @@ planning parts are rejected.
 
 ## Resume
 
-A resume request repeats the public input and includes:
+A resume request repeats the original input and includes:
 
 ```json
 {"resume":{"runId":"run-123","afterSequence":7}}
 ```
 
 It also sends `Last-Event-ID: run-123:7`. The server validates that both cursors
-match, then calls customer-owned replay storage. Replay begins at sequence `8`
-and remains subject to normal run, order, validation, and terminal rules. The
-chat runtime does not operate a persistence service.
+match, then calls replay storage if a deployment provides it. Replay begins at
+sequence `8` and remains subject to normal run, order, validation, and terminal
+rules. Nothing here operates a persistence service.
 
 Validate adapter output and persisted replay logs against this protocol before
 accepting them. A replay log must preserve ordering, checksums, and a terminal
 event.
 
-## Host-authored narration across cuts
+## Server-authored narration across cuts
 
-`VideoScene.narrationGroup` optionally joins adjacent shots to one prepared spoken paragraph. A host supplies the shared `id`, `text`, measured `totalSeconds`, and each segment's `offsetSeconds` and `durationSeconds`. Each scene retains its narration fragment and a matching `timing.fixedDuration`; fragments must exactly cover the paragraph in order. The planner cannot emit this field or guess speech timings.
+`VideoScene.narrationGroup` optionally joins adjacent shots to one prepared spoken paragraph. The server supplies the shared `id`, `text`, measured `totalSeconds`, and each segment's `offsetSeconds` and `durationSeconds`. Each scene retains its narration fragment and a matching `timing.fixedDuration`; fragments must exactly cover the paragraph in order. The planner cannot emit this field or guess speech timings.
 
-Grouped playback requires prepared speech with `supportsOffsets: true`. The generated-audio voice supports offsets; unavailable or estimated speech does not. The chat hook prepares and validates a complete group before showing its first scene, including saved replay. Hosts using a standalone player must prepare the paragraph and coordinate narration themselves before starting playback. Unsupported voices and mismatched measured durations fail explicitly. Default planner responses still prepare narration per scene.
+Grouped playback requires prepared speech with `supportsOffsets: true`. The generated-audio voice supports offsets; unavailable or estimated speech does not. The chat hook prepares and validates a complete group before showing its first scene, including saved replay. Code using the player directly must prepare the paragraph and coordinate narration itself before starting playback. Unsupported voices and mismatched measured durations fail explicitly. Default planner responses still prepare narration per scene.
 
-For standalone playback, provide a synchronous `narrationReady` callback alongside your `onSceneChange` narration handler. Return false while a new grouped paragraph awaits actual audio onset, then true from the voice's `onStart` callback; also release readiness on completion, failure, or interruption. Abort pending narration from the player's `onError` handler. `VideoChat` wires this automatically through its internal narration hook. For grouped paragraphs, the voice must invoke `onStart` when audio actually begins, not when audio is prepared or `play()` is requested. The first visual cue starts narration, then the playhead waits for that onset without pausing the voice. A missing onset stops the player with an error after eight seconds of active waiting. For prepared audio, also provide `narrationTime(scene)` using the active voice's optional `getCurrentTime()`: return paragraph-relative seconds (including the seek offset) for a group, or scene-relative seconds otherwise. This makes the actual audio clock authoritative through cold-start delays and mid-speech stalls. Return `undefined` for silent scenes or unavailable clocks; after ordinary narration completes, release to wall time so the authored reading hold can finish. `VideoChat` coordinates these callbacks automatically. A clock that stops advancing for eight active seconds produces an error; visual-readiness holds and deliberate pauses do not consume that timeout. Voices without an observable playback clock retain wall-time playback.
+For standalone playback, provide a synchronous `narrationReady` callback alongside the `onSceneChange` narration handler. Return false while a new grouped paragraph awaits actual audio onset, then true from the voice's `onStart` callback; also release readiness on completion, failure, or interruption. Abort pending narration from the player's `onError` handler. `VideoChat` wires this automatically through its internal narration hook. For grouped paragraphs, the voice must invoke `onStart` when audio actually begins, not when audio is prepared or `play()` is requested. The first visual cue starts narration, then the playhead waits for that onset without pausing the voice. A missing onset stops the player with an error after eight seconds of active waiting. For prepared audio, also provide `narrationTime(scene)` using the active voice's optional `getCurrentTime()`: return paragraph-relative seconds (including the seek offset) for a group, or scene-relative seconds otherwise. This makes the actual audio clock authoritative through cold-start delays and mid-speech stalls. Return `undefined` for silent scenes or unavailable clocks; after ordinary narration completes, release to wall time so the authored reading hold can finish. `VideoChat` coordinates these callbacks automatically. A clock that stops advancing for eight active seconds produces an error; visual-readiness holds and deliberate pauses do not consume that timeout. Voices without an observable playback clock retain wall-time playback.
 
 Readiness holds pause narration together with the picture. The same audio continues across adjacent group scenes; replay starts a new playback session. This preserves words through delayed media rather than promising uninterrupted playback on every network.
 
-### Host-resolved chat footage mode
+### Server-resolved chat footage mode
 
-A chat host that changes the requested footage mode before planning may return
+A route that changes the requested footage mode before planning may return
 `x-vanillasky-resolved-video-mode: pexels` or `cinematic` on a successful SSE
 response. The default chat client records that mode for the active turn and its
 playback metrics. Unknown values are ignored. Authorization, allowance checks
-and provider selection remain host-owned; the header never grants access or
+and provider selection stay in the route; the header never grants access or
 changes a spending limit. A mixed response that changes footage source partway
 through retains its initially resolved mode.
