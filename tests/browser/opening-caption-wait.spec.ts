@@ -40,7 +40,7 @@ test("completed intro subtitles stay at the final phrase while the first video i
   expect((await proof()).frames).toBeGreaterThan(3);
 });
 
-test("replay keeps the intro visible until its recorded speech completes", async ({ page }) => {
+test("replay starts at the saved video instead of repeating the intro", async ({ page }) => {
   test.setTimeout(35_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/opening-caption-wait.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`);
@@ -53,12 +53,12 @@ test("replay keeps the intro visible until its recorded speech completes", async
   await expect(intro).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible({ timeout: 12_000 });
 
+  // The opening covers generation latency. A saved answer has none, so replay
+  // shows the first scene and its narration, never the intro chapter again.
   await page.getByRole("button", { name: "Play again", exact: true }).click();
-  await expect(intro).toBeVisible();
-  const completionsBeforeReplay = await ended();
+  await expect(page.getByTestId("video-player")).toBeAttached();
+  await expect(intro).toHaveCount(0);
+  await expect(page.locator(".word-captions")).toContainText("Water keeps flowing", { timeout: 12_000 });
   await page.waitForTimeout(1_000);
-  await expect(intro).toBeVisible();
-  expect(await ended()).toBe(completionsBeforeReplay);
-  await expect.poll(ended, { timeout: 12_000 }).toBe(completionsBeforeReplay + 1);
   await expect(intro).toHaveCount(0);
 });
