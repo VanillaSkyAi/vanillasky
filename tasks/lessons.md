@@ -49,6 +49,11 @@
 
 - For automatic visual direction, reuse the default chat brief and verify the active shot-planner path. Keep intent separate from appearance, preserve caller overrides, and check downstream provider prompt-length limits before combining style and shot instructions. Do not claim mocked media proves generated visual quality.
 
+- A hypothetical or fictional question does not imply illustration. Select
+  rendering from the visible subjects and the user's requested treatment;
+  imagined real-world scenes can still look photographic. Evaluate automatic
+  style selection separately from fixed-shot rendering comparisons.
+
 - Product deletion is a complete dependency-graph change: remove its CLI, public surface, generated artifacts, fixtures, docs, and tests together. Keep real consumer and playback boundaries for the remaining product.
 
 - A passing longer-duration fixture cannot establish the shorter production

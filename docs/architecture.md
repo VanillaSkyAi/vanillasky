@@ -83,6 +83,9 @@ Approved media URLs enter only through server callbacks.
 
 The answer brief selects one automatic footage treatment for the whole answer,
 including its ending: photographic live-action or drawn 2D illustration.
+Photographic treatment is the default for depictable subjects, including
+imagined situations; hypothetical subject matter alone does not imply drawing.
+Illustration serves an explicit drawing request or a necessary schematic view.
 The server supplies the bounded treatment first in each generation prompt;
 the planner adds compatible subjects, settings and actions. Explicit caller
 looks take precedence. Stock searches keep their literal vocabulary and do not
