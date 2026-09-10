@@ -91,3 +91,27 @@ const media = (shot, origin) => ({
 });
 
 export const pocScreenshotCount = screenshots.length;
+
+/**
+ * Homepage cards for the documentation POC. Each one is answerable from the
+ * loaded articles, and its art is the screenshot the answer actually opens on,
+ * so the card promises the thing the answer delivers.
+ */
+export const POC_WELCOME_PROMPTS = Object.freeze([
+  { prompt: "How do I create a pull request?", opening: "Let me walk you through opening one.",
+    mediaQuery: "screenshot:creating-a-pull-request-2" },
+  { prompt: "How do I review someone's changes?", opening: "Here is how a review actually works.",
+    mediaQuery: "screenshot:reviewing-proposed-changes-in-a-pull-request-1" },
+  { prompt: "How do I open my first issue?", opening: "Opening an issue takes about a minute.",
+    mediaQuery: "screenshot:creating-an-issue-1" },
+  { prompt: "How do I report a bug on a specific line?", opening: "You can file it straight from the code.",
+    mediaQuery: "screenshot:creating-an-issue-3" },
+  { prompt: "How do I create a repository?", opening: "A repository starts with one short form.",
+    mediaQuery: "screenshot:quickstart-for-repositories-1" },
+  { prompt: "How do I commit my first change?", opening: "Your first commit is simpler than it sounds.",
+    mediaQuery: "screenshot:quickstart-for-repositories-3" },
+  { prompt: "What is a branch, and why use one?", opening: "A branch is a safe place to work.",
+    mediaQuery: "screenshot:hello-world-1" },
+  { prompt: "Why do teams use pull requests?", opening: "Because review catches what tests miss.",
+    mediaQuery: "screenshot:hello-world-4" },
+]);

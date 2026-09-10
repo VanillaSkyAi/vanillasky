@@ -1112,3 +1112,6 @@
   .vanillasky-video-chat .line.word-captions { text-shadow: none; -webkit-text-stroke: 0; }
   .vanillasky-video-chat .caption-style-options label:has(input:checked) { outline: 1px solid Highlight; }
 }
+
+/* POC: documentation screenshots are read, not admired, so they fit the frame. */
+.vanillasky-video-chat img.frame-media[src*="/poc-docs/"] { object-fit: contain; }

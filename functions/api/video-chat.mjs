@@ -15,7 +15,7 @@ import { suggestionMedia, suggestionMediaInstructions } from "../_video-chat/sug
 import { generateSpeech } from "../_video-chat/speech.mjs";
 import { welcomeMedia } from "../_video-chat/welcome-media.mjs";
 import { guardPaidProvider } from "../_video-chat/provider-admission.mjs";
-import { pocDocsEnabled, pocDocsInstructions, matchPocScreenshot } from "../_video-chat/poc-docs.mjs";
+import { pocDocsEnabled, pocDocsInstructions, matchPocScreenshot, POC_WELCOME_PROMPTS } from "../_video-chat/poc-docs.mjs";
 
 const PLANNER_INSTRUCTIONS =
   "Avoid inventing statistics. Stock is illustrative: search metadata never proves a scientific mechanism, identity or event.";
@@ -313,13 +313,14 @@ export async function handleVideoChatRequest({
         ? { ...context, systemPrompt: `${context.systemPrompt}\n${suggestionMediaInstructions()}` }
         : context),
       searchMedia: async (query, context) => {
-        if (docsMode && action === "response") {
+        if (docsMode && (action === "response" || action === "welcome")) {
           const shot = matchPocScreenshot(query, new URL(request.url).origin);
           if (shot) return shot;
         }
         return baseSearchMedia(query, context);
       },
       instructions: docsMode ? pocDocsInstructions() : PLANNER_INSTRUCTIONS,
+      ...(docsMode ? { welcome: { prompts: POC_WELCOME_PROMPTS } } : {}),
     });
     const incoming = new Request(request.url, {
       method: request.method,
