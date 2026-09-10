@@ -87,6 +87,7 @@ type SessionAction =
   | { type: "mute"; value: boolean }
   | { type: "soundtrack"; id: string; audio: VideoAudio | false | undefined }
   | { type: "select"; id: string }
+  | { type: "replay-opening-start"; id: string }
   | { type: "replay" }
   | { type: "reset" }
   | { type: "restore"; turns: VideoChatTurn[] };
@@ -266,17 +267,35 @@ export function reducer(state: SessionState, action: SessionAction): SessionStat
     case "replay": {
       const turn = state.turns.find((entry) => entry.id === state.shownTurnId);
       if (!turn?.video) return state;
+      const continuingOpening = state.openingSpeaking && !state.playback;
+      return {
+        ...state,
+        captionKey: continuingOpening ? state.captionKey : state.captionKey + 1,
+        playback: { kind: "video", video: turn.video },
+        status: state.status === "paused" ? "paused" : "playing",
+        resumeStatus: "playing",
+        playerKey: continuingOpening ? state.playerKey : state.playerKey + 1,
+        playbackEnded: false,
+        spokenUpTo: -1,
+        caption: turn.opening,
+        openingSpeaking: false,
+        error: undefined,
+      };
+    }
+    case "replay-opening-start": {
+      const turn = state.turns.find((entry) => entry.id === action.id);
+      if (!turn?.video || state.shownTurnId !== action.id) return state;
       return {
         ...state,
         captionKey: state.captionKey + 1,
-        playback: { kind: "video", video: turn.video },
-        status: state.status === "paused" ? "paused" : "playing",
+        playback: undefined,
+        status: "playing",
         resumeStatus: "playing",
         playerKey: state.playerKey + 1,
         playbackEnded: false,
         spokenUpTo: -1,
         caption: turn.opening,
-        openingSpeaking: false,
+        openingSpeaking: true,
         error: undefined,
       };
     }
