@@ -81,6 +81,14 @@ the separate user prompt carries the request and bounded conversation.
 The model emits structured directions, never React, HTML, or executable code.
 Approved media URLs enter only through server callbacks.
 
+The answer brief selects one automatic footage treatment for the whole answer,
+including its ending: photographic live-action or drawn 2D illustration.
+The server supplies the bounded treatment first in each generation prompt;
+the planner adds compatible subjects, settings and actions. Explicit caller
+looks take precedence. Stock searches keep their literal vocabulary and do not
+receive a generated rendering treatment. The illustration vocabulary is adapted
+with attribution in [third-party notices](../THIRD_PARTY_NOTICES.md).
+
 Providers can return an async text iterable directly or an AI SDK-shaped result.
 The application includes the website's Cloudflare API, Anthropic planner, Pexels,
 fal and xAI adapters. Authentication, spending limits and media policy stay in

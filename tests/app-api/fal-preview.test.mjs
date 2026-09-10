@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { compileShotPrompt } from '../../functions/_video-chat/shot-direction.mjs';
+import { compileVisualDirection } from '../../src/server/chat-visual-direction.ts';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
@@ -193,6 +194,32 @@ test('successful queue request uses fixed model, options, no retries and safe me
     assert.equal(init.redirect, 'manual');
     assert.equal(init.headers['X-Fal-No-Retry'], '1');
     assert.equal(init.headers['X-Fal-Request-Timeout'], '90');
+  }
+});
+test('both automatic treatments and caller overrides lead the paid prompt without truncation', async () => {
+  const treatments = [
+    compileVisualDirection({ visualStyle: 'realistic' }).generatedLook,
+    compileVisualDirection({ visualStyle: 'illustrated' }).generatedLook,
+    'Tactile clay stop-motion, keeping the caller-selected medium.',
+  ];
+  for (const generatedLook of treatments) {
+    const configured = env();
+    const scene = { variables: { shotDirection: 'A red fox steps across the stream.' } };
+    let submitted;
+    const result = await generateFalPreview('fox crossing stream', {
+      env: configured, actor, generatedLook, scene, requestedDurationSec: 8,
+      fetcher: async (url, init) => {
+        if (init.method === 'POST') { submitted = JSON.parse(init.body); return response(urls); }
+        if (url.endsWith('/stream')) return streamed({ status: 'COMPLETED' });
+        return response({ video: { url: 'https://fal.media/video.mp4' } });
+      },
+    });
+    assert.equal(result.reason, null);
+    assert.ok(generatedLook.length <= 500);
+    assert.equal(submitted.prompt.split('\n')[0], `Visual treatment: ${generatedLook}`);
+    assert.ok(submitted.prompt.includes(scene.variables.shotDirection));
+    assert.equal(submitted.duration, 8);
+    assert.equal(submitted.prompt_expansion_mode, 'balanced');
   }
 });
 test('server-selected clip durations reach both the paid payload and visual direction', async () => {

@@ -1,11 +1,11 @@
 export type AnswerIntent = 'explanation' | 'practical' | 'story' | 'comedy' | 'imagination';
-export type AnswerVisualStyle = 'illustrated' | 'realistic' | 'cinematic';
+export type AnswerVisualStyle = 'illustrated' | 'realistic';
 
 const intents: readonly AnswerIntent[] = ['explanation', 'practical', 'story', 'comedy', 'imagination'];
 const bibles: Record<AnswerVisualStyle, string> = {
-  illustrated: 'Illustrated visual language: clear shaped forms, restrained texture and a coherent limited palette. Use readable spatial relationships, cutaways and purposeful motion to reveal the idea. Keep the same design of subjects and materials across shots.',
-  realistic: 'Realistic visual language: natural light, credible materials, consistent colour and true physical proportions. Use unobstructed framing and meaningful close views so actions and results are easy to observe. Keep subjects, equipment and setting consistent.',
-  cinematic: 'Cinematic visual language: intentional lighting, coherent colour and tactile detail. Use purposeful changes of shot scale and viewpoint, with clear action, consequence and a readable final frame. Preserve character appearance and the established world across cuts.',
+  // Illustration vocabulary adapted from h3-max-education; see THIRD_PARTY_NOTICES.md.
+  illustrated: 'Educational 2D animation with irregular ink outlines, flat cel shading, subtle paper texture and sparse halftone. Compose bold cutout shapes with generous empty space and gentle depth between layers. Use an ivory, black, cobalt, rust and ochre palette. Animate the concept with clear, continuous purposeful movement and consistent subject design. Keep the rendering graphic and drawn, without photographic textures, shiny 3D surfaces or interface elements.',
+  realistic: 'Live-action documentary cinematography with carefully composed photographic framing. Show believable proportions and weight, detailed physical surfaces and natural irregularities appropriate to the subject. Use motivated light, restrained colour, realistic shadows and optical depth. Keep movement physically plausible and the camera steady or moving deliberately. Preserve a filmed appearance throughout, without illustration, plastic-looking CGI or synthetic gloss.',
 };
 
 /** Private first-brief metadata. Never infer new record types or expose new protocol fields. */

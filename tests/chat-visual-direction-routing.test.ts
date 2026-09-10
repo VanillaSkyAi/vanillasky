@@ -58,7 +58,7 @@ describe('brief-driven visual style delivery', () => {
     const streamText = vi.fn(async function* (context: {userPrompt: string}) {
       const explanation = context.userPrompt.includes('Request A');
       const subject = explanation ? 'ocean waves' : 'city running';
-      yield JSON.stringify({ ...chatAnswer(chatShot(subject, 'This is the complete ending.')), intent: explanation ? 'explanation' : 'practical', visualStyle: explanation ? 'illustrated' : 'cinematic' }) + '\n';
+      yield JSON.stringify({ ...chatAnswer(chatShot(subject, 'This is the complete ending.')), intent: explanation ? 'explanation' : 'practical', visualStyle: explanation ? 'illustrated' : 'realistic' }) + '\n';
       if (++entered === 2) release();
       await bothBriefs;
       yield JSON.stringify(chatShot(subject, 'This action develops the answer.')) + '\n';
@@ -71,7 +71,7 @@ describe('brief-driven visual style delivery', () => {
     expect(streamText).toHaveBeenCalledTimes(2);
     expect(generateVideo).toHaveBeenCalledTimes(4);
     for (const [query, context] of generateVideo.mock.calls) {
-      expect(context.generatedLook).toBe(compileVisualDirection({visualStyle: query === 'ocean waves' ? 'illustrated' : 'cinematic'}).generatedLook);
+      expect(context.generatedLook).toBe(compileVisualDirection({visualStyle: query === 'ocean waves' ? 'illustrated' : 'realistic'}).generatedLook);
     }
   });
   it('keeps stock queries literal and does not ask stock to apply an automatic rendering style', async () => {
