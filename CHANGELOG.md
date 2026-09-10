@@ -8,6 +8,11 @@ available; their notes are kept as history and are not maintained.
 
 ## Unreleased
 
+- Start a replay at the first saved scene instead of repeating the opening
+  chapter. The opening covers generation latency, which a saved answer no longer
+  has, and replaying it re-synthesized speech the viewer had just heard. History
+  selection already behaved this way; the transcript still keeps the opening.
+
 - Verify repository tooling and its own tests with the build, release and setup
   checks instead of the full media browser matrix. Tooling ships nothing to the
   browser; arriving alongside application source still selects full verification.
@@ -28,8 +33,6 @@ available; their notes are kept as history and are not maintained.
   persistence and security docs that described storage the app now owns.
   Remove the superseded 0.11.3 prompt-comparison evidence.
 
-- Keep the replay introduction visible until its current generated voice line has fully finished,
-  even when the reused audio output reports a delayed completion from earlier narration.
 - Retain completed answers in the Sessions menu while the browser tab remains open.
 
 - Center the welcome carousel arrows with font-independent vector icons inside
