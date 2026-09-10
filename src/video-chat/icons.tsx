@@ -43,6 +43,8 @@ export const Send = () => <Glyph><path d="M12 19V5M5 12l7-7 7 7" /></Glyph>;
 export const Stop = () => <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="7" y="5" width="3.4" height="14" rx="1.4" /><rect x="13.6" y="5" width="3.4" height="14" rx="1.4" /></svg>;
 export const Play = () => <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>;
 export const Replay = () => <Glyph><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></Glyph>;
+export const ChevronLeft = () => <Glyph><path d="m14 6-6 6 6 6" /></Glyph>;
+export const ChevronRight = () => <Glyph><path d="m10 6 6 6-6 6" /></Glyph>;
 export const ChevronUp = () => <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" {...stroke}><path d="m6 15 6-6 6 6" /></svg>;
 export const Close = () => <Glyph><path d="M6 6l12 12M18 6 6 18" /></Glyph>;
 export const Warning = () => <Glyph>

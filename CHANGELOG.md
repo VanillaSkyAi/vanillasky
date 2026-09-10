@@ -5,6 +5,12 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Center the welcome carousel arrows with font-independent vector icons inside
+  their circular controls.
+
+- Replay the complete opening chapter and its voice before restarting a saved
+  video's first scene.
+
 - Use one photographic, cinematic default prompt with concrete materials, light
   and movement. Explain hidden processes through realistic cutaways, transparent
   layers or simplified geometry in the shot action. Carry explicitly requested

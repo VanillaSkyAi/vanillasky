@@ -39,6 +39,10 @@ for (const mode of ['video', 'fallback', 'error', 'cancel']) {
       await expect(page.locator('[data-opening-chapter]')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Play again', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Play again', exact: true }).click();
+      await expect(page.locator('[data-opening-chapter]')).toBeVisible();
+      await expect(page.locator('body')).toHaveAttribute('data-preview-voice', 'speaking');
+      await expect(page.locator('[data-video-frame]')).toHaveCount(0);
+      await page.waitForFunction(() => document.body.dataset.previewVoice === 'finished');
       await page.getByRole('button', { name: 'Play video response' }).click();
       await expect(page.locator('[data-opening-chapter]')).toHaveCount(0);
       await expect(loading).toHaveCount(0);

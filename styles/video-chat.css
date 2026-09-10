@@ -1044,7 +1044,7 @@
 .vanillasky-video-chat .suggestion-rail { position: relative; flex-shrink: 0; width: calc(4 * clamp(160px, 18vw, 260px) + 66px); max-width: calc(100% + 24px); margin: auto -12px 0; }
 .vanillasky-video-chat .suggestion-rail .cards { width: 100%; max-width: 100%; margin: 0; }
 .vanillasky-video-chat .rail-arrows { position: absolute; inset: 50% -6px auto; display: flex; justify-content: space-between; transform: translateY(-50%); pointer-events: none; }
-.vanillasky-video-chat .rail-arrows button { width: 36px; height: 36px; border: 1px solid rgb(255 255 255 / 30%); border-radius: 50%; background: #202438; color: white; font: inherit; font-size: 25px; line-height: 1; cursor: pointer; pointer-events: auto; }
+.vanillasky-video-chat .rail-arrows button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid rgb(255 255 255 / 30%); border-radius: 50%; background: #202438; color: white; cursor: pointer; pointer-events: auto; }
 .vanillasky-video-chat .rail-arrows button:disabled { visibility: hidden; pointer-events: none; }
 .vanillasky-video-chat .rail-arrows button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 @media (max-width: 700px) {
