@@ -2,13 +2,14 @@
 
 # Persistence and replay
 
-A completed `Video` is ordinary JSON owned by your application. VanillaSky
-does not provide a database or hosted media store. For a custom interface, observe `useVideoChat().turns` and save a turn’s
+A completed `Video` is ordinary JSON. The app keeps chat history in memory and
+does not persist answers; D1 stores quota accounting only. To add durable
+storage, observe `useVideoChat().turns` and save a turn’s
 `video` only when `turn.completed` is true and `turn.video` is present. Use
 `JSON.stringify(turn.video)` and deduplicate writes by `turn.id`; there is no
 special serializer. An interrupted turn can remain visible without qualifying as
-completed conversation history. The default `VideoChat` keeps history in memory;
-use the headless hook when the application needs durable storage.
+completed conversation history. `VideoChat` renders the default interface over
+that same hook, so durable storage means owning the hook’s turns.
 
 Every stored video has `schemaVersion: "0.2"`. This storage version is separate
 from streaming protocol `0.6`. The chat runtime supports the current storage
@@ -49,7 +50,7 @@ runs; it never renders a partial future document.
 
 Completed snapshots omit raw source, creative instructions, and the supplied-media
 URL index. Store an authorized prompt separately with the completed turn only
-when the host's privacy and deletion policy permits it. Saved-video replay does
+when the deployment's privacy and deletion policy permits it. Saved-video replay does
 not rehydrate a chat session or its voice queue.
 
 Renderable scene variables may contain a media URL when that asset is necessary
@@ -58,10 +59,10 @@ shorter than the replay window.
 
 ## Storage ownership
 
-The host owns the database, object storage, tenant authorization, encryption,
-deletion schedule, backups, quotas, and media URL expiry. Persist the final
-`Video` document atomically with your own tenant and record identifiers. Do not
-use the protocol checksum as an authorization or tenancy control.
+Adding storage means owning the database, object storage, authorization,
+encryption, deletion schedule, backups, quotas, and media URL expiry. Persist
+the final `Video` document atomically with its own record identifier. Do not
+use the protocol checksum as an authorization control.
 
 The checksum on `response.complete` is a deterministic, non-cryptographic
 drift detector. It is not proof of authenticity and is not a signature. Use

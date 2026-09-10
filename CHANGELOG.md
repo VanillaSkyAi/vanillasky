@@ -5,6 +5,12 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Rewrite the documentation from the running app's point of view instead of a
+  library consumer's: name the real route, provider modules and call sites,
+  drop tenant/host framing left from the retired package, and correct the
+  persistence and security docs that described storage the app now owns.
+  Remove the superseded 0.11.3 prompt-comparison evidence.
+
 - Keep the replay introduction visible until its own generated voice line has fully finished.
 - Retain completed answers in the Sessions menu while the browser tab remains open.
 

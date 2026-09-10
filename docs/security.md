@@ -2,7 +2,9 @@
 
 # Security
 
-The chat runtime validates protocol shape; your application still owns identity, authorization, data policy, and infrastructure controls.
+Internal modules validate protocol shape. Identity, authorization, data policy
+and infrastructure controls live in `functions/`, and stay the deployment's
+responsibility.
 
 Local development's bounded owner reservation path requires both an explicit
 server-owned local flag and a loopback request URL. Public requests retain their
@@ -11,7 +13,7 @@ Local development does not change provider account limits or production data.
 
 ## Required server controls
 
-- Authenticate the user and tenant before reading the prompt body.
+- Authenticate the request before reading the prompt body.
 - `createVideoChatHandler` requires an
   explicit `authorize` policy. The
   `authorize: "none"` escape hatch is for intentionally non-public in-process
@@ -23,9 +25,9 @@ Local development does not change provider account limits or production data.
 - Propagate cancellation and use timeouts for provider, media, persistence, and export work.
 - Return safe typed errors while logging private causes only in protected observability.
 
-Do not log raw source, personalization, authorization headers, provider deltas, or signed media URLs by default. Record request ID, tenant-safe metrics, model ID, timing, event counts, error codes, and token usage.
+Do not log raw source, personalization, authorization headers, provider deltas, or signed media URLs by default. Record request ID, viewer-safe metrics, model ID, timing, event counts, error codes, and token usage.
 
-Treat final configs as customer data. Apply tenant isolation, retention,
-encryption, and deletion policy to snapshots and event logs. Report suspected
-application vulnerabilities through the repository's private process in
+Treat saved answers as viewer data. Apply retention, encryption and deletion
+policy to any snapshots and event logs a deployment keeps. Report suspected
+vulnerabilities through the repository's private process in
 [SECURITY.md](../SECURITY.md).

@@ -2,8 +2,8 @@
 
 # Media, voice, and audio
 
-VanillaSky keeps provider choice in the application. The chat runtime defines small
-server callbacks, advertises only the capabilities you configure, and keeps
+Provider choice lives in `functions/_video-chat/`. Internal modules define small
+server callbacks, advertise only the capabilities that are configured, and keep
 all credentials out of React and the browser bundle.
 
 ## Subtitle styles
@@ -43,13 +43,11 @@ matching, orientation-aware renditions and a bounded cache. Add `PEXELS_API_KEY`
 on the server and choose Pexels in Settings. The default header has no Pexels
 link; the application owns any attribution required by its media provider.
 
-Applications can replace `searchMedia` with their own licensed catalog:
+Replace the route's `searchMedia` callback to use a different licensed catalog:
 
-```ts
-createVideoChatHandler({
-  authorize: verifySession,
-  streamText: planWithYourModel,
-  generateText: runSmallTextTask,
+```js
+const handler = createVideoChatHandler({
+  // ...planning callbacks
   searchMedia: async (query, { purpose, orientation, signal }) => {
     const asset = await searchApprovedCatalog({
       query,
@@ -65,13 +63,13 @@ createVideoChatHandler({
 ```
 
 The planner emits a short semantic keyword, not a URL. The callback returns an
-application-approved image or video URL, and the chat runtime validates it before it
+approved image or video URL, which is validated before it
 reaches a scene. Return `null` when no licensed, safe, relevant asset exists;
-default chat displays an authored chapter while retaining the spoken answer.
+the chat displays an authored chapter while retaining the spoken answer.
 
 For Pexels, keep `PEXELS_API_KEY` on the server, enforce a deadline, filter for
 suitable renditions, and return only validated Pexels asset domains. Licensing,
-attribution, caching, MIME checks, and byte limits remain application-owned.
+attribution, caching, MIME checks, and byte limits belong to the route.
 
 ## Automatic visual direction
 
@@ -265,10 +263,9 @@ shown when the provider supports it or the saved answer contains marked clips.
 Browsers that cannot attenuate remote clip audio keep it muted rather than
 playing it at full volume. No mandatory upload or media proxy is required.
 
-A serialized `Video` can also contain an application-owned soundtrack for
-replay or custom playback. Soundtrack files, licenses, beat markers, volume,
-and fade-out remain host-owned; narration and speech synchronization remain
-the chat layer's responsibility. Browser autoplay rules still require a viewer
+A serialized `Video` can also carry a soundtrack for replay or custom playback.
+Soundtrack files, licenses, beat markers, volume and fade-out belong to whatever
+supplies them; narration and speech synchronization stay with the player. Browser autoplay rules still require a viewer
 interaction before audible playback on many devices.
 
 ## Safety rules

@@ -52,7 +52,7 @@ application tests to private hook state or exact prompt wording.
 
 Protocol tests exercise the real modules in `src/protocol/` and
 `src/server/compose-video.ts`. Keep provider output beside the regression it
-explains instead of maintaining a separate mock SDK.
+explains instead of maintaining a separate set of shared mocks.
 
 The browser scenarios in `tests/browser/` use recorded media and the local
 callbacks in `tests/support/chat/`. Those fixtures are test-only and never appear

@@ -1,15 +1,15 @@
 # Provider callback reference
 
-The application implements these callbacks in `functions/_video-chat/` and passes
-them to `createVideoChatHandler` in `src/server/`. These are internal boundaries
-for customization, not separately versioned package exports.
+`functions/_video-chat/` implements these callbacks and passes them to
+`createVideoChatHandler` in `src/server/`. They are the seam between the route
+and the planner inside this app, not a published API.
 
 ## Planning
 
 `streamText({ systemPrompt, userPrompt, signal })` returns an
 `AsyncIterable<string>` or `{ textStream, ...completionMetadata }`. Native REST
-streams and AI SDK-shaped results both work. The application uses Anthropic
-Haiku 4.5 through its existing provider module; no alternate starter is needed.
+streams and AI SDK-shaped results both work. Planning uses Anthropic
+Haiku 4.5 through `functions/_video-chat/provider.mjs`.
 
 The stream contains NDJSON answer and shot records. Arbitrary text chunks are
 buffered until a complete record can be parsed and validated. Preserve this
@@ -23,7 +23,7 @@ sent to the browser. Do not log prompts or provider deltas.
 
 ## Generated video
 
-`maxGeneratedVideos` is an application-owned per-response attempt budget,
+`maxGeneratedVideos` is a route-owned per-response attempt budget,
 including failures. Zero skips generation. The planner is guided by the budget,
 but recovery retains authored speech if it exceeds it. Stock mode never consumes
 that allowance. Never copy an untrusted request value into this option.
@@ -49,7 +49,7 @@ provider callback need their own explicit bounds.
 `searchMedia` uses a bounded lookup independent of generated-video allowance.
 Return approved browser URLs and duration when known. Selection respects the
 requested footage mode. Clip failure does not authorize switching providers;
-the application has a separate personal-quota policy that can use configured
+the route has a separate personal-quota policy that can use configured
 Pexels when the public AI-video allowance is exhausted.
 
 `generateSpeech` is optional. The browser can speak when generated voice is not
@@ -61,5 +61,5 @@ and existing subtitle recovery. `transcribe` is independent of speech output.
 Use `resolveAnswer` for an already-completed assistant answer. It is bounded to
 32,000 characters and 30 seconds and becomes the planner's factual source.
 See [provider integration](../provider-integration.md#use-an-existing-assistant).
-Keep retrieval, tools, private URLs and tenant authorization server-side. Include
+Keep retrieval, tools, private URLs and authorization server-side. Include
 only approved facts in the supplied answer and preserve provenance separately.

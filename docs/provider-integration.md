@@ -45,9 +45,9 @@ resubmission of ambiguous paid requests. See the
 ## Use an existing assistant
 
 The internal handler's optional `resolveAnswer({ prompt, conversation, signal })`
-callback accepts your assistant's completed answer. Add it where the application
-constructs `createVideoChatHandler`. Keep retrieval, tools, tenant authorization
-and answer policy in that callback's implementation.
+callback accepts a completed answer from an existing assistant. Add it where
+`functions/api/video-chat.mjs` constructs `createVideoChatHandler`. Keep
+retrieval, tools, authorization and answer policy in that callback.
 
 Return one completed, nonempty string of at most 32,000 characters after trimming.
 The handler waits at most 30 seconds and forwards cancellation. A failed, empty,
@@ -71,9 +71,9 @@ Return browser-safe media such as `{ type: "video", url, durationSec }`. Keep
 model, duration, resolution, concurrency and deadline settings aligned.
 
 fal returns a browser-playable URL directly. There is no required upload service.
-If a different provider returns private or short-lived assets, your delivery
-code must supply a browser-safe URL with an appropriate replay lifetime. Storage
-is a customization for that requirement, not part of the default setup.
+A provider that returns private or short-lived assets needs delivery code that
+supplies a browser-safe URL with an appropriate replay lifetime. Storage would be
+added for that requirement; it is not part of the setup.
 
 The application uses five seconds for the first generated scene and eight for
 later scenes, with respective drafting limits of six and eleven ordinary spoken
