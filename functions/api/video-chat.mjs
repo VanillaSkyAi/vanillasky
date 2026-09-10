@@ -15,7 +15,10 @@ import { suggestionMedia, suggestionMediaInstructions } from "../_video-chat/sug
 import { generateSpeech } from "../_video-chat/speech.mjs";
 import { welcomeMedia } from "../_video-chat/welcome-media.mjs";
 import { guardPaidProvider } from "../_video-chat/provider-admission.mjs";
+import { pocDocsEnabled, pocDocsInstructions, matchPocScreenshot } from "../_video-chat/poc-docs.mjs";
 
+const PLANNER_INSTRUCTIONS =
+  "Avoid inventing statistics. Stock is illustrative: search metadata never proves a scientific mechanism, identity or event.";
 const POST_ACTIONS = new Set([
   "response",
   "narration",
@@ -40,7 +43,8 @@ export function configurationStatus(env) {
   if (!configured(env.ANTHROPIC_API_KEY)) missing.push("ANTHROPIC_API_KEY");
   const generatedVideo = generatedVideoConfigured(env);
   const stockVideo = configured(env.PEXELS_API_KEY);
-  if (!generatedVideo && !stockVideo) missing.push("PEXELS_API_KEY");
+  const docs = pocDocsEnabled(env);
+  if (!generatedVideo && !stockVideo && !docs) missing.push("PEXELS_API_KEY");
   if (typeof env.VIDEO_CHAT_QUOTAS?.prepare !== "function") missing.push("VIDEO_CHAT_QUOTAS");
   if (typeof env.VIDEO_CHAT_QUOTA_SALT !== "string" || env.VIDEO_CHAT_QUOTA_SALT.length < 32) missing.push("VIDEO_CHAT_QUOTA_SALT");
   // Preview deployments explicitly disable spending, independently of keys or
@@ -49,7 +53,7 @@ export function configurationStatus(env) {
   return {
     ready: missing.length === 0,
     missing,
-    videoMode: generatedVideo ? "cinematic" : stockVideo ? "pexels" : null,
+    videoMode: generatedVideo ? "cinematic" : stockVideo ? "pexels" : docs ? "pexels" : null,
     speech: configured(env.XAI_API_KEY) ? "generated" : "silent",
   };
 }
@@ -205,8 +209,9 @@ export async function handleVideoChatRequest({
   try {
     // Resolve missing video providers before planning so speech length and shot
     // instructions match the footage that can actually be supplied.
+    const docsMode = pocDocsEnabled(env);
     if (action === "response" && !generatedVideoConfigured(env)) body = { ...body, mode: "pexels" };
-    if (action === "response" && body?.mode === "pexels" && !configured(env.PEXELS_API_KEY)) {
+    if (action === "response" && body?.mode === "pexels" && !configured(env.PEXELS_API_KEY) && !docsMode) {
       await finish();
       return error(503, "Configure PEXELS_API_KEY to use Pexels video.");
     }
@@ -240,6 +245,13 @@ export async function handleVideoChatRequest({
       allowanceExhausted = true;
       return paidStock(query, context);
     };
+    const baseSearchMedia = async (query, context) => action === "welcome" && context.purpose === "welcome"
+      ? welcomeMedia(query)
+      : action === "suggestions" && context.purpose === "suggestion"
+      ? suggestionMedia(query) ?? (reservation ? await paidStock(query, context) : null)
+      : action === "opening-media"
+      ? (reservation ? await paidStock(query, context) : null)
+      : action === "response" && body?.mode === "pexels" && reservation ? await paidStock(query, context) : null;
     const handler = createVideoChatHandler({
       authorize: "none", // Host validation and atomic admission above apply to every action.
       maxBodyBytes: 12000,
@@ -291,15 +303,14 @@ export async function handleVideoChatRequest({
       generateText: (context) => paidGenerateText(context.task === "suggestions"
         ? { ...context, systemPrompt: `${context.systemPrompt}\n${suggestionMediaInstructions()}` }
         : context),
-      searchMedia: async (query, context) => action === "welcome" && context.purpose === "welcome"
-        ? welcomeMedia(query)
-        : action === "suggestions" && context.purpose === "suggestion"
-        ? suggestionMedia(query) ?? (reservation ? await paidStock(query, context) : null)
-        : action === "opening-media"
-        ? (reservation ? await paidStock(query, context) : null)
-        : action === "response" && body?.mode === "pexels" && reservation ? await paidStock(query, context) : null,
-      instructions:
-        "Avoid inventing statistics. Stock is illustrative: search metadata never proves a scientific mechanism, identity or event.",
+      searchMedia: async (query, context) => {
+        if (docsMode && action === "response") {
+          const shot = matchPocScreenshot(query);
+          if (shot) return shot;
+        }
+        return baseSearchMedia(query, context);
+      },
+      instructions: docsMode ? pocDocsInstructions() : PLANNER_INSTRUCTIONS,
     });
     const incoming = new Request(request.url, {
       method: request.method,

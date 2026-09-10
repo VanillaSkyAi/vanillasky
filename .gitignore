@@ -19,3 +19,7 @@ test-results/
 .dev.vars.*
 !.dev.vars.example
 functions/build-identity.json
+
+# POC ingest output (regenerate with: node scripts/poc/fetch-docs.mjs)
+public/poc-docs/
+functions/_video-chat/poc-docs-data.mjs
