@@ -8,6 +8,11 @@ available; their notes are kept as history and are not maintained.
 
 ## Unreleased
 
+- Validate documentation links that point back into this repository on a branch,
+  so a moved or deleted file is caught offline like a relative link. Commit-pinned
+  links still reference history. Describe how answer quality is judged in the
+  testing guide, including the standalone acceptance report.
+
 - Give the documentation one index in the README instead of a half-maintained
   breadcrumb chain, let getting started own first-run setup, move the visual-style
   evaluation beside the other evaluations, and explain what the versioned sections

@@ -66,3 +66,13 @@ invalid scenes and interrupted streams.
 Keep fast tests focused on behavior. Run the fresh application setup check when
 installation changes and browser media tests when playback changes.
 A deterministic fixture proves integration, not live-video quality or latency.
+
+## Judging answer quality
+
+Everything above runs without a model, so none of it says whether an answer is
+any good. The chat acceptance journey in `scripts/acceptance/` walks real prompts
+from `prompt-cases.json` through planning and reports on the result. The unit
+tests already include that journey; `npm run acceptance:chat` runs it standalone
+for its own report, and the [chat acceptance gate](maintainers/acceptance.md)
+describes what it covers. Live provider quality and latency need real calls and
+an explicitly authorized spending bound; no gate here establishes them.

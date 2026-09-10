@@ -24,6 +24,27 @@ describe("documentation validation", () => {
       "README.md": "# Home", "docs/Guide (one).md": "# Hello, world!", "assets/a.svg": "<svg/>" });
     expect(checkDocs(root, tracked)).toEqual([]);
   });
+  it("resolves links back into this repository and ignores commit-pinned history", () => {
+    const packageJson = JSON.stringify({ repository: { url: "git+https://github.com/Owner/repo.git" } });
+    const { root, tracked } = fixture({
+      "package.json": packageJson,
+      "README.md": ["[branch](https://github.com/Owner/repo/blob/main/docs/guide.md)",
+        "[directory](https://github.com/Owner/repo/tree/main/docs)",
+        "[pinned](https://github.com/Owner/repo/blob/0bd9573ab1c2d3e4f5061728394a5b6c7d8e9f01/docs/removed.md)",
+        "[elsewhere](https://github.com/Other/repo/blob/main/docs/removed.md)"].join("\n"),
+      "docs/guide.md": "# Guide",
+    });
+    expect(checkDocs(root, tracked)).toEqual([]);
+  });
+  it("reports a branch link to a path this repository no longer tracks", () => {
+    const { root, tracked } = fixture({
+      "package.json": JSON.stringify({ repository: "https://github.com/Owner/repo" }),
+      "CHANGELOG.md": "# Changelog\n[migration](https://github.com/Owner/repo/blob/main/docs/gone.md)",
+    });
+    expect(checkDocs(root, tracked)).toEqual([
+      { file: "CHANGELOG.md", line: 2, message: expect.stringContaining("docs/gone.md") },
+    ]);
+  });
   it("reports missing local paths and anchors with source locations", () => {
     const { root, tracked } = fixture({ "README.md": "# Home\n[missing](gone.md)\n[anchor](guide.md#missing)", "guide.md": "# Present" });
     expect(checkDocs(root, tracked)).toEqual([
