@@ -3,9 +3,7 @@ import { createVideoChatVoice } from "../src/video-chat/voice";
 
 interface Playback {
   currentTime?: number;
-  onstart?: (() => void) | null;
   onplaying?: (() => void) | null;
-  onend?: (() => void) | null;
   onended?: (() => void) | null;
   onerror?: (() => void) | null;
 }
@@ -13,11 +11,9 @@ interface Playback {
 describe("video chat speech onset", () => {
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-  function fixture(source: "browser" | "generated") {
+  function fixture() {
     vi.useFakeTimers();
     let playback: Playback;
-    vi.stubGlobal("speechSynthesis", { speak: (value: Playback) => { playback = value; }, cancel: vi.fn(), pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class {});
     vi.stubGlobal("Audio", function () {
       const element = { currentTime: 0, onplaying: null, play: () => Promise.resolve(), pause: () => undefined };
       playback = element;
@@ -25,15 +21,13 @@ describe("video chat speech onset", () => {
     });
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:speech");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => source === "browser"
-      ? new Response(null, { status: 204 }) : new Response(new Uint8Array([1, 2, 3]))) });
-    return { voice, playback: () => playback, start: () => { if (source === "browser") playback.onstart?.(); else { playback.currentTime = 0.05; playback.onplaying?.(); } },
-      end: () => source === "browser" ? playback.onend?.() : playback.onended?.(),
-      captureStart: () => source === "browser" ? playback.onstart : playback.onplaying };
+    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response(new Uint8Array([1, 2, 3]))) });
+    return { voice, playback: () => playback, start: () => { playback.currentTime = 0.05; playback.onplaying?.(); },
+      end: () => playback.onended?.(), captureStart: () => playback.onplaying };
   }
 
   it.each([0, 2])("waits for the media clock after early playing at offset %s", async (offsetSeconds) => {
-    const { voice, playback, end } = fixture("generated");
+    const { voice, playback, end } = fixture();
     vi.stubGlobal("AudioContext", class { decodeAudioData() { return Promise.resolve({ duration: 6 }); } });
     const onStart = vi.fn();
     const controller = new AbortController();
@@ -51,8 +45,8 @@ describe("video chat speech onset", () => {
     voice.dispose?.();
   });
 
-  it.each(["browser", "generated"] as const)("reports %s only on actual playback, once per call", async (source) => {
-    const { voice, start, end, captureStart } = fixture(source);
+  it("reports generated speech only on actual playback, once per call", async () => {
+    const { voice, start, end, captureStart } = fixture();
     const onStart = vi.fn();
     const speaking = voice.speak("A useful answer.", { signal: new AbortController().signal, onStart });
     await vi.advanceTimersByTimeAsync(0);
@@ -63,7 +57,7 @@ describe("video chat speech onset", () => {
     voice.resume();
     start();
     start();
-    expect(onStart).toHaveBeenCalledExactlyOnceWith(source);
+    expect(onStart).toHaveBeenCalledExactlyOnceWith("generated");
     const lateStart = captureStart();
     end();
     await speaking;
@@ -72,9 +66,9 @@ describe("video chat speech onset", () => {
     voice.dispose?.();
   });
 
-  it.each(["browser", "generated"] as const)("suppresses stale %s onset after mute, cancellation, or disposal", async (source) => {
+  it("suppresses stale generated onset after mute, cancellation, or disposal", async () => {
     for (const action of ["mute", "cancel", "dispose"] as const) {
-      const { voice, start, end, captureStart } = fixture(source);
+      const { voice, start, end, captureStart } = fixture();
       const onStart = vi.fn();
       const controller = new AbortController();
       const speaking = voice.speak("A useful answer.", { signal: controller.signal, onStart });
@@ -92,23 +86,21 @@ describe("video chat speech onset", () => {
     }
   });
 
-  it.each([false, true])("reports only one onset when generated playback falls back (already started: %s)", async (alreadyStarted) => {
-    const { voice, playback, start } = fixture("generated");
+  it.each([false, true])("never reports browser onset when generated playback fails (already started: %s)", async (alreadyStarted) => {
+    const { voice, playback, start } = fixture();
     const onStart = vi.fn();
     const speaking = voice.speak("A useful answer.", { signal: new AbortController().signal, onStart });
     await vi.advanceTimersByTimeAsync(0);
     if (alreadyStarted) start();
     playback().onerror?.();
     await vi.advanceTimersByTimeAsync(0);
-    playback().onstart?.();
-    playback().onend?.();
     await speaking;
-    expect(onStart).toHaveBeenCalledExactlyOnceWith(alreadyStarted ? "generated" : "browser");
+    expect(onStart.mock.calls).toEqual(alreadyStarted ? [["generated"]] : []);
     voice.dispose?.();
   });
 
   it.each(["throw", "reject"])("isolates observers that %s", async (failure) => {
-    const { voice, start, end } = fixture("browser");
+    const { voice, start, end } = fixture();
     const onStart = vi.fn(() => {
       if (failure === "throw") throw new Error("observer failed");
       return Promise.reject(new Error("observer failed"));
@@ -120,28 +112,5 @@ describe("video chat speech onset", () => {
     await speaking;
     expect(onStart).toHaveBeenCalledOnce();
     voice.dispose?.();
-  });
-});
-
-describe("unavailable native browser speech", () => {
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-  it("cancels unstarted speech after two active seconds without reporting audible onset", async () => {
-    vi.useFakeTimers();
-    let utterance: { onstart?: (() => void) | null } | undefined;
-    const cancel = vi.fn();
-    vi.stubGlobal("speechSynthesis", { speak: (value: typeof utterance) => { utterance = value; }, cancel, pause: vi.fn(), resume: vi.fn() });
-    vi.stubGlobal("SpeechSynthesisUtterance", class {});
-    const voice = createVideoChatVoice({ fetcher: vi.fn(async () => new Response(null, { status: 204 })) });
-    const onStart = vi.fn(); let failure: unknown;
-    const speaking = Promise.resolve(voice.speak("A browser cannot always speak this line.", { signal: new AbortController().signal, onStart })).catch(error => { failure = error; });
-    await vi.advanceTimersByTimeAsync(1750);
-    const lateStart = utterance?.onstart;
-    voice.pause(); await vi.advanceTimersByTimeAsync(10000);
-    expect(failure).toBeUndefined();
-    voice.resume(); await vi.advanceTimersByTimeAsync(250);
-    expect(failure).toBeInstanceOf(Error);
-    expect(cancel).toHaveBeenCalledOnce();
-    lateStart?.(); expect(onStart).not.toHaveBeenCalled();
-    await speaking; voice.dispose?.();
   });
 });

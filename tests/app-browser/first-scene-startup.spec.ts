@@ -55,8 +55,19 @@ test("loads the footage renderer during planning and preserves complete opening 
     const NativeAudio = window.Audio;
     window.Audio = function (src?: string) {
       const audio = new NativeAudio(src);
-      audio.addEventListener("playing", () => { if (audio.src.startsWith("blob:")) mark("speech-start"); });
-      audio.addEventListener("ended", () => { if (audio.src.startsWith("blob:")) mark("speech-end", audio.currentTime); });
+      let speechActive = false;
+      audio.addEventListener("playing", () => {
+        if (audio.src.startsWith("blob:") && !speechActive) {
+          speechActive = true;
+          mark("speech-start");
+        }
+      });
+      audio.addEventListener("ended", () => {
+        if (audio.src.startsWith("blob:")) {
+          speechActive = false;
+          mark("speech-end", audio.currentTime);
+        }
+      });
       return audio;
     } as unknown as typeof Audio;
     const observed = new WeakSet<HTMLVideoElement>();

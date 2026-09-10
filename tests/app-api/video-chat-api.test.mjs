@@ -526,7 +526,7 @@ test('speech validates bounds, identity and quota storage before contacting xAI'
   assert.equal(calls,0);
 });
 
-test('missing xAI key selects browser fallback without spending', async () => {
+test('missing xAI key continues silently without spending', async () => {
   for (const env of [live()]) {
     const response=await handleVideoChatRequest({request:request('speech',{text:'Hello'}),env,fetcher:()=>{throw Error('No provider call');}});
     assert.equal(response.status,204);
@@ -800,9 +800,9 @@ for (const scenario of ['personal-race','clip-race','global-limit','ledger-error
 
 test('setup requires real planning and footage credentials and exposes only configuration names', async () => {
   assert.deepEqual(configurationStatus({}), {
-    ready:false, missing:['ANTHROPIC_API_KEY','PEXELS_API_KEY','VIDEO_CHAT_QUOTAS','VIDEO_CHAT_QUOTA_SALT'], videoMode:null,speech:'browser',
+    ready:false, missing:['ANTHROPIC_API_KEY','PEXELS_API_KEY','VIDEO_CHAT_QUOTAS','VIDEO_CHAT_QUOTA_SALT'], videoMode:null,speech:'silent',
   });
-  assert.deepEqual(configurationStatus(live()), {ready:true,missing:[],videoMode:'pexels',speech:'browser'});
+  assert.deepEqual(configurationStatus(live()), {ready:true,missing:[],videoMode:'pexels',speech:'silent'});
   assert.deepEqual(configurationStatus({...live(),FAL_KEY:'private',VIDEO_CHAT_FAL_PREVIEW:'enabled',XAI_API_KEY:'private'}),
     {ready:true,missing:[],videoMode:'cinematic',speech:'generated'});
   assert.equal(configurationStatus({...live(),FAL_KEY:'private',PEXELS_API_KEY:undefined}).ready,false);

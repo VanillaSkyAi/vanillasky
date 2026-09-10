@@ -12,6 +12,11 @@ of previously published npm releases.
   without automatic style selection or per-scene style state. Put the conditional
   default treatment first and keep the first clip's streaming start intact.
 
+- Keep narration provider-authentic: wait up to ten seconds for timestamped xAI
+  speech and give the browser two seconds of transfer and decoding headroom.
+  When generated narration is unavailable, continue silently instead of
+  substituting the device's browser voice.
+
 - Keep the first AI clip at five seconds and use eight seconds for later scenes.
   Give later narration a conservative eleven-word drafting limit, retain six
   words for the first scene, and keep speech and footage preparation parallel.

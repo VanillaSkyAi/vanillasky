@@ -5,7 +5,7 @@ import { Home } from "../app/pages/Home";
 vi.mock("../src/react", () => ({ VideoChat: ({ options }: { options: { mode: string } }) => <div data-testid="chat" data-mode={options.mode} /> }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it("starts with the server-selected Pexels mode when generated video is absent", async () => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ready: true, missing: [], videoMode: "pexels", speech: "browser" })));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ready: true, missing: [], videoMode: "pexels", speech: "silent" })));
   render(<Home />);
   expect((await screen.findByTestId("chat")).getAttribute("data-mode")).toBe("pexels");
 });

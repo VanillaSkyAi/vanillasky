@@ -13,7 +13,7 @@ VideoChat / useVideoChat
   → createChatShotPlanner (answer brief → ordered shots)
   → concurrent footage jobs + early preparation announcements
   → createVideo (validated protocol events)
-  → browser speech/media preparation → ordered player + narration
+  → generated speech/media preparation → ordered player + narration
 ```
 
 Without `resolveAnswer`, shot planning begins directly from the request and
@@ -38,10 +38,12 @@ necessary qualifiers. Generated footage starts alongside that rewrite; speech
 preparation uses only the final accepted narration. Stock selection still comes
 first so shortening uses the selected clip's actual duration. If shortening fails, the original narration and footage
 are retained. Healthy footage repeats at normal speed until narration finishes,
-using the same decoder while speech and subtitles continue once. Generated and
-browser voices use confirmed speech onset and completion; preparation estimates
-never become measured audio evidence. Missing or failed footage still recovers
-to a chapter. See the [playback bounds](media-and-audio.md#timing-and-recovery).
+using the same decoder while speech and subtitles continue once. Generated voice
+uses confirmed speech onset and completion; preparation estimates
+never become measured audio evidence. Unavailable generated speech continues
+silently without substituting a device-dependent browser voice. Missing or failed
+footage still recovers to a chapter. See the
+[playback bounds](media-and-audio.md#timing-and-recovery).
 
 ## Where to work
 
