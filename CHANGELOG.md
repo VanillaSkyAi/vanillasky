@@ -5,6 +5,13 @@ of previously published npm releases.
 
 ## Unreleased
 
+- Use one photographic, cinematic default prompt with concrete materials, light
+  and movement. Explain hidden processes through realistic cutaways, transparent
+  layers or simplified geometry in the shot action. Carry explicitly requested
+  aesthetics through authored directions and preserve caller look overrides,
+  without automatic style selection or per-scene style state. Put the conditional
+  default treatment first and keep the first clip's streaming start intact.
+
 - Keep narration provider-authentic: wait up to ten seconds for timestamped xAI
   speech and give the browser two seconds of transfer and decoding headroom.
   When generated narration is unavailable, continue silently instead of

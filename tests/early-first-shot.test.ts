@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createVideoChatHandler } from "../src/server/create-video-chat-handler";
 import { decodeVideoSse } from "../src/protocol/sse";
+import { compileVisualDirection } from "../src/server/chat-visual-direction";
 
-const brief = { type: "answer", intent: "story", visualStyle: "illustrated", musicMood: "calm",
+const brief = { type: "answer", intent: "story", musicMood: "calm",
   opening: "A robot plants something unexpected.", subject: "robot garden", development: "Plant, grow, then share.",
   visualDirection: "Copper robot, blue scarf, warm miniature garden." };
 const shot = { type: "shot", title: "Planting", narration: "The robot plants a tiny seed.", subject: "robot planting",
@@ -17,7 +18,7 @@ type Options = Parameters<typeof createVideoChatHandler>[0];
 async function collect(response: Response) { const events = []; for await (const event of decodeVideoSse(response.body!)) events.push(event); return events; }
 function setup(source: string | Options["streamText"], options: Partial<Options> = {}) {
   const errors: string[] = [];
-  const generateVideo = vi.fn(() => media);
+  const generateVideo = vi.fn<NonNullable<Options["generateVideo"]>>(() => media);
   const handler = createVideoChatHandler({ authorize: "none", heartbeatMs: false, generateText: () => "", generateVideo,
     onError: error => errors.push(error.message),
     streamText: typeof source === "string" ? async function* () { yield source; } : source,
@@ -50,10 +51,13 @@ describe("first shot before the authored ending", () => {
     try {
       await vi.waitFor(() => expect(narrations(seen)).toEqual([shot.narration]));
       expect(test.generateVideo).toHaveBeenCalledOnce();
+      expect(test.generateVideo.mock.calls[0]?.[1].generatedLook).toBe(compileVisualDirection({}).generatedLook);
       expect(endingSent).toBe(false);
     } finally { waiting.release(); await consuming; }
     expect(narrations(seen)).toEqual([shot.narration, nextShot.narration, ending.narration]);
     expect(test.generateVideo).toHaveBeenCalledTimes(3);
+    expect(test.generateVideo.mock.calls.map(call => call[1].generatedLook)).toEqual(
+      Array(3).fill(compileVisualDirection({}).generatedLook));
     expect(test.errors).toEqual([]);
     expect(seen.at(-1)).toMatchObject({ type: "response.complete", data: { finishReason: "stop" } });
   });
@@ -114,6 +118,18 @@ describe("first shot before the authored ending", () => {
     expect(test.generateVideo).toHaveBeenCalledTimes(known ? 2 : 1);
     expectIncomplete(events);
     expect(JSON.stringify(events)).not.toContain("private provider failure");
+  });
+
+  it("preserves the shared treatment after a planning interruption", async () => {
+    const test = setup(async function* () {
+      yield encode([brief, shot, ending]);
+      throw new Error('private provider failure');
+    });
+    const events = await test.start();
+    expect(narrations(events)).toEqual([shot.narration, ending.narration]);
+    expect(test.generateVideo.mock.calls.map(call => call[1].generatedLook)).toEqual(
+      Array(2).fill(compileVisualDirection({}).generatedLook));
+    expectIncomplete(events);
   });
 
   it("marks a clean stream without an ending incomplete without inventing a closer", async () => {

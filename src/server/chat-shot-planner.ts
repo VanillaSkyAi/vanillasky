@@ -1,4 +1,4 @@
-import { compileVisualDirection, type AnswerIntent, type AnswerVisualStyle } from "./chat-visual-direction.js";
+import { compileVisualDirection, type AnswerIntent } from "./chat-visual-direction.js";
 import type { VideoGenerationContext, VideoPlanPart, VideoPlanner, VideoScene } from "../protocol/types.js";
 import { createTextDeltaVideoPlanner, type TextDeltaVideoPlannerOptions, type TextDeltaVideoSource } from "./model/text-stream.js";
 import { attachGenerationLifecycleSink, getGenerationLifecycleSink } from "./lifecycle.js";
@@ -48,7 +48,6 @@ interface Shot {
 interface Brief {
   musicMood: MusicMood;
   intent: AnswerIntent;
-  visualStyle: AnswerVisualStyle;
   opening: string;
   subject: string;
   visualDirection: string;
@@ -135,7 +134,7 @@ function recoverFirstBrief(part: Record<string, unknown> | undefined, clipDurati
   const subject = text(part.subject, 80);
   // Preserve the regular shot contract: authored subject/title fallback and
   // bounded duration normalization. Invalid content above is never defaulted.
-  return { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
+  return { intent: compileVisualDirection(part).intent, musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject, development: text(part.development, 2_000),
     visualDirection: text(part.visualDirection, 600), ...(ending ? { ending: readShot(ending, clipDurationSec, subject) } : {}) };
 }
 function replaceStream(source: ReturnType<TextDeltaVideoPlannerOptions["streamText"]>, textStream: AsyncIterable<string>): ReturnType<TextDeltaVideoPlannerOptions["streamText"]> {
@@ -163,7 +162,6 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   const planningSlotSec = clipDurationSec ?? 5;
   const firstSlotSec = options.mode === "pexels" ? 5 : options.firstGeneratedClipDurationSec ?? planningSlotSec;
   const incomplete = new WeakSet<VideoGenerationContext>();
-  const generatedLooks = new WeakMap<VideoGenerationContext, string>();
   const planner = createTextDeltaVideoPlanner({
     includeRawProviderData: options.includeRawProviderData,
     streamText(context) {
@@ -193,9 +191,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           const error = cause instanceof Error ? cause : new Error(String(cause));
           if (!getGenerationLifecycleSink(context)?.rejectPart?.(error)) throw error;
         };
-        const acceptDirection = (value: Brief) => {
-          const direction = compileVisualDirection(value, context.request.input.style?.generatedLook);
-          generatedLooks.set(context, direction.generatedLook);
+        const acceptMusic = (value: Brief) => {
           const preference = options.musicMood ?? "auto";
           const mood = preference === "auto" ? value.musicMood : preference;
           const initialTrack = options.initialTrackId ? getMusicTrack(options.initialTrackId) : undefined;
@@ -211,13 +207,14 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           firstBody = false;
           lastNarration = narration;
           const durationSec = index === 0 ? firstSlotSec : shot.durationSec;
+          const sceneId = `${context.request.requestId}-shot-${++index}`;
           return { type: "scene.add", ...(closer ? { placement: "closer" as const } : {}), scene: {
-            id: `${context.request.requestId}-shot-${++index}`, templateId: "cinemaMedia",
+            id: sceneId, templateId: "cinemaMedia",
             variables: { ...(options.mode === "pexels" && shot.stockSelection ? {stockSelection: shot.stockSelection} : {}), fallbackText: shot.title, mediaType: "video", mediaKeyword: shot.subject, shotDirection: [
               brief?.visualDirection,
               shot.action,
               shot.continuity === "continue" ? "Continue the established subject, setting and action consistently." : "A deliberate new shot; choose framing that reveals this beat.",
-              "Illustrative footage. No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
+              "No voices, speech, dialogue, voiceover, singing, chanting, music, written words or subtitles in the generated footage.",
             ].filter(Boolean).join("\n"), },
             narration, timing: options.mode === "pexels" ? {} : { fixedDuration: durationSec },
           } };
@@ -227,14 +224,14 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           const recovered = firstRecord && !brief && index === 0 ? recoverFirstBrief(part, planningSlotSec) : undefined;
           if (recovered) {
             brief = recovered;
-            acceptDirection(brief);
+            acceptMusic(brief);
             options.publishOpening({ line: brief.opening, keyword: brief.subject });
             return;
           }
           if (part?.type === "answer") {
             if (brief) throw new Error("Chat answer brief was emitted more than once");
-            brief = { ...compileVisualDirection(part), musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
-            acceptDirection(brief);
+            brief = { intent: compileVisualDirection(part).intent, musicMood: readMusicMood(part.musicMood), opening: text(part.opening, 300), subject: text(part.subject, 80), visualDirection: text(part.visualDirection, 600), development: text(part.development, 2_000) };
+            acceptMusic(brief);
             if (Object.hasOwn(part, "ending")) { try { brief.ending = readShot(part.ending, planningSlotSec, brief.subject); } catch (cause) { reject(cause); } }
             options.publishOpening(brief.opening ? { line: brief.opening, keyword: brief.subject } : undefined);
             return;
@@ -357,7 +354,7 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
   });
   return async function* (context) {
     let completed = false;
-    for await (const part of resolveShots(planner(context), context, options, () => options.mode === "pexels" ? context.request.input.style?.generatedLook : generatedLooks.get(context))) {
+    for await (const part of resolveShots(planner(context), context, options)) {
       if (part.type === "plan.complete") completed = true;
       yield part;
     }
@@ -369,7 +366,9 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
 }
 
 /** Resolve ahead with bounded work, but emit in narrative order. */
-async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: ShotResolutionOptions, generatedLook: () => string | undefined): AsyncGenerator<VideoPlanPart> {
+async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: VideoGenerationContext, options: ShotResolutionOptions): AsyncGenerator<VideoPlanPart> {
+  const generatedLook = options.mode === "pexels" ? context.request.input.style?.generatedLook
+    : compileVisualDirection({}, context.request.input.style?.generatedLook).generatedLook;
   type Result = { part: VideoPlanPart } | { error: unknown };
   const queue: Promise<Result>[] = [];
   const iterator = parts[Symbol.asyncIterator]();
@@ -385,7 +384,7 @@ async function* resolveShots(parts: AsyncIterable<VideoPlanPart>, context: Video
     const mediaScene = part.scene;
     const resolveMedia = async () => typeof mediaKeyword === "string" && mediaKeyword && options.resolveMedia
       ? options.resolveMedia(mediaKeyword, {
-        input: context.request.input, requestId: context.request.requestId, scene: mediaScene, templateId: "cinemaMedia", preferredType: "video", generatedLook: generatedLook() ?? context.request.input.style?.generatedLook, signal: context.signal,
+        input: context.request.input, requestId: context.request.requestId, scene: mediaScene, templateId: "cinemaMedia", preferredType: "video", generatedLook, signal: context.signal,
       }) : undefined;
     // Search is not a paid generation submission. Resolve stock first so fit
     // and any single rewrite use the selected clip, not a generated-video cap.
