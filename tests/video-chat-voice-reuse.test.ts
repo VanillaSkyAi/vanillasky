@@ -114,7 +114,7 @@ it('ignores a superseded same-line play rejection after pause and resume', async
 it('keeps replay speech active when the reused sink reports a stale ended event', async () => {
   vi.useFakeTimers();
   const element = {
-    src: '', currentTime: 0, muted: false, ended: false,
+    src: '', currentSrc: '', currentTime: 0, muted: false, ended: false,
     onplaying: null as (() => void) | null,
     onended: null as (() => void) | null,
     onerror: null as (() => void) | null,
@@ -130,6 +130,7 @@ it('keeps replay speech active when the reused sink reports a stale ended event'
   await voice.prepare('Opening');
   const body = voice.speak('Body', { signal: new AbortController().signal });
   await vi.advanceTimersByTimeAsync(0);
+  element.currentSrc = element.src;
   element.currentTime = .1;
   element.onplaying?.();
   await vi.advanceTimersByTimeAsync(20);
@@ -142,10 +143,12 @@ it('keeps replay speech active when the reused sink reports a stale ended event'
   let replayFinished = false;
   const replay = Promise.resolve(voice.speak('Opening', { signal: new AbortController().signal })).then(() => { replayFinished = true; });
   await vi.advanceTimersByTimeAsync(0);
+  element.ended = true;
   element.onended?.();
   await vi.advanceTimersByTimeAsync(0);
   expect(replayFinished).toBe(false);
 
+  element.currentSrc = element.src;
   element.currentTime = .1;
   element.onplaying?.();
   await vi.advanceTimersByTimeAsync(20);

@@ -11,7 +11,8 @@ of previously published npm releases.
   persistence and security docs that described storage the app now owns.
   Remove the superseded 0.11.3 prompt-comparison evidence.
 
-- Keep the replay introduction visible until its own generated voice line has fully finished.
+- Keep the replay introduction visible until its current generated voice line has fully finished,
+  even when the reused audio output reports a delayed completion from earlier narration.
 - Retain completed answers in the Sessions menu while the browser tab remains open.
 
 - Center the welcome carousel arrows with font-independent vector icons inside
