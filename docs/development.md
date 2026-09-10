@@ -1,13 +1,13 @@
 # Development
 
-Use Node 22.12+ (22.23.1 is tested in CI) and the npm version in `package.json`. Run `npm ci`, copy
-`.dev.vars.example` to ignored `.dev.vars`, and add your provider keys.
+[Getting started](getting-started.md) covers Node, `npm ci`, `.dev.vars` and the
+first run. This page is the everyday loop.
 
 ```bash
 npm run dev
 ```
 
-This starts the actual application at [localhost:4200](http://localhost:4200),
+`npm run dev` starts the actual application at [localhost:4200](http://localhost:4200),
 with source HMR and a local Cloudflare API. The command initializes isolated
 local D1 quota data and a local salt. Exiting stops both processes. Missing
 provider keys show setup requirements; no fake answer path is enabled.
@@ -61,5 +61,3 @@ such as Cloudflare routes and modules loaded by HTML fixtures.
 Keep test media: it exercises actual decoder, readiness, speech-clock and replay
 boundaries. Keyless provider doubles belong in tests only. Manual provider tests
 use the same app with your keys and need an explicitly authorized spending bound.
-
-[Architecture](architecture.md) · [Contributing](../CONTRIBUTING.md)

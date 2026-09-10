@@ -1,5 +1,3 @@
-[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Customization →](customization.md)
-
 # Media, voice, and audio
 
 Provider choice lives in `functions/_video-chat/`. Internal modules define small
@@ -277,5 +275,3 @@ interaction before audible playback on many devices.
 - Plan enough moving footage for the spoken beat; do not hold a finished frame
   while narration continues.
 - Return a safe fallback instead of leaving the response waiting forever.
-
-[← Documentation home](../README.md) · [Previous: Customization](customization.md) · [Next: Customization →](customization.md)

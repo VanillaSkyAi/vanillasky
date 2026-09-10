@@ -1,5 +1,3 @@
-[← Documentation home](../README.md) · [Previous: Security](security.md) · [Next: Production →](production.md)
-
 # Errors and recovery
 
 `VideoChat` preserves the opening and accepted scenes when an optional scene,

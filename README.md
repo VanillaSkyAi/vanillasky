@@ -101,6 +101,7 @@ See [Contributing](CONTRIBUTING.md) for the development workflow and
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md) · [Customization](docs/customization.md) · [Provider integration](docs/provider-integration.md)
-- [Prompts](docs/prompt-and-input.md) · [Media and voice](docs/media-and-audio.md) · [Performance](docs/performance.md)
-- [Persistence](docs/persistence.md) · [Protocol](docs/reference/protocol.md) · [Testing](docs/testing.md) · [Security](docs/security.md)
+- **Run it:** [Getting started](docs/getting-started.md) · [Development](docs/development.md) · [Deployment](docs/production.md) · [Working with an agent](docs/agent-integration.md)
+- **Change it:** [Customization](docs/customization.md) · [Provider integration](docs/provider-integration.md) · [Prompts](docs/prompt-and-input.md) · [Media and voice](docs/media-and-audio.md)
+- **Understand it:** [Architecture](docs/architecture.md) · [Performance](docs/performance.md) · [Persistence](docs/persistence.md) · [Errors](docs/errors.md) · [Security](docs/security.md) · [Testing](docs/testing.md)
+- **Reference:** [Streaming protocol](docs/reference/protocol.md) · [Provider callbacks](docs/reference/provider-adapters.md) · [Releasing](docs/maintainers/releasing.md)
