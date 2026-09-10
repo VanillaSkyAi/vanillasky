@@ -505,7 +505,13 @@ export function createVideoChatVoice(options: CreateVideoChatVoiceOptions = {}):
               if (!started) onsetTimer = setTimeout(observeClock, 16);
             };
             element.onplaying = observeClock;
-            element.onended = finish;
+            // A reused media element can deliver the previous resource's queued
+            // ended event after its src has already changed. Only completion of
+            // the currently selected resource may release this speech promise.
+            element.onended = () => {
+              if ("ended" in element && !element.ended) return;
+              finish();
+            };
             element.onerror = fail;
             signal.addEventListener("abort", stop, { once: true });
             if (!held) playGenerated(element, fail);

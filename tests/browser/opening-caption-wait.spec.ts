@@ -39,3 +39,26 @@ test("completed intro subtitles stay at the final phrase while the first video i
   await expect.poll(async () => (await proof()).ended).toBe(2);
   expect((await proof()).frames).toBeGreaterThan(3);
 });
+
+test("replay keeps the intro visible until its recorded speech completes", async ({ page }) => {
+  test.setTimeout(35_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`http://127.0.0.1:4274/tests/browser/fixtures/opening-caption-wait.html${process.platform === "linux" || process.env.VANILLASKY_TEST_WEBM === "1" ? "?webm" : ""}`);
+  await page.getByRole("textbox", { name: "Prompt" }).fill("Show the natural world");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  const intro = page.locator("[data-opening-chapter]");
+  const ended = () => page.evaluate(() => (window as unknown as { openingCaptionProof: { ended: number } }).openingCaptionProof.ended);
+  await expect.poll(ended, { timeout: 12_000 }).toBe(1);
+  await page.getByRole("button", { name: "Deliver body", exact: true }).click();
+  await expect(intro).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeVisible({ timeout: 12_000 });
+
+  await page.getByRole("button", { name: "Play again", exact: true }).click();
+  await expect(intro).toBeVisible();
+  const completionsBeforeReplay = await ended();
+  await page.waitForTimeout(1_000);
+  await expect(intro).toBeVisible();
+  expect(await ended()).toBe(completionsBeforeReplay);
+  await expect.poll(ended, { timeout: 12_000 }).toBe(completionsBeforeReplay + 1);
+  await expect(intro).toHaveCount(0);
+});

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { UseVideoChatResult } from "../src/video-chat/use-video-chat";
 import { VideoChat } from "../src/video-chat/video-chat";
@@ -11,7 +11,10 @@ vi.mock("../src/video-chat/use-video-chat", () => ({ useVideoChatSession: () => 
 vi.mock("../src/player/video-player", () => ({ VideoPlayer: (props: { orientation?: string }) => <div data-testid="player" data-orientation={props.orientation} /> }));
 
 beforeEach(() => {
-  const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans." };
+  sessionStorage.clear();
+  const turn = { id: "one", prompt: "Explain tides", completed: true, orientation: "landscape" as const, fixedOrientation: false, suggestions: [], opening: "The Moon moves our oceans.",
+    video: { schemaVersion: "0.2" as const, orientation: "landscape" as const, style: {}, scenes: [{ id: "tide", templateId: "chapterTitle", variables: { title: "Tides" }, timing: { fixedDuration: 1 } }] },
+  };
   session.current = {
     audioPreferences: { musicMood: "auto", voiceVolume: 1, musicVolume: .2, sceneVolume: .2 },
     setAudioPreferences: vi.fn(), resetAudioPreferences: vi.fn(), shuffleMusic: vi.fn(),
@@ -56,6 +59,17 @@ it("leaves navigation to an explicit app home URL without resetting first", () =
   home.addEventListener("click", event => event.preventDefault());
   fireEvent.click(home);
   expect(session.current.reset).not.toHaveBeenCalled();
+});
+
+it("keeps completed sessions available after the chat remounts", async () => {
+  const first = render(<VideoChat />);
+  await waitFor(() => expect(sessionStorage.getItem("vanillasky:sessions")).toContain("Explain tides"));
+  first.unmount();
+  session.current = { ...session.current, turns: [], currentTurn: undefined, shownTurn: undefined, status: "idle" };
+
+  render(<VideoChat />);
+  fireEvent.click(screen.getByRole("button", { name: "Sessions" }));
+  expect(screen.getByRole("button", { name: /Explain tides/ })).toBeTruthy();
 });
 
 it("starts subtitles without showing their dismiss control", () => {
