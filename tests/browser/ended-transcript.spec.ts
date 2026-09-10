@@ -27,6 +27,9 @@ test(`ending groups its label with cards and preserves the full transcript (${vi
   await expect(page.getByRole('region', { name: 'Transcript', exact: true })).toContainText('early pollinators');
   await page.getByRole('button', { name: 'Play again', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Transcript', exact: true })).toHaveCount(0);
-  await expect(page.locator('.line')).toContainText('Sunflowers turn');
+  await expect(page.locator('[data-opening-chapter]')).toBeVisible();
+  await expect(page.locator('.line')).toContainText('Sunflowers follow');
+  await expect(page.locator('[data-opening-chapter]')).toHaveCount(0);
+  await expect(page.locator('.line')).toContainText('early pollinators');
 });
 }
