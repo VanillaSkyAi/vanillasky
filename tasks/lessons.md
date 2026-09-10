@@ -47,16 +47,22 @@
 
 - Requests for less caption text may mean progressive display, not shorter narration. Preserve full speech and transcript; disclose approximate timing when provider word timestamps are absent.
 
-- For automatic visual direction, reuse the default chat brief and verify the active shot-planner path. Keep intent separate from appearance, preserve caller overrides, and check downstream provider prompt-length limits before combining style and shot instructions. Do not claim mocked media proves generated visual quality.
+- For visual direction, reuse the existing brief and shot action fields and
+  verify the active shot-planner path. Keep intent separate from appearance,
+  preserve caller overrides, and check downstream provider prompt-length limits.
+  Keep default wording conditional so explicit user aesthetics still work.
+  Do not claim mocked media proves generated visual quality.
 
-- A hypothetical or fictional question does not imply illustration. Select
-  rendering from the visible subjects and the user's requested treatment;
-  imagined real-world scenes can still look photographic. Evaluate automatic
-  style selection separately from fixed-shot rendering comparisons. Default
-  each clip to cinematic photography; a necessary diagram is a local exception,
-  not a reason to illustrate the surrounding answer. Keep shared direction
-  independent of the rendering medium and the saved ending's style independent
-  of the shot most recently dispatched.
+- A hypothetical question or hidden mechanism does not require a separate
+  illustration style. One photographic, cinematic default can explain processes
+  through realistic cutaways, transparent layers and simplified geometry in the
+  shot action. Preserve explicit aesthetics without adding automatic style state.
+
+- Assess product preference separately from adherence to a proposed style brief.
+  The two-style evaluation rewarded drawn 2D germination for matching that brief,
+  but the user preferred the baseline's more realistic explanation. Keep that
+  correction beside the historical scores, and never use an earlier prompt's
+  live results to claim a revised prompt has been validated.
 
 - Product deletion is a complete dependency-graph change: remove its CLI, public surface, generated artifacts, fixtures, docs, and tests together. Keep real consumer and playback boundaries for the remaining product.
 

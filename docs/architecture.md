@@ -81,22 +81,20 @@ the separate user prompt carries the request and bounded conversation.
 The model emits structured directions, never React, HTML, or executable code.
 Approved media URLs enter only through server callbacks.
 
-Each shot and saved ending selects its own automatic footage treatment:
-photographic live-action by default, or drawn 2D illustration for a necessary
-diagram, cutaway or schematic. Filmable subjects return to photographic
-treatment, including imagined situations such as Earth without humans.
-An explicit drawing request can apply to all requested clips. The answer brief
-keeps shared subject identity and setting without choosing a rendering medium.
-Missing or invalid shot styles default independently to photographic. The
-server holds each look privately by scene ID within its request, so overlapping
-generation and a saved ending cannot overwrite another clip's treatment.
-Selection uses the existing streamed shot record and adds no planning call or
-wait for later scenes.
-The server supplies the bounded treatment first in each generation prompt;
-the planner adds compatible subjects, settings and actions. Explicit caller
-looks take precedence. Stock searches keep their literal vocabulary and do not
-receive a generated rendering treatment. The illustration vocabulary is adapted
-with attribution in [third-party notices](../THIRD_PARTY_NOTICES.md).
+Generated footage uses one server-owned default prompt for photographic
+cinematography. Shot actions can explain otherwise hidden processes with realistic
+cutaways, transparent layers or simplified geometry within that visual language.
+There is no automatic `visualStyle` choice or per-scene style map. The existing
+brief's `visualDirection` carries shared appearance and setting, while each
+`shot.action` describes its visible subject, composition and movement.
+
+The default wording is conditional so it does not fight an explicit aesthetic
+request. The planner carries requested drawing or other aesthetics through those
+same direction and action fields. A caller's `generatedLook` overrides the default
+prompt. The bounded treatment comes first in each generation prompt, followed by
+the authored shot. This adds no planning call or wait for later scenes. Stock
+searches keep their literal vocabulary and do not receive a generated rendering
+treatment.
 
 Providers can return an async text iterable directly or an AI SDK-shaped result.
 The application includes the website's Cloudflare API, Anthropic planner, Pexels,
