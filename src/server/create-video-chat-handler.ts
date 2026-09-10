@@ -233,7 +233,9 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
             const generated = generatedAttempts < maxGeneratedVideos
               ? (generatedAttempts++, await attempt(generateVideo, remainingMs))
               : null;
-            if (generated?.type === "video") return generated;
+            // A documentation screenshot is a still: a resolver may answer a shot
+            // with an image when generated footage cannot show a real interface.
+            if (generated?.type === "video" || generated?.type === "image") return generated;
             lifecycle?.reportWarning?.({
               code: "provider_warning",
               category: "provider",
@@ -243,7 +245,7 @@ export function createVideoChatHandler(options: VideoChatHandlerOptions): VideoC
           }
           if (mode !== "pexels") return null;
           const stock = await attempt(searchMedia, Math.min(3_000, remainingMs));
-          if (stock?.type === "video") return stock;
+          if (stock?.type === "video" || stock?.type === "image") return stock;
           return null;
         }
       : undefined;

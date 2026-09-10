@@ -61,13 +61,16 @@ const asText = (query) => typeof query === "string"
   ? query
   : [query?.subject, query?.activity, query?.equipment].filter(Boolean).join(" ");
 
-/** Exact id first; a scored fallback keeps a near-miss on a real shot instead of dropping to stock. */
-export function matchPocScreenshot(query) {
+/**
+ * Exact id first; a scored fallback keeps a near-miss on a real shot instead of
+ * dropping to stock. The origin is required: chat media must be an absolute URL.
+ */
+export function matchPocScreenshot(query, origin) {
   const text = asText(query).trim();
   const reference = REFERENCE.exec(text);
   if (reference) {
     const exact = screenshots.find((shot) => shot.id.toLowerCase() === reference[1].toLowerCase());
-    if (exact) return media(exact);
+    if (exact) return media(exact, origin);
   }
   const wanted = terms(text);
   if (!wanted.length) return null;
@@ -78,11 +81,11 @@ export function matchPocScreenshot(query) {
     const score = wanted.filter((word) => haystack.has(word)).length / wanted.length;
     if (score > bestScore) { bestScore = score; best = shot; }
   }
-  return bestScore >= 0.5 && best ? media(best) : null;
+  return bestScore >= 0.5 && best ? media(best, origin) : null;
 }
 
-const media = (shot) => ({
-  url: shot.url,
+const media = (shot, origin) => ({
+  url: new URL(shot.url, origin).href,
   type: "image",
   description: shot.alt || shot.step,
 });

@@ -271,6 +271,15 @@ export async function handleVideoChatRequest({
         generatedVideoAudio: true,
         generateVideo: guardPaidProvider("generateVideo", admission, async (query, context) => {
           if (!actor || action !== "response") return null;
+          // A documentation step must show the product's real interface, and
+          // generation cannot draw one. Resolving here also skips the paid call.
+          if (docsMode) {
+            const origin = new URL(request.url).origin;
+            const shot = matchPocScreenshot(query, origin)
+              ?? matchPocScreenshot(context?.scene?.variables?.fallbackText, origin)
+              ?? matchPocScreenshot(context?.scene?.variables?.title, origin);
+            if (shot) return shot;
+          }
           if (allowanceExhausted) return paidStock(query, context);
           const admissionStarted = performance.now();
           previewReservation ??= (owner
