@@ -33,10 +33,8 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await page.getByRole("textbox", { name: "Prompt" }).fill("Why does the Moon show one face?");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   await expect(page.locator('[data-video-frame="ready"]')).toBeVisible();
-  const hideSubtitles = page.getByRole("button", { name: "Hide subtitles" });
-  await expect(page.locator(".line-row")).toHaveAttribute("data-actions-visible", "false");
-  await expect(page.locator(".caption-actions")).toHaveCSS("opacity", "0");
-  await expect(page.locator(".caption-actions")).toHaveCSS("pointer-events", "none");
+  await expect(page.locator(".line-row")).toBeVisible();
+  await expect(page.locator(".caption-actions")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Expand subtitles" })).toHaveCount(0);
   if (recoveryNotice) {
     await expect(page.locator(".recovery-notice [role=status]")).toContainText("Some visuals were replaced");
@@ -47,13 +45,7 @@ for (const recoveryNotice of [false, true]) test(`plays an answer, keeps follow-
   await expect(page.locator('[data-video-frame="ready"] [data-template="title"]').first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Some parts were simplified");
   await page.locator(".line-row").hover();
-  await expect(hideSubtitles).toHaveCSS("pointer-events", "auto");
-  // A floated control must own its hit target above the full-frame scene.
-  await expect.poll(() => page.getByRole("button", { name: "Hide subtitles" }).evaluate((button) => {
-    const bounds = button.getBoundingClientRect();
-    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-    return hit === button || button.contains(hit);
-  })).toBe(true);
+  await expect(page.getByRole("button", { name: "Hide subtitles" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Transcript" })).toHaveCount(0);
   await page.locator(".vanillasky-video-chat").hover();
   await page.getByRole("textbox", { name: "Prompt" }).fill("Explain that with an analogy.");

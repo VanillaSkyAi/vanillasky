@@ -45,11 +45,18 @@ it("shows the available transcript only after playback, then restores subtitles 
   expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull();
   session.current = { ...session.current, playbackEnded: false, status: "playing", speaking: true, playerKey: 1 };
   rerender(<VideoChat />);
-  fireEvent.click(screen.getByRole("button", { name: "Hide subtitles" }));
+  expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+});
+
+it("only lets the settings switch hide subtitles, never a control on the subtitle itself", () => {
+  const { container } = render(<VideoChat />);
+  expect(container.querySelector(".line-row")).toBeTruthy();
+  expect(container.querySelector(".line-row .caption-actions")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Hide subtitles" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   fireEvent.click(screen.getByRole("switch", { name: "Subtitles Read along with the answer" }));
-  expect(screen.getByRole("button", { name: "Hide subtitles" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+  expect(container.querySelector(".caption-slot")?.getAttribute("aria-hidden")).toBe("true");
 });
 
 it("pauses to type a follow-up and resumes on canceling the question", () => {

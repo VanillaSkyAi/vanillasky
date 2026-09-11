@@ -721,11 +721,6 @@
   transform: translateY(calc(var(--vs-media-bottom) + 16px));
 }
 
-.vanillasky-video-chat .caption-actions { opacity: .65; }
-
-.vanillasky-video-chat .line-row[data-hover-armed="true"]:hover .caption-actions,
-.vanillasky-video-chat .line-row:focus-within .caption-actions { opacity: 1; }
-
 .vanillasky-video-chat .caption-slot {
   display: grid;
   grid-template-rows: 0fr;
@@ -876,21 +871,6 @@
   line-height: 1.5;
 }
 .vanillasky-video-chat .caption-clip { overflow: visible; }
-.vanillasky-video-chat .caption-actions { transition: opacity 180ms ease; }
-.vanillasky-video-chat .line-row[data-actions-visible="false"] .caption-actions,
-.vanillasky-video-chat .caption-actions[data-actions-visible="false"] {
-  opacity: 0;
-  pointer-events: none;
-}
-/* Native hover must keep controls interactive even between pointer events
-   and the idle timer's React update. Hidden pointer events otherwise expose
-   the underlying scene to WebKit's hit testing. */
-.vanillasky-video-chat .line-row[data-hover-armed="true"]:hover .caption-actions,
-.vanillasky-video-chat .line-row:focus-within .caption-actions,
-.vanillasky-video-chat .caption-actions:focus-within {
-  opacity: 1;
-  pointer-events: auto;
-}
 .vanillasky-video-chat .sheet-popover { max-height: min(650px, calc(100% - 108px)); }
 @media (max-width: 700px) {
   .vanillasky-video-chat .sheet-popover { max-height: calc(100% - 102px); }
@@ -925,8 +905,8 @@
   }
 }
 
-/* Caption controls float outside the reading measure, so the complete cue
-   keeps the same width when controls appear or disappear. */
+/* The transcript control floats outside the reading measure, so the transcript
+   keeps the same width as the subtitle line. */
 .vanillasky-video-chat .caption-actions {
   position: absolute;
   bottom: 100%;
@@ -955,16 +935,6 @@
 .vanillasky-video-chat .credit-fallback-notice .round { flex: 0 0 40px; width: 40px; height: 40px; color: var(--vs-muted); }
 
 .vanillasky-video-chat .session-new { margin-bottom: 20px; background: var(--vs-surface-hover); border-color: rgb(221 224 255 / 12%); }
-
-/* The floating toolbar and subtitle row share one uninterrupted hover target. */
-.vanillasky-video-chat .caption-actions::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 7px;
-}
 
 .vanillasky-video-chat .opening-chapter {
   z-index: 2;

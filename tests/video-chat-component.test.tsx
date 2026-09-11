@@ -168,15 +168,15 @@ describe("VideoChat", () => {
       { type: "response.complete", data: { finishReason: "stop", snapshot, checksum: checksumVideo(snapshot) } },
     ];
     const response = new Response(parts.map((part, sequence) => `data: ${JSON.stringify({ protocolVersion: "0.6", eventId: `recover:${sequence}`, runId: "recover", sequence, ...part })}\n\n`).join(""), { headers: { "content-type": "text/event-stream", "x-vanillasky-video-stream": "0.6" } });
-    render(<VideoChat showRecoveryNotice={showRecoveryNotice} options={{
+    const { container } = render(<VideoChat showRecoveryNotice={showRecoveryNotice} options={{
       fetcher: async (input, init) => new URL(String(input), "https://app.example").searchParams.get("action") === "response"
         ? response.clone()
         : baseFetcher(input, init),
       voice: { prepare: async () => ({ seconds: 1 }), speak: async () => {}, pause() {}, resume() {}, setMuted() {} },
     }} />);
     fireEvent.click(await screen.findByRole("button", { name: "Invent a surreal bedtime story" }));
-    expect(await screen.findByRole("button", { name: "Hide subtitles" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Expand subtitles" })).toBeNull();
+    await waitFor(() => expect(container.querySelector('.caption-slot[data-captions="true"] .line-row')).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Hide subtitles" })).toBeNull();
     if (showRecoveryNotice) {
       expect(screen.getByRole("status").textContent).toContain("Some visuals were replaced");
       fireEvent.click(screen.getByRole("button", { name: "Dismiss notice" }));
