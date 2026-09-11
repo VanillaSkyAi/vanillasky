@@ -24,7 +24,12 @@ export function createDeploymentStage(root = process.cwd(), environment = proces
     database_id: databaseId,
     migrations_dir: resolve(root, "migrations"),
   }];
-  config.env = { preview: { vars: config.vars, d1_databases: config.d1_databases } };
+  // The answer cache is optional operator content; the local bucket name never
+  // reaches a deployment.
+  const bucket = environment.CLOUDFLARE_ANSWER_CACHE_BUCKET?.trim();
+  if (bucket) config.r2_buckets = [{ binding: "VIDEO_CHAT_ANSWER_CACHE", bucket_name: bucket }];
+  else delete config.r2_buckets;
+  config.env = { preview: { vars: config.vars, d1_databases: config.d1_databases, ...(bucket ? { r2_buckets: config.r2_buckets } : {}) } };
 
   const identity = assertAppIdentity(JSON.parse(readFileSync(resolve(root, "dist/app-build.json"), "utf8")));
   const artifact = JSON.parse(readFileSync(resolve(root, ".generated/app-artifact.json"), "utf8"));
