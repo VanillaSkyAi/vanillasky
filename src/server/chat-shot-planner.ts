@@ -6,7 +6,7 @@ import { continueAfterOpening } from "./opening-continuity.js";
 import { MEDIA_RECOVERY_NOTICE } from "../video-chat/recovery.js";
 import type { MediaResolver, ResolvedMedia } from "./media-resolver.js";
 import { clipNarrationBudget, estimateNarrationSeconds, narrationFitsClip, CLIP_NARRATION_TAIL_SEC } from "../protocol/clip-budget.js";
-import { createMusicAudio, getMusicTrack, selectMusicTrack, type MusicMood, type MusicPreference } from "../music-catalog.js";
+import { chooseAnswerMusic, createMusicAudio, type MusicMood, type MusicPreference } from "../music-catalog.js";
 
 interface ChatPlannerTextContext extends VideoGenerationContext {
   userPrompt: string;
@@ -192,12 +192,8 @@ export function createChatShotPlanner(options: Omit<TextDeltaVideoPlannerOptions
           if (!getGenerationLifecycleSink(context)?.rejectPart?.(error)) throw error;
         };
         const acceptMusic = (value: Brief) => {
-          const preference = options.musicMood ?? "auto";
-          const mood = preference === "auto" ? value.musicMood : preference;
-          const initialTrack = options.initialTrackId ? getMusicTrack(options.initialTrackId) : undefined;
-          // Auto keeps the track already started on Ask throughout this answer.
-          const track = initialTrack && (preference === "auto" || initialTrack.mood === mood)
-            ? initialTrack : selectMusicTrack(mood, options.previousTrackId);
+          const track = chooseAnswerMusic({ preference: options.musicMood, briefMood: value.musicMood,
+            initialTrackId: options.initialTrackId, previousTrackId: options.previousTrackId });
           getGenerationLifecycleSink(context)?.setPlannedAudio?.(track ? createMusicAudio(track) : undefined);
         };
         const scenePart = (shot: Shot, closer = false): VideoPlanPart => {

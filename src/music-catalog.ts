@@ -33,6 +33,23 @@ export function selectMusicTrack(mood: MusicMood, previousTrackId?: string): Mus
   return choices.length ? choices[Math.floor(Math.random() * choices.length)] : undefined;
 }
 
+export interface AnswerMusicChoice {
+  preference?: MusicPreference;
+  /** The mood the answer brief asked for; decides the track under Auto. */
+  briefMood: MusicMood;
+  initialTrackId?: string;
+  previousTrackId?: string;
+}
+
+/** One rule for the answer's soundtrack, shared by live planning and recorded replay. */
+export function chooseAnswerMusic({ preference = "auto", briefMood, initialTrackId, previousTrackId }: AnswerMusicChoice): MusicTrack | undefined {
+  const mood = preference === "auto" ? briefMood : preference;
+  const initialTrack = initialTrackId ? getMusicTrack(initialTrackId) : undefined;
+  // Auto keeps the track already started on Ask throughout this answer.
+  return initialTrack && (preference === "auto" || initialTrack.mood === mood)
+    ? initialTrack : selectMusicTrack(mood, previousTrackId);
+}
+
 export function createMusicAudio(track: MusicTrack): VideoAudio {
   return {
     trackId: track.id,

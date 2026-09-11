@@ -12,5 +12,9 @@
     "database_name": "video-chat-local",
     "database_id": "00000000-0000-0000-0000-000000000000",
     "migrations_dir": "migrations"
+  }],
+  "r2_buckets": [{
+    "binding": "VIDEO_CHAT_ANSWER_CACHE",
+    "bucket_name": "video-chat-answer-cache-local"
   }]
 }

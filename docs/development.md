@@ -34,6 +34,10 @@ for its standalone report.
 Playback/UI changes also need relevant `npm run browser:test` media scenarios.
 Keep the candidate and HEAD unchanged during browser runs.
 
+To play the welcome prompts from recordings instead of live generation, see
+[recorded answers](maintainers/releasing.md#recorded-answers); `npm run cache:publish -- --local`
+loads them into the development bucket.
+
 CI selects checks conservatively:
 
 - Docs-only changes to root documentation or Markdown under `docs/` and `tasks/`

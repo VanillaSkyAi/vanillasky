@@ -12,7 +12,8 @@ function application() {
   roots.push(root);
   mkdirSync(join(root, "dist"));
   mkdirSync(join(root, ".generated/functions-build"), { recursive: true });
-  writeFileSync(join(root, "wrangler.jsonc"), JSON.stringify({ name: "local", compatibility_date: "2026-04-09", vars: { VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT: "200" } }));
+  writeFileSync(join(root, "wrangler.jsonc"), JSON.stringify({ name: "local", compatibility_date: "2026-04-09", vars: { VIDEO_CHAT_FAL_DAILY_CLIP_LIMIT: "200" },
+    r2_buckets: [{ binding: "VIDEO_CHAT_ANSWER_CACHE", bucket_name: "video-chat-answer-cache-local" }] }));
   writeFileSync(join(root, "dist/index.html"), "verified frontend");
   writeFileSync(join(root, "dist/_headers"), "/*\n X-Frame-Options: DENY\n");
   writeFileSync(join(root, ".generated/functions-build/index.js"), "export default {fetch:()=>new Response('verified API')};");
@@ -42,6 +43,18 @@ test("staging uses conventional config and exact prebuilt frontend/API without c
   createDeploymentStage(root, { ...settings, DEPLOYMENT_TARGET: "production" });
   expect(() => readFileSync(join(stage, "dist/stale.js"))).toThrow();
   expect(JSON.parse(readFileSync(join(stage, "wrangler.jsonc"), "utf8")).vars.VIDEO_CHAT_PAID_PROVIDERS).toBe("enabled");
+});
+
+test("the answer cache bucket binds only from deployment settings, never the local name", () => {
+  const root = application();
+  const withoutBucket = JSON.parse(readFileSync(join(createDeploymentStage(root, settings), "wrangler.jsonc"), "utf8"));
+  expect(withoutBucket.r2_buckets).toBeUndefined();
+  expect(withoutBucket.env.preview.r2_buckets).toBeUndefined();
+  const staged = JSON.parse(readFileSync(join(createDeploymentStage(root, { ...settings, CLOUDFLARE_ANSWER_CACHE_BUCKET: " example-answers " }), "wrangler.jsonc"), "utf8"));
+  const expected = [{ binding: "VIDEO_CHAT_ANSWER_CACHE", bucket_name: "example-answers" }];
+  expect(staged.r2_buckets).toEqual(expected);
+  expect(staged.env.preview.r2_buckets).toEqual(expected);
+  expect(JSON.stringify(staged)).not.toContain("answer-cache-local");
 });
 
 test("staging refuses a worker that changed after build verification", () => {

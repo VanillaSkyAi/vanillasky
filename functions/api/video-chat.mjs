@@ -15,6 +15,7 @@ import { suggestionMedia, suggestionMediaInstructions } from "../_video-chat/sug
 import { generateSpeech } from "../_video-chat/speech.mjs";
 import { welcomeMedia } from "../_video-chat/welcome-media.mjs";
 import { guardPaidProvider } from "../_video-chat/provider-admission.mjs";
+import { bypassRequested, cachedAnswerResponse, cachedSpeechResponse, cachedSuggestionsResponse, configuredAnswerCache } from "../_video-chat/answer-cache.mjs";
 
 const POST_ACTIONS = new Set([
   "response",
@@ -133,6 +134,19 @@ export async function handleVideoChatRequest({
       return error(400, "Start a new session after four turns.");
   }
   const local = env.VIDEO_CHAT_LOCAL === "enabled" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  const diagnosticId = crypto.randomUUID();
+  // An exact recorded answer replays before admission: no reservation, no
+  // provider and no spending. Everything else continues on the live path.
+  if (configuredAnswerCache(env) && !bypassRequested(request, local)) {
+    const cached = action === "response"
+      ? await cachedAnswerResponse({ env, body, origin: url.origin, headers: HEADERS, diagnosticId })
+      : action === "suggestions"
+      ? await cachedSuggestionsResponse({ env, body, headers: HEADERS })
+      : action === "speech" && configured(env.XAI_API_KEY)
+      ? await cachedSpeechResponse({ env, body, headers: HEADERS })
+      : null;
+    if (cached) return cached;
+  }
   let reservation;
   let actor;
   if (PAID_ACTIONS.has(action) || (action === "speech" && configured(env.XAI_API_KEY))) {
@@ -181,7 +195,6 @@ export async function handleVideoChatRequest({
   );
   let previewReservation;
   let previewReservationUnavailable = false;
-  const diagnosticId = crypto.randomUUID();
   const diagnostics = action === "response" ? createPlannerDiagnostics(diagnosticId) : undefined;
   const reportedFallbacks = new Set();
   const reportFallback = (event) => {

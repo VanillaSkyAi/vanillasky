@@ -145,3 +145,11 @@ Docs-only commits need no application deployment.
 The API's admission, cancellation and spending controls must remain in place.
 See [security](security.md). Provider URLs play directly; add storage only when
 retention or your chosen provider requires it. See [persistence](persistence.md).
+
+## Optional recorded answers
+
+The welcome prompts can play from owner recordings instead of spending on every
+visitor. Create an R2 bucket (`npx wrangler r2 bucket create <name>`), set the
+GitHub variable `CLOUDFLARE_ANSWER_CACHE_BUCKET` for the environment and deploy;
+without the variable the deployment has no bucket and every answer is live. Then
+record locally and upload — see [releasing](maintainers/releasing.md#recorded-answers).

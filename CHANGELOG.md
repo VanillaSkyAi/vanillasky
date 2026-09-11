@@ -8,6 +8,10 @@ available; their notes are kept as history and are not maintained.
 
 ## Unreleased
 
+- Serve the welcome prompts from owner-recorded answers when an optional R2
+  bucket is configured: exact requests replay before admission, clips play from
+  the application origin, and `npm run cache:warm` / `cache:publish` record and
+  upload them. Without the bucket every answer stays live.
 - Remove the hover-revealed close control on subtitles. Subtitles are switched
   off in Settings; the subtitle line no longer carries its own dismiss button.
 

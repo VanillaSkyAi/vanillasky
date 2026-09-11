@@ -25,6 +25,11 @@ Local development does not change provider account limits or production data.
 
 Do not log raw source, personalization, authorization headers, provider deltas, or signed media URLs by default. Record request ID, viewer-safe metrics, model ID, timing, event counts, error codes, and token usage.
 
+A recorded answer replays before admission because it spends nothing; the
+stored recording is still untrusted input, validated event by event, bounded in
+size and served only for an exact request match. The media route serves only
+hashed clip keys from the bucket.
+
 Treat saved answers as viewer data. Apply retention, encryption and deletion
 policy to any snapshots and event logs a deployment keeps. Report suspected
 vulnerabilities through the repository's private process in
