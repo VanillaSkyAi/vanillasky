@@ -5,7 +5,7 @@ import { parseResponseRequest } from "../src/server/video-chat-input";
 import { decodeVideoSse } from "../src/protocol/sse";
 import { applyVideoEvent, createVideoState } from "../src/protocol/state";
 import { parseVideo } from "../src/protocol/persistence";
-import { createMusicAudio, getMusicTrack } from "../src/music-catalog";
+import { chooseAnswerMusic, createMusicAudio, getMusicTrack } from "../src/music-catalog";
 import { createChatShotPlanner } from "../src/server/chat-shot-planner";
 import { createVideo } from "../src/server/compose-video";
 import { validateBuiltinScene } from "../src/server/scene-validation";
@@ -36,6 +36,15 @@ async function response(briefMood?: unknown, requestOptions: Record<string, unkn
 }
 
 describe("chat soundtrack selection", () => {
+  it("applies one rule for live planning and replay: Auto keeps the started track, a mood picks a fresh one, Off is silent", () => {
+    expect(chooseAnswerMusic({ briefMood: "upbeat", initialTrackId: "florist" })?.id).toBe("florist");
+    expect(chooseAnswerMusic({ preference: "calm", briefMood: "upbeat", initialTrackId: "florist" })?.id).toBe("florist");
+    expect(chooseAnswerMusic({ preference: "focused", briefMood: "calm", initialTrackId: "florist", previousTrackId: "cue" })?.id).toBe("bartender");
+    expect(chooseAnswerMusic({ preference: "auto", briefMood: "off", initialTrackId: "retired" })).toBeUndefined();
+    expect(chooseAnswerMusic({ preference: "off", briefMood: "calm", initialTrackId: "florist" })).toBeUndefined();
+    expect(chooseAnswerMusic({ briefMood: "focused" })?.mood).toBe("focused");
+  });
+
   it.each(["focused", "upbeat", "calm"] as const)("selects %s from the existing answer brief before its first scene", async mood => {
     const events = await response(mood);
     const audioEvents = events.filter(event => event.type === "audio.set");
