@@ -1,7 +1,8 @@
 # Persistence and replay
 
 A completed `Video` is ordinary JSON. The app keeps chat history in memory and
-does not persist answers; D1 stores quota accounting only. To add durable
+does not persist answers; D1 stores quota accounting only, and the optional R2
+bucket holds owner recordings of the welcome answers, never viewer data. To add durable
 storage, observe `useVideoChat().turns` and save a turn’s
 `video` only when `turn.completed` is true and `turn.video` is present. Use
 `JSON.stringify(turn.video)` and deduplicate writes by `turn.id`; there is no

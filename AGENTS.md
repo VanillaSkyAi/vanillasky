@@ -14,12 +14,16 @@ Every conversation uses real AI planning. Missing planning configuration must
 be explicit. With no generated-video provider, select configured Pexels; with
 no generated voice, use browser speech. Pexels needs its own key. Do not ship
 canned conversations, demo modes or development responses powered by fixtures.
-Provider doubles belong only in automated tests.
+Provider doubles belong only in automated tests. Owner-recorded replays of real
+answers for the fixed welcome prompts are not fixtures: the answer cache is
+optional, serves only exact matches and never changes a live answer.
 
 Keep the visual vocabulary small: narrated footage and chapter
 introductions/recovery. Preserve useful internal modules and callback boundaries,
 including completed-answer integration, without creating a public package API.
 fal media URLs play directly; do not introduce a mandatory upload endpoint.
+Recorded clips are the one exception, copied by the owner and served from
+the application origin.
 
 ## Development and verification
 

@@ -68,6 +68,9 @@ footage still recovers to a chapter. See the
 | Footage and chapter rendering | `src/visual-system/scene-templates/` |
 | Application API and admission | `functions/api/video-chat.mjs` |
 | Live provider implementation and quotas | `functions/_video-chat/` |
+| Recorded answer replay and cache keys | `src/server/answer-cache.ts`, `functions/_video-chat/answer-cache.mjs` |
+| Recorded clips on the application origin | `functions/api/media/[[path]].mjs` |
+| Owner recording, publishing and clearing | `scripts/answer-cache/` |
 | Browser and server entry points | `src/react.ts`, `src/server.ts` |
 | Scoped UI styles and fonts | `styles/` |
 

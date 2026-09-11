@@ -67,6 +67,7 @@ Each GitHub environment (`preview` and `production`) needs:
 - `CLOUDFLARE_QUOTA_DATABASE_ID`
 - `CLOUDFLARE_QUOTA_DATABASE_NAME`
 - `PRODUCTION_URL` — the URL to verify for that environment
+- `CLOUDFLARE_ANSWER_CACHE_BUCKET` — optional; the R2 bucket holding recorded answers
 - `CLOUDFLARE_API_TOKEN` — stored as a secret
 
 Provider keys and the stable `VIDEO_CHAT_QUOTA_SALT` are Cloudflare application
@@ -88,3 +89,25 @@ Run **Roll back application** (`rollback.yml`) from `main` with a known successf
 production deployment ID and `ROLLBACK`. It validates the target, restores it
 and verifies the served commit. Keep the previous successful deployment ID in
 the release evidence. Rollback preserves quota data and DNS.
+
+## Recorded answers
+
+With `npm run dev` running and real provider keys in `.dev.vars`, record the
+welcome prompts, their follow-ups and speech into `.generated/answer-cache/`:
+
+```bash
+npm run cache:warm -- --orientation both
+npm run cache:publish -- --local
+```
+
+Review the recordings in the local app, then upload them to the deployment's
+bucket and remove them again when they are stale:
+
+```bash
+CLOUDFLARE_ANSWER_CACHE_BUCKET=<name> npm run cache:publish -- --remote
+CLOUDFLARE_ANSWER_CACHE_BUCKET=<name> npm run cache:clear -- --remote
+```
+
+`warm` keeps what is already exported; delete the export directory to record
+again after changing the welcome cards or the planning instructions. Recording
+uses the owner allowance, so the daily public clip budget is untouched.
