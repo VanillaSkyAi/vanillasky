@@ -8,6 +8,9 @@ available; their notes are kept as history and are not maintained.
 
 ## Unreleased
 
+- Remove the hover-revealed close control on subtitles. Subtitles are switched
+  off in Settings; the subtitle line no longer carries its own dismiss button.
+
 - Verify repository tooling and its own tests with the build, release and setup
   checks instead of the full media browser matrix. Tooling ships nothing to the
   browser; arriving alongside application source still selects full verification.

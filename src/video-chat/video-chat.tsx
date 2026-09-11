@@ -96,7 +96,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
   const [aboutOpen, setAboutOpen] = useState(false);
   const [captionsOn, setCaptionsOn] = useState(true);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(savedCaptionStyle);
-  const [captionHoverArmed, setCaptionHoverArmed] = useState(false);
   const changeCaptionStyle = (style: CaptionStyle) => {
     setCaptionStyle(style);
     try { localStorage.setItem(CAPTION_STYLE_KEY, style); }
@@ -289,7 +288,6 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
     chat.playbackEnded || alwaysShowControls || captionsExpanded || editing || historyOpen || settingsOpen || listen.listening || listen.thinking || Boolean(chat.error || listen.error),
     captionsOn && Boolean(line),
   );
-  const captionControls = useImmersiveControls(Boolean(line), captionsExpanded, Boolean(line));
   const controlEvents = {
     onPointerEnter: controls.onPointerEnter, onPointerLeave: controls.onPointerLeave,
     onFocusCapture: controls.onFocusCapture, onBlurCapture: controls.onBlurCapture,
@@ -455,13 +453,9 @@ export function VideoChat({ options = {}, className, welcomeTitle, branding, sho
       <div className="panel-inner">
         <div className="caption-slot" data-captions={captionSlotVisible} aria-hidden={!captionSlotVisible}>
           <div className="caption-clip">
-            {chat.playbackEnded && !transcriptExpanded ? <button type="button" ref={transcriptControlRef} className="transcript-toggle" aria-controls={transcriptId} aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={transcriptExpanded} data-caption-style={captionStyle} data-actions-visible={captionControls.visible} data-hover-armed={captionHoverArmed}
-              onPointerMove={(event) => { setCaptionHoverArmed(true); captionControls.onPointerEnter(event); }} onPointerLeave={captionControls.onPointerLeave}
-              onPointerDown={captionControls.reveal} onFocusCapture={captionControls.onFocusCapture} onBlurCapture={captionControls.onBlurCapture}>
-              {transcriptExpanded ? <div className="caption-actions">
+            {chat.playbackEnded && !transcriptExpanded ? <button type="button" ref={transcriptControlRef} className="transcript-toggle" aria-controls={transcriptId} aria-expanded={false} onClick={() => setCaptionsExpanded(true)}>Show transcript<ChevronUp /></button> : <div className="line-row" data-expanded={transcriptExpanded} data-caption-style={captionStyle}>
+              {transcriptExpanded && <div className="caption-actions">
                 <button type="button" ref={transcriptControlRef} className="caption-action" aria-controls={transcriptId} aria-expanded={true} onClick={() => setCaptionsExpanded(false)}>Hide transcript<Close /></button>
-              </div> : captionsOn && line && !chat.playbackEnded && <div className="caption-actions">
-                <button type="button" className="caption-action" aria-label="Hide subtitles" onClick={() => setCaptionsOn(false)}><Close /></button>
               </div>}
               {transcriptExpanded ? <div id={transcriptId} className="expanded-captions" role="region" tabIndex={0} aria-label="Transcript">
                 {fullTranscript.map((entry, index) => <p key={index}>{entry}</p>)}

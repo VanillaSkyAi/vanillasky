@@ -71,13 +71,3 @@ it("keeps completed sessions available after the chat remounts", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Sessions" }));
   expect(screen.getByRole("button", { name: /Explain tides/ })).toBeTruthy();
 });
-
-it("starts subtitles without showing their dismiss control", () => {
-  session.current = { ...session.current, caption: undefined };
-  const { container, rerender } = render(<VideoChat />);
-
-  session.current = { ...session.current, caption: "The tide rises." };
-  rerender(<VideoChat />);
-
-  expect(container.querySelector(".line-row")?.getAttribute("data-actions-visible")).toBe("false");
-});

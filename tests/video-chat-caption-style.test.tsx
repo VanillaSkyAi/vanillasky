@@ -54,7 +54,8 @@ it.each([null, "unexpected", "words", "classic"])("respects an explicit Classic 
 
 it("makes the finished transcript available even with subtitles switched off", () => {
   const { rerender } = render(<VideoChat />);
-  fireEvent.click(screen.getByRole("button", { name: "Hide subtitles" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("switch", { name: /Subtitles/ }));
   expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
   session.current = { ...session.current, playbackEnded: true, speaking: false, status: "ended" };
   rerender(<VideoChat />);
