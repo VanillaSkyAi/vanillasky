@@ -14,7 +14,7 @@ export default {
     // Internal integration boundaries documented for application customization.
     "src/react.ts", "src/server.ts",
     // Cloudflare Pages discovers route handlers by filename.
-    "functions/api/*.mjs", "functions/owner.mjs",
+    "functions/api/**/*.mjs", "functions/owner.mjs",
     ...fixtureEntries,
     "tests/browser/fixtures.config.ts",
     // Invoked by release tooling and the documented fixture regeneration command.
